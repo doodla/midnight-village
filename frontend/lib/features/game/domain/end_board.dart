@@ -9,6 +9,7 @@ import 'end_banner.dart';
 import 'end_board_cards.dart';
 import 'end_board_metrics.dart';
 import 'end_board_rows.dart';
+import 'end_board_slip.dart';
 import 'end_story.dart';
 import 'game_outcome.dart';
 import 'outcome_view.dart';
@@ -88,11 +89,13 @@ EndBoardPlan planEndBoard({
 
   // A card with more than three tags beside one with none hangs its strand
   // across the whole row (set once the rows are known), unless the other is
-  // the Hunter's pick.
-  final wide = <int>{};
+  // the Hunter's pick. How hard the board works to fit is [fit] (`EndFit`).
+  var fit = EndFit.loose;
+  // The most columns each wide strand takes.
+  final wide = <int, int>{};
   SizedCard sized(int index, double growth) {
     final s = order[index];
-    final isWide = wide.contains(index);
+    final isWide = wide.containsKey(index);
     return sizeCard(
       id: s.seat.id,
       pw:
@@ -116,6 +119,8 @@ EndBoardPlan planEndBoard({
       angle: EndMetrics.angleOf(s.seat.id, hanged: s.died),
       slot: isWide ? slot * 2 + 2 * EndMetrics.clear : slot,
       wideStrand: isWide,
+      across: fit.across,
+      mostColumns: wide[index] ?? EndMetrics.mostTagColumns,
       measure: measure,
     );
   }
@@ -127,59 +132,84 @@ EndBoardPlan planEndBoard({
   // Sizes are fixed; with five or fewer each row grows as far as its own room
   // lets it (the first stops at the lantern), then all of them less until the
   // board fits its window. Never smaller.
-  final growths = List.filled(order.length, 1.0);
-  var cards = sizedAll(growths);
-  final rows = packRows(cards, boardWidth, firstDead);
-  for (final row in rows.rows) {
-    // A card alone on its row has the row's width for its strand.
-    if (row.length == 1 &&
-        cards[row.first].tagNames.length > EndMetrics.tagsInOneColumn) {
-      wide.add(row.first);
-    }
-    if (row.length != 2) continue;
-    final [a, b] = row;
-    // Not beside the Hunter's pick: the slip hangs between those two.
-    if (row.any((i) => order[i].diedBy == EliminationReason.hunterChain)) {
-      continue;
-    }
-    final many = cards[a].tagNames.length > EndMetrics.tagsInOneColumn;
-    final manyB = cards[b].tagNames.length > EndMetrics.tagsInOneColumn;
-    if (many && cards[b].tagNames.isEmpty) wide.add(a);
-    if (manyB && cards[a].tagNames.isEmpty) wide.add(b);
-  }
-  if (wide.isNotEmpty) cards = sizedAll(growths);
-  if (seats.length <= EndMetrics.growsUpTo) {
-    final most = List.filled(order.length, 1.0);
+  _Laid layout() {
+    wide.clear();
+    final growths = List.filled(order.length, 1.0);
+    var cards = sizedAll(growths);
+    final rows = packRows(cards, boardWidth, firstDead);
     for (final row in rows.rows) {
-      for (
-        var g = EndMetrics.mostGrowth;
-        g > 1 + 1e-9;
-        g -= EndMetrics.growthStep
-      ) {
-        final trial = [...most];
-        for (final i in row) {
-          trial[i] = g;
-        }
-        final c = sizedAll(trial);
-        if (_sameRows(packRows(c, boardWidth, firstDead).rows, rows.rows)) {
+      // A card alone on its row has the row's width for its strand.
+      if (row.length == 1 && cards[row.first].tagNames.length > fit.across) {
+        wide[row.first] = EndMetrics.mostTagColumns;
+      }
+      if (row.length != 2) continue;
+      final [a, b] = row;
+      // Beside the Hunter's pick only when the board must close up: the slip
+      // then hangs between the two cards, where it costs no height.
+      final pick = row.any(
+        (i) => order[i].diedBy == EliminationReason.hunterChain,
+      );
+      if (pick && !fit.besidePick) continue;
+      const most = EndMetrics.mostTagColumns;
+      final many = cards[a].tagNames.length > fit.across;
+      final manyB = cards[b].tagNames.length > fit.across;
+      if (many && cards[b].tagNames.isEmpty) wide[a] = most;
+      if (manyB && cards[a].tagNames.isEmpty) wide[b] = most;
+    }
+    if (wide.isNotEmpty) cards = sizedAll(growths);
+    if (seats.length <= EndMetrics.growsUpTo) {
+      final most = List.filled(order.length, 1.0);
+      for (final row in rows.rows) {
+        for (
+          var g = EndMetrics.mostGrowth;
+          g > 1 + 1e-9;
+          g -= EndMetrics.growthStep
+        ) {
+          final trial = [...most];
           for (final i in row) {
-            most[i] = g;
+            trial[i] = g;
           }
+          final c = sizedAll(trial);
+          if (_sameRows(packRows(c, boardWidth, firstDead).rows, rows.rows)) {
+            for (final i in row) {
+              most[i] = g;
+            }
+            break;
+          }
+        }
+      }
+      for (var k = 1.0; k > 1e-9; k -= 0.05) {
+        final trial = [for (final g in most) 1 + (g - 1) * k];
+        final c = sizedAll(trial);
+        if (rowTopsOf(rows, c, boardWidth, fit: fit).contentHeight <= view) {
+          growths.setAll(0, trial);
+          cards = c;
           break;
         }
       }
     }
-    for (var k = 1.0; k > 1e-9; k -= 0.05) {
-      final trial = [for (final g in most) 1 + (g - 1) * k];
-      final c = sizedAll(trial);
-      if (rowTopsOf(rows, c, boardWidth).contentHeight <= view) {
-        growths.setAll(0, trial);
-        cards = c;
-        break;
-      }
+    final slides = <int, double>{};
+    final tops = rowTopsOf(rows, cards, boardWidth, fit: fit, slides: slides);
+    return (
+      cards: cards,
+      rows: rows,
+      tops: tops,
+      growths: growths,
+      slides: slides,
+    );
+  }
+
+  // Six or fewer fit one screen (spec 3, rule 9): a board that would scroll
+  // closes up, a step at a time, before it may.
+  var laid = layout();
+  if (seats.length <= EndMetrics.fitsUpTo) {
+    for (final closer in [EndFit.close, EndFit.closest]) {
+      if (laid.tops.contentHeight <= view + 0.01) break;
+      fit = closer;
+      laid = layout();
     }
   }
-  final rowTops = rowTopsOf(rows, cards, boardWidth);
+  final (:cards, :rows, tops: rowTops, :growths, :slides) = laid;
 
   final scrolls = rowTops.contentHeight > view + 0.01;
   final tops = [...rowTops.tops];
@@ -213,7 +243,7 @@ EndBoardPlan planEndBoard({
   final placed = <EndCard>[];
   for (var r = 0; r < rows.rows.length; r++) {
     final row = rows.rows[r];
-    final xs = rowPositions(rows, r, cards, boardWidth);
+    final xs = rowPositions(rows, r, cards, boardWidth, slides: slides);
     for (var i = 0; i < row.length; i++) {
       final c = cards[row[i]];
       final s = order[row[i]];
@@ -298,7 +328,9 @@ EndBoardPlan planEndBoard({
     lantern: lantern,
     light: light,
     nobodyHanged: nobody,
-    initialScroll: scrolls ? _hangedInView(cardsInOrder, view, boardHeight) : 0,
+    initialScroll: scrolls
+        ? _opening(cardsInOrder, viewerId, view, boardHeight)
+        : 0,
   );
 }
 
@@ -383,23 +415,70 @@ EndCard _card(
   );
 }
 
-/// Where the board opens scrolled so the hanged are in view: their cards and
-/// what hangs on them above the foot's lip, or, when they are taller than the
-/// window, their tops just under the eave. 0 when they are in view already.
-double _hangedInView(List<EndCard> cards, double view, double boardHeight) {
+/// Where a board that scrolls opens (spec 3, rule 9): the hanged and the
+/// viewer's own card in view, their cards and what hangs on them above the
+/// foot's lip, when both fit the window; else the hanged (or, taller than the
+/// window, their tops just under the eave). Opened down the board, the eave
+/// then cuts a card above them, as the lip cuts one below: more above. 0 when
+/// they are in view already.
+double _opening(
+  List<EndCard> cards,
+  int viewerId,
+  double view,
+  double boardHeight,
+) {
   final hanged = [
     for (final c in cards)
       if (c.hanged) c.reach,
   ];
   if (hanged.isEmpty) return 0;
-  final top = hanged.map((r) => r.top).fold(double.infinity, math.min);
-  final bottom = hanged.map((r) => r.bottom).fold(0.0, math.max);
   final seen = view - EndMetrics.lip;
-  final want = math.min(
-    bottom + EndMetrics.clear - seen,
-    top - EndMetrics.clear,
+  final most = math.max(0.0, boardHeight - view);
+  // The scrolls that show [boxes] whole: from [lo] to [hi].
+  ({double lo, double hi}) range(Iterable<Rect> boxes) => (
+    lo:
+        boxes.map((r) => r.bottom).fold(0.0, math.max) +
+        EndMetrics.clear -
+        seen,
+    hi:
+        boxes.map((r) => r.top).fold(double.infinity, math.min) -
+        EndMetrics.clear,
   );
-  return want.clamp(0.0, math.max(0.0, boardHeight - view)).toDouble();
+  final you = [
+    for (final c in cards)
+      if (c.id == viewerId)
+        c.sealRect == null ? c.leaned : c.leaned.expandToInclude(c.sealRect!),
+  ];
+  final both = range([...hanged, ...you]);
+  final (:lo, :hi) = both.lo <= both.hi ? both : range(hanged);
+  final at = math.min(lo, hi).clamp(0.0, most).toDouble();
+  if (at <= 0) return 0;
+  // A card cut by the eave, enough of it showing to read as a card.
+  bool cutAt(double s) => cards.any(
+    (c) =>
+        c.leaned.top < s - EndMetrics.clear &&
+        c.leaned.bottom > s + c.rect.height * (1 - EndMetrics.cutShows),
+  );
+  if (cutAt(at)) return at;
+  // The cut nearest where it would open, the hanged whole; failing that,
+  // their cards whole (what hangs under them may go under the lip).
+  final cardsOnly = range([
+    for (final c in cards)
+      if (c.hanged) c.leaned,
+  ]);
+  double? nearest;
+  for (final (lo, hi) in [(lo, hi), (cardsOnly.lo, cardsOnly.hi)]) {
+    final from = math.max(0.0, lo), to = math.min(hi, most);
+    for (final c in cards) {
+      final s = c.rect.top + (1 - EndMetrics.cutShows) * c.rect.height;
+      if (s < from || s > to || !cutAt(s)) continue;
+      if (nearest == null || (s - at).abs() < (nearest - at).abs()) {
+        nearest = s;
+      }
+    }
+    if (nearest != null) break;
+  }
+  return nearest ?? at;
 }
 
 /// The tags of [voters] under a card at [rect]: one under the other from the
@@ -461,6 +540,14 @@ String _roleWords(RoleId role) => role.displayName;
 EndCardLook _lookOf(EndSeat s) => s.team == TeamId.werewolf
     ? (s.won ? EndCardLook.werewolfWon : EndCardLook.werewolfLost)
     : (s.won ? EndCardLook.winner : EndCardLook.loser);
+
+typedef _Laid = ({
+  List<SizedCard> cards,
+  Rows rows,
+  RowTops tops,
+  List<double> growths,
+  Map<int, double> slides,
+});
 
 /// The same cards stand together in both.
 bool _sameRows(List<List<int>> a, List<List<int>> b) {

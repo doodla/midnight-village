@@ -1,13 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'end_board.dart';
 import 'end_board_metrics.dart';
 
 // The packing under `planEndBoard` (docs/specs/frontend/end-board.md, section
-// 3, rules 2, 3 and 5): what a
-// card needs, which cards share a row, how high each row stands, and where the
-// Hunter's slip hangs. Pure arithmetic on numbers and rectangles.
+// 3, rules 2, 3, 5 and 9): what a card needs, which cards share a row, how
+// high each row stands, and how a board of six or fewer closes up. Pure
+// arithmetic on numbers and rectangles.
 
 /// A card before it is placed: its size and what it needs round it.
 class SizedCard {
@@ -107,6 +106,8 @@ SizedCard sizeCard({
   required double slot,
   required EndMeasure measure,
   bool wideStrand = false,
+  int across = EndMetrics.tagsInOneColumn,
+  int mostColumns = EndMetrics.mostTagColumns,
 }) {
   final role = stripWords
       .map((w) => measure(EndText.role, w))
@@ -134,11 +135,12 @@ SizedCard sizeCard({
   final tagWidth = tagNames
       .map((n) => EndMetrics.tagApron + measure(EndText.tag, n))
       .fold(0.0, math.max);
-  // More than three tags hang in as many columns as fit the room (two in a
-  // card's own slot, up to three across a row), so a strand stays short.
+  // More than three tags (more than [across]) hang in as many columns as fit
+  // the room (two in a card's own slot, up to three across a row), so a
+  // strand stays short.
   var columns = 1;
-  if (tagNames.length > EndMetrics.tagsInOneColumn) {
-    for (var k = EndMetrics.mostTagColumns; k > 1; k--) {
+  if (tagNames.length > across) {
+    for (var k = mostColumns; k > 1; k--) {
       if (k * tagWidth + (k - 1) * EndMetrics.tagGap <=
           slot - 2 * EndMetrics.clear) {
         columns = k;
@@ -275,12 +277,24 @@ class RowPlace {
   final List<Rect> columns;
 }
 
+/// [slides] moves a card (by its index) along its slot, to the right
+/// (`EndFit.slide`).
 RowPlace rowPositions(
   Rows rows,
   int r,
   List<SizedCard> cards,
-  double boardWidth,
-) {
+  double boardWidth, {
+  Map<int, double> slides = const {},
+}) {
+  final at = _centred(rows, r, cards, boardWidth);
+  final row = rows.rows[r];
+  if (!row.any(slides.containsKey)) return at;
+  return RowPlace([
+    for (var i = 0; i < row.length; i++) at.lefts[i] + (slides[row[i]] ?? 0),
+  ], at.columns);
+}
+
+RowPlace _centred(Rows rows, int r, List<SizedCard> cards, double boardWidth) {
   final row = rows.rows[r];
   final span = spanOf(r, boardWidth);
   if (row.length == 1) {
@@ -318,12 +332,23 @@ class RowTops {
   final double contentHeight;
 }
 
-/// Air above a row: each card keeps [EndMetrics.gap] under whatever stands
-/// above it, and what it holds up (its dealt card at the top left, its ribbon
-/// at the top right) keeps [EndMetrics.hangClear] under whatever stands above
-/// that, not under the whole row: a ribbon beside an empty corner needs no
-/// room. Under a row: room for the longest strand of tags in it.
-RowTops rowTopsOf(Rows rows, List<SizedCard> cards, double boardWidth) {
+/// Air above a row: each card keeps [EndFit.gap] under whatever stands above
+/// it, and what it holds up (its dealt card at the top left, its ribbon at the
+/// top right) keeps [EndFit.hangClear] under whatever stands above that, not
+/// under the whole row: a ribbon beside an empty corner needs no room. Under
+/// a row: room for the longest strand of tags in it. With [EndFit.slide] a
+/// card's foot is only as wide as the card (what it holds up and its seal
+/// never reach it), and a hanged card slides along its slot, as far as the
+/// card beside it and the board's edge let it, while that brings its row up;
+/// each slide is written into [slides].
+RowTops rowTopsOf(
+  Rows rows,
+  List<SizedCard> cards,
+  double boardWidth, {
+  EndFit fit = EndFit.loose,
+  Map<int, double>? slides,
+}) {
+  final slid = slides ?? <int, double>{};
   final tops = <double>[];
   final heights = <double>[];
   // What stands on the board so far: its width across and how low it reaches.
@@ -346,9 +371,8 @@ RowTops rowTopsOf(Rows rows, List<SizedCard> cards, double boardWidth) {
     return low;
   }
 
-  for (var r = 0; r < rows.rows.length; r++) {
-    final row = rows.rows[r];
-    final at = rowPositions(rows, r, cards, boardWidth);
+  // How high the row [row] may stand with its cards at [at].
+  double topOf(List<int> row, RowPlace at) {
     var top = tops.isEmpty ? 0.0 : tops.last + 1;
     for (var i = 0; i < row.length; i++) {
       final c = cards[row[i]];
@@ -357,7 +381,7 @@ RowTops rowTopsOf(Rows rows, List<SizedCard> cards, double boardWidth) {
       top = math.max(
         top,
         floorUnder(left - lean.width, right + lean.width) +
-            EndMetrics.gap +
+            fit.gap +
             lean.height,
       );
       if (c.dealt) {
@@ -370,7 +394,7 @@ RowTops rowTopsOf(Rows rows, List<SizedCard> cards, double boardWidth) {
                 left + (1 - EndMetrics.dealtOutX) * dw,
               ) +
               up +
-              EndMetrics.hangClear +
+              fit.hangClear +
               lean.height,
         );
       }
@@ -384,10 +408,70 @@ RowTops rowTopsOf(Rows rows, List<SizedCard> cards, double boardWidth) {
                 right + (1 - EndMetrics.ribbonInside) * rw + lean.width,
               ) +
               up +
-              EndMetrics.hangClear +
+              fit.hangClear +
               lean.height,
         );
       }
+    }
+    return top;
+  }
+
+  for (var r = 0; r < rows.rows.length; r++) {
+    final row = rows.rows[r];
+    var at = rowPositions(rows, r, cards, boardWidth);
+    var top = topOf(row, at);
+    if (fit.slide && row.any((i) => cards[i].hanged)) {
+      // Each hanged card as far right as it may go: the card beside it keeps
+      // its gap, its ribbon stays on the board.
+      final most = [
+        for (var i = 0; i < row.length; i++)
+          if (!cards[row[i]].hanged)
+            0.0
+          else
+            math.max(
+              0.0,
+              math.min(
+                boardWidth -
+                    EndMetrics.clear -
+                    (at.lefts[i] +
+                        cards[row[i]].width +
+                        cards[row[i]].reachRight +
+                        cards[row[i]].lean.width),
+                i + 1 < row.length
+                    ? at.lefts[i + 1] -
+                          (at.lefts[i] + cards[row[i]].width) -
+                          _needGap(cards[row[i]], cards[row[i + 1]])
+                    : double.infinity,
+              ),
+            ),
+      ];
+      // The least slides that bring the row highest.
+      var best = (top, 0.0, [for (final _ in row) 0.0]);
+      void tryAt(List<double> dx) {
+        final moved = RowPlace([
+          for (var i = 0; i < row.length; i++) at.lefts[i] + dx[i],
+        ], at.columns);
+        final t = topOf(row, moved);
+        final cost = dx.fold(0.0, (a, b) => a + b);
+        if (t < best.$1 - 0.01 || (t < best.$1 + 0.01 && cost < best.$2)) {
+          best = (t, cost, [...dx]);
+        }
+      }
+
+      for (var d0 = 0.0; d0 <= most[0] + 1e-9; d0 += 1) {
+        if (row.length == 1) {
+          tryAt([d0]);
+          continue;
+        }
+        for (var d1 = 0.0; d1 <= most[1] + 1e-9; d1 += 1) {
+          tryAt([d0, d1]);
+        }
+      }
+      for (var i = 0; i < row.length; i++) {
+        if (best.$3[i] > 0) slid[row[i]] = best.$3[i];
+      }
+      at = rowPositions(rows, r, cards, boardWidth, slides: slid);
+      top = best.$1;
     }
     tops.add(top);
     heights.add(row.map((i) => cards[i].height).fold(0.0, math.max));
@@ -399,8 +483,8 @@ RowTops rowTopsOf(Rows rows, List<SizedCard> cards, double boardWidth) {
       final c = cards[row[i]];
       final left = at.lefts[i], right = left + c.width;
       floors.add((
-        left - c.reachLeft - c.lean.width,
-        right + c.reachRight + c.lean.width,
+        left - (fit.slide ? 0 : c.reachLeft) - c.lean.width,
+        right + (fit.slide ? 0 : c.reachRight) + c.lean.width,
         top + c.height + c.lean.height,
       ));
       if (c.hasTags) {
@@ -475,92 +559,6 @@ double cutByTheEdge(
     return extra;
   }
   return 0;
-}
-
-/// The Hunter's slip: hung between [from] and [to] under the twine, where
-/// it covers no card's name, tag, seal, ribbon or pin.
-Rect placeSlip({
-  required EndCard from,
-  required EndCard to,
-  required List<EndCard> all,
-  required double boardWidth,
-  required double width,
-}) {
-  final w = width + EndMetrics.slipRoom;
-  const h = EndMetrics.slipHeight;
-  final a = from.rect, b = to.rect;
-  Offset centre;
-  if (from.row == to.row) {
-    final left = a.left < b.left ? a : b;
-    final right = a.left < b.left ? b : a;
-    centre = Offset(
-      (left.right + right.left) / 2,
-      math.min(a.top, b.top) + from.rect.height * 0.62,
-    );
-  } else {
-    centre = Offset(
-      (a.center.dx + b.center.dx) / 2,
-      (a.center.dy + b.center.dy) / 2,
-    );
-  }
-  bool clean(Rect s) {
-    for (final c in all) {
-      if (s.overlaps(c.nameText.inflate(2))) return false;
-      // Nor the role on its strip, across the portrait's foot.
-      final strip = Rect.fromLTWH(
-        c.rect.left,
-        c.rect.top +
-            c.header +
-            EndMetrics.portraitHeight(c.portraitWidth) -
-            c.stripHeight,
-        c.rect.width,
-        c.stripHeight,
-      );
-      if (s.overlaps(strip.inflate(2))) return false;
-      for (final part in [
-        c.sealRect,
-        c.ribbonRect,
-        c.pin,
-        ...c.tags.map((t) => t.rect),
-      ]) {
-        if (part != null && s.overlaps(part.inflate(2))) return false;
-      }
-    }
-    return true;
-  }
-
-  final tries = <Offset>[
-    for (var dy = -90.0; dy <= 90; dy += 4)
-      for (var dx = -80.0; dx <= 80; dx += 8) Offset(dx, dy),
-  ]..sort((p, q) => p.distanceSquared.compareTo(q.distanceSquared));
-  // How much of the cards' faces it covers: least wins, then the nearest to
-  // the middle between the two (it hangs between them, not on one).
-  double covered(Rect s) {
-    var area = 0.0;
-    for (final c in all) {
-      final over = s.intersect(c.leaned);
-      if (over.width > 0 && over.height > 0) area += over.width * over.height;
-    }
-    return area;
-  }
-
-  Rect? best;
-  var least = double.infinity;
-  for (final t in tries) {
-    final s = Rect.fromCenter(center: centre + t, width: w, height: h);
-    if (s.left < EndMetrics.insetX ||
-        s.right > boardWidth - EndMetrics.insetX) {
-      continue;
-    }
-    if (!clean(s)) continue;
-    final area = covered(s);
-    if (area < least - 1) {
-      least = area;
-      best = s;
-      if (area == 0) break;
-    }
-  }
-  return best ?? Rect.fromCenter(center: centre, width: w, height: h);
 }
 
 void _swap(List<int> q, int i, int j) {

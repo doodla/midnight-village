@@ -28,6 +28,11 @@ abstract final class EndMetrics {
   static const mostGrowth = 1.3;
   static const growthStep = 0.01;
 
+  /// With this many players or fewer the board fits its window without
+  /// scrolling (a 360 x 780 phone at text size 1): it closes up (`EndFit`)
+  /// before it may scroll. Cards never shrink for it.
+  static const fitsUpTo = 6;
+
   static const headerHeight = 22.0;
   static const stripHeight = 17.0;
 
@@ -143,6 +148,11 @@ abstract final class EndMetrics {
   static const gapDealt = 24.0;
   static const clear = 6.0;
 
+  /// The least air a board closing up keeps under whatever stands above: a
+  /// card (the spec's 8), and what a card holds up (its 6 clear).
+  static const gapLeast = 8.0;
+  static const hangLeast = clear;
+
   /// The most air added between two rows when the board has room to spare;
   /// the rest is shared above and below, so a small group stands centred.
   static const mostSpare = 40.0;
@@ -234,4 +244,56 @@ abstract final class EndMetrics {
   }
 
   static double jitterOf(int id) => seeded(id, 2) * jitter;
+}
+
+/// How hard a board works to fit its window (spec 3, rule 9). [loose] is the
+/// board as the rules lay it. A board of six or fewer that would scroll tries
+/// [close]: a strand takes the row beside the Hunter's pick too (the slip
+/// hangs between the two cards), strands of two or more hang across where
+/// they fit, and a hanged card slides along its slot so its ribbon clears the
+/// card above and the rows close up. Then [closest]: the air between rows
+/// down to the least ([EndMetrics.gapLeast], [EndMetrics.hangLeast]).
+class EndFit {
+  const EndFit._({
+    required this.besidePick,
+    required this.across,
+    required this.slide,
+    required this.gap,
+    required this.hangClear,
+  });
+
+  /// A strand may take the row beside the Hunter's pick.
+  final bool besidePick;
+
+  /// A strand of more tags than this hangs across, where they fit.
+  final int across;
+
+  /// A hanged card may slide along its slot to clear its ribbon.
+  final bool slide;
+
+  /// Air under whatever stands above a card, and above what it holds up.
+  final double gap;
+  final double hangClear;
+
+  static const loose = EndFit._(
+    besidePick: false,
+    across: EndMetrics.tagsInOneColumn,
+    slide: false,
+    gap: EndMetrics.gap,
+    hangClear: EndMetrics.hangClear,
+  );
+  static const close = EndFit._(
+    besidePick: true,
+    across: 1,
+    slide: true,
+    gap: EndMetrics.gap,
+    hangClear: EndMetrics.hangClear,
+  );
+  static const closest = EndFit._(
+    besidePick: true,
+    across: 1,
+    slide: true,
+    gap: EndMetrics.gapLeast,
+    hangClear: EndMetrics.hangLeast,
+  );
 }
