@@ -14,3 +14,4 @@ Newest last. Calls past about 150 or a big token count are the signal to cut the
 | 22 Nov 2026 | speed: requests on open (found already done) | frontend-developer | opus | 11 | 103k (notice) | lean brief; checked main first, no code needed |
 | 22 Nov 2026 | card flip (pass 3) | frontend-developer | sonnet | 93 | 279k (notice) | briefed before the lean rules; fixes by fresh helpers: 16 and 7 calls |
 | 22 Nov 2026 | same-address API trial | frontend-developer | opus | 35 | 71k (notice) | lean brief, one step |
+| 23 Nov 2026 | deck dead end | frontend-developer | sonnet | builder 139 calls 266k tokens; review fixes 145 calls 255k | too big for one piece: should have been split in two |

@@ -8,6 +8,7 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/primitives/value_stepper.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
@@ -192,7 +193,7 @@ void main() {
     final run = await _Run.start(tester, name);
     try {
       final ui = run.ui;
-      final leave = find.widgetWithText(SecondaryButton, CommonCopy.leave);
+      final leave = find.widgetWithText(TextAction, CommonCopy.leave);
       await tester.ensureVisible(leave);
       await tester.pump();
       await tester.tap(leave);
