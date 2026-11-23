@@ -9,9 +9,9 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
 - Work lands on main by pull request, squash-merged when every GitHub check is green
   (`docs/dev/running-the-work.md`). Each session works on its own branch, started from main.
 - The server is LIVE on Vercel; every merge builds and migrates the shared database
-  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). Nobody watches deployments by hand any more (23 November
-  2026): after a merge that changes the server or routing, open the live app and the server's
-  health address, until the automatic check after each merge exists.
+  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). Nobody watches deployments by hand (23 November 2026):
+  after every merge the "Deployed Check" workflow proves the live server and app work together
+  (`docs/dev/deploy-vercel.md`, "The check after each merge"). A red run on main means look now.
 
 ## Merged
 

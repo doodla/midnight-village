@@ -69,6 +69,12 @@ runs on a pull request, is not in the ruleset, has a paths filter and `contents:
 job. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
 (`WorkflowPublishing`); the wall's rules above apply to every other workflow.
 
+A second workflow is not part of the wall: `deployed-check.yml` ("Deployed Check") runs after
+every merge to main and proves the live server and app work together
+(`tool/deployed_check.py`; `docs/dev/deploy-vercel.md`, "The check after each merge"). It can
+only run after the merge, so it is never a required check; it reads public addresses, writes
+nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
+
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the
 default branch, squash merges only, every check above required (up to date with main not
 required, so two sessions do not block each other), no force pushes or deletion, nobody

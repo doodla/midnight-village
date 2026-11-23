@@ -2,6 +2,7 @@
 Core app views.
 """
 
+import os
 import uuid
 
 from django.db import transaction
@@ -43,9 +44,15 @@ def health_check(request: Request) -> Response:
     Health check endpoint for monitoring and load balancer probes.
 
     Returns:
-        Response: JSON response with status "ok"
+        Response: JSON response with status "ok" and the commit this build was made
+        from (Vercel's ``VERCEL_GIT_COMMIT_SHA``; "" anywhere else). The commit is public
+        (the repository is) and lets the check after each merge wait for the new build
+        (``tool/deployed_check.py``).
     """
-    return Response({"status": "ok"}, status=status.HTTP_200_OK)
+    return Response(
+        {"status": "ok", "commit": os.environ.get("VERCEL_GIT_COMMIT_SHA", "")},
+        status=status.HTTP_200_OK,
+    )
 
 
 class GuestCreateView(APIView):
