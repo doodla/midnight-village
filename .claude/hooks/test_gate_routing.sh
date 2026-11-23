@@ -50,9 +50,12 @@ R="$TMP/repo"
 mkdir -p "$R/backend" "$R/frontend/lib" "$R/docs" "$R/contract_samples" "$R/tool" "$R/.claude"
 cp -r "$HOOKS" "$R/.claude/hooks"
 printf '#!/bin/sh\nexit 0\n' > "$R/tool/check_instruction_links.sh"; chmod +x "$R/tool/check_instruction_links.sh"
+cp "$REPO/tool/check_file_sizes.py" "$R/tool/check_file_sizes.py"
 echo a > "$R/backend/x.py"; echo b > "$R/frontend/lib/y.dart"; echo c > "$R/docs/z.md"
 (
+  # the copied hooks hold a long file: it is listed, as in this repo, so the size check starts clean
   cd "$R" && git init -q -b main && git config user.email t@t && git config user.name t \
+    && python3 tool/check_file_sizes.py --write >/dev/null \
     && git add -A && git commit -q --no-verify -m "chore: init" \
     && git config core.hooksPath .claude/hooks/git
 ) || { echo "FAIL could not make a temp repo"; exit 1; }

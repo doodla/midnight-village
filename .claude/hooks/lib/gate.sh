@@ -173,6 +173,11 @@ gate_check_commit() {
     echo "$out" | tail -20 >&2
     failed=1
   fi
+  if ! out=$(tool/check_file_sizes.py --staged 2>&1); then
+    echo "BLOCKED: a source file is too long to read whole." >&2
+    echo "$out" | tail -20 >&2
+    failed=1
+  fi
 
   local -a to_run=()
   local -A key_fast=()
@@ -227,6 +232,11 @@ gate_full() {
     echo "ok   links"
   else
     echo "FAIL links"; echo "$out" | tail -20; failed=1
+  fi
+  if out=$(tool/check_file_sizes.py 2>&1); then
+    echo "ok   file sizes"
+  else
+    echo "FAIL file sizes"; echo "$out" | tail -20; failed=1
   fi
   out=$(mktemp -d)
   echo "gate-full: ${blocks[*]} in parallel (minutes)" >&2

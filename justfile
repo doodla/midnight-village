@@ -106,10 +106,12 @@ format-check:
 typecheck:
     {{backend_just}} typecheck
 
-# Run all backend quality checks, and check the instruction files' paths and recipes
+# Run all backend quality checks, check the instruction files' paths and recipes, and
+# that no source file has grown past what can be read whole (tool/check_file_sizes.py)
 check:
     {{backend_just}} check
     tool/check_instruction_links.sh
+    tool/check_file_sizes.py
 
 # Fix all auto-fixable issues
 fix:
