@@ -43,6 +43,7 @@ class FacePage {
     required this.lines,
     this.name,
     this.tag,
+    this.team,
   });
 
   final FacePortrait portrait;
@@ -52,6 +53,9 @@ class FacePage {
 
   /// A role's tag beside its name.
   final String? tag;
+
+  /// The team the tag is coloured for (`TagChip.team`).
+  final TeamId? team;
   final List<String> lines;
 
   /// Everything on the page, in reading order: what is read aloud when the
@@ -506,6 +510,7 @@ class FaceContent {
         portrait: RoleFacePortrait(role),
         name: role.displayName,
         tag: text.tag,
+        team: text.team,
         lines: text.lines.skip(1).toList(),
       ),
     ]);

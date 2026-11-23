@@ -19,6 +19,16 @@ const _dayCastDr = Color(0xFF2A1D2B);
 
 const _paperCastDr = Color(0xFF3B2E22);
 
+// A panel of paper set into its ground stands off it by 1.4:1 or more (the
+// plain skin's wells are fainter; they are not paper).
+const _indigoWellDr = Color(0xFF262B5C);
+const _dayWellDr = Color(0xFFC4AE96);
+const _boneWellDr = Color(0xFFCFC5A8);
+
+const _dayPaperDr = Color(
+  0xFFFBF6EA,
+); // paper on the day ground: lighter than it
+
 const _moonQuietDr = Color(
   0xFFD6DBF0,
 ); // quiet text on night (7:1 on the brightest of the mood's pools)
@@ -33,7 +43,7 @@ const _dayFaintDr = Color(0xFF45415A);
 
 const _nightDr = Ground(
   ground: _indigo,
-  panel: _indigoWell,
+  panel: _indigoWellDr,
   text: _bone,
   quietText: _moonQuietDr,
   faintText: _moonFaintDr,
@@ -82,7 +92,7 @@ const _nightDr = Ground(
 const _dayDr = Ground(
   ground: _dawnGreyDr,
   // Not in a mock: a box set into the day ground uses paper's inset tone.
-  panel: _boneInset,
+  panel: _dayWellDr,
   text: _indigo,
   quietText: _dayQuietDr,
   faintText: _dayFaintDr,
@@ -91,7 +101,7 @@ const _dayDr = Ground(
   outline: _indigo,
   edge: _indigo,
   shadow: _dayShadow,
-  paper: _bone,
+  paper: _dayPaperDr,
   paperEdge: _paperEdge,
   // Amber by day too (the mocks' ink button read as another kind of
   // button), with an ink edge to stand off the grey.
@@ -130,7 +140,7 @@ const _dayDr = Ground(
 
 const _paperDr = Ground(
   ground: _bone,
-  panel: _boneInset,
+  panel: _boneWellDr,
   text: _indigo,
   quietText: _paperQuiet,
   faintText: _paperQuiet,

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../skin/dress.dart';
-import '../skin/dress_style.dart';
+import '../layout/space.dart';
 import '../skin/skin.dart';
-import 'paper_piece.dart';
 import 'secondary_button.dart';
 
 /// An action that is only a glyph (the table's Share): the platform's glyph in
@@ -44,6 +43,8 @@ class _IconActionState extends State<IconAction> {
         icon: Icon(widget.icon),
       );
     }
+    // Dressed up: a bare glyph in ink, nothing laid under it (it sits on a
+    // notice of paper already); a press dims it, focus lifts it.
     final enabled = widget.onPressed != null;
     return Semantics(
       button: true,
@@ -56,29 +57,24 @@ class _IconActionState extends State<IconAction> {
         excludeFromSemantics: true,
         child: SizedBox.square(
           dimension: IconAction.side,
-          child: PaperPiece(
-            part: PaperPart.scrap,
-            id: widget.label,
-            pressed: _pressed,
-            lifted: _focused && !_pressed,
-            enabled: enabled,
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: widget.onPressed,
-                onHighlightChanged: (v) => setState(() => _pressed = v),
-                onFocusChange: (v) => setState(() => _focused = v),
-                highlightColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                splashColor: Colors.transparent,
-                borderRadius: BorderRadius.circular(context.skin.shape.radius),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: widget.onPressed,
+              onHighlightChanged: (v) => setState(() => _pressed = v),
+              onFocusChange: (v) => setState(() => _focused = v),
+              highlightColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              borderRadius: BorderRadius.circular(context.skin.shape.radius),
+              child: AnimatedScale(
+                duration: Motion.press,
+                scale: _focused && !_pressed ? 1.12 : 1,
                 child: Icon(
                   widget.icon,
-                  color: PaperPiece.inkOf(
-                    context,
-                    PaperPart.scrap,
-                    enabled: enabled,
+                  color: context.skin.paper.text.withValues(
+                    alpha: _pressed ? 0.6 : 1,
                   ),
                 ),
               ),

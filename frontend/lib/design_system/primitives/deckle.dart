@@ -17,6 +17,8 @@ class DeckleBorder extends ShapeBorder {
     this.step = 6,
     this.torn = false,
     this.side = BorderSide.none,
+    this.round = false,
+    this.blob = false,
   });
 
   final int seed;
@@ -24,6 +26,11 @@ class DeckleBorder extends ShapeBorder {
   final double step;
   final bool torn;
   final BorderSide side;
+
+  /// A disc, not a rectangle: a circle whose rim steps in and out by a hair
+  /// (a cut disc of paper). [blob] smooths it into a drop of wax.
+  final bool round;
+  final bool blob;
 
   @override
   EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
@@ -44,7 +51,31 @@ class DeckleBorder extends ShapeBorder {
     return depth * (h < 0.12 ? 1 : 0.15 + 0.6 * h);
   }
 
+  Path _roundPath(Rect rect) {
+    final centre = rect.center;
+    final radius = math.min(rect.width, rect.height) / 2;
+    final n = math.max(10, (2 * math.pi * radius / step).round());
+    final points = [
+      for (var i = 0; i < n; i++)
+        centre +
+            Offset.fromDirection(
+              2 * math.pi * i / n,
+              radius - (blob ? depth * (0.3 + 1.4 * _h(0, i)) : _bite(0, i)),
+            ),
+    ];
+    final path = Path();
+    if (!blob) return path..addPolygon(points, true);
+    // Wax: the rim runs through the midpoints, the points pulling it.
+    Offset mid(int i) => (points[i % n] + points[(i + 1) % n]) / 2;
+    path.moveTo(mid(n - 1).dx, mid(n - 1).dy);
+    for (var i = 0; i < n; i++) {
+      path.quadraticBezierTo(points[i].dx, points[i].dy, mid(i).dx, mid(i).dy);
+    }
+    return path..close();
+  }
+
   Path _path(Rect rect) {
+    if (round) return _roundPath(rect);
     final path = Path();
     final w = rect.width;
     final h = rect.height;
@@ -100,10 +131,12 @@ class DeckleBorder extends ShapeBorder {
       other.depth == depth &&
       other.step == step &&
       other.torn == torn &&
+      other.round == round &&
+      other.blob == blob &&
       other.side == side;
 
   @override
-  int get hashCode => Object.hash(seed, depth, step, torn, side);
+  int get hashCode => Object.hash(seed, depth, step, torn, side, round, blob);
 }
 
 /// A seed from any id (djb2 over its text; the same on every platform).

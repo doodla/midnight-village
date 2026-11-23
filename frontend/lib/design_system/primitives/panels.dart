@@ -15,6 +15,7 @@ import '../skin/skin_tilt.dart';
 import '../teach/hold_cue.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
+import 'face_down_card.dart' show CardBackPaper;
 import 'fit_line.dart';
 import 'paper_piece.dart';
 
@@ -146,17 +147,30 @@ class PeekBox extends StatelessWidget {
     final skin = context.skin;
     final ground = context.ground;
     final inset = large ? Space.lg : Space.smPlus;
-    return Container(
-      padding: EdgeInsets.fromLTRB(inset, inset, Space.lg, inset),
-      decoration: BoxDecoration(
-        color: skin.night.ground,
-        borderRadius: BorderRadius.circular(skin.shape.radius),
-        border: skin.shape.edgeWidth > 0
-            ? Border.all(color: ground.edge, width: skin.shape.edgeWidth)
-            : null,
-        boxShadow: ground.elevation.raised.litBy(context),
-      ),
-      child: GroundScope(
+    final padding = EdgeInsets.fromLTRB(inset, inset, Space.lg, inset);
+    Widget laid(Widget child) => context.dress.isPaper
+        // Dressed up: a panel of night paper (a [PaperPiece]), deckled, with the
+        // paper shadow of the screen's light; no edge line.
+        ? PaperPiece(
+            part: PaperPart.panel,
+            id: #peek,
+            fill: skin.night.panel,
+            child: Padding(padding: padding, child: child),
+          )
+        : Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: skin.night.ground,
+              borderRadius: BorderRadius.circular(skin.shape.radius),
+              border: skin.shape.edgeWidth > 0
+                  ? Border.all(color: ground.edge, width: skin.shape.edgeWidth)
+                  : null,
+              boxShadow: ground.elevation.raised.litBy(context),
+            ),
+            child: child,
+          );
+    return laid(
+      GroundScope(
         ground: GroundKind.night,
         child: Row(
           spacing: Space.mdPlus,
@@ -206,6 +220,22 @@ class _PeekCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final radius = BorderRadius.circular(skin.shape.radiusSmall);
+    if (context.dress.isPaper) {
+      return Transform.rotate(
+        angle: skin.tilt.angle(Tilt.thumb),
+        child: SizedBox.fromSize(
+          size: size,
+          child: CardBackPaper(
+            id: 'peek',
+            elevation: context.ground.elevation.card,
+            over: Padding(
+              padding: const EdgeInsets.all(Space.xxs),
+              child: HoldCue(teaching: teaching, size: size.width, word: false),
+            ),
+          ),
+        ),
+      );
+    }
     return Transform.rotate(
       angle: skin.tilt.angle(Tilt.thumb),
       child: Container(

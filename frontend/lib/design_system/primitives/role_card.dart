@@ -12,7 +12,9 @@ import '../skin/werewolf_portrait.dart';
 import '../skin/skin_tilt.dart';
 import 'art_picture.dart';
 import 'count_badge.dart';
+import '../skin/elevation.dart';
 import 'cut_paper.dart';
+import 'deckled_paper.dart';
 import 'text_backing.dart';
 import 'fit_line.dart';
 
@@ -144,6 +146,19 @@ class RoleCard extends StatelessWidget {
   }) {
     final skin = context.skin;
     final corners = BorderRadius.circular(radius);
+    // Dressed up: a mini card cut from paper, deckled, with its shadow while it
+    // is in the deck.
+    if (context.dress.isPaper) {
+      return AnimatedOpacity(
+        duration: Motion.quick,
+        opacity: lit ? 1 : skin.dimmed,
+        child: DeckledPicture(
+          id: role.name,
+          elevation: lit ? context.ground.elevation.card : Elevation.none,
+          child: ArtPicture(context.roleArt(role)),
+        ),
+      );
+    }
     return AnimatedOpacity(
       duration: Motion.quick,
       opacity: lit ? 1 : skin.dimmed,
@@ -249,10 +264,15 @@ class RoleCard extends StatelessWidget {
           // Dressed up the name may pass over the village or the moon: it
           // keeps a backing (a plain screen's is nothing).
           TextBacking(
+            id: role.name,
             child: FitLine(
               role.displayName,
               style: skin.typography.badge.copyWith(
-                color: lit ? ground.text : ground.faintText,
+                color: context.dress.isPaper
+                    ? TextBacking.inkOf(
+                        context,
+                      ).withValues(alpha: lit ? 1 : 0.88)
+                    : (lit ? ground.text : ground.faintText),
               ),
             ),
           ),
@@ -394,26 +414,32 @@ class RolePortrait extends StatelessWidget {
       final corners = BorderRadius.circular(
         framed ? skin.shape.radiusSmall : skin.shape.radiusTiny,
       );
-      body = Container(
-        decoration: framed
-            ? BoxDecoration(
+      body = context.dress.isPaper && framed
+          ? DeckledPicture(
+              id: (#portrait, role),
+              elevation: ground.elevation.heroSlab,
+              child: AspectRatio(aspectRatio: aspect, child: picture),
+            )
+          : Container(
+              decoration: framed
+                  ? BoxDecoration(
+                      borderRadius: corners,
+                      boxShadow: ground.elevation.heroSlab.litBy(context),
+                    )
+                  : null,
+              foregroundDecoration: framed
+                  ? frameRing(
+                      context,
+                      color: ground.text,
+                      width: skin.shape.ring,
+                      radius: corners,
+                    )
+                  : null,
+              child: ClipRRect(
                 borderRadius: corners,
-                boxShadow: ground.elevation.heroSlab.litBy(context),
-              )
-            : null,
-        foregroundDecoration: framed
-            ? frameRing(
-                context,
-                color: ground.text,
-                width: skin.shape.ring,
-                radius: corners,
-              )
-            : null,
-        child: ClipRRect(
-          borderRadius: corners,
-          child: AspectRatio(aspectRatio: aspect, child: picture),
-        ),
-      );
+                child: AspectRatio(aspectRatio: aspect, child: picture),
+              ),
+            );
     }
     final angle = skin.tilt.angle(tilt);
     return Semantics(

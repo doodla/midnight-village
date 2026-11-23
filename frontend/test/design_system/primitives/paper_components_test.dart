@@ -244,7 +244,6 @@ void main() {
         'mark',
         'tally',
         'lantern',
-        'holdGauge',
         'scanner',
       });
     });

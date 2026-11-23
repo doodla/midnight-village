@@ -1,7 +1,10 @@
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/skin.dart';
+import 'paper_piece.dart';
 
 /// "3 of 5" as a row of plain pips and the words. Plain on purpose: no token,
 /// no name, so progress never says who is slow (first-time play spec, copy
@@ -75,6 +78,21 @@ class _Pip extends StatelessWidget {
   Widget build(BuildContext context) {
     final shape = context.skin.shape;
     final ground = context.ground;
+    // Dressed up: a punched paper dot with its shadow, the lit one the ground's
+    // ink and the unlit one a darker paper that still stands off the ground
+    // (3:1); never a flat vector circle.
+    if (context.dress.isPaper) {
+      return SizedBox(
+        width: shape.pipStretch ? null : shape.pip.width,
+        height: shape.pip.height,
+        child: PaperPiece(
+          part: PaperPart.disc,
+          id: filled,
+          fill: filled ? ground.text : context.skin.parts.pipUnlit(ground),
+          child: const SizedBox.expand(),
+        ),
+      );
+    }
     final outlined = !filled && shape.pipEmptyStroke > 0;
     return Container(
       width: shape.pipStretch ? null : shape.pip.width,

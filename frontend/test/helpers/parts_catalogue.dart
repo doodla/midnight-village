@@ -38,6 +38,7 @@ import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/viewfinder.dart';
 import 'package:midnight_village/design_system/primitives/waiting_sign.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
+import 'package:midnight_village/design_system/skin/dress_style.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/teach/hold_cue.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
@@ -194,7 +195,19 @@ final List<PartSample> partsCatalogue = [
     PartState.rest,
     (c) => const TagChip.danger('Werewolf', small: true),
   ),
-  PartSample('YouTag', PartState.rest, (c) => YouTag(ink: c.skin.paper.text)),
+  PartSample(
+    'YouTag',
+    PartState.rest,
+    // As it is used: on the bone slip of a row.
+    (c) => PaperPiece(
+      part: PaperPart.scrap,
+      id: 'row',
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: YouTag(ink: c.skin.paper.text),
+      ),
+    ),
+  ),
   PartSample('CountBadge', PartState.rest, (c) => const CountBadge(2)),
   PartSample(
     'SeatDot / SlotMark',
@@ -379,11 +392,7 @@ final List<PartSample> partsCatalogue = [
       child: SheetScaffold(
         actions: [
           const Spacer(),
-          SecondaryButton(
-            label: 'Close',
-            size: ButtonSize.compact,
-            onPressed: () {},
-          ),
+          SheetClose(label: 'Close', onPressed: () {}),
         ],
         child: const Text('Words on a sheet'),
       ),

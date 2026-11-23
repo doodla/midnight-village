@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
@@ -6,8 +8,6 @@ import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import 'deckled_paper.dart';
-import 'paper_grain.dart';
-import 'paper_light.dart';
 import 'tilted_paper.dart';
 
 /// The body of every paper component: flat matte paper with a deckled edge
@@ -17,9 +17,12 @@ import 'tilted_paper.dart';
 /// are its [child], level on the tilted paper. A paper component builds its
 /// body here and nowhere else.
 ///
-/// States, all the paper's: [pressed] sinks it into its shadow, [lifted] (a
-/// pick, or keyboard focus) raises it, [enabled] false fades it to the
-/// ground's disabled paper (its words still say why).
+/// States, all the paper's, and none of them changes WHAT the piece is (the
+/// same part, tear, tilt, grain and shadow; `paper_material_test.dart` holds
+/// it): [pressed] sinks it into its shadow, [lifted] (a pick, or keyboard
+/// focus) raises it, [locked] (and [enabled] false, a piece nothing can be
+/// done with) dims its own paper (the amber to ochre) and its words say why,
+/// still at 4.5:1. Only the colour moves.
 class PaperPiece extends StatelessWidget {
   const PaperPiece({
     super.key,
@@ -29,6 +32,7 @@ class PaperPiece extends StatelessWidget {
     this.pressed = false,
     this.lifted = false,
     this.enabled = true,
+    this.locked = false,
     this.duration = Motion.press,
     this.fill,
   });
@@ -41,6 +45,10 @@ class PaperPiece extends StatelessWidget {
   final bool pressed;
   final bool lifted;
   final bool enabled;
+
+  /// Dimmed to say "not yet" but still tapped (a gate): it sinks under a
+  /// finger as a live piece does.
+  final bool locked;
   final Duration duration;
 
   /// A colour of its own (the danger tag); the part's paper where null.
@@ -63,16 +71,35 @@ class PaperPiece extends StatelessWidget {
     };
   }
 
+  /// [fill] as a locked piece's paper: the same paper darkened toward the
+  /// ink of a shadow (the amber is an ochre, the bone a grey bone), by the
+  /// skin's `lockedDim`, and never more than still holds [ink] at 4.5:1.
+  static Color dimmed(BuildContext context, Color fill, Color ink) {
+    final parts = context.skin.parts;
+    var t = parts.lockedDim;
+    var out = Color.lerp(fill, parts.lockedTone, t)!;
+    while (t > 0.02 && _contrast(ink, out) < 4.6) {
+      t -= 0.02;
+      out = Color.lerp(fill, parts.lockedTone, t)!;
+    }
+    return out;
+  }
+
+  static double _contrast(Color a, Color b) {
+    final la = a.computeLuminance();
+    final lb = b.computeLuminance();
+    return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+  }
+
   /// The ink of the words on [part]'s paper: the paper's own text on bone
-  /// paper (whatever ground it lies on), the ground's elsewhere; the faded
-  /// paper's when not [enabled].
+  /// paper (whatever ground it lies on), the ground's elsewhere. A locked
+  /// piece keeps it (its paper is dimmed to hold it, [dimmed]).
   static Color inkOf(
     BuildContext context,
     PaperPart part, {
     bool enabled = true,
   }) {
     final ground = context.ground;
-    if (!enabled) return ground.onDisabled;
     return switch (DressStyle.paper(part).fill) {
       PaperFill.amber => ground.onAccent,
       PaperFill.bone => context.skin.paper.text,
@@ -108,33 +135,28 @@ class PaperPiece extends StatelessWidget {
         : lifted
         ? const Offset(0, -Space.xxs)
         : Offset.zero;
-    final paint = !enabled ? ground.disabled : (fill ?? fillOf(context, part));
-    final Decoration decoration;
-    if (look.round) {
-      decoration = BoxDecoration(
-        shape: BoxShape.circle,
-        color: paint,
-        image: PaperGrain.image,
-        boxShadow: shown.litBy(context),
-      );
-    } else {
-      final parts = skin.parts;
-      final (depth, step) = switch (look.edge) {
-        PaperEdge.standard => (parts.deckleDepth, parts.deckleStep),
-        PaperEdge.plaque => (parts.plaqueDepth, parts.plaqueStep),
-        PaperEdge.pinned => (parts.pinnedDepth, parts.pinnedStep),
-      };
-      decoration = deckledPaper(
-        context,
-        fill: paint,
-        id: (id, part),
-        elevation: shown,
-        depth: depth,
-        step: step,
-        edgeLine: false,
-        side: BorderSide.none,
-      );
-    }
+    final base = fill ?? fillOf(context, part);
+    final paint = locked || !enabled
+        ? dimmed(context, base, inkOf(context, part))
+        : base;
+    final parts = skin.parts;
+    final (depth, step) = switch (look.edge) {
+      PaperEdge.standard => (parts.deckleDepth, parts.deckleStep),
+      PaperEdge.plaque => (parts.plaqueDepth, parts.plaqueStep),
+      PaperEdge.pinned => (parts.pinnedDepth, parts.pinnedStep),
+    };
+    final decoration = deckledPaper(
+      context,
+      fill: paint,
+      id: (id, part),
+      elevation: shown,
+      depth: look.round ? parts.discDepth : depth,
+      step: look.round ? parts.discStep : step,
+      round: look.round,
+      blob: look.blob,
+      edgeLine: false,
+      side: BorderSide.none,
+    );
     return AnimatedContainer(
       duration: duration,
       curve: Motion.curve,

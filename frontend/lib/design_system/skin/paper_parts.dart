@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter/painting.dart';
 
+import 'ground.dart';
+
 /// The sizes, angles and edges of the paper parts a dressed screen is made of
 /// (pins, banners, the plaque, torn cards), so no part and no screen carries a
 /// number of its own. Only a screen dressed up draws them (`Dress.paper`).
@@ -30,6 +32,16 @@ class PaperParts {
     this.backingAlpha = 0.9,
     this.fanAngle = 0.12,
     this.fanScale = 1.1,
+    this.tokenInset = 0.055,
+    this.discDepth = 1.3,
+    this.discStep = 5,
+    this.lockedTone = const Color(0xFF2A1D10),
+    this.lockedDim = 0.3,
+    this.villageTag = const Color(0xFF2A4270),
+    this.tannerTag = const Color(0xFF5E3F18),
+    this.werewolfTag = const Color(0xFF80241E),
+    this.onTeamTag = const Color(0xFFE9E2D0),
+    this.markWax = const Color(0xFF80241E),
   });
 
   /// The standard parts (the dressed skin's).
@@ -79,4 +91,34 @@ class PaperParts {
   /// larger each card is drawn.
   final double fanAngle;
   final double fanScale;
+
+  /// How much of a token's printed rim a dressed token leaves outside its
+  /// paper disc, of the picture's width.
+  final double tokenInset;
+
+  /// A cut disc's rim: how far it steps in and the length of one nibble.
+  final double discDepth;
+  final double discStep;
+
+  /// An unlit progress dot: the ground's ink laid half-way into the ground,
+  /// so it keeps 3:1 against it.
+  Color pipUnlit(Ground ground) => Color.lerp(ground.ground, ground.text, 0.5)!;
+
+  /// A locked piece's paper: its own paper darkened toward [lockedTone] by
+  /// [lockedDim] (the amber is an ochre), less where its words would fall
+  /// under 4.5:1.
+  final Color lockedTone;
+  final double lockedDim;
+
+  /// A team's tag, the same on every surface and ground (a tag is paper of
+  /// its own colour, never the ground's): the Village's slate blue, the
+  /// Tanner's umber, the Werewolf team's red; words in [onTeamTag].
+  final Color villageTag;
+  final Color tannerTag;
+  final Color werewolfTag;
+  final Color onTeamTag;
+
+  /// The wax of a count (`CountBadge`) and the red of a card's cut-paper
+  /// rim (`FaceDownCard`).
+  final Color markWax;
 }

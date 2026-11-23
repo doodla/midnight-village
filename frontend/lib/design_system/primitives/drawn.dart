@@ -18,9 +18,6 @@ enum DrawnKind {
   /// A lantern, its frame and cord (the village's own light).
   lantern,
 
-  /// The hold ring: a gauge that fills as the finger stays down.
-  holdGauge,
-
   /// The scanner's corners round what the camera sees.
   scanner,
 }

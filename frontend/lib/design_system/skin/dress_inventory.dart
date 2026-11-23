@@ -43,14 +43,14 @@ const inventory = <PartEntry>[
     plain:
         'amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline',
     paper:
-        'ready: one amber piece on a darker backing, only its label in it; locked, waiting and quiet: a bone scrap (faded when waiting); the waiting "Choose" slot: a darker recess; done: words and the paper mark, no paper',
+        'ready: one amber piece on a darker backing, only its label in it; waiting and locked (the night board\'s "Choose" slot too): the SAME piece dimmed to ochre, its label saying why, still 4.5:1 (one locked form); quiet: a bone scrap; done: words and the paper mark, no paper',
   ),
   PartEntry(
     'SecondaryButton',
     'primitives/secondary_button.dart',
     part: PaperPart.scrap,
     plain: '2 px outline on the ground, no fill ("paper": a raised paper tile)',
-    paper: 'a bone scrap, lower lift than the amber; faded when waiting',
+    paper: 'a bone scrap, lower lift than the amber; dimmed when waiting',
   ),
   PartEntry(
     'TextAction',
@@ -62,9 +62,9 @@ const inventory = <PartEntry>[
   PartEntry(
     'IconAction',
     'primitives/icon_action.dart',
-    part: PaperPart.scrap,
     plain: 'Material icon button (the table\'s Share)',
-    paper: 'a bone scrap square with the glyph',
+    paper:
+        'a bare ink glyph, no paper under it (it lies on a notice already); a press dims it, focus lifts it',
   ),
   PartEntry(
     'GlyphButton',
@@ -80,13 +80,14 @@ const inventory = <PartEntry>[
     part: PaperPart.disc,
     plain: 'two outlined round buttons round the value',
     paper:
-        'two bone paper discs (minus, plus), faded at the end of the range; the value on a ground backing',
+        'two cut paper discs (minus, plus), dimmed at the end of the range; the value on a panel of paper set into the ground',
   ),
   PartEntry(
     'HoldRing',
     'teach/hold_cue.dart',
     plain: 'a ring that fills while the finger stays down, the word "Hold"',
-    paper: 'the same gauge (a drawing, allowed: `Drawn.holdGauge`)',
+    paper:
+        'a navy paper disc with the word on it; the hold\'s progress an amber paper arc round it, filling clockwise over the same time (filled shapes only, no stroke)',
   ),
   PartEntry(
     'HoldToReveal',
@@ -108,7 +109,8 @@ const inventory = <PartEntry>[
     'primitives/tag_chip.dart',
     part: PaperPart.tag,
     plain: 'flat fill in ink (danger for the Werewolf team)',
-    paper: 'a cut-paper tag in the same colours, with the badge shadow',
+    paper:
+        'a cut-paper tag; a team\'s tag (`TagChip.team`) is paper of the team\'s own colour on every surface: the Werewolf team red, the Village blue, the Tanner umber',
   ),
   PartEntry(
     'YouTag',
@@ -116,13 +118,15 @@ const inventory = <PartEntry>[
     part: PaperPart.tag,
     plain: '"You" outlined in the row\'s ink; "Practice" bare words',
     paper:
-        '"You" on a cut-paper tag a shade darker than its row; "Practice" bare words',
+        '"You" on a cut-paper tag in the ink of what it lies on (navy on a bone row, bone on the night), set in the tag face wherever it is',
   ),
   PartEntry(
     'CountBadge',
     'primitives/count_badge.dart',
+    part: PaperPart.wax,
     plain: 'a filled round badge with the number',
-    paper: 'the same flat disc with the badge shadow (never a ring)',
+    paper:
+        'a drop of wax with the number in it (a `PaperPiece`, part wax), never a ring',
   ),
   PartEntry(
     'SeatDot / SlotMark',
@@ -136,7 +140,8 @@ const inventory = <PartEntry>[
     'ProgressPips',
     'primitives/progress_pips.dart',
     plain: 'plain pips (filled ink, empty hairline) and "N of M"',
-    paper: 'the same flat pips and words (no outline in either)',
+    paper:
+        'punched paper dots with a shadow; the unlit one a darker paper that keeps 3:1 against the ground',
   ),
   PartEntry(
     'ScrapLabel',
@@ -157,14 +162,15 @@ const inventory = <PartEntry>[
     'PlayerToken',
     'primitives/player_token.dart',
     plain: 'round token art',
-    paper: 'the same token art',
+    paper:
+        'a cut disc of paper with its shadow, the emblem laid in it (its printed rim left outside); never a ring',
   ),
   PartEntry(
     'RoleCard',
     'primitives/role_card.dart',
     plain: 'portrait with a ring (lit or hairline) and a count badge',
     paper:
-        'the portrait as a piece of paper with its shadow, no ring; the count badge on its corner',
+        'a mini card cut from paper: deckled, with its shadow while it is in the deck; the count a wax badge on its corner',
   ),
   PartEntry(
     'Fanned',
@@ -177,7 +183,7 @@ const inventory = <PartEntry>[
     'primitives/face_down_card.dart',
     plain: 'card back in a ring, hard shadow; picked = ring, lift, glow',
     paper:
-        'card back as paper with its shadow, no ring; picked = lift, deeper shadow, glow and the paper mark on its corner',
+        'two cut layers, a red one with the navy one laid on it a rim smaller, both deckled with their shadows (the card back\'s own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; the one hero card on a deckled bone card like the face',
   ),
   PartEntry(
     'PaperCard',
@@ -191,26 +197,30 @@ const inventory = <PartEntry>[
     'faces/held_face.dart',
     plain:
         'the role card: portrait with a hairline frame, a rule above the text',
-    paper: 'the role card on paper, no frame and no rule',
+    paper:
+        'the role card on paper, no frame and no rule; the same name, tag and lines as the sheet (`RoleHead`, `RoleText.lineSpan`)',
   ),
   PartEntry(
     'RoleSheetBody',
     'primitives/role_sheet_body.dart',
     plain: 'portrait, tags and the role\'s words on paper',
-    paper: 'the same on paper, its tags cut-paper tags',
+    paper:
+        'the same on paper: the team tag above the name (`RoleHead`), "Night:" and "Wins:" in the strong face, the portrait a deckled picture',
   ),
   PartEntry(
     'PeekBox',
     'primitives/panels.dart',
     plain: 'a strip of night laid on the day with a card in it',
-    paper: 'the same strip, paper shadow, no edge line',
+    paper:
+        'a panel of night paper (deckled, with its shadow); its card two cut layers like every card back',
   ),
   PartEntry(
     'OutlinePanel',
     'primitives/panels.dart',
     part: PaperPart.panel,
     plain: '2 px hairline outline round a summary',
-    paper: 'a panel of paper set into the ground (darker tone), no outline',
+    paper:
+        'a panel of paper set into the ground (a tone that stands off it by 1.25:1), deckled, with its shadow, no outline',
   ),
   // ---- Notices, fields, sheets
   PartEntry(
@@ -238,7 +248,8 @@ const inventory = <PartEntry>[
     'SheetScaffold',
     'primitives/sheet_scaffold.dart',
     plain: 'paper sheet with a lit strip along its top',
-    paper: 'a torn sheet of paper, no lit strip; its buttons are scraps',
+    paper:
+        'a torn sheet of paper, no lit strip; its Close is plain serif words (`SheetClose`)',
   ),
   PartEntry(
     'Rule / SideRule',
@@ -257,7 +268,8 @@ const inventory = <PartEntry>[
     'TextBacking',
     'primitives/text_backing.dart',
     plain: 'nothing',
-    paper: 'a solid backing behind words that sit over the village',
+    paper:
+        'a name plate: a cut-paper tag behind the words (paint only), the words in the tag\'s ink',
   ),
   PartEntry(
     'Band / TimerBand',

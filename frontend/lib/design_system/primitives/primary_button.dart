@@ -303,20 +303,18 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     // waiting slot's cut-in) presses it for the frame it appears.
     final down = (_pressed && _acts) || widget.busy || _rising;
     // Dressed up every phase but done is a piece of paper (`PaperPiece`): the
-    // amber plaque when ready, the cut-out recess for a waiting slot, a bone
-    // scrap for the rest, faded while it waits.
+    // amber plaque when ready; when it waits or is locked (a slot too) the
+    // SAME plaque dimmed to ochre, its label saying why (one locked form); a
+    // quiet button a bone scrap.
     final onPaper = context.dress.isPaper && widget.phase != ButtonPhase.done;
-    final part = switch (widget.phase) {
-      ButtonPhase.ready => PaperPart.primary,
-      ButtonPhase.locked when widget.slot => PaperPart.recess,
-      _ => PaperPart.scrap,
-    };
+    final part = widget.phase == ButtonPhase.quiet
+        ? PaperPart.scrap
+        : PaperPart.primary;
+    final dim =
+        widget.phase == ButtonPhase.waiting ||
+        widget.phase == ButtonPhase.locked;
     final ink = onPaper
-        ? PaperPiece.inkOf(
-            context,
-            part,
-            enabled: widget.phase != ButtonPhase.waiting,
-          )
+        ? PaperPiece.inkOf(context, part)
         : switch (widget.phase) {
             ButtonPhase.ready => ground.onAccent,
             ButtonPhase.waiting => ground.quietText,
@@ -376,7 +374,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                 0,
               ),
         decoration: onPaper ? null : decoration,
-        foregroundDecoration: widget.phase == ButtonPhase.locked && widget.slot
+        foregroundDecoration:
+            widget.phase == ButtonPhase.locked && widget.slot && !onPaper
             // The slot's cut edge: a hard dark lip along its top, the paper
             // above it casting into the recess.
             ? BoxDecoration(
@@ -402,6 +401,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         child: _paper(
           part: onPaper ? part : null,
           pressed: down,
+          locked: dim,
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
@@ -460,6 +460,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
   Widget _paper({
     required PaperPart? part,
     required bool pressed,
+    required bool locked,
     required Widget child,
   }) => part == null
       ? child
@@ -468,6 +469,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           id: widget.label,
           pressed: pressed,
           lifted: _focused && !pressed,
+          locked: locked,
           enabled: widget.phase != ButtonPhase.waiting,
           duration: Motion.within(context, _duration),
           child: child,

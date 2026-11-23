@@ -11,6 +11,8 @@ import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/system_bars.dart';
 import 'paper_grain.dart';
+import 'primary_button.dart';
+import 'text_action.dart';
 import 'screen_frame.dart';
 
 /// Opens [builder]'s [SheetScaffold] from the bottom over the scrim, on the
@@ -57,6 +59,25 @@ Future<T?> showSkinDialog<T>(
     barrierColor: context.skin.scrim,
     builder: (dialogContext) => scopes.wrap(Builder(builder: builder)),
   );
+}
+
+/// A sheet's "Close": the quiet outlined button on a plain screen (as it was),
+/// plain serif words on a paper one (a [TextAction]: no piece laid on the sheet's
+/// own paper).
+class SheetClose extends StatelessWidget {
+  const SheetClose({super.key, required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => context.dress.isPaper
+      ? TextAction(label: label, onPressed: onPressed)
+      : PrimaryButton.quiet(
+          label: label,
+          onPressed: onPressed,
+          size: ButtonSize.compact,
+        );
 }
 
 /// A sheet of paper slid up from the bottom, its top edge lit by the

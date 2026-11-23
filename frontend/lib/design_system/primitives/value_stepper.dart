@@ -70,12 +70,13 @@ class ValueStepper extends StatelessWidget {
 
   Widget _backed(BuildContext context, Widget value) => !context.dress.isPaper
       ? value
-      : DecoratedBox(
-          decoration: BoxDecoration(
-            color: context.ground.ground.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(context.skin.shape.radius),
+      : PaperPiece(
+          part: PaperPart.panel,
+          id: #value,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.xxs),
+            child: value,
           ),
-          child: value,
         );
 
   @override

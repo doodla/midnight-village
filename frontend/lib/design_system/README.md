@@ -92,46 +92,58 @@ edge is its shape and its shadow); no pin dots on buttons (pins only where somet
 board: notices, slips); the primary action is one piece of amber paper on a darker backing with
 nothing drawn in it but its label; secondary actions are bone paper scraps (a lower lift, same
 material); quiet actions are plain serif words with no underline; chips and tags are cut-paper tags;
-picked and done are the `PaperMark` only (no ring); disabled is faded paper that still says why;
-keyboard focus is a lifted shadow (no outline). Drawings that are lines by nature (the QR code's
-modules, the paper mark's tick, tally strokes, lantern cords, the hold ring, the scanner's corners)
-sit in a `Drawn` (`primitives/drawn.dart`), the one allow-list the stroke test knows. The plain dress
+picked and done are the `PaperMark` only (no ring); keyboard focus is a lifted shadow (no outline).
+One locked form: a primary that cannot act yet ("Ready" before the card is looked at, "Choose a card",
+"Need 3 players", "Pick a name") is the SAME amber piece dimmed to ochre (`PaperPiece.dimmed`, from
+`PaperParts.lockedTone`/`lockedDim`), its label saying why, never under 4.5:1. A team's tag is paper
+of the team's own colour on every surface (the three team colours in `PaperParts`,
+`TagChip.team`). The edge of a card is cut layers and shadow: a card back is a red layer under a navy
+one (`CardBackPaper`, the art's own printed rim left outside by `CardBack.frameInset`), a token a
+paper disc (`PaperParts.tokenInset`). Three tests hold it over every paper screen and every component
+state (`test/design_system/primitives/paper_rules_test.dart`): SHADOW (every shadow falls down and away
+from the screen's one light, `PaperLight`, which a sheet or dialog carries over in `GameScopes`; the
+paper shadow is moved copies, never a spread, so there is no halo), SEPARATION (a piece differs from
+what it lies on by 1.25:1 and casts a shadow; its words 4.5:1) and MATERIAL (pressed, picked, locked
+and focused are the same piece as rest; only the colour moves). Drawings that are lines by nature (the
+QR code's modules, the paper mark's tick, tally strokes, lantern cords, the scanner's corners) sit in
+a `Drawn` (`primitives/drawn.dart`), the one allow-list the stroke test knows; it is to shrink to the
+QR code's modules, and these are the ones still to be redrawn as filled shapes. The plain dress
 is every component's own code, kept exactly as it was (the owner has not asked for those screens).
 
 | Component | Plain look | Paper look | File (under `lib/design_system/`) |
 | --- | --- | --- | --- |
-| PrimaryButton | amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline | ready: one amber piece on a darker backing, only its label in it; locked, waiting and quiet: a bone scrap (faded when waiting); the waiting "Choose" slot: a darker recess; done: words and the paper mark, no paper | `primitives/primary_button.dart` |
-| SecondaryButton | 2 px outline on the ground, no fill ("paper": a raised paper tile) | a bone scrap, lower lift than the amber; faded when waiting | `primitives/secondary_button.dart` |
+| PrimaryButton | amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline | ready: one amber piece on a darker backing, only its label in it; waiting and locked (the night board's "Choose" slot too): the SAME piece dimmed to ochre, its label saying why, still 4.5:1 (one locked form); quiet: a bone scrap; done: words and the paper mark, no paper | `primitives/primary_button.dart` |
+| SecondaryButton | 2 px outline on the ground, no fill ("paper": a raised paper tile) | a bone scrap, lower lift than the amber; dimmed when waiting | `primitives/secondary_button.dart` |
 | TextAction | small button type, underlined, no fill | plain serif words in full ink, no underline, no paper; dims when pressed | `primitives/text_action.dart` |
-| IconAction | Material icon button (the table's Share) | a bone scrap square with the glyph | `primitives/icon_action.dart` |
+| IconAction | Material icon button (the table's Share) | a bare ink glyph, no paper under it (it lies on a notice already); a press dims it, focus lifts it | `primitives/icon_action.dart` |
 | GlyphButton | outlined square with a glyph; on = lift and fill | a bone scrap square with the glyph; on = lifted with the paper mark | `primitives/viewfinder.dart` |
-| ValueStepper | two outlined round buttons round the value | two bone paper discs (minus, plus), faded at the end of the range; the value on a ground backing | `primitives/value_stepper.dart` |
-| HoldRing | a ring that fills while the finger stays down, the word "Hold" | the same gauge (a drawing, allowed: `Drawn.holdGauge`) | `teach/hold_cue.dart` |
+| ValueStepper | two outlined round buttons round the value | two cut paper discs (minus, plus), dimmed at the end of the range; the value on a panel of paper set into the ground | `primitives/value_stepper.dart` |
+| HoldRing | a ring that fills while the finger stays down, the word "Hold" | a navy paper disc with the word on it; the hold's progress an amber paper arc round it, filling clockwise over the same time (filled shapes only, no stroke) | `teach/hold_cue.dart` |
 | HoldToReveal | a focus outline on the cover | focus lifts the cover (a deeper shadow), no outline | `primitives/hold_to_reveal.dart` |
 | PresetChip | outlined box; the selected one lifts and takes a thicker ring | a cut-paper tag: bone, lifted and wearing the paper mark when selected; a darker scrap when not | `primitives/chips.dart` |
-| TagChip | flat fill in ink (danger for the Werewolf team) | a cut-paper tag in the same colours, with the badge shadow | `primitives/tag_chip.dart` |
-| YouTag | "You" outlined in the row's ink; "Practice" bare words | "You" on a cut-paper tag a shade darker than its row; "Practice" bare words | `primitives/you_tag.dart` |
-| CountBadge | a filled round badge with the number | the same flat disc with the badge shadow (never a ring) | `primitives/count_badge.dart` |
+| TagChip | flat fill in ink (danger for the Werewolf team) | a cut-paper tag; a team's tag (`TagChip.team`) is paper of the team's own colour on every surface: the Werewolf team red, the Village blue, the Tanner umber | `primitives/tag_chip.dart` |
+| YouTag | "You" outlined in the row's ink; "Practice" bare words | "You" on a cut-paper tag in the ink of what it lies on (navy on a bone row, bone on the night), set in the tag face wherever it is | `primitives/you_tag.dart` |
+| CountBadge | a filled round badge with the number | a drop of wax with the number in it (a `PaperPiece`, part wax), never a ring | `primitives/count_badge.dart` |
 | SeatDot / SlotMark | filled disc or slip; empty ones outlined | filled paper disc or slip; empty ones a darker paper disc, no outline | `primitives/dots.dart` |
-| ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | the same flat pips and words (no outline in either) | `primitives/progress_pips.dart` |
+| ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | punched paper dots with a shadow; the unlit one a darker paper that keeps 3:1 against the ground | `primitives/progress_pips.dart` |
 | ScrapLabel | words in ink ("Edit") | a small bone scrap with the words | `primitives/scrap_label.dart` |
 | PlayerRow | paper row with a ring when picked or your own | a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are a drawing (`Drawn.tally`) | `primitives/player_row.dart` |
-| PlayerToken | round token art | the same token art | `primitives/player_token.dart` |
-| RoleCard | portrait with a ring (lit or hairline) and a count badge | the portrait as a piece of paper with its shadow, no ring; the count badge on its corner | `primitives/role_card.dart` |
+| PlayerToken | round token art | a cut disc of paper with its shadow, the emblem laid in it (its printed rim left outside); never a ring | `primitives/player_token.dart` |
+| RoleCard | portrait with a ring (lit or hairline) and a count badge | a mini card cut from paper: deckled, with its shadow while it is in the deck; the count a wax badge on its corner | `primitives/role_card.dart` |
 | Fanned | cards in a row | cards fanned a hair, paint only | `primitives/fanned.dart` |
-| FaceDownCard | card back in a ring, hard shadow; picked = ring, lift, glow | card back as paper with its shadow, no ring; picked = lift, deeper shadow, glow and the paper mark on its corner | `primitives/face_down_card.dart` |
+| FaceDownCard | card back in a ring, hard shadow; picked = ring, lift, glow | two cut layers, a red one with the navy one laid on it a rim smaller, both deckled with their shadows (the card back's own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; the one hero card on a deckled bone card like the face | `primitives/face_down_card.dart` |
 | PaperCard | cut paper card, hard shadow | deckled paper with the paper shadow; pinned = a pin through each top corner (a notice) | `primitives/paper_card.dart` |
-| HeldFace | the role card: portrait with a hairline frame, a rule above the text | the role card on paper, no frame and no rule | `faces/held_face.dart` |
-| RoleSheetBody | portrait, tags and the role's words on paper | the same on paper, its tags cut-paper tags | `primitives/role_sheet_body.dart` |
-| PeekBox | a strip of night laid on the day with a card in it | the same strip, paper shadow, no edge line | `primitives/panels.dart` |
-| OutlinePanel | 2 px hairline outline round a summary | a panel of paper set into the ground (darker tone), no outline | `primitives/panels.dart` |
+| HeldFace | the role card: portrait with a hairline frame, a rule above the text | the role card on paper, no frame and no rule; the same name, tag and lines as the sheet (`RoleHead`, `RoleText.lineSpan`) | `faces/held_face.dart` |
+| RoleSheetBody | portrait, tags and the role's words on paper | the same on paper: the team tag above the name (`RoleHead`), "Night:" and "Wins:" in the strong face, the portrait a deckled picture | `primitives/role_sheet_body.dart` |
+| PeekBox | a strip of night laid on the day with a card in it | a panel of night paper (deckled, with its shadow); its card two cut layers like every card back | `primitives/panels.dart` |
+| OutlinePanel | 2 px hairline outline round a summary | a panel of paper set into the ground (a tone that stands off it by 1.25:1), deckled, with its shadow, no outline | `primitives/panels.dart` |
 | Notice | one line of words and a quiet action ("Not sent." "Try again") | the same line, its action plain serif words | `primitives/notice.dart` |
 | QrPicture | the code in the ground's ink | the same, on the pinned notice (a drawing, allowed: `Drawn.qrCode`) | `primitives/qr_picture.dart` |
 | SkinField | name: raised paper tile; code: 2 px outline | name: a bone scrap; code: a panel of paper; lifted while it has the focus | `primitives/skin_field.dart` |
-| SheetScaffold | paper sheet with a lit strip along its top | a torn sheet of paper, no lit strip; its buttons are scraps | `primitives/sheet_scaffold.dart` |
+| SheetScaffold | paper sheet with a lit strip along its top | a torn sheet of paper, no lit strip; its Close is plain serif words (`SheetClose`) | `primitives/sheet_scaffold.dart` |
 | Rule / SideRule | a hairline, or a line down a block's side | no line: the room it takes | `primitives/rule.dart` |
 | PaperBanner | its words on the ground | torn bone paper with two pins | `primitives/paper_banner.dart` |
-| TextBacking | nothing | a solid backing behind words that sit over the village | `primitives/text_backing.dart` |
+| TextBacking | nothing | a name plate: a cut-paper tag behind the words (paint only), the words in the tag's ink | `primitives/text_backing.dart` |
 | Band / TimerBand | a band with the clock, the sun or the bar | the same band; the night board's sits on a banner | `primitives/band.dart` |
 | WorldTimer | the seconds beside a candle on a panel with a hairline frame | the same panel with no frame | `primitives/world_timer.dart` |
 | CandleGauge | the paper candle (art) on a ledge with a hairline | the candle on a ledge with no hairline (the candle is art) | `primitives/candle_gauge.dart` |

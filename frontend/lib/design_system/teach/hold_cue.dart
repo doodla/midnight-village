@@ -6,7 +6,10 @@ import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../primitives/hold_to_reveal.dart';
 import '../skin/skin.dart';
-import '../primitives/drawn.dart';
+import '../primitives/paper_light.dart';
+import '../primitives/paper_piece.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 
 /// The press-and-hold cue on a face-down card (the `hold` cue, first-time
 /// play spec, section 2): while [teaching], a plain ring on a veil of the
@@ -133,32 +136,81 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
           ).animate(CurvedAnimation(parent: _breath, curve: Curves.easeInOut)),
           child: SizedBox.square(
             dimension: ring,
-            child: Drawn(
-              DrawnKind.holdGauge,
-              child: CustomPaint(
-                painter: HoldRingPainter(
-                  fill: _fill,
-                  veil: night.ground.withValues(alpha: _veil),
-                  track: night.text.withValues(alpha: _track),
-                  ink: night.text,
-                  width: skin.shape.selectedRing,
-                ),
-                child: showWord
-                    ? Center(
-                        child: Text(
-                          CommonCopy.hold,
-                          style: cue.copyWith(
-                            color: night.text,
-                            fontSize: cue.fontSize! * fit,
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
-            ),
+            child: context.dress.isPaper
+                ? _paper(context, ring, showWord, cue, fit)
+                : CustomPaint(
+                    painter: HoldRingPainter(
+                      fill: _fill,
+                      veil: night.ground.withValues(alpha: _veil),
+                      track: night.text.withValues(alpha: _track),
+                      ink: night.text,
+                      width: skin.shape.selectedRing,
+                    ),
+                    child: showWord
+                        ? Center(
+                            child: Text(
+                              CommonCopy.hold,
+                              style: cue.copyWith(
+                                color: night.text,
+                                fontSize: cue.fontSize! * fit,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
           ),
         );
       },
+    );
+  }
+
+  /// Dressed up: a navy paper disc with the word on it, and the hold's
+  /// progress an amber paper arc round it (a filled band that grows clockwise
+  /// from the top over the same time, casting the paper shadow of the
+  /// screen's light), no stroke anywhere.
+  Widget _paper(
+    BuildContext context,
+    double ring,
+    bool showWord,
+    TextStyle cue,
+    double fit,
+  ) {
+    final skin = context.skin;
+    final night = skin.night;
+    final band = math.max(3.0, ring * 0.07);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CustomPaint(
+          painter: HoldArcPainter(
+            fill: _fill,
+            track: night.panel,
+            amber: night.accent,
+            shadow: night.elevation.badge.layers.first.color,
+            lean: PaperLight.of(context),
+            band: band,
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.all(band + 2),
+          child: PaperPiece(
+            part: PaperPart.disc,
+            id: 'hold',
+            fill: night.panel,
+            child: showWord
+                ? Center(
+                    child: Text(
+                      CommonCopy.hold,
+                      style: cue.copyWith(
+                        color: night.text,
+                        fontSize: cue.fontSize! * fit,
+                      ),
+                    ),
+                  )
+                : const SizedBox.expand(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -214,4 +266,64 @@ class HoldRingPainter extends CustomPainter {
       old.track != track ||
       old.ink != ink ||
       old.width != width;
+}
+
+/// The hold's progress, dressed up: a band of paper round the disc, the part
+/// filled so far in amber paper from the top clockwise ([fill], 0 to 1), the
+/// rest the disc's own navy paper laid a shade under; each cast with a hard
+/// two-step shadow away from the screen's light ([lean]). Only filled shapes:
+/// no stroke.
+class HoldArcPainter extends CustomPainter {
+  HoldArcPainter({
+    required this.fill,
+    required this.track,
+    required this.amber,
+    required this.shadow,
+    required this.lean,
+    required this.band,
+  }) : super(repaint: fill);
+
+  final Animation<double> fill;
+  final Color track;
+  final Color amber;
+  final Color shadow;
+  final double lean;
+  final double band;
+
+  Path _band(Rect outer, double sweep) {
+    final inner = outer.deflate(band);
+    return Path()
+      ..arcTo(outer, -math.pi / 2, sweep, true)
+      ..arcTo(inner, -math.pi / 2 + sweep, -sweep, false)
+      ..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outer = Offset.zero & size;
+    final full = 2 * math.pi - 0.0001;
+    final drop = Offset(lean * 2, 2);
+    final tracked = _band(outer, full);
+    canvas.drawPath(
+      tracked.shift(drop),
+      Paint()..color = shadow.withValues(alpha: 0.5),
+    );
+    canvas.drawPath(tracked, Paint()..color = track);
+    if (fill.value > 0) {
+      final arc = _band(outer, math.min(full, 2 * math.pi * fill.value));
+      canvas.drawPath(
+        arc.shift(drop),
+        Paint()..color = shadow.withValues(alpha: 0.5),
+      );
+      canvas.drawPath(arc, Paint()..color = amber);
+    }
+  }
+
+  @override
+  bool shouldRepaint(HoldArcPainter old) =>
+      old.track != track ||
+      old.amber != amber ||
+      old.shadow != shadow ||
+      old.lean != lean ||
+      old.band != band;
 }

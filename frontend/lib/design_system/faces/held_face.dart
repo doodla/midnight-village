@@ -7,7 +7,8 @@ import '../layout/space.dart';
 import '../primitives/art_picture.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/paper_card.dart';
-import '../primitives/tag_chip.dart';
+import '../copy/role_text.dart';
+import '../primitives/role_sheet_body.dart' show RoleHead;
 import '../skin/dress.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
@@ -245,25 +246,18 @@ class _Words extends StatelessWidget {
         spacing: compact ? Space.xs : Space.sm,
         children: [
           if (page.name != null || page.tag != null)
-            Row(
-              spacing: Space.md,
-              children: [
-                Expanded(
-                  child: page.name == null
-                      ? const SizedBox.shrink()
-                      : Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: FitLine(
-                            page.name!,
-                            style: name.copyWith(color: ink),
-                          ),
-                        ),
-                ),
-                if (page.tag case final tag?) TagChip(tag),
-              ],
+            RoleHead(
+              name: page.name,
+              tag: page.tag,
+              team: page.team,
+              style: name.copyWith(color: ink),
             ),
           for (final line in page.lines)
-            _Balanced(line, style: body.copyWith(color: ink)),
+            _Balanced(
+              line,
+              style: body.copyWith(color: ink),
+              strong: type.bodyStrong,
+            ),
           for (final other in more) _PageRow(other),
         ],
       ),
@@ -334,10 +328,11 @@ class _PageRow extends StatelessWidget {
 /// as it can be in the same number of lines (CSS's `text-wrap: balance`),
 /// which brings a word or two down to keep it company.
 class _Balanced extends StatelessWidget {
-  const _Balanced(this.text, {required this.style});
+  const _Balanced(this.text, {required this.style, required this.strong});
 
   final String text;
   final TextStyle style;
+  final TextStyle strong;
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +340,7 @@ class _Balanced extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final painter = TextPainter(
-          text: TextSpan(text: text, style: style),
+          text: RoleText.lineSpan(text, style, strong),
           textScaler: scaler,
           textDirection: Directionality.of(context),
         );
@@ -361,7 +356,7 @@ class _Balanced extends StatelessWidget {
             width: width == null
                 ? null
                 : math.min(constraints.maxWidth, width + 0.5),
-            child: Text(text, style: style),
+            child: Text.rich(RoleText.lineSpan(text, style, strong)),
           ),
         );
       },

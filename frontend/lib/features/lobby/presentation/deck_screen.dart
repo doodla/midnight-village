@@ -726,10 +726,9 @@ Future<void> showRoleSheet(BuildContext context, RoleId role) =>
         actions: [
           const Spacer(),
           // Quiet: the screen under the sheet keeps the one amber.
-          PrimaryButton.quiet(
+          SheetClose(
             label: RoleSheetCopy.close,
             onPressed: () => Navigator.of(sheet).pop(),
-            size: ButtonSize.compact,
           ),
         ],
         child: RoleSheetBody(role),

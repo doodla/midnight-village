@@ -15,6 +15,8 @@ import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
 import '../primitives/paper_banner.dart';
 import '../primitives/paper_card.dart';
+import '../primitives/paper_piece.dart';
+import '../skin/dress_style.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
 import '../primitives/text_backing.dart';
@@ -538,13 +540,18 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   /// A label on the board: a caption line in full ink, like the captions
   /// under the cards.
-  Widget _label(String text) => TextBacking(
-    child: FitWords(
-      text,
-      textAlign: TextAlign.center,
-      maxLines: 1,
-      style: context.skin.typography.caption.copyWith(
-        color: context.ground.text,
+  Widget _label(String text) => Builder(
+    // Read the ground where the label is drawn (the screen's own scope), for
+    // the ink of its plate.
+    builder: (context) => TextBacking(
+      id: text,
+      child: FitWords(
+        text,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        style: context.skin.typography.caption.copyWith(
+          color: TextBacking.inkOf(context),
+        ),
       ),
     ),
   );
@@ -552,6 +559,8 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   /// The Seer's thin rule with "or" on it, between her seats and the table's
   /// cards.
   Widget _rule() {
+    // Dressed up the word stands alone on its tag: no line either side.
+    if (context.dress.isPaper) return Center(child: _label(NightCopy.seerOr));
     final line = Expanded(
       child: Container(height: 1, color: context.ground.hairline),
     );
@@ -588,11 +597,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           spacing: BoardLayout.placeGap,
           children: [
             _you(me, layout, wave, padding),
-            Container(
+            _strip(
               // No padding under the cards: their cells reach into it
               // (`tapExtra`), so a tap is a thumb's height on a small card.
               padding: padding.copyWith(bottom: 0),
-              decoration: BoxDecoration(
+              plain: BoxDecoration(
                 // Dressed up the village shows through the strip of centre
                 // cards.
                 color: context.dress.isPaper
@@ -635,6 +644,20 @@ class _NightBoardState extends ConsumerState<NightBoard> {
       ),
     );
   }
+
+  /// The strip of the table the centre cards lie on: plain, a panel colour;
+  /// dressed up, a panel of paper (a [PaperPiece]) with its shadow.
+  Widget _strip({
+    required EdgeInsets padding,
+    required BoxDecoration plain,
+    required Widget child,
+  }) => context.dress.isPaper
+      ? PaperPiece(
+          part: PaperPart.panel,
+          id: #strip,
+          child: Padding(padding: padding, child: child),
+        )
+      : Container(padding: padding, decoration: plain, child: child);
 
   /// A card that cannot join the pick being made sits dimmed (a sleeper's
   /// board has no pick to make: nothing dims).
@@ -719,6 +742,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                   tapExtra: BoardLayout.bandPadding,
                   owner: seat.token,
                   ownerName: NightCopy.you,
+                  youName: true,
                   selected: _picks.contains(const SelfPick()),
                   semanticLabel: NightCopy.you,
                   // Said after "You": which card it is.

@@ -310,11 +310,15 @@ void main() {
       final straight = drop.boxShadowsLeaning(0);
       final left = drop.boxShadowsLeaning(-0.5);
       expect(left.first.offset.dx, lessThan(straight.first.offset.dx));
-      // An edge, the paper's thickness, never leans.
+      // An edge, the paper's thickness, leans with the one light too.
       const edge = Elevation([
         HardShadow.edge(Offset(0, 5), Color(0xFF000000)),
       ]);
-      expect(edge.boxShadowsLeaning(-0.5).single.offset, const Offset(0, 5));
+      expect(edge.boxShadowsLeaning(-0.5).single.offset, const Offset(-2.5, 5));
+      // And no layer is wider than its paper: moved copies, never a spread.
+      for (final s in left) {
+        expect(s.spreadRadius, lessThanOrEqualTo(0));
+      }
     });
 
     test('a plain layer is the hard copy of today', () {

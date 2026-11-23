@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'card_back.dart';
 import 'card_back_scope.dart';
+import '../primitives/paper_light.dart';
 import 'dress.dart';
 import 'ground.dart';
 import 'ground_scope.dart';
@@ -24,6 +25,7 @@ class GameScopes {
     required this.dress,
     required this.cardBack,
     required this.werewolf,
+    this.lean = 0,
   });
 
   /// Reads every scope at [context] (the place the route is opened from).
@@ -32,6 +34,7 @@ class GameScopes {
     dress: DressScope.of(context),
     cardBack: CardBackScope.of(context),
     werewolf: WerewolfPortraitScope.of(context),
+    lean: PaperLight.of(context),
   );
 
   final GroundKind ground;
@@ -39,14 +42,21 @@ class GameScopes {
   final CardBack cardBack;
   final WerewolfPortrait werewolf;
 
+  /// Which way the screen's one light makes paper's shadow lean: a sheet
+  /// opened from a screen is lit from the same place.
+  final double lean;
+
   /// [child] under the same scopes.
   Widget wrap(Widget child) => DressScope(
     dress: dress,
-    child: CardBackScope(
-      back: cardBack,
-      child: WerewolfPortraitScope(
-        portrait: werewolf,
-        child: GroundScope(ground: ground, child: child),
+    child: PaperLight(
+      lean: lean,
+      child: CardBackScope(
+        back: cardBack,
+        child: WerewolfPortraitScope(
+          portrait: werewolf,
+          child: GroundScope(ground: ground, child: child),
+        ),
       ),
     ),
   );
