@@ -16,6 +16,7 @@ import '../../../../design_system/skin/card_back_scope.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
 import '../../../../design_system/skin/skin.dart';
+import '../../../../design_system/skin/werewolf_portrait.dart';
 import '../../../lobby/presentation/at_table_screen.dart';
 import '../../../lobby/presentation/deck_screen.dart';
 import '../../../lobby/presentation/join_flow.dart';
@@ -107,6 +108,13 @@ class _TableShellState extends ConsumerState<TableShell>
   void _warmBack(String gameId) {
     if (_backWarmFor == gameId) return;
     _backWarmFor = gameId;
+    final wolf = ref.read(gameWerewolfPortraitProvider(gameId));
+    if (wolf != WerewolfPortrait.fallback) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(precacheWerewolf(context, wolf));
+      });
+    }
     final back = ref.read(gameCardBackProvider(gameId));
     if (back == CardBack.fallback) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -207,7 +215,12 @@ class _TableShellState extends ConsumerState<TableShell>
               back: gameId == null
                   ? null
                   : ref.watch(gameCardBackProvider(gameId)),
-              child: screen,
+              child: WerewolfPortraitScope(
+                portrait: gameId == null
+                    ? null
+                    : ref.watch(gameWerewolfPortraitProvider(gameId)),
+                child: screen,
+              ),
             ),
           ),
         ),
