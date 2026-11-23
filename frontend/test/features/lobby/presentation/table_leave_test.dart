@@ -19,7 +19,7 @@ import '../../../helpers/table_setup.dart';
 Future<void> _tap(WidgetTester tester, TableSetup setup, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  await pressLikeAFinger(tester, what);
+  await pressLostToday(tester, what, why: lostPastTheSink);
   await setup.settle(tester);
 }
 

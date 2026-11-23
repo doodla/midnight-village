@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 
 import 'finger.dart';
+import 'name_pieces.dart';
 import 'truncated_text.dart';
 
 // The screen sweep: what every screen state in the gallery's catalogue
@@ -10,14 +13,18 @@ import 'truncated_text.dart';
 // The state is pumped once, then the phone is turned through three sizes and
 // three text sizes on the same tree, as a player's settings would, and each
 // time it is measured from the real render boxes as painted (a turned card by
-// its turned corners). Rules, never pictures or numbers of a screen:
-// - nothing overflows or throws, and no text is drawn cut (a name is whole);
-// - the main action, if the screen shows one, is on the screen, not under
-//   another piece, labelled for a screen reader, 48 to touch, and a finger's
-//   press reaches it (down, a frame, up: `pressLikeAFinger`);
+// its turned corners). Rules, never pictures or numbers of a screen. Writing
+// nothing gets all of them:
+// - nothing overflows or throws, and no text is drawn cut;
+// - every player's name is whole and no piece of the kit lies on its words
+//   (name_pieces.dart: the pieces and names come from the kit, not a list);
+// - the screen's main action (its amber button) is there, on the screen
+//   without scrolling, not under another piece, labelled for a screen reader,
+//   48 to touch, and a finger's press reaches it (`pressLikeAFinger`). A state
+//   with no main action (a wait, a lock) says so, with why: the one opt-out;
+// - the phone's text size takes effect in the tree;
 // - what the state says must be seen is drawn and on the screen; the pieces
-//   it says lie apart do not lie on each other;
-// - the state's own rules hold (a relation, e.g. the hanged are in view).
+//   it says lie apart do not lie on each other; its own rules hold.
 
 /// Phones: a small one, a tall narrow one, the mocks' one.
 const sweepSizes = [Size(360, 640), Size(360, 780), Size(390, 844)];
@@ -31,14 +38,18 @@ typedef ScreenRule = List<String> Function(WidgetTester tester, Size screen);
 
 /// What a screen state's main action is.
 class MainAction {
-  /// The screen's main action is its amber button: whatever acting
-  /// [PrimaryButton] it shows is held to the rules (none is fine).
-  const MainAction.ifShown() : required = false;
+  /// The state shows its main action, an acting [PrimaryButton], held to
+  /// every rule. What every state is unless it says otherwise.
+  const MainAction.button() : why = null;
 
-  /// The state must show an acting [PrimaryButton]: its main action.
-  const MainAction.button() : required = true;
+  /// The state has no main action, and [why] (a wait for the others, a
+  /// lock): the one opt-out. A main button it does show is still held to
+  /// the rules.
+  const MainAction.none(String this.why);
 
-  final bool required;
+  final String? why;
+
+  bool get required => why == null;
 }
 
 /// Pieces that must not lie on each other: every piece [a] finds apart from
@@ -90,10 +101,7 @@ List<Rect> paintedRects(Finder finder) =>
     finder.evaluate().map(paintedRect).toList();
 
 /// Two boxes lie on each other by more than a hair.
-bool liesOn(Rect a, Rect b) {
-  final i = a.intersect(b);
-  return i.width > 1 && i.height > 1;
-}
+bool liesOn(Rect a, Rect b) => liesOnRect(a, b);
 
 /// [r] is on the [screen], to half a pixel.
 bool onScreen(Rect r, Size screen) {
@@ -113,21 +121,20 @@ List<String> apartProblems(Apart apart) {
   ];
 }
 
-/// The acting main buttons on screen: in the front route (a button under an
-/// open sheet is not the screen's main action while the sheet is up), and
-/// acting (a waiting or done one does not).
-List<Element> actingMainButtons() => [
-  for (final e in find.byType(PrimaryButton).evaluate())
-    if (_acts(e.widget as PrimaryButton) &&
-        (ModalRoute.of(e)?.isCurrent ?? true))
-      e,
-];
-
-bool _acts(PrimaryButton b) => switch (b.phase) {
-  ButtonPhase.ready => !b.busy,
-  ButtonPhase.quiet || ButtonPhase.on || ButtonPhase.locked => true,
-  ButtonPhase.waiting || ButtonPhase.done => false,
-};
+/// The screen's main action, acting, in the front route (a button under an
+/// open sheet is not the screen's main action while the sheet is up): its
+/// amber [PrimaryButton]; on a screen the kit gives none (01's Join and
+/// Start), its [SecondaryButton]s. A waiting or done button does not act; a
+/// button a lazy list never built is not here: a state that needs one fails.
+List<Element> actingMainButtons() {
+  bool front(Element e) => ModalRoute.of(e)?.isCurrent ?? true;
+  List<Element> acting(Type type) => [
+    for (final e in find.byType(type).evaluate())
+      if (isAction(e.widget) && front(e)) e,
+  ];
+  final amber = find.byType(PrimaryButton).evaluate().where(front);
+  return amber.isNotEmpty ? acting(PrimaryButton) : acting(SecondaryButton);
+}
 
 /// A finger at the centre of [element] reaches it: nothing lies over it.
 bool reachable(WidgetTester tester, Element element) {
@@ -146,20 +153,36 @@ bool reachable(WidgetTester tester, Element element) {
   return false;
 }
 
-/// What a screen state declares about itself, for the sweep.
+/// What a finger at the centre of [element] reaches instead: the widgets
+/// that made the front render objects under it.
+String _onTop(WidgetTester tester, Element element) {
+  final box = element.renderObject! as RenderBox;
+  final centre = box.localToGlobal(box.size.center(Offset.zero));
+  final names = [
+    for (final hit in tester.hitTestOnBinding(centre).path.take(3))
+      if (hit.target case final RenderObject o)
+        if (o.debugCreator case final DebugCreator c)
+          c.element.widget.runtimeType,
+  ];
+  return names.isEmpty
+      ? 'nothing takes the finger'
+      : 'a finger reaches '
+            '${names.join(' in ')}';
+}
+
+/// What a screen state declares about itself, for the sweep: only what is
+/// its own. The default is every rule, with a main action.
 class SweepPlan {
   const SweepPlan({
-    this.main = const MainAction.ifShown(),
+    this.main = const MainAction.button(),
     this.mustSee = const [],
     this.apart = const [],
     this.rules = const [],
-    this.opensAtEachSize = false,
+    this.whenOpened = const [],
   });
 
-  /// The state is opened afresh at each phone and text size, for rules about
-  /// how it opens (the end board shows the hanged when it opens); otherwise
-  /// one tree is pumped and the phone turned under it, as a player would.
-  final bool opensAtEachSize;
+  /// A state with no main action, saying [why]: every other rule holds.
+  SweepPlan.noMainAction(String why) : this(main: MainAction.none(why));
 
   final MainAction main;
 
@@ -168,19 +191,36 @@ class SweepPlan {
   final List<Finder> mustSee;
   final List<Apart> apart;
   final List<ScreenRule> rules;
+
+  /// Rules about how the state opens (the end board opens with the hanged
+  /// in view): checked once, on the mocks' phone as it opened, before the
+  /// phone is turned (a turned phone does not open the screen again).
+  final List<ScreenRule> whenOpened;
 }
 
 /// What is wrong at one size and text size, one line each.
 List<String> checkDrawn(WidgetTester tester, SweepPlan plan, Size screen) {
   final problems = [for (final cut in truncatedText(tester)) 'cut short: $cut'];
+  problems.addAll(nameProblems(tester, screen));
   final buttons = actingMainButtons();
   if (plan.main.required && buttons.isEmpty) {
-    problems.add('no main button acts, and the state says it shows one');
+    final shown = [
+      for (final e in find.byType(PrimaryButton).evaluate())
+        if (e.widget case final PrimaryButton b)
+          '"${b.label}" ${b.phase.name}${b.busy ? ' busy' : ''}'
+              '${ModalRoute.of(e)?.isCurrent ?? true ? '' : ' under a sheet'}',
+    ];
+    problems.add(
+      'no main button acts (${shown.isEmpty ? 'none built' : shown.join(', ')}'
+      '): a state with no main action says why (SweepPlan.noMainAction)',
+    );
   }
   for (final e in buttons) {
     final r = paintedRect(e);
     if (!onScreen(r, screen)) problems.add('main button off the screen: $r');
-    if (!reachable(tester, e)) problems.add('main button under a piece: $r');
+    if (!reachable(tester, e)) {
+      problems.add('main button under a piece (${_onTop(tester, e)}): $r');
+    }
   }
   for (final finder in plan.mustSee) {
     final found = finder.evaluate().toList();
@@ -202,6 +242,22 @@ List<String> checkDrawn(WidgetTester tester, SweepPlan plan, Size screen) {
     problems.addAll(rule(tester, screen));
   }
   return problems;
+}
+
+/// The largest text size any visible text is drawn at (its scaler on one
+/// point), or null when there is none.
+double? drawnTextScale() {
+  double? most;
+  for (final e in find.byType(RichText).evaluate()) {
+    final p = e.renderObject;
+    if (p is! RenderParagraph || !p.hasSize || p.size.isEmpty) continue;
+    if (p.text.toPlainText().trim().isEmpty || isUnseen(e, p)) continue;
+    // An icon is a glyph, not words: it keeps its size.
+    if (e.findAncestorWidgetOfExactType<Icon>() != null) continue;
+    final s = p.textScaler.scale(1);
+    if (most == null || s > most) most = s;
+  }
+  return most;
 }
 
 /// Sweeps the state [build] pumps through every phone in [sweepSizes] and
@@ -228,18 +284,16 @@ Future<List<String>> sweepScreen(
     for (var i = 0; i < settleFrames; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+    for (final rule in plan.whenOpened) {
+      problems.addAll([
+        for (final p in rule(tester, sweepSizes.last)) 'as it opens: $p',
+      ]);
+    }
+    double? asSet;
     for (final scale in sweepScales) {
       for (final size in sweepSizes) {
         tester.view.physicalSize = size;
         tester.platformDispatcher.textScaleFactorTestValue = scale;
-        if (plan.opensAtEachSize) {
-          await tester.pumpWidget(const SizedBox.shrink());
-          await build(tester);
-          tester.view.physicalSize = size;
-          for (var i = 0; i < settleFrames; i++) {
-            await tester.pump(const Duration(milliseconds: 100));
-          }
-        }
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         final at = '${size.width.toInt()}x${size.height.toInt()} text x$scale';
@@ -248,6 +302,19 @@ Future<List<String>> sweepScreen(
           for (final p in checkDrawn(tester, plan, size)) '$at: $p',
         ]);
         errors.clear();
+      }
+      // The phone's text size reached the tree: a helper with its own
+      // fixed text size would sweep only one.
+      final drawn = drawnTextScale();
+      if (scale == sweepScales.first) {
+        asSet = drawn;
+      } else if (asSet != null &&
+          drawn != null &&
+          drawn < asSet * scale - 0.01) {
+        problems.add(
+          'text x$scale did not take: the largest text is drawn at x$drawn '
+          '(x$asSet at the phone\'s own size)',
+        );
       }
     }
     // The mocks' phone at the phone's own text size: the main action for a
@@ -280,24 +347,17 @@ Future<List<String>> _mainActionProblems(WidgetTester tester) async {
   if (size.height < 48 || size.width < 48) {
     problems.add('the main button is $size, under 48 to touch');
   }
-  final pressed = <PrimaryButton>[];
-  final rule = PrimaryButton.debugOnAct;
-  // The press is held at the button: what it sets off (a request, the next
-  // screen) is the screen's own tests' business; the sweep asks only that a
-  // finger reaches it.
-  PrimaryButton.debugOnAct = (button) {
-    rule?.call(button);
-    pressed.add(button);
-    return false;
-  };
-  try {
-    await pressLikeAFinger(tester, finder);
-  } finally {
-    PrimaryButton.debugOnAct = rule;
-  }
-  if (pressed.isEmpty) {
+  // The finger is taken away, not lifted: what the press sets off (a request,
+  // the next screen) is the screen's own tests' business; the sweep asks only
+  // that the lift would reach what the finger went down on.
+  final touch = await pressAtLikeAFinger(
+    tester,
+    tester.getCenter(finder),
+    lift: false,
+  );
+  if (touch == null || !identical(touch.action, button) || !touch.holds) {
     problems.add(
-      'a finger\'s press (down, a frame, up) did not reach the main button: '
+      'a finger\'s press (down, frames, up) did not reach the main button: '
       'a tap the button loses on a real phone',
     );
   }

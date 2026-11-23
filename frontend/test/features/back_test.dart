@@ -410,7 +410,11 @@ void main() {
           '/me/table/',
           ContractSamples.map('http/lobby/my_table_none'),
         );
-        await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
+        await pressLostToday(
+          tester,
+          find.text(CommonCopy.leave).last,
+          why: lostPastTheSink,
+        );
         // Frame by frame, until 01 is the screen.
         for (var i = 0; i < 40 && _screen(tester) != AppScreen.join; i++) {
           await tester.pump(const Duration(milliseconds: 16));
@@ -452,7 +456,11 @@ void main() {
             '/me/table/',
             ContractSamples.map('http/lobby/my_table_none'),
           );
-        await pressLikeAFinger(tester, find.text(CommonCopy.leave));
+        await pressLostToday(
+          tester,
+          find.text(CommonCopy.leave),
+          why: lostPastTheSink,
+        );
         await tester.pump();
         expect(find.text(TableCopy.stay), findsNothing);
         await _settled(tester);
@@ -515,7 +523,11 @@ void main() {
           method: 'POST',
           path: '/lobbies/V9YC2J/leave/',
         );
-        await pressLikeAFinger(tester, find.text(CommonCopy.leave));
+        await pressLostToday(
+          tester,
+          find.text(CommonCopy.leave),
+          why: lostPastTheSink,
+        );
         await _until(tester, () => leave.length == 1);
         await _press(tester);
         await tester.pump(const Duration(milliseconds: 300));

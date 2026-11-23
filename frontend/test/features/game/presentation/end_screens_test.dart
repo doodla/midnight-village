@@ -581,7 +581,11 @@ void main() {
       s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
       s.answerTable(waiting(s, host: true));
       final from = s.http.requests.length;
-      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+      await pressLostToday(
+        tester,
+        find.text(ResultsCopy.playAgain),
+        why: lostPastTheSink,
+      );
       // Frames only, no time passing (the table's slow poll never comes due).
       for (
         var i = 0;
@@ -630,7 +634,11 @@ void main() {
       await _seeWhoWon(tester, s);
       s.http.answer('POST', '/lobbies/${code(s)}/play-again/', s.playedAgain());
       s.answerTable(waiting(s, host: true));
-      await pressLikeAFinger(tester, find.text(ResultsCopy.editDeck));
+      await pressLostToday(
+        tester,
+        find.text(ResultsCopy.editDeck),
+        why: lostPastTheSink,
+      );
       await s.settle(tester);
       expect(_screen(tester, s), AppScreen.deck);
       await s.close(tester);
@@ -642,7 +650,11 @@ void main() {
       await _seeWhoWon(tester, s);
       final path = '/lobbies/${code(s)}/play-again/';
       s.http.answer('POST', path, 'Server Error', status: 503);
-      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+      await pressLostToday(
+        tester,
+        find.text(ResultsCopy.playAgain),
+        why: lostPastTheSink,
+      );
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(find.byType(ResultsView), findsOneWidget);
@@ -681,7 +693,7 @@ void main() {
         s
           ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
           ..answerHome();
-        await pressLikeAFinger(tester, find.text(tap));
+        await pressLostToday(tester, find.text(tap), why: lostPastTheSink);
         await s.settle(tester);
         expect(_screen(tester, s), AppScreen.join);
         expect(find.text(BannerCopy.tableClosed), findsOneWidget);
@@ -727,7 +739,11 @@ void main() {
       s
         ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
         ..answerHome();
-      await pressLikeAFinger(tester, find.text(CommonCopy.leave));
+      await pressLostToday(
+        tester,
+        find.text(CommonCopy.leave),
+        why: lostPastTheSink,
+      );
       await s.settle(tester);
       expect(_screen(tester, s), AppScreen.join);
       await s.close(tester);

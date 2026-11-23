@@ -60,15 +60,18 @@ class ScreenEntry {
 
   /// What the screen sweep (test/screen_cases/) holds this state to beyond
   /// the rules every state keeps (nothing cut, overflowing or off the screen;
-  /// the main action reachable, labelled, 48 to touch and pressed by a
-  /// finger): what must be seen, what lies apart, the state's own rules.
+  /// every name whole and uncovered; the main action there, on the screen,
+  /// reachable, labelled, 48 to touch and pressed by a finger): what must be
+  /// seen, what lies apart, the state's own rules. A state with no main
+  /// action says why here (`SweepPlan.noMainAction`).
   /// Declared here, once, beside the state: the page, the sweep and the
   /// finger's press all come from this entry.
   final SweepPlan sweep;
 
   /// The phone's text size this page is drawn at (the gallery sets it on the
-  /// phone, so [build] draws at its own size; the sweep turns it through all
-  /// of `sweepScales` anyway).
+  /// phone). A page at another size than the phone's own is the twin of the
+  /// state at 1, which the sweep turns through every text size already: it
+  /// is drawn, not swept again.
   final double textScale;
 }
 
@@ -78,10 +81,10 @@ final screenCatalogue = <ScreenEntry>[
   // 01 to 03b through the app's routes (table_fixtures.dart).
   // Home before 01: the saved account read back (then a try unanswered).
   ..._rebuilt('01-home-reading-account', null, {
-    '': pumpHomeReading,
-    '-unanswered': pumpHomeUnanswered,
-    '-slow': pumpHomeSlow,
-    '-seat-unknown': pumpHomeSeatUnknown,
+    '': const _NoMain(_opening, pumpHomeReading),
+    '-unanswered': const _NoMain(_opening, pumpHomeUnanswered),
+    '-slow': const _NoMain(_opening, pumpHomeSlow),
+    '-seat-unknown': const _NoMain(_opening, pumpHomeSeatUnknown),
   }),
   // The opening in its first frame (no sign yet: an answer that comes now
   // shows none).
@@ -91,11 +94,12 @@ final screenCatalogue = <ScreenEntry>[
     build: pumpHomeFirstFrame,
     playerScreen: true,
     frames: 1,
+    sweep: SweepPlan.noMainAction(_opening),
   ),
   // What 01's taps look like while they are on their way and when they fail.
   ..._rebuilt('01-join', null, {
-    '-starting': pumpJoinStarting,
-    '-joining': pumpJoinJoining,
+    '-starting': const _NoMain(_onItsWay, pumpJoinStarting),
+    '-joining': const _NoMain(_onItsWay, pumpJoinJoining),
     '-join-not-sent': pumpJoinNotSent,
     '-start-not-sent': pumpStartNotSent,
     '-no-table': pumpJoinRefused,
@@ -116,16 +120,19 @@ final screenCatalogue = <ScreenEntry>[
     '-android-web': pumpJoinAndroidWeb,
     '-android-web-fresh': pumpJoinAndroidWebFresh,
     '-android-web-keyboard': pumpJoinAndroidWebKeyboard,
-    '-android-web-x2': (tester) => pumpJoinAndroidWeb(tester, textScale: 2),
-    '-x1.3': (tester) => pumpJoinFresh(tester, textScale: 1.3),
-    '-x2': (tester) => pumpJoinFresh(tester, textScale: 2),
+    '-android-web-x2': const _AtText(2.0, pumpJoinAndroidWeb),
+    '-x1.3': const _AtText(1.3, pumpJoinFresh),
+    '-x2': const _AtText(2.0, pumpJoinFresh),
   }),
   // The scanner 01 opens (no mock: its pictures are the build's own).
   ..._rebuilt('01b-scan', null, {
-    '': pumpScanLooking,
-    '-found': pumpScanFound,
+    '': const _NoMain(
+      'the scanner looks for a code: nothing to press',
+      pumpScanLooking,
+    ),
+    '-found': const _NoMain('a code is found: the table opens', pumpScanFound),
     '-refused': pumpScanRefused,
-    '-x1.3': (tester) => pumpScanLooking(tester, textScale: 1.3),
+    '-x1.3': const _AtText(1.3, pumpScanLooking),
   }),
   ..._rebuilt('02-table', '02-table.png', {
     '': pumpTableHost,
@@ -133,42 +140,48 @@ final screenCatalogue = <ScreenEntry>[
     '-7-chaos': pumpTableHostChaos,
     '-alone': pumpTableHostAlone,
     '-9-long': pumpTableHostNine,
-    '-9-long-x1.6': (tester) => pumpTableHostNine(tester, textScale: 1.6),
+    '-9-long-x1.6': const _AtText(1.6, pumpTableHostNine),
     '-custom': pumpTableHostCustom,
     '-custom-short': pumpTableHostMismatch,
     '-dropped': pumpTableDropped,
-    '-guest': pumpTableGuest,
+    '-guest': const _NoMain(_guest, pumpTableGuest),
     '-handover': pumpTableHandover,
     '-seats-alone': pumpTableSeatsAlone,
     '-seats-3': pumpTableSeatsThree,
-    '-seats-3-guest': (tester) => pumpTableSeatsThree(tester, viewer: 'Ugo'),
+    '-seats-3-guest': _NoMain(
+      _guest,
+      (tester) => pumpTableSeatsThree(tester, viewer: 'Ugo'),
+    ),
     '-seats-4': pumpTableSeatsFour,
-    '-seats-4-guest': pumpTableSeatsGuest,
+    '-seats-4-guest': const _NoMain(_guest, pumpTableSeatsGuest),
     '-seats-7': pumpTableSeatsSeven,
     '-seats-lowered': pumpTableSeatsLowered,
     '-blocked': pumpTableLowered,
-    '-blocked-guest': pumpTableLoweredGuest,
+    '-blocked-guest': const _NoMain(_guest, pumpTableLoweredGuest),
     '-seats-full': pumpTableSeatsFull,
     '-practice': pumpTablePractice,
-    '-practice-guest': (tester) => pumpTablePractice(tester, viewer: 'Quin'),
+    '-practice-guest': _NoMain(
+      _guest,
+      (tester) => pumpTablePractice(tester, viewer: 'Quin'),
+    ),
     '-practice-short': pumpTablePracticeShort,
-    '-seats-x1.3': (tester) => pumpTableSeatsAlone(tester, textScale: 1.3),
-    '-x1.3': (tester) => pumpTableHost(tester, textScale: 1.3),
-    '-guest-x2': (tester) => pumpTableGuest(tester, textScale: 2),
+    '-seats-x1.3': const _AtText(1.3, pumpTableSeatsAlone),
+    '-x1.3': const _AtText(1.3, pumpTableHost),
+    '-guest-x2': const _AtText(2.0, pumpTableGuest),
   }),
   // 02 while its table is read, and while it is not reachable; its taps
   // while they are on their way and when they fail.
   ..._rebuilt('02-table', null, {
-    '-waiting': pumpTableWaiting,
-    '-offline': pumpTableOffline,
-    '-dealing': pumpTableDealing,
+    '-waiting': const _NoMain(_waits, pumpTableWaiting),
+    '-offline': const _NoMain(_waits, pumpTableOffline),
+    '-dealing': const _NoMain(_onItsWay, pumpTableDealing),
     '-deal-not-sent': pumpTableDealNotSent,
-    '-leaving': pumpTableLeaving,
-    '-leave-not-sent': pumpTableLeaveNotSent,
+    '-leaving': const _NoMain(_onItsWay, pumpTableLeaving),
+    '-leave-not-sent': const _NoMain(_guest, pumpTableLeaveNotSent),
   }),
   ..._rebuilt('03-deck', null, {
-    '-waiting': pumpDeckWaiting,
-    '-offline': pumpDeckOffline,
+    '-waiting': const _NoMain(_waits, pumpDeckWaiting),
+    '-offline': const _NoMain(_waits, pumpDeckOffline),
   }),
   ..._rebuilt('03-deck', '03-deck.png', {
     '': pumpDeckChips,
@@ -183,13 +196,13 @@ final screenCatalogue = <ScreenEntry>[
     '-lengths-doppelganger': pumpDeckLengthsDoppelganger,
     '-practice': pumpDeckPractice,
     '-practice-switched': pumpDeckPracticeSwitched,
-    '-x1.3': (tester) => pumpDeckAlone(tester, textScale: 1.3),
+    '-x1.3': const _AtText(1.3, pumpDeckAlone),
   }),
   ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
-    '': pumpDeckRole,
+    '': const _NoMain(_sheet, pumpDeckRole),
     // The Werewolf's card sheet with no game (the lunge), as a player sees it
     // before a table is dealt.
-    '-werewolf-no-game': pumpDeckRoleWerewolf,
+    '-werewolf-no-game': const _NoMain(_sheet, pumpDeckRoleWerewolf),
   }),
   // The Werewolf in a game, each of its three portraits (the gallery pins one
   // for every other picture, so a missing or wrong one would hide behind it).
@@ -205,39 +218,44 @@ final screenCatalogue = <ScreenEntry>[
     '': pumpYourCard,
     '-held': pumpYourCardHeld,
     '-held-minion': pumpYourCardHeldMinion,
-    '-ready': pumpYourCardReady,
-    '-x1.3': (tester) => pumpYourCard(tester, textScale: 1.3),
+    '-ready': const _NoMain(_done, pumpYourCardReady),
+    '-x1.3': const _AtText(1.3, pumpYourCard),
   }),
   ..._rebuilt('04-your-card', null, {
-    '-waiting': pumpYourCardWaiting,
-    '-wait-failing': pumpYourCardWaitFailing,
-    '-not-sent': pumpYourCardNotSent,
+    '-waiting': const _NoMain(_waits, pumpYourCardWaiting),
+    '-wait-failing': const _NoMain(_waits, pumpYourCardWaitFailing),
+    '-not-sent': const _NoMain(_done, pumpYourCardNotSent),
   }),
   ..._rebuilt('05-night-loading', '05-night-waiting.png', {
-    '': pumpNightLoading,
+    '': const _NoMain(_waits, pumpNightLoading),
   }),
   ..._rebuilt('06-night-board', null, {'-offline': pumpNightOffline}),
   ..._rebuilt('08-talk', null, {
-    '-waiting': pumpTalkWaiting,
-    '-wait-failing': pumpTalkWaitFailing,
+    '-waiting': const _NoMain(_waits, pumpTalkWaiting),
+    '-wait-failing': const _NoMain(_waits, pumpTalkWaitFailing),
     '-offline': pumpTalkOffline,
   }),
   ..._rebuilt('09-vote', null, {
-    '-waiting': pumpVoteWaiting,
+    '-waiting': const _NoMain(_waits, pumpVoteWaiting),
     '-not-sent': pumpVoteNotSent,
-    '-offline': pumpVoteOffline,
+    '-offline': const _NoMain(_waits, pumpVoteOffline),
   }),
-  ..._rebuilt('10-count', null, {'-loading': pumpCountLoading}),
+  ..._rebuilt('10-count', null, {
+    '-loading': const _NoMain(_waits, pumpCountLoading),
+  }),
   ..._rebuilt('11-results', null, {
-    '-loading': pumpResultsLoading,
-    '-playing-again': pumpResultsPlayingAgain,
-    '-leaving': pumpResultsLeaving,
+    '-loading': const _NoMain(_waits, pumpResultsLoading),
+    '-playing-again': const _NoMain(_onItsWay, pumpResultsPlayingAgain),
+    '-leaving': const _NoMain(_onItsWay, pumpResultsLeaving),
     '-not-sent': pumpResultsNotSent,
     '-refused': pumpResultsRefused,
   }),
   ..._rebuilt('06-night-board', '06-night-action.png', {
     '': pumpNightBoard,
-    '-sleeper': pumpNightSleeper,
+    '-sleeper': const _NoMain(
+      'nothing to do tonight: the board waits for the day',
+      pumpNightSleeper,
+    ),
     '-picked': pumpNightPicked,
     '-seer-center': pumpNightSeerCenter,
     '-robber': (tester) => pumpNightAs(tester, 'me_choose_prompt_robber'),
@@ -248,19 +266,19 @@ final screenCatalogue = <ScreenEntry>[
         pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
     '-doppelganger': (tester) =>
         pumpNightAs(tester, 'me_choose_prompt_doppelganger_look'),
-    '-chosen': pumpNightChosen,
+    '-chosen': const _NoMain(_done, pumpNightChosen),
     '-follow-up': pumpNightFollowUp,
     '-3': pumpNightThree,
     '-4': pumpNightFour,
     '-9': pumpNightNine,
     '-10-long': pumpNightTenLong,
-    '-10-long-x1.6': (tester) => pumpNightTenLong(tester, textScale: 1.6),
-    '-x1.3': (tester) => pumpNightBoard(tester, textScale: 1.3),
+    '-10-long-x1.6': const _AtText(1.6, pumpNightTenLong),
+    '-x1.3': const _AtText(1.3, pumpNightBoard),
   }),
   ..._rebuilt('08-talk', '08-talk.png', {
     '': pumpTalkOpen,
     '-open-drunk': pumpTalkOpenDrunk,
-    '-open-x1.3': (tester) => pumpTalkOpen(tester, textScale: 1.3),
+    '-open-x1.3': const _AtText(1.3, pumpTalkOpen),
     '-put-away': pumpTalkPutAway,
     '-slept': pumpTalkSlept,
     '-held': pumpTalkHeld,
@@ -270,7 +288,7 @@ final screenCatalogue = <ScreenEntry>[
     '-3': pumpTalkThree,
     '-9': pumpTalkNine,
     '-10-long': pumpTalkTenLong,
-    '-x1.3': (tester) => pumpTalkPutAway(tester, textScale: 1.3),
+    '-x1.3': const _AtText(1.3, pumpTalkPutAway),
   }),
   // My night held, every night's picture story (recorded, else edited off
   // the contract: story_samples.dart).
@@ -279,16 +297,16 @@ final screenCatalogue = <ScreenEntry>[
       '-held-$night': (tester) => pumpTalkStory(tester, night),
   }),
   ..._rebuilt('09-vote', '09-vote.png', {
-    '': pumpVoteOpen,
+    '': const _NoMain(_pickAName, pumpVoteOpen),
     '-picked': pumpVotePicked,
-    '-locked': pumpVoteLocked,
+    '-locked': const _NoMain(_done, pumpVoteLocked),
     '-restart-picked': pumpVoteRestartPicked,
-    '-restart-locked': pumpVoteRestartLocked,
-    '-3': pumpVoteThree,
-    '-10-long': pumpVoteTenLong,
-    '-10-long-x1.6': (tester) => pumpVoteTenLong(tester, textScale: 1.6),
-    '-practice': pumpVotePractice,
-    '-x1.3': (tester) => pumpVoteOpen(tester, textScale: 1.3),
+    '-restart-locked': const _NoMain(_done, pumpVoteRestartLocked),
+    '-3': const _NoMain(_pickAName, pumpVoteThree),
+    '-10-long': const _NoMain(_pickAName, pumpVoteTenLong),
+    '-10-long-x1.6': const _AtText(1.6, pumpVoteTenLong),
+    '-practice': const _NoMain(_pickAName, pumpVotePractice),
+    '-x1.3': const _AtText(1.3, pumpVoteOpen),
   }),
   ..._rebuilt('10-count', '10-the-count.png', {
     '-one': pumpCountOne,
@@ -298,20 +316,20 @@ final screenCatalogue = <ScreenEntry>[
     '-nobody': pumpCountNobody,
     '-tanner': pumpCountTanner,
     '-ten-long': pumpCountTen,
-    '-waiting': pumpCountWaiting,
-    '-x1.3': (tester) => pumpCountOne(tester, textScale: 1.3),
+    '-waiting': const _NoMain(_waits, pumpCountWaiting),
+    '-x1.3': const _AtText(1.3, pumpCountOne),
   }),
   ..._rebuilt('11-results', '11-results.png', {
     '-village': pumpResultsVillage,
-    '-werewolves': pumpResultsWerewolves,
-    '-nobody': pumpResultsNobody,
-    '-tanner': pumpResultsTanner,
-    '-night': pumpResultsNight,
+    '-werewolves': const _NoMain(_guestAgain, pumpResultsWerewolves),
+    '-nobody': const _NoMain(_guestAgain, pumpResultsNobody),
+    '-tanner': const _NoMain(_guestAgain, pumpResultsTanner),
+    '-night': const _NoMain(_guestAgain, pumpResultsNight),
     '-folded': pumpResultsFolded,
     '-end': pumpResultsEnd,
-    '-five-end': pumpResultsFiveEnd,
-    '-ten-long': pumpResultsTen,
-    '-x1.3': (tester) => pumpResultsVillage(tester, textScale: 1.3),
+    '-five-end': const _NoMain(_guestAgain, pumpResultsFiveEnd),
+    '-ten-long': const _NoMain(_guestAgain, pumpResultsTen),
+    '-x1.3': const _AtText(1.3, pumpResultsVillage),
   }),
   ...endBoardEntries,
   ...endRevealEntries,
@@ -334,15 +352,72 @@ Future<void> _withWerewolf(
   }
 }
 
-/// A rebuilt screen's states ([states]: suffix to builder), each a player
-/// screen next to [mock].
+typedef _Pump = Future<void> Function(WidgetTester tester);
+
+// Why a state has no main action (`SweepPlan.noMainAction`).
+const _opening = 'the opening reads the saved account: it waits';
+const _onItsWay = 'the tap is on its way: its button is busy';
+const _waits = 'the screen waits for what it shows (a Waiting sign)';
+const _guest = 'a guest waits for the host to deal';
+const _guestAgain = 'a guest waits for the host to deal again';
+const _sheet = 'a sheet the player opened: Close, the scrim or Back close it';
+const _done =
+    'done (ready, chosen or locked): it waits for the others; a send that '
+    'failed is a quiet line with its own Try again';
+const _pickAName =
+    'the vote is a name picked: the button waits for one (the rows are the '
+    'action)';
+
+/// A state with no main action, saying [why] (a wait for the others, a
+/// lock): `SweepPlan.noMainAction`, the sweep's one opt-out.
+class _NoMain {
+  const _NoMain(this.why, this.build);
+
+  final String why;
+  final _Pump build;
+}
+
+/// The state [build] draws, at the phone's text size [scale]: a page of its
+/// own in `just screens`. The sweep turns every state through the text sizes
+/// already, so it sweeps the state once, as [build] draws it.
+class _AtText {
+  const _AtText(this.scale, this.build);
+
+  final double scale;
+  final _Pump build;
+}
+
+/// A rebuilt screen's states ([states]: suffix to a builder, a [_NoMain] or
+/// an [_AtText]), each a player screen next to [mock].
 List<ScreenEntry> _rebuilt(
   String id,
   String? mock,
-  Map<String, Future<void> Function(WidgetTester tester)> states,
+  Map<String, Object> states,
 ) => [
-  for (final MapEntry(key: suffix, value: build) in states.entries)
-    ScreenEntry('$id$suffix', mock: mock, build: build, playerScreen: true),
+  for (final MapEntry(key: suffix, value: state) in states.entries)
+    switch (state) {
+      final _Pump build => ScreenEntry(
+        '$id$suffix',
+        mock: mock,
+        build: build,
+        playerScreen: true,
+      ),
+      _NoMain(:final why, :final build) => ScreenEntry(
+        '$id$suffix',
+        mock: mock,
+        build: build,
+        playerScreen: true,
+        sweep: SweepPlan.noMainAction(why),
+      ),
+      _AtText(:final scale, :final build) => ScreenEntry(
+        '$id$suffix',
+        mock: mock,
+        build: build,
+        playerScreen: true,
+        textScale: scale,
+      ),
+      _ => throw ArgumentError('$id$suffix: not a state: $state'),
+    },
 ];
 
 /// The component sheet (test/helpers/component_sheet.dart): each screen

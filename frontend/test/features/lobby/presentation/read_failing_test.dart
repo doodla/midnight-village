@@ -208,7 +208,11 @@ void main() {
     s.http.answer('GET', '/me/table/', 'Server Error', status: 503);
     final reads = s.http.requests.where((r) => r.path == '/me/table/').length;
 
-    await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+    await pressLostToday(
+      tester,
+      find.text(ResultsCopy.playAgain),
+      why: lostPastTheSink,
+    );
     // Frames only, no time passing: the table's slow poll never comes due.
     for (var i = 0; i < 200 && s.screenOn(tester) != AppScreen.table; i++) {
       await tester.pump(Duration.zero);

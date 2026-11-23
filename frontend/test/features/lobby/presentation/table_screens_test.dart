@@ -44,11 +44,14 @@ Future<void> _tap(
   TableSetup setup,
   Finder what, {
   String? plain,
+  bool lost = false,
 }) async {
   await tester.ensureVisible(what);
   await tester.pump();
   if (plain != null) {
     await plainTap(tester, what, why: plain);
+  } else if (lost) {
+    await pressLostToday(tester, what, why: lostPastTheSink);
   } else {
     await pressLikeAFinger(tester, what);
   }
@@ -56,7 +59,7 @@ Future<void> _tap(
 }
 
 const _refusedJoin =
-    '01 Join, refused or not sent: pressed by a finger, the refusal is not shown (look at it)';
+    'the 01 Join bug: pressed by a finger, a refused or unsent Join shows no refusal (fixed on branch fix-join-refusal)';
 
 PresetChip _chip(WidgetTester tester, String label) => tester.widget(
   find.ancestor(of: find.text(label), matching: find.byType(PresetChip)),
@@ -780,7 +783,7 @@ void main() {
           ContractSamples.map('http/lobby/my_table_none'),
         );
 
-      await _tap(tester, setup, find.text(CommonCopy.leave));
+      await _tap(tester, setup, find.text(CommonCopy.leave), lost: true);
       await setup.settle(tester);
 
       expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 1);
@@ -846,20 +849,24 @@ void main() {
         ContractSamples.map('http/lobby/left'),
       );
 
-      await _tap(tester, setup, find.text(CommonCopy.leave));
+      await _tap(tester, setup, find.text(CommonCopy.leave), lost: true);
       await tester.pumpAndSettle();
       await pressLikeAFinger(tester, find.text(TableCopy.stay));
       await tester.pumpAndSettle();
       expect(setup.count('POST', '/lobbies/V9YC2J/leave/'), 0);
 
-      await _tap(tester, setup, find.text(CommonCopy.leave));
+      await _tap(tester, setup, find.text(CommonCopy.leave), lost: true);
       await tester.pumpAndSettle();
       setup.http.answer(
         'GET',
         '/me/table/',
         ContractSamples.map('http/lobby/my_table_none'),
       );
-      await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
+      await pressLostToday(
+        tester,
+        find.text(CommonCopy.leave).last,
+        why: lostPastTheSink,
+      );
       await tester.pumpAndSettle();
       await setup.settle(tester);
 

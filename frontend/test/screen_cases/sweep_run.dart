@@ -24,10 +24,14 @@ const _all = bool.fromEnvironment('SWEEP_ALL');
 
 /// The catalogue's states the sweep holds: every screen built, but the
 /// component sheet's pages (fit_sweep_test.dart sweeps those, every page at
-/// every width and text size).
+/// every width and text size) and a page that is a state drawn at a larger
+/// text size (the sweep turns its twin through every text size).
 List<ScreenEntry> sweptEntries() => [
   for (final entry in screenCatalogue)
-    if (entry.build != null && !entry.id.startsWith('c-')) entry,
+    if (entry.build != null &&
+        !entry.id.startsWith('c-') &&
+        entry.textScale == 1)
+      entry,
 ];
 
 /// The `main` of part [shard] (1 to [sweepShards]).
@@ -47,7 +51,7 @@ void runSweep(int shard) {
       if (_all) {
         // ignore: avoid_print
         print(
-          'SWEPT ${entry.id} | ${problems.isEmpty ? 'ok' : problems.first}',
+          'SWEPT ${entry.id} | ${problems.isEmpty ? 'ok' : problems.join(' || ')}',
         );
         return;
       }

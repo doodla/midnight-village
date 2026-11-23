@@ -39,7 +39,7 @@ void main() {
       tester,
       find.text(JoinCopy.join),
       why:
-          '01 Join, refused or not sent: pressed by a finger, the refusal is not shown (look at it)',
+          'the 01 Join bug: pressed by a finger, a refused or unsent Join shows no refusal (fixed on branch fix-join-refusal)',
     );
     await setup.settle(tester);
     expect(find.text(BannerCopy.notSent), findsOneWidget);

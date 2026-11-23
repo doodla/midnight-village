@@ -157,10 +157,11 @@ final _foot = find.byType(EndFootBand);
 /// on another; no tag on a card or another tag; the Hunter's slip covers no
 /// tag, seal or ribbon; the board's pieces are on the screen; the foot's
 /// pieces lie apart, on the screen, each 48 to touch; the banner's words lie
-/// inside the banner; the hanged are in the board's window when it opens.
+/// inside the banner; the hanged are in the board's window when it opens (on
+/// the mocks' phone; `end_board_test.dart` opens the plan on every phone
+/// and text size).
 /// The host's foot has Play again.
 final endBoardSweep = SweepPlan(
-  main: const MainAction.button(),
   mustSee: [find.byType(EndBoardWindow), _foot],
   apart: [
     Apart.each('cards', _onBoard),
@@ -178,8 +179,8 @@ final endBoardSweep = SweepPlan(
     ),
     Apart.each('the foot', _footPieces),
   ],
-  rules: [_boardOnScreen, _footToTouch, _bannerHoldsItsWords, _hangedInView],
-  opensAtEachSize: true,
+  rules: [_boardOnScreen, _footToTouch, _bannerHoldsItsWords],
+  whenOpened: [_hangedInView],
 );
 
 /// The board scrolled after it opens: every rule but the hanged in view.
@@ -188,15 +189,15 @@ final endBoardScrolledSweep = SweepPlan(
   mustSee: endBoardSweep.mustSee,
   apart: endBoardSweep.apart,
   rules: [_boardOnScreen, _footToTouch, _bannerHoldsItsWords],
-  opensAtEachSize: true,
 );
 
 /// A guest's end board: the host deals next, no Play again.
 final endBoardGuestSweep = SweepPlan(
+  main: const MainAction.none('a guest waits for the host to deal again'),
   mustSee: endBoardSweep.mustSee,
   apart: endBoardSweep.apart,
   rules: endBoardSweep.rules,
-  opensAtEachSize: true,
+  whenOpened: endBoardSweep.whenOpened,
 );
 
 /// The foot's pieces: its cards, its scraps, Play again, and a guest's line

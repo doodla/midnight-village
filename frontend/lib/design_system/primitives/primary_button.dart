@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
@@ -208,13 +207,6 @@ class PrimaryButton extends StatefulWidget {
   /// every phone (a device's fallback font would draw its own).
   static const checkMark = ' ✓';
 
-  /// Tests only: told each time a main button is about to act (its
-  /// `onPressed` or its `onLockedTap`), so a test can tell that a finger's
-  /// press reached it (`test/helpers/finger.dart`); it acts on only if this
-  /// says so. Null in the app, and never read outside a debug build.
-  @visibleForTesting
-  static bool Function(PrimaryButton button)? debugOnAct;
-
   final String label;
   final VoidCallback? onPressed;
   final VoidCallback? onLockedTap;
@@ -293,18 +285,12 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       widget.phase == ButtonPhase.quiet ||
       widget.phase == ButtonPhase.on;
 
-  VoidCallback? get _onTap {
-    final act = switch (widget.phase) {
-      ButtonPhase.ready => widget.busy ? null : widget.onPressed,
-      ButtonPhase.quiet || ButtonPhase.on => widget.onPressed,
-      ButtonPhase.locked => widget.onLockedTap,
-      ButtonPhase.waiting || ButtonPhase.done => null,
-    };
-    if (act == null || !kDebugMode) return act;
-    return () {
-      if (PrimaryButton.debugOnAct?.call(widget) ?? true) act();
-    };
-  }
+  VoidCallback? get _onTap => switch (widget.phase) {
+    ButtonPhase.ready => widget.busy ? null : widget.onPressed,
+    ButtonPhase.quiet || ButtonPhase.on => widget.onPressed,
+    ButtonPhase.locked => widget.onLockedTap,
+    ButtonPhase.waiting || ButtonPhase.done => null,
+  };
 
   Widget _label(TextStyle style) {
     final label = widget.label;

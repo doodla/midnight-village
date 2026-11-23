@@ -19,10 +19,13 @@ import '../../helpers/spoken_strings.dart';
 // counted: 0, 1 and 2 (none, whole, a pair), an index, a count, an
 // alignment's fraction (`Alignment(0.5, 0)` is not a size).
 //
-// It fails only on what a change ADDS: each file is compared with its own copy
-// on origin/main, so the screens that hold raw values today pass until someone
-// touches those values, and nobody keeps a number per file. Without origin/main
-// (no git, a checkout with no main), it says so and checks nothing.
+// It fails only on what a change ADDS: screen code is compared with itself at
+// the merge base with origin/main (where the branch left main, so main moving
+// on adds nothing here), all files together (a value moved within a file, to
+// another file, or with a renamed file is not new), so the screens that hold
+// raw values today pass until someone adds one, and nobody keeps a number per
+// file. Without a merge base it fails on GitHub (which fetches main's history)
+// and, on a machine, says so and checks nothing.
 
 const _screens = 'lib/features';
 
@@ -174,26 +177,44 @@ class _Numbers extends RecursiveAstVisitor<void> {
   }
 }
 
-/// The text of every file under [_screens]'s presentation folders at
-/// origin/main, by path, or null when git cannot say.
-Map<String, String>? _atMain() {
-  final listed = Process.runSync('git', [
-    'ls-tree',
-    '-r',
-    '--name-only',
-    'origin/main',
-    '--',
-    _screens,
-  ]);
-  if (listed.exitCode != 0) return null;
-  // ls-tree names paths from here (frontend/); `main:./path` reads them so.
-  final atMain = <String, String>{};
-  for (final path in (listed.stdout as String).split('\n')) {
+String? _git(List<String> args) {
+  final r = Process.runSync('git', args);
+  return r.exitCode == 0 ? (r.stdout as String).trim() : null;
+}
+
+/// Where this branch left main: the merge base of HEAD and origin/main, or
+/// null when git cannot say (no git, no origin/main, a shallow history).
+String? mergeBase() => _git(['merge-base', 'HEAD', 'origin/main']);
+
+/// Screen code as it was at [base]: every screen file there, and the file
+/// each screen file now was before it was moved or renamed into place (a
+/// moved file is not new code). Paths as git names them from here
+/// (frontend/).
+List<String> _atBase(String base) {
+  final before = <String>[];
+  final listed = _git(['ls-tree', '-r', '--name-only', base, '--', _screens]);
+  for (final path in (listed ?? '').split('\n')) {
     if (!_isScreenCode(path)) continue;
-    final shown = Process.runSync('git', ['show', 'origin/main:./$path']);
-    if (shown.exitCode == 0) atMain[path] = shown.stdout as String;
+    final shown = _git(['show', '$base:./$path']);
+    if (shown != null) before.add(shown);
   }
-  return atMain;
+  final renamed = _git([
+    'diff',
+    '-M',
+    '--name-status',
+    '--relative',
+    base,
+    '--',
+    '.',
+  ]);
+  for (final line in (renamed ?? '').split('\n')) {
+    final parts = line.split('\t');
+    if (parts.length != 3 || !parts[0].startsWith('R')) continue;
+    if (_isScreenCode(parts[1]) || !_isScreenCode(parts[2])) continue;
+    final shown = _git(['show', '$base:./${parts[1]}']);
+    if (shown != null) before.add(shown);
+  }
+  return before;
 }
 
 bool _isScreenCode(String path) =>
@@ -218,22 +239,37 @@ List<String> added(List<String> now, List<String> before) {
 
 void main() {
   test('screen code adds no raw size and no sentence of its own', () {
-    final atMain = _atMain();
-    if (atMain == null) {
-      markTestSkipped('no origin/main here: nothing to compare with');
+    final base = mergeBase();
+    if (base == null) {
+      const why =
+          'no merge base with origin/main here (no git, no origin/main, or a '
+          'shallow history): nothing to compare with';
+      if (Platform.environment['GITHUB_ACTIONS'] == 'true') {
+        fail(
+          '$why. GitHub must fetch main\'s history (the workflow\'s '
+          '"Fetch main" step).',
+        );
+      }
+      // ignore: avoid_print
+      print('raw_values_test: skipped, $why.');
+      markTestSkipped(why);
       return;
     }
-    final found = <String>[];
-    for (final file in Directory(_screens).listSync(recursive: true)) {
-      if (file is! File || !_isScreenCode(file.path)) continue;
-      final now = rawValues(file.readAsStringSync());
-      final before = atMain[file.path] == null
-          ? const <String>[]
-          : rawValues(atMain[file.path]!);
-      for (final value in added(now, before)) {
-        found.add('${file.path}: $value');
-      }
-    }
+    // Every value screen code held at the merge base, wherever it was: a
+    // value that moved (to another place in its file, or to another file)
+    // is not new.
+    final before = [for (final text in _atBase(base)) ...rawValues(text)];
+    final now = <(String, String)>[
+      for (final file in Directory(_screens).listSync(recursive: true))
+        if (file is File && _isScreenCode(file.path))
+          for (final value in rawValues(file.readAsStringSync()))
+            (file.path, value),
+    ];
+    final found = [
+      for (final value in added([for (final (_, v) in now) v], before))
+        '$value, in ${{for (final (path, v) in now)
+          if (v == value) path}.join(', ')}',
+    ];
     expect(
       found,
       isEmpty,

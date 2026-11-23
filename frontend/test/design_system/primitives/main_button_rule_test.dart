@@ -7,6 +7,7 @@ import 'package:midnight_village/design_system/primitives/nudge.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 
+import '../../helpers/finger.dart';
 import '../../helpers/pump_skinned.dart';
 
 /// A screen's main action never sits silently disabled (the owner, 23
@@ -127,7 +128,7 @@ void main() {
           onLockedTap: () => led++,
         ),
       );
-      await tester.tap(find.text('Start a table'));
+      await pressLikeAFinger(tester, find.text('Start a table'));
       expect(led, 1);
       // Not dimmed: the words in the ink a live button has.
       final live = await _wordsColour(tester, 'Start a table');
@@ -151,8 +152,8 @@ void main() {
           ],
         ),
       );
-      await tester.tap(find.text('Pick a name'));
-      await tester.tap(find.text('Join a table'));
+      await pressLikeAFinger(tester, find.text('Pick a name'));
+      await pressLikeAFinger(tester, find.text('Join a table'));
       expect(taps, 0);
       expect(
         tester.getSemantics(find.byType(PrimaryButton)),
