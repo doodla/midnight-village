@@ -165,30 +165,42 @@ class EndCardView extends StatelessWidget {
 
   /// The card's face, as the settled board shows it.
   /// [up] is the reveal's twin held up in the middle of the board, in the
-  /// light at [litAt]: its portrait full and bright, as a winner's is.
-  static Widget faceOf(
-    EndCard c,
-    EndBoardPlan plan, {
-    bool up = false,
-    Rect? litAt,
-  }) => BoardCard(
-    name: c.name,
-    role: c.face,
-    strip: c.strip.displayName,
-    paper: paperOf(switch (c.look) {
-      EndCardLook.loser when up => EndCardLook.winner,
-      EndCardLook.werewolfLost when up => EndCardLook.werewolfWon,
-      final look => look,
-    }),
-    size: c.rect.size,
-    portraitWidth: c.portraitWidth,
-    rect: litAt ?? c.rect,
-    angle: c.angle,
-    raised: c.hanged,
-    headerHeight: c.header,
-    stripHeight: c.stripHeight,
-    semantics: spokenCard(c, plan),
-  );
+  /// light at [litAt]: its portrait full and bright, as a winner's is, and
+  /// filling a card of [up]'s size (as wide as the card, the art as wide as
+  /// the paper lets it), untilted (the twin turns it).
+  static Widget faceOf(EndCard c, EndBoardPlan plan, {Rect? up, Rect? litAt}) =>
+      up != null
+      ? BoardCard(
+          name: c.name,
+          role: c.face,
+          strip: c.strip.displayName,
+          paper: paperOf(switch (c.look) {
+            EndCardLook.loser => EndCardLook.winner,
+            EndCardLook.werewolfLost => EndCardLook.werewolfWon,
+            final look => look,
+          }),
+          size: up.size,
+          portraitWidth: up.width - 2 * BoardCard.inset,
+          rect: litAt ?? up,
+          raised: true,
+          headerHeight: c.header,
+          stripHeight: c.stripHeight,
+          semantics: spokenCard(c, plan),
+        )
+      : BoardCard(
+          name: c.name,
+          role: c.face,
+          strip: c.strip.displayName,
+          paper: paperOf(c.look),
+          size: c.rect.size,
+          portraitWidth: c.portraitWidth,
+          rect: litAt ?? c.rect,
+          angle: c.angle,
+          raised: c.hanged,
+          headerHeight: c.header,
+          stripHeight: c.stripHeight,
+          semantics: spokenCard(c, plan),
+        );
 
   @override
   Widget build(BuildContext context) {

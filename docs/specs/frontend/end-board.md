@@ -48,7 +48,7 @@ Pictures: the design round's `sheet-final.png`, `sheet-motion.png`, `compare-fin
   (the dashed boxes in `0-anatomy.png`).
 - **One light: the lantern.** Every shadow falls away from it. Cards further from it are a little darker. While What
   happened plays, the moon is the light and the lantern is out.
-- **One death mark: the black ribbon.** HANGED is a stamp seen only during the reveal (beat 3), then it lifts off.
+- **One death mark: the black ribbon.** HANGED is a stamp seen only during the reveal (beats 3 and 4b), then it lifts off.
 - **Vote tags** hang on one length of twine from the pin at the bottom-left of the card they voted for.
 - **The dealt card** is a small, older card tucked behind its own card's top-left corner. It shows only when the
   dealt role differs from the final one.
@@ -259,24 +259,36 @@ It plays once, when the results arrive while this phone is in the game (the phas
 opens or restarts in the results phase shows the settled board at once. Nothing is kept on the device: this replaces
 `StepRecord.wonPrefix`.
 
+As built (piece 3 and its fixing pass): the timeline is `revealOf` in `features/game/domain/end_reveal.dart`, pure and
+tested on every recorded sample; the widgets read it off one clock.
+
 | Beat | What moves | Tokens |
 |---|---|---|
-| 0 | The vote gives way to the board (the existing "Vote ends to the count" crossfade). The board shows every card face down, at one size, in seat order (rows of two), the banner rolled and tied, the middle cards face down. The bottom band is whole and live | `settle` |
-| 1 | The held beat: nothing moves (the count's beat, kept by decision on 22 Nov) | `beat` 1200 ms |
-| 2 | The hanged card lifts out of its seat to the middle of the board, big, and turns face up on the way. The others dim | travel `settle`; the turn `PaperFlip` landing at the end of `reveal`; dim `quick` |
-| 3 | HANGED stamps on it, with the ink burst. The banner unrolls. **The knock** (below) | stamp `press` with `Motion.land`; banner `settle`; then it holds for `reveal` 400 ms |
-| 4 | The crows lift off the roof and the gallows. Every other card turns where it sits, row by row. The middle cards turn with the last row. The hanged card drops back to its seat; the stamp lifts off and the ribbon is pinned | turns `PaperFlip` (`quick`), rows `stagger` 150 ms apart; drop `settle`; crows `scene` |
-| 5 | Every card travels to its row and size. Winners grow, the pool comes on, and the tags drop in on their twine | `settle` (`curve`); tags `Motion.land` |
+| 0 | The board shows every card face down in the seat it keeps, every back with one portrait size (the least on the board, so no back says who won or who hangs) and a bone edge round it and round the game's card back. The board already stands where the settled board opens (scrolled to the dead on a tall board): nothing scrolls and no seat moves. The banner lies furled on the roof (`FurledScroll`). The middle cards face down. The bottom band is whole and live | — |
+| 1 | The held beat: nothing moves | `reveal` 400 ms (the owner's no-added-waits rule: shorter than the round's `beat`) |
+| 2 | The first death lifts out of its seat to the middle of the window, its art filling the card, a set share of the board wide (`RevealMetrics.bigWidthShare`), turned 3° and in the lantern's warm light, turning face up on the way (the back grows into the face's size edge on, so nothing is ever drawn smaller than it is). The board dims, still seen | lift `settle`; turn `quick` landing at the lift's end; dim `quick` |
+| 3 | The face is seen whole for a moment, then HANGED slams onto the card's lower edge, under the role's tab (a narrow plate in a double bone rule with bone lines bursting out, `InkStamp`), at its own size. **A knock** (below). The banner is taken up off the roof and unrolls down, once | seen `quick`; stamp `press` (`Motion.land`, stopped at its own size); banner `scene` |
+| 4 | It holds, then drops back to its seat; the stamp lifts off and the ribbon is pinned on | hold `reveal`; drop `settle`; ribbon `press` |
+| 4b | **Each further death** (the Hunter's pick, a tie's other) gets its own beat once the one before is back in its seat: a shorter lift, stamp and knock, held less. The Hunter's pick lands smaller (`pickShare`) and turned the other way; its twine and slip come on as it lands back | lift `settle`; seen `press`; stamp `press`; hold `settle`; drop `settle` |
+| 5 | As the last death drops, every other card turns where it sits, row by row (a winner's card grows to its size as it turns); the middle cards with the last row. Then the dealt cards and seals come out, the pool comes on and the tags drop in on their twine | turns `PaperFlip` (`quick`), rows `stagger` 150 ms apart (closed up past five rows); then `settle`; tags `Motion.land` |
 
-- **Length:** about 3.1 s at 6 players, and about 3.4 s at 10, all existing tokens.
-- **Several hanged:** beat 2 lifts them side by side, one stamp each, and one knock.
-- **Nobody hanged:** beats 2 and 3 are skipped, and the banner unrolls at the end of beat 1.
-- **Skip:** one tap anywhere on the board jumps to the settled board. There are no words; the reveal is short.
-  "What happened", "Edit deck" and "Play again" work from frame one. A tap on What happened finishes the reveal and
-  starts the night.
+- **Lengths** (at six players; more rows add 150 ms each, closed up past five): one hanged **2.03 s**; two hanged (a
+  tie) **2.88 s**; the Hunter and his pick **2.88 s**; nobody hanged **1.39 s**. Ten players with one hanged: 2.33 s.
+  Each further death adds about 0.96 s.
+- **Nobody hanged:** its own beat, shorter than a hanging: after the hold the winners rise together where they lie,
+  turning face up as the lantern's pool comes on (`rise` `settle`), are held a moment (`quick`), then settle as the
+  banner unrolls (the light knock) and the others turn row by row. (The round's idea of the empty noose swinging
+  needs the noose as its own layer; the gallows is one picture today.)
+- **Skip:** one touch anywhere jumps to the settled board, and the control under it still takes the touch (the board
+  keeps the same layers settled, so nothing above a control is built again). "What happened", "Edit deck" and "Play
+  again" work from frame one. A tap on What happened finishes the reveal and starts the night.
 - **Reduce motion** (`Motion.within`), or a screen reader on (`MediaQuery.accessibleNavigation`): the settled board
-  at once.
-- **At 7+ players:** the reveal plays at scroll 0. Cards below the window travel out of view.
+  at once, faded in.
+- **At 7+ players:** the reveal plays where the board opens (the dead in view, `initialScroll`); the big card is in the
+  middle of that window.
+- **Not built (differs from the round's mock):** the crows lifting; the gallows' disc. Cards keep their seats from the
+  first frame (the owner's ruling), where the mock moved them to their rows at the end.
+
 
 ### What happened, on the board (`png/3-what-1` to `-5`)
 
@@ -296,10 +308,12 @@ opens or restarts in the results phase shows the settled board at once. Nothing 
 ## 9. Haptics
 
 - **No vibration when cards turn,** by the owner's word: not on the reveal and not in What happened.
-- **The knock belongs to the stamp.** `Haptics.thud` (`mediumImpact`, planned in feel.md, pass 4) fires once, as
-  HANGED lands in beat 3, on every phone. It fires once however many are hanged.
+- **The knock belongs to the stamp.** `Haptics.thud` (`mediumImpact`) fires as each HANGED lands, through the
+  `Haptics` seam, on every phone. Two deaths (a tie, the Hunter's pick) are two stamps a beat apart, so **two
+  knocks**: each death is its own moment, and the second knock says "and another". Three deaths, three.
 - **Nobody hanged:** `Haptics.light` once, as the banner unrolls.
-- **A skipped or reduce-motion reveal** fires the same one vibration as the board settles.
+- **A skipped or reduce-motion reveal** fires one vibration as the board settles, if none had come yet; the knocks
+  not yet come are not played.
 - **Never:** What happened, a scroll, What happened's steps, Edit deck or Leave.
 - **Play again:** as today.
 

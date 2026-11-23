@@ -4,14 +4,14 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
-import '../../../../design_system/primitives/death_mark.dart';
-import '../../../../design_system/primitives/paper_flip.dart';
-import '../../../../design_system/skin/skin.dart';
-import '../../domain/end_board.dart';
-import '../../domain/end_reveal.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
+import '../../../../design_system/primitives/paper_flip.dart';
+import '../../domain/end_board.dart';
+import '../../domain/end_board_metrics.dart';
+import '../../domain/end_reveal.dart';
+
+export 'end_reveal_moment.dart';
 
 // The end board's reveal, in place (docs/specs/frontend/end-board.md, section
 // 8): one clock ([EndRevealDriver]) and the timeline it runs (`revealOf`),
@@ -24,7 +24,8 @@ import '../../../../design_system/primitives/board_pieces.dart';
 // and only paints its child again moved, scaled, faded or clipped; the child
 // is a repaint boundary of its own, so the paper is painted once. (A widget
 // rebuilt on each tick would lay the board out again: the board is built
-// inside layout builders.)
+// inside layout builders.) Nothing is drawn smaller than it is: a back grows
+// into its face as it turns, and the dead and the winners only ever grow.
 
 /// The reveal's one clock: an [AnimationController] from 0 to 1 over the
 /// whole [reveal], which is known once the board is planned.
@@ -47,6 +48,9 @@ class EndRevealDriver {
   /// Whether the beat of [kind] is there at all.
   bool has(RevealBeat kind, {int? card}) =>
       reveal?.of(kind, card: card) != null;
+
+  /// Whether the dead card [id] is out of its slot now.
+  bool isUp(int id) => reveal?.isUp(id, now) ?? false;
 }
 
 /// The driver of the reveal playing under it; null when the board is settled.
@@ -109,6 +113,9 @@ class RenderRevealPaint extends RenderProxyBox {
     markNeedsPaint();
   }
 
+  /// How much of the child is seen now (0: it is not painted at all).
+  double get seen => (opacity?.call() ?? 1).clamp(0.0, 1.0);
+
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
@@ -124,11 +131,20 @@ class RenderRevealPaint extends RenderProxyBox {
   @override
   bool get alwaysNeedsCompositing => child != null;
 
+  // The child is drawn through the transform: whatever asks where a piece is
+  // on the screen, or how large its words are drawn (the reading floor's
+  // guard), is told the truth.
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    final m = this.transform?.call(size);
+    if (m != null) transform.multiply(m);
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final child = this.child;
     if (child == null) return;
-    final o = (opacity?.call() ?? 1).clamp(0.0, 1.0);
+    final o = seen;
     if (o <= 0) return;
     final m = transform?.call(size);
     void moved(PaintingContext context, Offset offset) => m == null
@@ -174,7 +190,7 @@ Matrix4 about(Offset centre, Matrix4 m) =>
       ..multiply(m)
       ..multiply(Matrix4.translationValues(-centre.dx, -centre.dy, 0));
 
-Matrix4 _scale(double s) => Matrix4.diagonal3Values(s, s, 1);
+Matrix4 scaled(double s) => Matrix4.diagonal3Values(s, s, 1);
 
 /// [child] coming in over [kind]: a fade.
 Widget revealFade(
@@ -190,19 +206,24 @@ Widget revealFade(
 
 /// A card turning over where it lies, driven by [value] (0 face down, 1 face
 /// up) on the clock: [PaperFlip]'s turn (its lift, growth, perspective and
-/// landing) without a controller of its own, and with no vibration.
+/// landing) without a controller of its own, and with no vibration. The face
+/// fills the box; the back lies at [backAt] in it (every back of a board has
+/// one size) and grows to the face's height as it comes edge on, so the card
+/// changes size where nobody sees it and nothing is drawn smaller than it is.
 class RevealTurn extends StatelessWidget {
   const RevealTurn({
     super.key,
     required this.driver,
     required this.value,
     required this.back,
+    required this.backAt,
     required this.face,
   });
 
   final EndRevealDriver driver;
   final double Function() value;
   final Widget back;
+  final Rect backAt;
   final Widget face;
 
   double _v() {
@@ -214,10 +235,15 @@ class RevealTurn extends StatelessWidget {
         : PaperFlip.landing.transform(t);
   }
 
-  Matrix4 _matrix(Size size, double v, {required bool face}) {
+  static Matrix4 _matrix(
+    Size size,
+    double v, {
+    required double growth,
+    required bool face,
+  }) {
     final angle = v * math.pi;
     final edgeOn = math.sin(angle.clamp(0.0, math.pi));
-    final scale = 1 + PaperFlip.grow * edgeOn;
+    final scale = (1 + PaperFlip.grow * edgeOn) * growth;
     final m = Matrix4.translationValues(0, -PaperFlip.lift * edgeOn, 0)
       ..setEntry(3, 2, PaperFlip.perspective)
       ..scaleByDouble(scale, scale, scale, 1)
@@ -229,74 +255,104 @@ class RevealTurn extends StatelessWidget {
   Widget build(BuildContext context) => Stack(
     clipBehavior: Clip.none,
     children: [
-      revealPaint(
-        driver,
-        opacity: () => PaperFlip.isFaceUp(_v()) ? 0 : 1,
-        transform: (size) => _matrix(size, _v(), face: false),
-        child: back,
+      Positioned.fromRect(
+        rect: backAt,
+        child: revealPaint(
+          driver,
+          opacity: () => PaperFlip.isFaceUp(_v()) ? 0 : 1,
+          transform: (size) {
+            final v = _v();
+            // The back's height, to the face's by the time it is edge on.
+            final to = math.max(1.0, _height / backAt.height);
+            final growth = lerpDouble(1, to, math.min(1, v * 2))!;
+            return _matrix(size, v, growth: growth, face: false);
+          },
+          child: back,
+        ),
       ),
       Positioned.fill(
         child: revealPaint(
           driver,
           opacity: () => PaperFlip.isFaceUp(_v()) ? 1 : 0,
-          transform: (size) => _matrix(size, _v(), face: true),
+          transform: (size) => _matrix(size, _v(), growth: 1, face: true),
           child: face,
         ),
       ),
     ],
   );
+
+  /// The face's height: the box's (the back is centred in it).
+  double get _height => backAt.center.dy * 2;
 }
 
-/// A player's card turning on the clock: the night's back with the name, then
-/// [face].
-Widget revealCardTurn(EndRevealDriver driver, EndCard c, Widget face) =>
-    RevealTurn(
-      driver: driver,
-      value: () => driver.at(RevealBeat.turn, card: c.id),
-      back: BoardCardBack(
-        name: c.name,
-        size: c.rect.size,
-        portraitWidth: c.portraitWidth,
-        rect: c.rect,
-        angle: c.angle,
-        headerHeight: c.header,
-      ),
-      face: face,
-    );
+/// A player's card turning on the clock: its back with the name (one size
+/// for every card of the board), then [face].
+Widget revealCardTurn(EndRevealDriver driver, EndCard c, Widget face) {
+  final reveal = driver.reveal!;
+  final back = reveal.backs[c.id]!;
+  return RevealTurn(
+    driver: driver,
+    value: () => driver.at(RevealBeat.turn, card: c.id),
+    backAt: back.shift(-c.rect.topLeft),
+    back: BoardCardBack(
+      name: c.name,
+      size: back.size,
+      portraitWidth: reveal.backPortrait,
+      rect: back,
+      angle: backAngleOf(c),
+      headerHeight: c.header,
+    ),
+    face: face,
+  );
+}
 
-/// The card's whole box ([box], in the board's content) growing from the one
-/// size every card starts at to its own, about the card's centre; a hanged
-/// card's box stays hidden while its twin is up ([RevealHanged]).
+/// How a card's back is tilted: as any card that is not hanged (a hanged
+/// card's own tilt is larger, and would say who hangs).
+double backAngleOf(EndCard c) => EndMetrics.angleOf(c.id, hanged: false);
+
+/// The card's whole box ([box], in the board's content) in its slot: a dead
+/// card's is hidden while its twin is up ([RevealHanged]) and takes over as
+/// it lands; with nobody hanged the winners rise where they lie, and settle.
 Widget revealCardBox(
   EndRevealDriver driver,
   EndCard c,
   Rect box,
   Widget child,
 ) {
-  bool lifted() => driver.reveal?.big.containsKey(c.id) ?? false;
+  final dead = driver.has(RevealBeat.lift, card: c.id);
+  final rises = c.won && driver.has(RevealBeat.rise);
+  if (!dead && !rises) return child;
   return revealPaint(
     driver,
-    opacity: () => lifted() ? handOver(driver) : 1,
-    transform: (size) {
-      final from = driver.reveal?.startScale[c.id] ?? 1;
-      if (from == 1 || lifted()) return null;
-      final grown = Motion.curve.transform(driver.at(RevealBeat.grow));
-      return about(
-        c.rect.center - box.topLeft,
-        _scale(lerpDouble(from, 1, grown)!),
-      );
-    },
+    opacity: dead ? () => driver.isUp(c.id) ? handOver(driver, c.id) : 1 : null,
+    transform: rises
+        ? (size) {
+            final h = risen(driver);
+            if (h == 0) return null;
+            return Matrix4.translationValues(0, -RevealMetrics.rise * h, 0)
+              ..multiply(
+                about(
+                  c.rect.center - box.topLeft,
+                  scaled(1 + RevealMetrics.riseGrowth * h),
+                ),
+              );
+          }
+        : null,
     child: child,
   );
 }
 
-/// How far a hanged card's slot has taken over from its twin: 0 while the
-/// twin is up, to 1 over the last of the drop, as it comes into the shadow.
-double handOver(EndRevealDriver driver) =>
-    ((driver.at(RevealBeat.drop) - _handOverFrom) / (1 - _handOverFrom)).clamp(
-      0.0,
-      1.0,
-    );
+/// How far the winners stand risen when nobody is hanged: 0 to 1 and back.
+double risen(EndRevealDriver driver) =>
+    Motion.curve.transform(driver.at(RevealBeat.rise)) *
+    (1 - Motion.curve.transform(driver.at(RevealBeat.lower)));
+
+/// How far a dead card's slot has taken over from its twin: 0 while the twin
+/// is up, to 1 over the last of its drop, as it comes into the shadow.
+double handOver(EndRevealDriver driver, int card) =>
+    ((driver.at(RevealBeat.drop, card: card) - _handOverFrom) /
+            (1 - _handOverFrom))
+        .clamp(0.0, 1.0);
 
 const _handOverFrom = 0.6;
 
@@ -312,157 +368,23 @@ Widget revealPinned(
   opacity: () => math.min(1, driver.at(kind, card: card) * 3),
   transform: (size) => about(
     size.center(Offset.zero),
-    _scale(
-      lerpDouble(
-        _pinFrom,
-        1,
-        Motion.land.transform(driver.at(kind, card: card)),
-      )!,
+    // The landing's overshoot stops at its own size: a slip's words are
+    // never drawn smaller.
+    scaled(
+      math.max(
+        1.0,
+        lerpDouble(
+          _pinFrom,
+          1,
+          Motion.land.transform(driver.at(kind, card: card)),
+        )!,
+      ),
     ),
   ),
   child: child,
 );
 
 const _pinFrom = 1.5;
-
-/// The others dim while the hanged are up, over the board's frame.
-class RevealDim extends StatelessWidget {
-  const RevealDim({super.key, required this.driver});
-
-  final EndRevealDriver driver;
-
-  /// How dark the board is at its dimmest.
-  static const shade = 0.55;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: revealPaint(
-      driver,
-      opacity: () =>
-          driver.at(RevealBeat.dim) * (1 - driver.at(RevealBeat.drop)),
-      child: ColoredBox(
-        color: context.skin.parts.boardShade.withValues(alpha: shade),
-      ),
-    ),
-  );
-}
-
-/// A hanged card's twin, drawn over the board while it is up: it leaves its
-/// slot, grows to the middle of the window ([EndReveal.big]) turning face up
-/// on the way, takes the stamp, holds, and goes back down to its slot, where
-/// the card itself takes over.
-class RevealHanged extends StatelessWidget {
-  const RevealHanged({
-    super.key,
-    required this.driver,
-    required this.card,
-    required this.face,
-  });
-
-  final EndRevealDriver driver;
-  final EndCard card;
-  final Widget face;
-
-  /// How large the stamp comes down from, a share of its size.
-  static const stampFrom = 2.4;
-
-  /// How far up the card is: 0 in its slot, 1 big in the middle.
-  double _up() =>
-      Motion.curve.transform(driver.at(RevealBeat.lift, card: card.id)) *
-      (1 - Motion.curve.transform(driver.at(RevealBeat.drop)));
-
-  /// How far the stamp has lifted off as the card goes back (it is gone in
-  /// the drop's first [Motion.quick]).
-  double _off() =>
-      (driver.at(RevealBeat.drop) *
-              Motion.settle.inMicroseconds /
-              Motion.quick.inMicroseconds)
-          .clamp(0.0, 1.0);
-
-  @override
-  Widget build(BuildContext context) {
-    final c = card;
-    // Where the stamp lies: across the portrait's lower third, where a face
-    // has the least ([DeathMark.stampRect]), at the size that hides no more
-    // than [DeathMark.maxCover] of it.
-    final portrait = c.portrait.shift(-c.rect.topLeft);
-    final at = DeathMark.stampRect(portrait, Size.zero).center;
-    return IgnorePointer(
-      child: revealPaint(
-        driver,
-        opacity: () => 1 - handOver(driver),
-        transform: (size) {
-          final big = driver.reveal?.big[c.id];
-          if (big == null) return null;
-          final up = _up();
-          final scale = lerpDouble(1, big.width / c.rect.width, up)!;
-          return Matrix4.translationValues(
-            (big.center.dx - c.rect.center.dx) * up,
-            (big.center.dy - c.rect.center.dy) * up,
-            0,
-          )..multiply(about(size.center(Offset.zero), _scale(scale)));
-        },
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(child: revealCardTurn(driver, c, face)),
-            Positioned(
-              left: at.dx,
-              top: at.dy,
-              child: revealPaint(
-                driver,
-                // The stamp slams down, and lifts off as the card goes back.
-                opacity: () {
-                  final s = driver.at(RevealBeat.stamp);
-                  return s <= 0 ? 0 : math.min(1.0, s * 2) * (1 - _off());
-                },
-                transform: (size) {
-                  final s = driver.at(RevealBeat.stamp);
-                  final slam = lerpDouble(
-                    stampFrom,
-                    1,
-                    Motion.land.transform(s),
-                  )!;
-                  // About its centre, which is this box's corner.
-                  return about(Offset.zero, _scale(slam * (1 + _off() * 0.3)));
-                },
-                child: const FractionalTranslation(
-                  translation: Offset(-0.5, -0.5),
-                  child: InkStamp(label: EndCopy.hangedStamp),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The banner unrolling from its middle out, its sentence whole from the
-/// start (only more of it is seen).
-Widget revealUnroll(EndRevealDriver driver, Widget banner) => RepaintBoundary(
-  child: ClipRect(
-    clipper: _FromMiddle(driver),
-    child: RepaintBoundary(child: banner),
-  ),
-);
-
-class _FromMiddle extends CustomClipper<Rect> {
-  _FromMiddle(this.driver) : super(reclip: driver.clock);
-
-  final EndRevealDriver driver;
-
-  @override
-  Rect getClip(Size size) => Rect.fromCenter(
-    center: size.center(Offset.zero),
-    width: size.width * Motion.curve.transform(driver.at(RevealBeat.banner)),
-    height: size.height * 2,
-  );
-
-  @override
-  bool shouldReclip(_FromMiddle old) => driver != old.driver;
-}
 
 /// A strand's twine drawn down from its pin as its tags arrive: [top] to
 /// [bottom], in the layer's own coordinates.
@@ -534,14 +456,18 @@ Widget revealMiddleTurn(
   required double portraitWidth,
   required double angle,
   required Widget face,
-}) => RevealTurn(
-  driver: driver,
-  value: () => driver.at(RevealBeat.middle),
-  back: BoardCardBack(
-    size: size,
-    portraitWidth: portraitWidth,
-    rect: Offset.zero & size,
-    angle: angle,
+}) => SizedBox.fromSize(
+  size: size,
+  child: RevealTurn(
+    driver: driver,
+    value: () => driver.at(RevealBeat.middle),
+    backAt: Offset.zero & size,
+    back: BoardCardBack(
+      size: size,
+      portraitWidth: portraitWidth,
+      rect: Offset.zero & size,
+      angle: angle,
+    ),
+    face: face,
   ),
-  face: face,
 );

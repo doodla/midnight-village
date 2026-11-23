@@ -1,8 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
+import 'package:midnight_village/features/game/presentation/end/end_reveal.dart'
+    show RenderRevealPaint;
 
 import '../test/helpers/painted_text.dart';
 
@@ -63,11 +67,14 @@ List<String> readingFloorBreaches(WidgetTester tester) {
   return breaches;
 }
 
-/// How much a unit of width under [node] is scaled on its way to the screen
-/// (a 2D scale leaves depth at 1, so the largest axis would hide a shrink).
+/// How much the letters under [node] are scaled on its way to the screen: the
+/// larger of a unit of width and of height (a 2D scale leaves depth at 1, so
+/// the largest of three axes would hide a shrink; a card turning edge on
+/// narrows its letters, it does not make them smaller). Every transform on
+/// the way counts, a reveal's paint-time ones too (`applyPaintTransform`).
 double _widthScale(RenderObject node) {
   final m = node.getTransformTo(null).storage;
-  return Offset(m[0], m[1]).distance;
+  return math.max(Offset(m[0], m[1]).distance, Offset(m[4], m[5]).distance);
 }
 
 double _viewScale(WidgetTester tester) {
@@ -88,6 +95,8 @@ bool _hidden(Element element, RenderParagraph paragraph) {
   while (node != null) {
     if (node is RenderOpacity) opacity *= node.opacity;
     if (node is RenderAnimatedOpacity) opacity *= node.opacity.value;
+    // A reveal's piece at opacity 0 is not painted at all.
+    if (node is RenderRevealPaint) opacity *= node.seen;
     if (node is RenderOffstage && node.offstage) return true;
     node = node.parent;
   }

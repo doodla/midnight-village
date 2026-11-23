@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/copy/copy.dart';
-import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
 import '../../../../design_system/primitives/end_lantern.dart';
 import '../../../../design_system/primitives/one_light.dart';
@@ -33,45 +32,18 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
   ScrollController? _own;
   var _opened = false;
 
+  // The board opens where the hanged are in view, in the reveal from its
+  // first frame too: the seats never move while it plays.
   ScrollController get _controller =>
       widget.scrollController ??
       (_own ??= ScrollController(
-        initialScrollOffset:
-            _driver?.reveal?.scrollFrom ??
-            (_driver == null ? widget.plan.initialScroll : 0),
+        initialScrollOffset: widget.plan.initialScroll,
       ));
-
-  /// The reveal playing, if it is: the board is scrolled on its clock.
-  EndRevealDriver? _driver;
 
   @override
   void initState() {
     super.initState();
     _openWhereTheHangedAre();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final driver = EndRevealScope.maybeOf(context);
-    if (driver == _driver) return;
-    _driver?.clock.removeListener(_scrollOnTheClock);
-    _driver = driver;
-    driver?.clock.addListener(_scrollOnTheClock);
-  }
-
-  /// In the reveal the board stands at the top, then scrolls to the hanged in
-  /// its beat.
-  void _scrollOnTheClock() {
-    final driver = _driver, reveal = driver?.reveal;
-    if (driver == null || reveal == null || !widget.plan.scrolls) return;
-    final c = _controller;
-    if (!c.hasClients) return;
-    final to =
-        reveal.scrollFrom +
-        (reveal.scrollTo - reveal.scrollFrom) *
-            Motion.curve.transform(driver.at(RevealBeat.scroll));
-    if ((c.offset - to).abs() > 0.01) c.jumpTo(to);
   }
 
   @override
@@ -86,8 +58,7 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
     final given = widget.scrollController;
     if (given == null || _opened || widget.plan.initialScroll == 0) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // In the reveal the clock scrolls it ([_scrollOnTheClock]).
-      if (!mounted || !given.hasClients || _opened || _driver != null) return;
+      if (!mounted || !given.hasClients || _opened) return;
       _opened = true;
       given.jumpTo(widget.plan.initialScroll);
     });
@@ -95,7 +66,6 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
 
   @override
   void dispose() {
-    _driver?.clock.removeListener(_scrollOnTheClock);
     _own?.dispose();
     super.dispose();
   }
@@ -107,9 +77,10 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
   Widget build(BuildContext context) {
     final plan = widget.plan;
     final driver = EndRevealScope.maybeOf(context);
-    // In the reveal what holds still is its own layer, painted once.
-    Widget still(Widget piece) =>
-        driver == null ? piece : RepaintBoundary(child: piece);
+    // What holds still in the reveal is its own layer, painted once; the
+    // settled board keeps the same layers, so settling changes no element
+    // above a control (a touch that settles the board is still the control's).
+    Widget still(Widget piece) => RepaintBoundary(child: piece);
     final frame = Rect.fromLTWH(
       _side,
       EndMetrics.roof,
@@ -162,26 +133,30 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
             top: plan.lantern.top + EndMetrics.roof,
             child: still(const EndLantern()),
           ),
-          if (driver != null) ...[
+          if (driver?.reveal case final reveal?) ...[
             Positioned.fromRect(
               rect: frame,
-              child: RevealDim(driver: driver),
+              child: RevealDim(driver: driver!),
             ),
-            for (final c in plan.cards)
-              if (driver.reveal?.big.containsKey(c.id) ?? c.hanged)
-                Positioned.fromRect(
-                  rect: c.rect.shift(origin),
-                  child: RevealHanged(
-                    driver: driver,
-                    card: c,
-                    face: EndCardView.faceOf(
-                      c,
-                      plan,
-                      up: true,
-                      litAt: driver.reveal?.big[c.id],
-                    ),
+            for (final id in reveal.dead)
+              Positioned.fromRect(
+                rect: reveal.up[id]!.shift(origin),
+                child: RevealHanged(
+                  driver: driver,
+                  card: plan.card(id),
+                  face: EndCardView.faceOf(
+                    plan.card(id),
+                    plan,
+                    up: reveal.up[id],
+                    litAt: reveal.big[id],
                   ),
                 ),
+              ),
+            for (final id in reveal.dead)
+              Positioned.fromRect(
+                rect: reveal.big[id]!.shift(origin),
+                child: RevealStamp(driver: driver, card: plan.card(id)),
+              ),
           ],
         ],
       ),

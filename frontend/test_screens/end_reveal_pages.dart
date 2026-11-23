@@ -27,6 +27,13 @@ final revealMoments = <String, RevealMoment>{
     return lift.end + (stamp.start - lift.end) * 0.5;
   },
   'stamp': (r) => r.of(RevealBeat.stamp)?.end,
+  // The second death's stamp landing (the Hunter's pick, a tie's other).
+  'second': (r) {
+    final stamps = r.all(RevealBeat.stamp).toList();
+    return stamps.length < 2 ? null : stamps[1].end;
+  },
+  // Nobody hanged: the winners risen together in the light.
+  'risen': (r) => r.of(RevealBeat.rise)?.end,
   'banner': (r) {
     final b = r.of(RevealBeat.banner)!;
     return b.start + b.length * 0.6;
@@ -71,12 +78,23 @@ final revealCases = <String, Map<String, dynamic> Function()>{
   'nobody-hanged': () => recordedResults('results_nobody_dies'),
   'hunter': () => recordedResults('results'),
   'ten': endTen,
+  'tie': () => recordedResults('results_tie'),
 };
 
 /// Which moments each case has a page for.
-List<String> momentsOf(String reveal) => reveal == 'nobody-hanged'
-    ? const ['start', 'turning', 'banner', 'settled']
-    : const ['start', 'big', 'stamp', 'banner', 'turning', 'settled'];
+List<String> momentsOf(String reveal) => switch (reveal) {
+  'nobody-hanged' => const ['start', 'risen', 'turning', 'banner', 'settled'],
+  'hunter' || 'tie' => const [
+    'start',
+    'big',
+    'stamp',
+    'banner',
+    'second',
+    'turning',
+    'settled',
+  ],
+  _ => const ['start', 'big', 'stamp', 'banner', 'turning', 'settled'],
+};
 
 final endRevealEntries = <ScreenEntry>[
   for (final MapEntry(key: name, value: results) in revealCases.entries)

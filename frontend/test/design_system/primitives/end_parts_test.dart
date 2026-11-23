@@ -611,22 +611,33 @@ void main() {
       }
     });
 
-    testWidgets('the stamp: a block of ink that fits a big card\'s face', (
-      tester,
-    ) async {
+    testWidgets('the stamp: a narrow plate that lands under a big card\'s '
+        'face and over no word', (tester) async {
       _phone(tester);
-      await _pump(tester, const InkStamp(label: 'HANGED', burst: false));
+      await _pump(
+        tester,
+        const InkStamp(label: 'HANGED', burst: false, width: 120),
+      );
       final stamp = tester.getSize(find.byType(InkStamp));
-      for (final w in <double>[90, 110, 130]) {
+      expect(stamp.width, 120);
+      // A card as the reveal holds it up: 200 wide, its art filling it.
+      Rect card(double w) => Rect.fromLTWH(0, 0, w, 44 + w * 0.75 + 20);
+      Rect portrait(double w) => Rect.fromLTWH(8, 44, w - 16, (w - 16) * 3 / 4);
+      double tab(double w) => card(w).bottom - 1;
+      for (final w in <double>[180, 200, 240]) {
         expect(
-          DeathMark.stampFits(portraitOf(w), stamp),
+          DeathMark.stampFits(card(w), portrait(w), stamp, tabBottom: tab(w)),
           isTrue,
-          reason: 'a stamp of $stamp on a portrait $w wide',
+          reason: 'a stamp of $stamp on a card $w wide',
         );
       }
-      // The check bites: the same stamp on a thumbnail hides too much.
-      expect(DeathMark.stampFits(portraitOf(44), stamp), isFalse);
-      expect(DeathMark.maxCover, lessThanOrEqualTo(0.35));
+      // The check bites: on a card the size of a thumbnail it would lie over
+      // the face and be most of the card.
+      expect(
+        DeathMark.stampFits(card(60), portrait(60), stamp, tabBottom: tab(60)),
+        isFalse,
+      );
+      expect(DeathMark.stampShare, lessThanOrEqualTo(0.16));
     });
 
     testWidgets('the ribbon and the stamp draw on both dresses', (

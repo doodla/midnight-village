@@ -105,15 +105,20 @@ void main() {
     });
   }
 
-  testWidgets('the one-hanged reveal, filmed', (tester) async {
-    await _phone(tester);
-    final driver = await _ready(tester, revealCases['one-hanged']!());
-    final end = driver.reveal!.total + const Duration(milliseconds: 400);
-    var n = 0;
-    for (var t = Duration.zero; t <= end; t += _film) {
-      await _save(tester, '$_dir/film/${(n++).toString().padLeft(3, '0')}.png');
-      await tester.pump(_film);
-      await _loadPictures(tester);
-    }
-  });
+  for (final name in const ['one-hanged', 'hunter', 'nobody-hanged']) {
+    testWidgets('the $name reveal, filmed', (tester) async {
+      await _phone(tester);
+      final driver = await _ready(tester, revealCases[name]!());
+      final end = driver.reveal!.total + const Duration(milliseconds: 400);
+      var n = 0;
+      for (var t = Duration.zero; t <= end; t += _film) {
+        await _save(
+          tester,
+          '$_dir/film/$name/${(n++).toString().padLeft(3, '0')}.png',
+        );
+        await tester.pump(_film);
+        await _loadPictures(tester);
+      }
+    });
+  }
 }

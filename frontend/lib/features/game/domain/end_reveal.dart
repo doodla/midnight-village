@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import '../../../design_system/layout/space.dart' show Motion;
 import 'end_board_cards.dart';
+import 'end_board_metrics.dart';
 
 // The reveal of the end board (docs/specs/frontend/end-board.md, section 8),
 // as a timeline: from the board's plan to named beats, each with its start and
@@ -11,20 +12,22 @@ import 'end_board_cards.dart';
 // is skipped by a tap.
 //
 // The cards never change places: from the first frame each card lies face
-// down in the slot the plan gives it, every one at the losers' size, and a
-// card only ever moves out of its slot and back (the hanged) or grows where
-// it lies (the winners).
+// down in the slot the plan gives it (the board already scrolled where the
+// settled board opens), every back with one portrait size ([EndReveal.backs]),
+// and a card only ever moves out of its slot and back (the dead, one beat
+// each) or rises where it lies (the winners, when nobody is hanged). Nothing
+// is ever drawn smaller than it is: a back grows into its face as it turns.
 
 /// What moves in a beat.
 enum RevealBeat {
   /// Nothing moves: the face-down board is read.
   hold,
 
-  /// The board scrolls to the hanged (a board taller than its window).
-  scroll,
-
-  /// The cards that are not hanged dim.
+  /// The board dims while the dead are up ...
   dim,
+
+  /// ... and comes back as the last of them goes down.
+  undim,
 
   /// A hanged card leaves its slot for the middle of the window, big.
   lift,
@@ -32,13 +35,13 @@ enum RevealBeat {
   /// A card turns face up where it is (a hanged card on its way).
   turn,
 
-  /// HANGED slams onto the hanged cards; the knock as it lands.
+  /// HANGED slams onto a dead card; a knock as it lands.
   stamp,
 
-  /// The banner unrolls, its sentence whole.
+  /// The furled banner unrolls, once, its sentence whole.
   banner,
 
-  /// The hanged go back to their slots; the stamp lifts off; the dim lifts.
+  /// A dead card goes back to its slot; its stamp lifts off.
   drop,
 
   /// The black ribbon is pinned on the hanged.
@@ -47,8 +50,14 @@ enum RevealBeat {
   /// The three middle cards turn (with the last row).
   middle,
 
-  /// The Hunter's twine and slip, and the ribbon on the one he took.
+  /// The Hunter's twine and slip, once the one he took is back in its slot.
   pick,
+
+  /// Nobody hanged: the winners rise together where they lie, turning ...
+  rise,
+
+  /// ... and settle back as the banner unrolls.
+  lower,
 
   /// The winners grow to their size; the dealt cards come out behind.
   grow,
@@ -87,20 +96,28 @@ class RevealSpan {
       '${start.inMilliseconds}+${length.inMilliseconds}';
 }
 
-/// The sizes the reveal adds to the board's: how big the hanged are in the
-/// middle of the window.
+/// The sizes the reveal adds to the board's: how big a dead card is in the
+/// middle of the window, and how it is turned there.
 abstract final class RevealMetrics {
-  /// One hanged card is at most this share of the window's width ...
-  static const bigWidthShare = 0.62;
+  /// A dead card up is this share of the board's width (the mock's) ...
+  static const bigWidthShare = 0.58;
 
-  /// ... and of its height.
+  /// ... at most this share of the window's height ...
   static const bigHeightShare = 0.7;
 
-  /// Clear of the window's sides.
+  /// ... and clear of the window's sides by this.
   static const bigMargin = 24.0;
 
-  /// Between hanged cards side by side.
-  static const bigGap = 12.0;
+  /// The Hunter's pick lands smaller than the first death: it is the second.
+  static const pickShare = 0.88;
+
+  /// How far a dead card is turned at its biggest (the first one way, the
+  /// next the other).
+  static const bigTiltDegrees = 3.0;
+
+  /// How far the winners rise when nobody is hanged, and how much larger.
+  static const rise = 8.0;
+  static const riseGrowth = 0.06;
 }
 
 /// The whole reveal of one board.
@@ -108,12 +125,15 @@ class EndReveal {
   const EndReveal({
     required this.spans,
     required this.total,
-    required this.knockAt,
+    required this.knocks,
     required this.thud,
-    required this.scrollFrom,
-    required this.scrollTo,
+    required this.scroll,
+    required this.dead,
+    required this.up,
     required this.big,
-    required this.startScale,
+    required this.bigTurn,
+    required this.backs,
+    required this.backPortrait,
   });
 
   final List<RevealSpan> spans;
@@ -121,23 +141,33 @@ class EndReveal {
   /// When the last beat ends: the board is settled.
   final Duration total;
 
-  /// The reveal's one vibration: as HANGED lands ([thud]), or as the banner
-  /// unrolls when nobody is hanged (a light one).
-  final Duration knockAt;
+  /// The reveal's vibrations: one as each HANGED lands ([thud]), or one light
+  /// one as the banner unrolls when nobody is hanged.
+  final List<Duration> knocks;
   final bool thud;
 
-  /// Where the board stands scrolled at the start and from the [RevealBeat.scroll]
-  /// beat on (the settled board's [EndBoardPlan.initialScroll]).
-  final double scrollFrom;
-  final double scrollTo;
+  /// Where the board stands scrolled from the first frame to the last: where
+  /// the settled board opens ([EndBoardPlan.initialScroll]), the dead in view.
+  final double scroll;
 
-  /// Where each hanged card is at its biggest, in the board's coordinates
-  /// (untilted), by player id.
+  /// The dead, in the order their beats come (the vote's, then the Hunter's
+  /// picks), by player id.
+  final List<int> dead;
+
+  /// A dead card's twin in its slot: the card with its art filling it (as
+  /// wide as the card, the portrait as wide as the paper lets it), centred
+  /// on the card. Board coordinates, untilted. By player id.
+  final Map<int, Rect> up;
+
+  /// Where each dead card's twin is at its biggest ([up] grown), and how far
+  /// it is turned there (radians). By player id.
   final Map<int, Rect> big;
+  final Map<int, double> bigTurn;
 
-  /// Each card's size at the start, a share of its own: every card at one
-  /// size, face down. By player id.
-  final Map<int, double> startScale;
+  /// Every card's back as it lies face down: one portrait size for all, as
+  /// wide as its name needs, centred on the card. By player id.
+  final Map<int, Rect> backs;
+  final double backPortrait;
 
   /// The beats of [kind] (about [card] or [row] when given).
   Iterable<RevealSpan> all(RevealBeat kind, {int? card, int? row}) =>
@@ -159,78 +189,131 @@ class EndReveal {
   /// The turn of the card [id].
   RevealSpan turnOf(int id) => of(RevealBeat.turn, card: id)!;
 
-  bool get anyHanged => big.isNotEmpty;
+  bool get anyHanged => dead.isNotEmpty;
+
+  /// Whether the dead card [id] is out of its slot at [t] (its twin is
+  /// drawn): from its lift to the end of its drop.
+  bool isUp(int id, Duration t) {
+    final lift = of(RevealBeat.lift, card: id);
+    final drop = of(RevealBeat.drop, card: id);
+    return lift != null && drop != null && t >= lift.start && t < drop.end;
+  }
 }
 
 /// The reveal of [plan].
 EndReveal revealOf(EndBoardPlan plan) {
   final spans = <RevealSpan>[];
-  // The vote's dead (a card's `hanged` is any death; the Hunter's pick is
-  // told after, on its twine).
-  final hanged = [
+  // Every death, a beat each: the vote's, then the Hunter's picks (the
+  // plan's order, which is the order they died).
+  final dead = [
     for (final c in plan.cards)
       if (c.hanged && !c.pickedByHunter) c,
+    for (final c in plan.cards)
+      if (c.hanged && c.pickedByHunter) c,
   ];
-  final scrollTo = plan.scrolls ? plan.initialScroll : 0.0;
+  final knocks = <Duration>[];
 
   // The held beat: the face-down board, read. Short: the vote has just been
   // seen, and the stamp is the moment.
   const hold = RevealSpan(RevealBeat.hold, Duration.zero, Motion.reveal);
   spans.add(hold);
-  if (scrollTo > 0) {
-    spans.add(
-      RevealSpan(RevealBeat.scroll, hold.end - Motion.settle, Motion.settle),
-    );
-  }
 
   var turnsFrom = hold.end;
-  Duration? knockAt;
   var settledFrom = hold.end;
-  if (hanged.isNotEmpty) {
+  var poolFrom = hold.end;
+  if (dead.isNotEmpty) {
     spans.add(RevealSpan(RevealBeat.dim, hold.end, Motion.quick));
-    for (final c in hanged) {
+    var from = hold.end;
+    late RevealSpan lastDrop;
+    for (final (i, c) in dead.indexed) {
+      final first = i == 0;
+      // Up out of its slot, big, turning face up on the way.
+      final lift = RevealSpan(RevealBeat.lift, from, Motion.settle, card: c.id);
       spans
-        ..add(RevealSpan(RevealBeat.lift, hold.end, Motion.settle, card: c.id))
-        // It turns on the way, and lands face up as it arrives.
+        ..add(lift)
         ..add(
           RevealSpan(
             RevealBeat.turn,
-            hold.end + Motion.settle - Motion.quick,
+            lift.end - Motion.quick,
             Motion.quick,
             card: c.id,
           ),
         );
-    }
-    // The face is seen whole for a moment, then the stamp slams.
-    final stamp = RevealSpan(
-      RevealBeat.stamp,
-      hold.end + Motion.settle + Motion.quick,
-      Motion.press,
-    );
-    knockAt = stamp.end;
-    spans
-      ..add(stamp)
-      ..add(RevealSpan(RevealBeat.banner, stamp.start, Motion.settle));
-    final drop = RevealSpan(
-      RevealBeat.drop,
-      stamp.end + Motion.reveal,
-      Motion.settle,
-    );
-    spans.add(drop);
-    for (final c in hanged) {
-      spans.add(
-        RevealSpan(RevealBeat.ribbon, drop.end, Motion.press, card: c.id),
+      // The face seen whole for a moment, then the stamp, and the knock as it
+      // lands; the banner unrolls with the first.
+      final stamp = RevealSpan(
+        RevealBeat.stamp,
+        lift.end + (first ? Motion.quick : Motion.press),
+        Motion.press,
+        card: c.id,
       );
+      spans.add(stamp);
+      knocks.add(stamp.end);
+      if (first) {
+        spans.add(RevealSpan(RevealBeat.banner, stamp.start, Motion.scene));
+      }
+      // Held, then back down to its slot, where the ribbon is pinned on.
+      final drop = RevealSpan(
+        RevealBeat.drop,
+        stamp.end + (first ? Motion.reveal : Motion.settle),
+        Motion.settle,
+        card: c.id,
+      );
+      spans
+        ..add(drop)
+        ..add(
+          RevealSpan(RevealBeat.ribbon, drop.end, Motion.press, card: c.id),
+        );
+      if (c.pickedByHunter) {
+        spans.add(
+          RevealSpan(RevealBeat.pick, drop.end, Motion.settle, card: c.id),
+        );
+      }
+      lastDrop = drop;
+      // The next death once this one is back in its slot.
+      from = drop.end;
     }
-    turnsFrom = drop.start;
-    settledFrom = drop.end + Motion.press;
+    spans.add(RevealSpan(RevealBeat.undim, lastDrop.start, lastDrop.length));
+    turnsFrom = lastDrop.start;
+    settledFrom = lastDrop.end + Motion.press;
+    poolFrom = settledFrom;
+  }
+
+  // Nobody hanged: the winners rise together where they lie, turning face up
+  // in the lantern's light, then settle as the banner unrolls (a light knock).
+  final rising = {
+    if (dead.isEmpty)
+      for (final c in plan.cards)
+        if (c.won) c.id,
+  };
+  if (dead.isEmpty) {
+    final banner = RevealSpan(
+      RevealBeat.banner,
+      hold.end +
+          (rising.isEmpty ? Duration.zero : Motion.settle + Motion.quick),
+      Motion.scene,
+    );
+    if (rising.isNotEmpty) {
+      spans
+        ..add(RevealSpan(RevealBeat.rise, hold.end, Motion.settle))
+        ..add(RevealSpan(RevealBeat.lower, banner.start, Motion.settle));
+      for (final id in rising) {
+        spans.add(
+          RevealSpan(RevealBeat.turn, hold.end, Motion.quick, card: id),
+        );
+      }
+      settledFrom = banner.start + Motion.settle;
+    }
+    spans.add(banner);
+    knocks.add(banner.start);
+    turnsFrom = banner.start;
   }
 
   // Row by row, every card not yet face up turns where it lies; the middle
   // cards with the last row.
-  final hangedIds = {for (final c in hanged) c.id};
+  final turned = {for (final c in dead) c.id, ...rising};
   final turningRows = plan.rows
-      .where((row) => row.any((i) => !hangedIds.contains(plan.cards[i].id)))
+      .where((row) => row.any((i) => !turned.contains(plan.cards[i].id)))
       .length;
   // A tall board (long names, a row each) closes its rows up: the cascade is
   // never longer than five rows' worth.
@@ -242,7 +325,7 @@ EndReveal revealOf(EndBoardPlan plan) {
   for (final (r, row) in plan.rows.indexed) {
     final turning = [
       for (final i in row)
-        if (!hangedIds.contains(plan.cards[i].id)) plan.cards[i],
+        if (!turned.contains(plan.cards[i].id)) plan.cards[i],
     ];
     if (turning.isEmpty) continue;
     final start = turnsFrom + stagger * k++;
@@ -262,52 +345,62 @@ EndReveal revealOf(EndBoardPlan plan) {
   final turnsEnd = middleAt + Motion.quick;
   if (turnsEnd > settledFrom) settledFrom = turnsEnd;
 
-  // The Hunter's picks, one after the other, each once its two cards are up.
-  var pickFrom = settledFrom;
-  for (final p in plan.picks) {
-    final start = _latest([
-      pickFrom,
-      for (final s in spans)
-        if (s.kind == RevealBeat.turn && s.card == p.pickId) s.end,
-    ]);
-    final pick = RevealSpan(
-      RevealBeat.pick,
-      start,
-      Motion.settle,
-      card: p.pickId,
-    );
-    spans.add(pick);
-    pickFrom = pick.end;
-  }
-
-  // The board settles: the winners grow, the pool comes on, the tags arrive.
+  // The board settles: the dealt cards and seals come out, the pool comes on
+  // (with the winners' rise when nobody is hanged), the tags arrive.
   spans
     ..add(RevealSpan(RevealBeat.grow, settledFrom, Motion.settle))
-    ..add(RevealSpan(RevealBeat.pool, settledFrom, Motion.settle))
+    ..add(RevealSpan(RevealBeat.pool, poolFrom, Motion.settle))
     ..add(RevealSpan(RevealBeat.tags, settledFrom, Motion.settle));
-  if (hanged.isEmpty) {
-    // Nobody hanged: the banner unrolls as the tags tie on, with the light
-    // knock.
-    spans.add(RevealSpan(RevealBeat.banner, settledFrom, Motion.settle));
-    knockAt = settledFrom;
-  }
 
-  final least = plan.cards
+  final scroll = plan.scrolls ? plan.initialScroll : 0.0;
+  final backPortrait = plan.cards
       .map((c) => c.portraitWidth)
       .fold(double.infinity, math.min);
+  final up = {for (final c in dead) c.id: upOf(c)};
   return EndReveal(
     spans: spans,
     total: _latest([for (final s in spans) s.end]),
-    knockAt: knockAt!,
-    thud: hanged.isNotEmpty,
-    scrollFrom: 0,
-    scrollTo: scrollTo,
-    big: _bigOf(plan, hanged, scrollTo),
-    startScale: {
-      for (final c in plan.cards) c.id: math.min(1, least / c.portraitWidth),
+    knocks: knocks,
+    thud: dead.isNotEmpty,
+    scroll: scroll,
+    dead: [for (final c in dead) c.id],
+    up: up,
+    big: _bigOf(plan, dead, up, scroll),
+    bigTurn: {
+      for (final (i, c) in dead.indexed)
+        c.id:
+            (i.isEven ? -1 : 1) * RevealMetrics.bigTiltDegrees * math.pi / 180,
     },
+    backs: {for (final c in plan.cards) c.id: backOf(c, backPortrait)},
+    backPortrait: backPortrait,
   );
 }
+
+/// The back of [c] face down, with a portrait [portrait] wide: as wide as the
+/// portrait and its paper, or the name and its room, centred on the card.
+/// Never wider or taller than the card.
+Rect backOf(EndCard c, double portrait) {
+  final width = math.min(
+    c.rect.width,
+    math.max(portrait + 2 * EndMetrics.portraitInset, c.nameWidth),
+  );
+  final height = math.min(
+    c.rect.height,
+    EndMetrics.cardHeight(portrait, header: c.header),
+  );
+  return Rect.fromCenter(center: c.rect.center, width: width, height: height);
+}
+
+/// A dead card's twin in its slot: as wide as the card, its portrait as wide
+/// as the paper lets it, so the art fills the card.
+Rect upOf(EndCard c) => Rect.fromCenter(
+  center: c.rect.center,
+  width: c.rect.width,
+  height: EndMetrics.cardHeight(
+    c.rect.width - 2 * EndMetrics.portraitInset,
+    header: c.header,
+  ),
+);
 
 /// The most rows the cascade of turns gives a full [Motion.stagger] each.
 const _cascadeRows = 5;
@@ -315,41 +408,40 @@ const _cascadeRows = 5;
 Duration _latest(Iterable<Duration> times) =>
     times.fold(Duration.zero, (a, b) => b > a ? b : a);
 
-/// The hanged side by side in the middle of the window (as it stands
-/// scrolled to [scroll]), as big as fits; never smaller than they are.
-Map<int, Rect> _bigOf(EndBoardPlan plan, List<EndCard> hanged, double scroll) {
-  if (hanged.isEmpty) return const {};
+/// Each dead card alone in the middle of the window (as it stands scrolled
+/// to [scroll]), a set share of the board wide (the Hunter's pick a little
+/// smaller), no taller than a share of the window; never smaller than it is.
+Map<int, Rect> _bigOf(
+  EndBoardPlan plan,
+  List<EndCard> dead,
+  Map<int, Rect> up,
+  double scroll,
+) {
   final room = Rect.fromLTWH(
     0,
     scroll,
     plan.boardWidth,
     plan.seenAtTop,
   ).deflate(RevealMetrics.bigMargin);
-  final widths = hanged.fold(0.0, (a, c) => a + c.rect.width);
-  final widest = hanged.map((c) => c.rect.width).fold(0.0, math.max);
-  final tallest = hanged.map((c) => c.rect.height).fold(0.0, math.max);
-  final gaps = RevealMetrics.bigGap * (hanged.length - 1);
-  final scale = math.max(
-    1.0,
-    [
-      RevealMetrics.bigWidthShare * room.width / widest,
-      (room.width - gaps) / widths,
-      RevealMetrics.bigHeightShare * room.height / tallest,
-    ].reduce(math.min),
+  final wide = math.min(
+    RevealMetrics.bigWidthShare * plan.boardWidth,
+    room.width,
   );
-  final across = widths * scale + gaps;
-  var x = room.center.dx - across / 2;
   return {
-    for (final c in hanged)
+    for (final c in dead)
       c.id: () {
-        final r = Rect.fromLTWH(
-          x,
-          room.center.dy - c.rect.height * scale / 2,
-          c.rect.width * scale,
-          c.rect.height * scale,
+        final box = up[c.id]!;
+        final share = c.pickedByHunter ? RevealMetrics.pickShare : 1.0;
+        final fits = math.min(
+          wide / box.width,
+          RevealMetrics.bigHeightShare * room.height / box.height,
         );
-        x += r.width + RevealMetrics.bigGap;
-        return r;
+        final scale = math.max(1.0, fits * share);
+        return Rect.fromCenter(
+          center: room.center,
+          width: box.width * scale,
+          height: box.height * scale,
+        );
       }(),
   };
 }

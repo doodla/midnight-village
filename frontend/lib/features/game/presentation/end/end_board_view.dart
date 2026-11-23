@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/feel/haptics.dart';
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/primitives/furled_scroll.dart';
 import '../../../../design_system/primitives/layered_art.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sliced_art.dart';
@@ -90,7 +91,9 @@ class _EndBoardViewState extends State<EndBoardView>
 
   /// The reveal is over (or never was): the board is drawn settled.
   late var _settled = !widget.reveal;
-  var _knocked = false;
+
+  /// How many of the reveal's knocks have come.
+  var _knocked = 0;
   EndBoardPlan? _revealed;
 
   @override
@@ -127,28 +130,31 @@ class _EndBoardViewState extends State<EndBoardView>
     super.dispose();
   }
 
+  /// A knock as each stamp lands (as the banner unrolls when nobody hangs).
   void _onTick() {
     final r = _driver.reveal;
-    if (r != null && _driver.now >= r.knockAt) _knock();
+    if (r == null) return;
+    while (_knocked < r.knocks.length && _driver.now >= r.knocks[_knocked]) {
+      _knock();
+    }
   }
 
-  /// The reveal's one vibration, whenever the board settles first.
+  /// One of the reveal's knocks, through the `Haptics` seam: a thud for a
+  /// death, a light one when nobody hangs.
   void _knock() {
-    if (_knocked || !widget.reveal) return;
-    _knocked = true;
+    if (!widget.reveal || !mounted) return;
+    _knocked++;
     final r = _driver.reveal;
     final thud = r?.thud ?? !deathsOf(endSeatsOf(widget.outcome)).nobody;
     thud ? Haptics.thud(context) : Haptics.light(context);
   }
 
+  /// The board settled before its time (a touch, a turned phone): the one
+  /// knock, if none had come yet; the rest of the reveal is not played.
   void _settle() {
-    if (_settled) return;
-    _knock();
+    if (_settled || !mounted) return;
+    if (_knocked == 0) _knock();
     _clock.stop();
-    if (!mounted) {
-      _settled = true;
-      return;
-    }
     setState(() => _settled = true);
   }
 
@@ -158,7 +164,9 @@ class _EndBoardViewState extends State<EndBoardView>
     if (_settled) return;
     if (_revealed != null) {
       if (!identical(plan, _revealed)) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _settle());
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _settle();
+        });
       }
       return;
     }
@@ -210,7 +218,15 @@ class _EndBoardViewState extends State<EndBoardView>
     final banner = endBannerOf(outcome, widget.viewerId);
     final scale = MediaQuery.textScalerOf(context).scale(1);
     // Fitted once for this width and text size, not on every build.
-    final fitKey = (screen.width, scale, direction, type.screenTitle);
+    // Keyed on all it reads: a new payload or viewer is fitted again.
+    final fitKey = (
+      outcome,
+      widget.viewerId,
+      screen.width,
+      scale,
+      direction,
+      type.screenTitle,
+    );
     final bannerHeight = _fit?.$1 == fitKey
         ? _fit!.$3
         : () {
@@ -292,21 +308,40 @@ class _EndBoardViewState extends State<EndBoardView>
               minLines: 2,
               red: banner.red,
             ),
+            width: screen.width,
+            height: bannerHeight,
+            // At rest the roll lies on the roof.
+            restDrop: windowTop - bannerTop - FurledScroll.thickness,
           ),
         ),
       ],
     );
   }
 
-  /// In the reveal what holds still is its own layer, painted once.
+  /// What holds still in the reveal is its own layer, painted once. Settled
+  /// it keeps the same layer: settling the board must not rebuild the foot's
+  /// controls under a touch, or the touch that settled it is lost.
   Widget _still(BuildContext context, Widget piece) =>
-      EndRevealScope.maybeOf(context) == null
-      ? piece
-      : RepaintBoundary(child: piece);
+      RepaintBoundary(child: piece);
 
-  Widget _unrolled(BuildContext context, Widget banner) {
+  /// The banner; in the reveal furled on the roof until its beat.
+  Widget _unrolled(
+    BuildContext context,
+    Widget banner, {
+    required double width,
+    required double height,
+    required double restDrop,
+  }) {
     final driver = EndRevealScope.maybeOf(context);
-    return driver == null ? banner : revealUnroll(driver, banner);
+    return driver == null
+        ? banner
+        : revealUnroll(
+            driver,
+            banner,
+            width: width,
+            height: height,
+            restDrop: restDrop,
+          );
   }
 
   /// The board in its window, planned for the room the window has.
@@ -339,8 +374,21 @@ class _EndBoardViewState extends State<EndBoardView>
       return h;
     }
 
-    // Planned once for this room and text size, not on every build.
-    final key = (screen, boardTop, view, scaler, direction, type);
+    // Planned once for this room and text size, not on every build; keyed on
+    // everything the plan reads, so a changed payload, viewer or host is
+    // planned again.
+    final key = (
+      widget.outcome,
+      widget.viewerId,
+      widget.isHost,
+      widget.hostName,
+      screen,
+      boardTop,
+      view,
+      scaler,
+      direction,
+      type,
+    );
     final kept = _plan;
     final plan = kept != null && kept.$1 == key
         ? kept.$2

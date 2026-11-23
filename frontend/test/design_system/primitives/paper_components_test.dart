@@ -305,6 +305,9 @@ void main() {
       expect(DrawnKind.values.map((k) => k.name).toSet(), {
         'qrCode',
         'scanner',
+        // The HANGED stamp: an ink impression, its rules and burst are lines
+        // (the mock's stamp, end board piece 3).
+        'inkStamp',
       });
     });
   });
