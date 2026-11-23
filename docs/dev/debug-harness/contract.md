@@ -219,9 +219,9 @@ All endpoints **DEBUG-gated**: when `settings.DEBUG is False`, return 403 and do
 nothing; each MUST have a `DEBUG=False`-rejection test. All new code tested to the
 project bar (`just check` + `just test` green, coverage ≥80% holds).
 
-Read before changing: `apps/onuw/views.py` (`GameStartView` ~line 35; `ResultsView`
-537-639), `apps/onuw/engine/assignment.py`, `apps/onuw/timers.py`, `apps/onuw/services.py`
-(`persist_wave_results` ~505), `apps/onuw/models.py:48` (`night_actions_log`),
+Read before changing: `apps/onuw/views.py` (`GameStartView`), `apps/onuw/views_read.py`
+(`ResultsView`), `apps/onuw/engine/assignment.py`, `apps/onuw/timers.py`,
+`apps/onuw/night_window.py` (`persist_wave_results`), `apps/onuw/models.py` (`night_actions_log`),
 `apps/onuw/engine/win_conditions.py` (`get_effective_team` ~82), `config/settings/harness.py` (already created).
 
 ### B1. Forced-assignment / seed override on game start

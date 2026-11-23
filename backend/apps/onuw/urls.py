@@ -4,7 +4,7 @@ from django.urls import path
 
 from apps.core.views import LobbyPlayAgainView
 
-from . import debug_views, views
+from . import debug_views, views, views_play, views_read
 
 app_name = "onuw"
 
@@ -29,12 +29,12 @@ urlpatterns = [
     ),
     path(
         "me/current-game/",
-        views.CurrentGameView.as_view(),
+        views_read.CurrentGameView.as_view(),
         name="current-game",
     ),
     path(
         "me/recent-games/",
-        views.RecentGamesView.as_view(),
+        views_read.RecentGamesView.as_view(),
         name="recent-games",
     ),
     path(
@@ -44,47 +44,47 @@ urlpatterns = [
     ),
     path(
         "games/<str:game_id>/players/",
-        views.PlayerListView.as_view(),
+        views_read.PlayerListView.as_view(),
         name="player-list",
     ),
     path(
         "games/<str:game_id>/action/",
-        views.NightActionView.as_view(),
+        views_play.NightActionView.as_view(),
         name="night-action",
     ),
     path(
         "games/<str:game_id>/night-results/seen/",
-        views.NightResultsSeenView.as_view(),
+        views_play.NightResultsSeenView.as_view(),
         name="night-results-seen",
     ),
     path(
         "games/<str:game_id>/advance-wave/",
-        views.WaveAdvanceView.as_view(),
+        views_play.WaveAdvanceView.as_view(),
         name="wave-advance",
     ),
     path(
         "games/<str:game_id>/end-discussion/",
-        views.EndDiscussionView.as_view(),
+        views_play.EndDiscussionView.as_view(),
         name="end-discussion",
     ),
     path(
         "games/<str:game_id>/ready/",
-        views.ReadyView.as_view(),
+        views_play.ReadyView.as_view(),
         name="ready",
     ),
     path(
         "games/<str:game_id>/vote/",
-        views.VoteView.as_view(),
+        views_play.VoteView.as_view(),
         name="vote",
     ),
     path(
         "games/<str:game_id>/reveal-votes/",
-        views.ForceRevealView.as_view(),
+        views_play.ForceRevealView.as_view(),
         name="reveal-votes",
     ),
     path(
         "games/<str:game_id>/results/",
-        views.ResultsView.as_view(),
+        views_read.ResultsView.as_view(),
         name="results",
     ),
     # DEBUG-gated developer-harness surfaces. Both return 403 when

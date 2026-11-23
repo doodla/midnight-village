@@ -23,7 +23,11 @@ imports only the ones before it (`tests/onuw/test_module_directions.py`).
 | `night_results.py` | what a player is shown of the night afterwards |
 | `recovery.py` | rebuilding timers that were lost |
 | `choose_night.py` | the night's requests: storing a choice, the prompt |
-| `views.py`, `consumers.py`, `serializers.py` | HTTP, sockets, payloads |
+| `views.py` | HTTP: dealing a game, a player's own page (`GET /me/`), the timer sweep |
+| `views_play.py` | HTTP: what a player sends during a game (night choice, vote, ready, ...) |
+| `views_read.py` | HTTP: pages that only read (players, current and recent games, results) |
+| `view_helpers.py` | what the views share: the common refusals, reading the stage a request names |
+| `consumers.py`, `serializers.py` | sockets, payloads |
 
 ## The night: two windows
 
