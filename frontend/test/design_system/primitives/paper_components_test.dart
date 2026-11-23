@@ -31,13 +31,42 @@ const _shapeCalls = {
   #drawArc,
 };
 
+/// Every paint call [root] makes (and what it paints), recorded without a
+/// screen; leaves out whatever sits in a [Drawn].
+List<RecordedInvocation> paintCallsOf(RenderObject root) {
+  final canvas = TestRecordingCanvas();
+  _Walker(canvas).paintChild(root, Offset.zero);
+  return canvas.invocations;
+}
+
+/// The same, each with the render object that was painting it (the innermost):
+/// its `debugCreator` leads to the widgets above it.
+List<(RecordedInvocation, RenderObject)> paintCallsWithOwner(
+  RenderObject root,
+) {
+  final canvas = TestRecordingCanvas();
+  final walker = _Walker(canvas);
+  walker.paintChild(root, Offset.zero);
+  final out = <(RecordedInvocation, RenderObject)>[];
+  for (final (i, call) in canvas.invocations.indexed) {
+    RenderObject? owner;
+    var width = 1 << 30;
+    for (final (start, end, node) in walker.spans) {
+      if (start <= i && i < end && end - start < width) {
+        owner = node;
+        width = end - start;
+      }
+    }
+    out.add((call, owner ?? root));
+  }
+  return out;
+}
+
 /// Walks the paint of [root] and returns every stroke, ring or text line it
 /// draws, leaving out whatever sits in a [Drawn].
 List<String> strokesIn(RenderObject root) {
-  final canvas = TestRecordingCanvas();
-  _Walker(canvas).paintChild(root, Offset.zero);
   final found = <String>[];
-  for (final call in canvas.invocations) {
+  for (final call in paintCallsOf(root)) {
     final name = call.invocation.memberName;
     final paint = call.invocation.positionalArguments
         .whereType<Paint>()
@@ -78,10 +107,19 @@ String _name(Symbol s) => s.toString().replaceAll(RegExp(r'Symbol\("|"\)'), '');
 class _Walker extends TestRecordingPaintingContext {
   _Walker(super.canvas);
 
+  /// Where each child's paint calls start and end in the recording.
+  final spans = <(int, int, RenderObject)>[];
+
   @override
   void paintChild(RenderObject child, Offset offset) {
     if (child is RenderDrawn) return;
+    final start = (canvas as TestRecordingCanvas).invocations.length;
     super.paintChild(child, offset);
+    spans.add((
+      start,
+      (canvas as TestRecordingCanvas).invocations.length,
+      child,
+    ));
   }
 
   // flutter_test's recorder returns null here and a colour filter (a dimmed

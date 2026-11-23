@@ -102,7 +102,7 @@ const inventory = <PartEntry>[
     part: PaperPart.chip,
     plain: 'outlined box; the selected one lifts and takes a thicker ring',
     paper:
-        'a cut-paper tag: bone, lifted and wearing the paper mark when selected; a darker scrap when not',
+        "a cut-paper tag: picked = bone paper lifted high with a wax seal over its corner (its own form, `PaperPart.chipPicked`, never a button's); not picked = a flat, dim scrap of navy paper",
   ),
   PartEntry(
     'TagChip',
@@ -139,6 +139,7 @@ const inventory = <PartEntry>[
   PartEntry(
     'ProgressPips',
     'primitives/progress_pips.dart',
+    part: PaperPart.pip,
     plain: 'plain pips (filled ink, empty hairline) and "N of M"',
     paper:
         'punched paper dots with a shadow; the unlit one a darker paper that keeps 3:1 against the ground',

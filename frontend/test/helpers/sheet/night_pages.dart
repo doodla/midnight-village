@@ -91,7 +91,7 @@ class _CardPageState extends State<CardPage> {
           )
         else
           PrimaryButton.locked(
-            label: CardCopy.ready,
+            label: CardCopy.readyLocked,
             onLockedTap: _replay.replay,
             size: ButtonSize.large,
           ),

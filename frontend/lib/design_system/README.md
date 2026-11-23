@@ -93,12 +93,19 @@ board: notices, slips); the primary action is one piece of amber paper on a dark
 nothing drawn in it but its label; secondary actions are bone paper scraps (a lower lift, same
 material); quiet actions are plain serif words with no underline; chips and tags are cut-paper tags;
 picked and done are the `PaperMark` only (no ring); keyboard focus is a lifted shadow (no outline).
-One locked form: a primary that cannot act yet ("Ready" before the card is looked at, "Choose a card",
-"Need 3 players", "Pick a name") is the SAME amber piece dimmed to ochre (`PaperPiece.dimmed`, from
-`PaperParts.lockedTone`/`lockedDim`), its label saying why, never under 4.5:1. A team's tag is paper
+One locked form: a primary that cannot act yet ("Look first" before the card is looked at,
+"Choose a card", "Need 3 players") is the SAME piece, plainly not live at a glance even with no live
+button beside it (art director, 23 November 2026): a pale sand (`PaperPiece.dimmed`: the amber with most
+of its colour gone, laid toward `PaperParts.lockedPale`; at least 0.1 lighter in luminance and half the
+saturation), lying flat (`PaperPiece.flattened`: no backing, `lockedLift` of the lift, `lockedShadow` of
+the shadow's ink), its label naming what unlocks it (never the live label) and never under 4.5:1;
+`paper_consistency_test.dart` holds the margins and scans `lib/` so a new locked button is listed with
+its words. A team's tag is paper
 of the team's own colour on every surface (the three team colours in `PaperParts`,
-`TagChip.team`). The edge of a card is cut layers and shadow: a card back is a red layer under a navy
-one (`CardBackPaper`, the art's own printed rim left outside by `CardBack.frameInset`), a token a
+`TagChip.team`). The edge of a card is cut layers and shadow: a card back is a darker indigo layer under a navy
+one (`PaperParts.cardRim`; never red: red is the Werewolf team's, painted only by its tag, rows and
+markers and by artwork, `paper_consistency_test.dart` walks every paint call; `CardBackPaper`, the art's own
+printed rim left outside by `CardBack.frameInset`), a token a
 paper disc (`PaperParts.tokenInset`). Three tests hold it over every paper screen and every component
 state (`test/design_system/primitives/paper_rules_test.dart`): SHADOW (every shadow falls down and away
 from the screen's one light, `PaperLight`, which a sheet or dialog carries over in `GameScopes`; the
@@ -119,20 +126,20 @@ is every component's own code, kept exactly as it was (the owner has not asked f
 | IconAction | Material icon button (the table's Share) | a bare ink glyph, no paper under it (it lies on a notice already); a press dims it, focus lifts it | `primitives/icon_action.dart` |
 | GlyphButton | outlined square with a glyph; on = lift and fill | a bone scrap square with the glyph; on = lifted with the paper mark | `primitives/viewfinder.dart` |
 | ValueStepper | two outlined round buttons round the value | two cut paper discs (minus, plus), dimmed at the end of the range; the value on a panel of paper set into the ground | `primitives/value_stepper.dart` |
-| HoldRing | a ring that fills while the finger stays down, the word "Hold" | a navy paper disc with the word on it; the hold's progress an amber paper arc round it, filling clockwise over the same time (filled shapes only, no stroke) | `teach/hold_cue.dart` |
+| HoldRing | a ring that fills while the finger stays down, the word "Hold" | a navy paper disc with the word on it; the hold's progress an amber paper arc round it, filling clockwise over the same time (filled shapes only, no stroke; nothing is drawn round the disc at rest: no track, no ring) | `teach/hold_cue.dart` |
 | HoldToReveal | a focus outline on the cover | focus lifts the cover (a deeper shadow), no outline | `primitives/hold_to_reveal.dart` |
-| PresetChip | outlined box; the selected one lifts and takes a thicker ring | a cut-paper tag: bone, lifted and wearing the paper mark when selected; a darker scrap when not | `primitives/chips.dart` |
+| PresetChip | outlined box; the selected one lifts and takes a thicker ring | a cut-paper tag: picked = `PaperPart.chipPicked` (bone, lifted high, a wax seal over its corner: its own form, never a button's); not picked = `PaperPart.chip`, a flat dim scrap of navy paper | `primitives/chips.dart` |
 | TagChip | flat fill in ink (danger for the Werewolf team) | a cut-paper tag; a team's tag (`TagChip.team`) is paper of the team's own colour on every surface: the Werewolf team red, the Village blue, the Tanner umber | `primitives/tag_chip.dart` |
 | YouTag | "You" outlined in the row's ink; "Practice" bare words | "You" on a cut-paper tag in the ink of what it lies on (navy on a bone row, bone on the night), set in the tag face wherever it is | `primitives/you_tag.dart` |
 | CountBadge | a filled round badge with the number | a drop of wax with the number in it (a `PaperPiece`, part wax), never a ring | `primitives/count_badge.dart` |
 | SeatDot / SlotMark | filled disc or slip; empty ones outlined | filled paper disc or slip; empty ones a darker paper disc, no outline | `primitives/dots.dart` |
-| ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | punched paper dots with a shadow; the unlit one a darker paper that keeps 3:1 against the ground | `primitives/progress_pips.dart` |
+| ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | punched paper dots (`PaperPart.pip`, 14 px, a card's shadow); the unlit one a darker paper that keeps 3:1 against the ground | `primitives/progress_pips.dart` |
 | ScrapLabel | words in ink ("Edit") | a small bone scrap with the words | `primitives/scrap_label.dart` |
 | PlayerRow | paper row with a ring when picked or your own | a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are strips of paper with a shadow | `primitives/player_row.dart` |
 | PlayerToken | round token art | a cut disc of paper with its shadow, the emblem laid in it (its printed rim left outside); never a ring | `primitives/player_token.dart` |
 | RoleCard | portrait with a ring (lit or hairline) and a count badge | a mini card cut from paper: deckled, with its shadow while it is in the deck; the count a wax badge on its corner | `primitives/role_card.dart` |
 | Fanned | cards in a row | cards fanned a hair, paint only | `primitives/fanned.dart` |
-| FaceDownCard | card back in a ring, hard shadow; picked = ring, lift, glow | two cut layers, a red one with the navy one laid on it a rim smaller, both deckled with their shadows (the card back's own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; the one hero card on a deckled bone card like the face | `primitives/face_down_card.dart` |
+| FaceDownCard | card back in a ring, hard shadow; picked = ring, lift, glow | two cut layers, a darker indigo one (never red) with the navy one laid on it a rim smaller, both deckled with their shadows (the card back's own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; the one hero card on a deckled bone card like the face | `primitives/face_down_card.dart` |
 | PaperCard | cut paper card, hard shadow | deckled paper with the paper shadow; pinned = a pin through each top corner (a notice) | `primitives/paper_card.dart` |
 | HeldFace | the role card: portrait with a hairline frame, a rule above the text | the role card on paper, no frame and no rule; the same name, tag and lines as the sheet (`RoleHead`, `RoleText.lineSpan`) | `faces/held_face.dart` |
 | RoleSheetBody | portrait, tags and the role's words on paper | the same on paper: the team tag above the name (`RoleHead`), "Night:" and "Wins:" in the strong face, the portrait a deckled picture | `primitives/role_sheet_body.dart` |
@@ -144,7 +151,7 @@ is every component's own code, kept exactly as it was (the owner has not asked f
 | SheetScaffold | paper sheet with a lit strip along its top | a torn sheet of paper, no lit strip; its Close is plain serif words (`SheetClose`) | `primitives/sheet_scaffold.dart` |
 | Rule / SideRule | a hairline, or a line down a block's side | no line: the room it takes | `primitives/rule.dart` |
 | PaperBanner | its words on the ground | torn bone paper with two pins | `primitives/paper_banner.dart` |
-| TextBacking | nothing | a name plate: a cut-paper tag behind the words (paint only), the words in the tag's ink | `primitives/text_backing.dart` |
+| TextBacking | nothing | a name plate: a cut-paper tag behind the words (paint only), the words in the tag's ink; a player's name on the night board is the quiet `PaperPart.nameTag` (navy paper, bone words, `FaceDownCard.nameBleed` past the words, so neighbours keep the column gap: `BoardLayout.solve(plate:)`) | `primitives/text_backing.dart` |
 | Band / TimerBand | a band with the clock, the sun or the bar | the same band; the night board's sits on a banner | `primitives/band.dart` |
 | WorldTimer | the seconds beside a candle on a panel with a hairline frame | the same panel with no frame | `primitives/world_timer.dart` |
 | CandleGauge | the paper candle (art) on a ledge with a hairline | the candle on a ledge with no hairline (the candle is art) | `primitives/candle_gauge.dart` |

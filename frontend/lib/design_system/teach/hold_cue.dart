@@ -184,7 +184,6 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
         CustomPaint(
           painter: HoldArcPainter(
             fill: _fill,
-            track: night.panel,
             amber: night.accent,
             shadow: night.elevation.badge.layers.first.color,
             lean: PaperLight.of(context),
@@ -269,14 +268,12 @@ class HoldRingPainter extends CustomPainter {
 }
 
 /// The hold's progress, dressed up: a band of paper round the disc, the part
-/// filled so far in amber paper from the top clockwise ([fill], 0 to 1), the
-/// rest the disc's own navy paper laid a shade under; each cast with a hard
-/// two-step shadow away from the screen's light ([lean]). Only filled shapes:
+/// filled so far in amber paper from the top clockwise ([fill], 0 to 1), cast
+/// with a hard two-step shadow away from the screen's light ([lean]). Only filled shapes:
 /// no stroke.
 class HoldArcPainter extends CustomPainter {
   HoldArcPainter({
     required this.fill,
-    required this.track,
     required this.amber,
     required this.shadow,
     required this.lean,
@@ -284,7 +281,6 @@ class HoldArcPainter extends CustomPainter {
   }) : super(repaint: fill);
 
   final Animation<double> fill;
-  final Color track;
   final Color amber;
   final Color shadow;
   final double lean;
@@ -303,12 +299,9 @@ class HoldArcPainter extends CustomPainter {
     final outer = Offset.zero & size;
     final full = 2 * math.pi - 0.0001;
     final drop = Offset(lean * 2, 2);
-    final tracked = _band(outer, full);
-    canvas.drawPath(
-      tracked.shift(drop),
-      Paint()..color = shadow.withValues(alpha: 0.5),
-    );
-    canvas.drawPath(tracked, Paint()..color = track);
+    // No track under the arc: a dark band round the disc read as a stroked
+    // inner ring (art director, 23 November 2026). The disc is the disc; only
+    // the amber fill is drawn, and only while the finger is down.
     if (fill.value > 0) {
       final arc = _band(outer, math.min(full, 2 * math.pi * fill.value));
       canvas.drawPath(
@@ -321,7 +314,6 @@ class HoldArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(HoldArcPainter old) =>
-      old.track != track ||
       old.amber != amber ||
       old.shadow != shadow ||
       old.lean != lean ||

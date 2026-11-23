@@ -6,6 +6,7 @@ import '../layout/space.dart';
 import '../models/role.dart';
 import '../skin/card_back_scope.dart';
 import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/werewolf_portrait.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
@@ -164,6 +165,11 @@ class FaceDownCard extends StatefulWidget {
   /// A face-up card's role name sits this far above the token's top.
   static const faceNameLift = Space.xxs;
 
+  /// How far a dressed name's plate reaches past its words, sideways and up
+  /// and down; the board's columns leave room for twice the first.
+  static const nameBleed = 4.0;
+  static const nameBleedUp = 3.0;
+
   /// How far the text size grows a face-up card's role name.
   static const roleNameScale = 1.6;
 
@@ -256,7 +262,15 @@ class _FaceDownCardState extends State<FaceDownCard> {
       height: height,
       child: size == FaceDownSize.hero
           ? _hero(context, width)
-          : _back(context, width, duration, dip),
+          : _back(
+              context,
+              width,
+              duration,
+              dip,
+              foot: owner != null && widget.face != null
+                  ? _roleFoot(context, widget.face!, width)
+                  : 0,
+            ),
     );
     if (angle != 0) card = Transform.rotate(angle: angle, child: card);
     // A pick wears the mark on its corner.
@@ -333,6 +347,35 @@ class _FaceDownCardState extends State<FaceDownCard> {
         ],
       ],
     );
+  }
+
+  /// The room under a face-up card's portrait that its role slip and the
+  /// owner's token take: the token's upper half, the slip's lift and height
+  /// (at the size the text size gives it: a longer name only sets smaller) and
+  /// a hair, so the slip sits UNDER the portrait and never over the face.
+  double _roleFoot(BuildContext context, RoleId role, double cardWidth) {
+    final skin = context.skin;
+    final dressed = context.dress.isPaper;
+    if (!dressed) return 0;
+    final base = skin.typography.tag;
+    final scale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1.0, FaceDownCard.roleNameScale);
+    final fontSize = base.fontSize! * scale;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: role.displayName,
+        style: base.copyWith(fontSize: fontSize),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final slip = painter.height + 2 * Space.xxs;
+    painter.dispose();
+    return FaceDownCard.ownerTokenFor(cardWidth) / 2 +
+        FaceDownCard.faceNameLift +
+        slip +
+        Space.xxs;
   }
 
   /// A face-up card's role name, on a slip of paper across the card's foot,
@@ -458,15 +501,20 @@ class _FaceDownCardState extends State<FaceDownCard> {
             ),
           ),
         )
+      // A player's name over the board is the quiet tag (navy paper, bone
+      // words: it never outshouts the dark cards), its plate reaching only a
+      // little past the words so neighbours keep a gap (`nameBleed`).
       : TextBacking(
           id: name,
+          part: PaperPart.nameTag,
+          bleed: const Offset(FaceDownCard.nameBleed, FaceDownCard.nameBleedUp),
           child: FitWords(
             name,
             textAlign: TextAlign.center,
             maxLines: 2,
             style: context.skin.typography.nameSmall.copyWith(
               fontSize: widget.nameSize,
-              color: TextBacking.inkOf(context),
+              color: TextBacking.inkOf(context, part: PaperPart.nameTag),
             ),
           ),
         );
@@ -479,8 +527,9 @@ class _FaceDownCardState extends State<FaceDownCard> {
     BuildContext context,
     double width,
     Duration duration,
-    double dip,
-  ) {
+    double dip, {
+    double foot = 0,
+  }) {
     final skin = context.skin;
     final ground = context.ground;
     final selected = widget.selected;
@@ -493,6 +542,10 @@ class _FaceDownCardState extends State<FaceDownCard> {
       return AnimatedContainer(
         duration: duration,
         curve: Motion.curve,
+        // A role's name goes UNDER its portrait, as on the held card and the
+        // sheet (one layout for a role's name, everywhere): the portrait stops
+        // above the slip's room, the slip is never laid over the face.
+        padding: EdgeInsets.only(bottom: foot),
         child: CardBackPaper(
           id: widget.face?.name ?? widget.owner ?? 'back',
           elevation: dip > 0 ? lying.lowered(dip) : lying,
@@ -700,7 +753,7 @@ class CardBackPaper extends StatelessWidget {
             DecoratedBox(
               decoration: deckledPaper(
                 context,
-                fill: face == null ? parts.markWax : ground.paper,
+                fill: face == null ? parts.cardRim : ground.paper,
                 id: (id, 'rim'),
                 elevation: elevation,
                 depth: parts.deckleDepth,

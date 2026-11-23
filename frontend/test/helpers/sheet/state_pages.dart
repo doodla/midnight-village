@@ -88,7 +88,7 @@ class ButtonsPage extends StatelessWidget {
         label: TableCopy.needPlayers,
         reason: SpokenCopy.working,
       ),
-      PrimaryButton.locked(label: CardCopy.ready, onLockedTap: () {}),
+      PrimaryButton.locked(label: CardCopy.readyLocked, onLockedTap: () {}),
       const PrimaryButton.done(label: CommonCopy.readyDone),
       const Note('Secondary: rest, off, paper'),
       Row(
@@ -251,7 +251,7 @@ class _GateState extends State<_Gate> {
       Expanded(
         child: PrimaryButton.locked(
           key: widget.gateKey,
-          label: CardCopy.ready,
+          label: CardCopy.readyLocked,
           onLockedTap: _replay.replay,
         ),
       ),

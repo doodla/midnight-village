@@ -88,19 +88,19 @@ class PresetChip extends StatelessWidget {
   /// with the paper mark on its corner when selected, a darker scrap when not;
   /// the word level. No ring, no outline.
   Widget _tag(BuildContext context) {
-    final ground = context.ground;
-    final ink = selected
-        ? PaperPiece.inkOf(context, PaperPart.chip)
-        : ground.text;
+    // A picked chip has its own form (`PaperPart.chipPicked`: lifted bone with
+    // a wax seal over its corner); the others lie flat and dim. Neither is a
+    // button's (a bone scrap that lies low and wears no seal).
+    final part = selected ? PaperPart.chipPicked : PaperPart.chip;
+    final ink = PaperPiece.inkOf(context, part);
     return PaperMarkCorner(
       shown: selected,
+      seal: true,
       child: PaperPiece(
-        part: PaperPart.chip,
+        part: part,
         id: label,
-        lifted: selected,
         enabled: true,
         duration: Motion.quick,
-        fill: selected ? null : ground.panel,
         child: Container(
           constraints: const BoxConstraints(minHeight: height),
           padding: const EdgeInsets.symmetric(horizontal: Space.mdPlus),

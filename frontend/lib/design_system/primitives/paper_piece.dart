@@ -71,18 +71,44 @@ class PaperPiece extends StatelessWidget {
     };
   }
 
-  /// [fill] as a locked piece's paper: the same paper darkened toward the
-  /// ink of a shadow (the amber is an ochre, the bone a grey bone), by the
-  /// skin's `lockedDim`, and never more than still holds [ink] at 4.5:1.
+  /// [fill] as a locked piece's paper: the same paper with most of its colour
+  /// gone and laid toward a pale sand (`PaperParts.lockedSaturation`,
+  /// `lockedPale`), so a locked amber button is clearly lighter and greyer than
+  /// a live one even when none is beside it. Its words stay at 4.5:1 or more
+  /// ([ink]).
   static Color dimmed(BuildContext context, Color fill, Color ink) {
     final parts = context.skin.parts;
-    var t = parts.lockedDim;
-    var out = Color.lerp(fill, parts.lockedTone, t)!;
+    final hsl = HSLColor.fromColor(fill);
+    final grey = hsl.withSaturation(hsl.saturation * parts.lockedSaturation);
+    // Pale on a dark ground; on a light one (where pale would not stand off
+    // it) a mid sand, still without its colour.
+    final onLight = context.ground.ground.computeLuminance() > 0.35;
+    final target = onLight ? parts.lockedMid : parts.lockedPale;
+    var t = parts.lockedPaleMix;
+    var out = Color.lerp(grey.toColor(), target, t)!;
     while (t > 0.02 && _contrast(ink, out) < 4.6) {
       t -= 0.02;
-      out = Color.lerp(fill, parts.lockedTone, t)!;
+      out = Color.lerp(grey.toColor(), target, t)!;
     }
     return out;
+  }
+
+  /// A locked piece lies flat and casts less: no backing under it (the paper's
+  /// own thickness is what lifts a live amber piece), and its lift and the ink
+  /// of its shadow are the skin's share of a live piece's.
+  static Elevation flattened(BuildContext context, Elevation live) {
+    final parts = context.skin.parts;
+    return Elevation([
+      for (final layer in live.layers)
+        if (!layer.edge)
+          layer
+              .withOffset(layer.offset * parts.lockedLift)
+              .withColor(
+                layer.color.withValues(
+                  alpha: layer.color.a * parts.lockedShadow,
+                ),
+              ),
+    ]);
   }
 
   static double _contrast(Color a, Color b) {
@@ -114,6 +140,7 @@ class PaperPiece extends StatelessWidget {
       PaperRaise.primary => e.primary,
       PaperRaise.card => e.card,
       PaperRaise.badge => e.badge,
+      PaperRaise.lifted => e.selected,
       PaperRaise.none => Elevation.none,
     };
   }
@@ -129,16 +156,20 @@ class PaperPiece extends StatelessWidget {
     final keep = skin.shape.pressKeep;
     final rest = _elevation(context, look.raise);
     final raised = lifted ? ground.elevation.selected : rest;
-    final shown = pressed && enabled ? rest.pressed(keep) : raised;
+    final flat = locked || !enabled;
+    // A locked piece lies flat and casts less (see [flattened]).
+    final shown = flat
+        ? flattened(context, pressed && enabled ? rest.pressed(keep) : rest)
+        : pressed && enabled
+        ? rest.pressed(keep)
+        : raised;
     final sink = pressed && enabled
         ? rest.travel(keep)
         : lifted
         ? const Offset(0, -Space.xxs)
         : Offset.zero;
     final base = fill ?? fillOf(context, part);
-    final paint = locked || !enabled
-        ? dimmed(context, base, inkOf(context, part))
-        : base;
+    final paint = flat ? dimmed(context, base, inkOf(context, part)) : base;
     final parts = skin.parts;
     final (depth, step) = switch (look.edge) {
       PaperEdge.standard => (parts.deckleDepth, parts.deckleStep),
@@ -150,8 +181,16 @@ class PaperPiece extends StatelessWidget {
       fill: paint,
       id: (id, part),
       elevation: shown,
-      depth: look.round ? parts.discDepth : depth,
-      step: look.round ? parts.discStep : step,
+      depth: look.blob
+          ? parts.waxDepth
+          : look.round
+          ? parts.discDepth
+          : depth,
+      step: look.blob
+          ? parts.waxStep
+          : look.round
+          ? parts.discStep
+          : step,
       round: look.round,
       blob: look.blob,
       edgeLine: false,

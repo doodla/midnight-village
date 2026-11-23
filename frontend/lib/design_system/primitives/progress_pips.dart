@@ -86,7 +86,7 @@ class _Pip extends StatelessWidget {
         width: shape.pipStretch ? null : shape.pip.width,
         height: shape.pip.height,
         child: PaperPiece(
-          part: PaperPart.disc,
+          part: PaperPart.pip,
           id: filled,
           fill: filled ? ground.text : context.skin.parts.pipUnlit(ground),
           child: const SizedBox.expand(),

@@ -35,13 +35,21 @@ class PaperParts {
     this.tokenInset = 0.055,
     this.discDepth = 1.3,
     this.discStep = 5,
-    this.lockedTone = const Color(0xFF2A1D10),
-    this.lockedDim = 0.3,
+    this.waxDepth = 2.2,
+    this.waxStep = 6,
+    this.lockedSaturation = 0.25,
+    this.lockedPale = const Color(0xFFD8D0BC),
+    this.lockedPaleMix = 0.78,
+    this.lockedMid = const Color(0xFF9C9279),
+    this.lockedLift = 0.35,
+    this.lockedShadow = 0.5,
     this.villageTag = const Color(0xFF203660),
     this.tannerTag = const Color(0xFF523714),
     this.werewolfTag = const Color(0xFF6E1D18),
     this.onTeamTag = const Color(0xFFE9E2D0),
-    this.markWax = const Color(0xFF6E1D18),
+    this.cardRim = const Color(0xFF080A1A),
+    this.sealSize = 30,
+    this.sealHang = 12,
   });
 
   /// The standard parts (the dressed skin's).
@@ -100,15 +108,30 @@ class PaperParts {
   final double discDepth;
   final double discStep;
 
+  /// A drop of wax's edge (a count): rounder and more uneven than a cut disc.
+  final double waxDepth;
+  final double waxStep;
+
   /// An unlit progress dot: the ground's ink laid half-way into the ground,
   /// so it keeps 3:1 against it.
   Color pipUnlit(Ground ground) => Color.lerp(ground.ground, ground.text, 0.5)!;
 
-  /// A locked piece's paper: its own paper darkened toward [lockedTone] by
-  /// [lockedDim] (the amber is an ochre), less where its words would fall
-  /// under 4.5:1.
-  final Color lockedTone;
-  final double lockedDim;
+  /// A locked piece (a button that cannot act yet) is one of paper that is
+  /// plainly not live, with no outline and no ring: its own paper keeps
+  /// [lockedSaturation] of its colour and is laid [lockedPaleMix] of the way
+  /// to [lockedPale] (the amber becomes a pale sand, clearly lighter and greyer
+  /// than the live amber, its words still 4.5:1), it lies flat (its lift is
+  /// [lockedLift] of the live piece's) and casts [lockedShadow] of the live
+  /// shadow's ink. `paper_locked_test.dart` holds the margins.
+  final double lockedSaturation;
+  final Color lockedPale;
+
+  /// Where the paper is laid instead on a ground too light for [lockedPale]
+  /// to stand off it (the day and paper grounds): a mid sand.
+  final Color lockedMid;
+  final double lockedPaleMix;
+  final double lockedLift;
+  final double lockedShadow;
 
   /// A team's tag, the same on every surface and ground (a tag is paper of
   /// its own colour, never the ground's): the Village's slate blue, the
@@ -118,7 +141,13 @@ class PaperParts {
   final Color werewolfTag;
   final Color onTeamTag;
 
-  /// The wax of a count (`CountBadge`) and the red of a card's cut-paper
-  /// rim (`FaceDownCard`).
-  final Color markWax;
+  /// The paper a face-down card's navy layer lies on: a darker indigo, never
+  /// red (red is the Werewolf team's, on its tag, rows and markers, and
+  /// nowhere else; `paper_red_test.dart`).
+  final Color cardRim;
+
+  /// The wax seal a picked chip wears: its size, and how far it hangs over the
+  /// chip's corner.
+  final double sealSize;
+  final double sealHang;
 }

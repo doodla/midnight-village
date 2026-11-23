@@ -361,6 +361,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                             scale: MediaQuery.textScalerOf(context).scale(1),
                             type: type,
                             tilt: tilt,
+                            plate: dressed ? 2 * FaceDownCard.nameBleed : 0,
                           ),
                           () => BoardLayout.solve(
                             others: widget.seats.length - 1,
@@ -372,6 +373,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                             captionStyle: type.caption,
                             scaler: MediaQuery.textScalerOf(context),
                             tilt: tilt,
+                            plate: dressed ? 2 * FaceDownCard.nameBleed : 0,
                           ),
                         );
                         return _board(layout, room.biggest, wave);
@@ -502,39 +504,43 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     ];
     Widget seat(NightSeat seat) =>
         SizedBox(width: layout.column, child: wave(_player(seat, layout)));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(height: share),
-        // Room for the Seer's "1 player", empty on every other board.
-        SizedBox(
-          height: layout.seatLabelRoom,
-          child: widget.prompt.kind.seats == null
-              ? null
-              : Align(
-                  alignment: Alignment.topCenter,
-                  child: _label(widget.prompt.kind.seats!),
-                ),
-        ),
-        for (final (i, row) in rows.indexed) ...[
-          if (i > 0) SizedBox(height: BoardLayout.rowGap + share),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: BoardLayout.columnGap,
-            children: [for (final s in row) seat(s)],
+    // Below the board's own DressScope: `context` here is the dressed one (the
+    // State's own context is above it and always reads the plain dress).
+    return Builder(
+      builder: (context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: share),
+          // Room for the Seer's "1 player", empty on every other board.
+          SizedBox(
+            height: layout.seatLabelRoom,
+            child: widget.prompt.kind.seats == null
+                ? null
+                : Align(
+                    alignment: Alignment.topCenter,
+                    child: _label(widget.prompt.kind.seats!),
+                  ),
           ),
+          for (final (i, row) in rows.indexed) ...[
+            if (i > 0) SizedBox(height: BoardLayout.rowGap + share),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: BoardLayout.columnGap,
+              children: [for (final s in row) seat(s)],
+            ),
+          ],
+          SizedBox(height: share / 2),
+          // The gap above the band: her rule with "or" on it, empty on every
+          // other board, in the middle of it.
+          SizedBox(
+            height: layout.ruleRoom,
+            child: widget.prompt.kind.seats == null ? null : _rule(context),
+          ),
+          SizedBox(height: share / 2),
+          _band(context, me, layout, wave),
         ],
-        SizedBox(height: share / 2),
-        // The gap above the band: her rule with "or" on it, empty on every
-        // other board, in the middle of it.
-        SizedBox(
-          height: layout.ruleRoom,
-          child: widget.prompt.kind.seats == null ? null : _rule(),
-        ),
-        SizedBox(height: share / 2),
-        _band(me, layout, wave),
-      ],
+      ),
     );
   }
 
@@ -558,7 +564,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   /// The Seer's thin rule with "or" on it, between her seats and the table's
   /// cards.
-  Widget _rule() {
+  Widget _rule(BuildContext context) {
     // Dressed up the word stands alone on its tag: no line either side.
     if (context.dress.isPaper) return Center(child: _label(NightCopy.seerOr));
     final line = Expanded(
@@ -579,6 +585,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   /// In front of the player: their own card on its paper place, and the
   /// table's three cards, dropped at a slant on a strip of the table.
   Widget _band(
+    BuildContext context,
     NightSeat me,
     BoardLayout layout,
     Widget Function(Widget card) wave,
@@ -598,6 +605,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           children: [
             _you(me, layout, wave, padding),
             _strip(
+              context,
               // No padding under the cards: their cells reach into it
               // (`tapExtra`), so a tap is a thumb's height on a small card.
               padding: padding.copyWith(bottom: 0),
@@ -647,7 +655,8 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   /// The strip of the table the centre cards lie on: plain, a panel colour;
   /// dressed up, a panel of paper (a [PaperPiece]) with its shadow.
-  Widget _strip({
+  Widget _strip(
+    BuildContext context, {
     required EdgeInsets padding,
     required BoxDecoration plain,
     required Widget child,
@@ -768,6 +777,7 @@ class _LayoutKey {
     required this.scale,
     required this.type,
     required this.tilt,
+    required this.plate,
   });
 
   final List<String> names;
@@ -775,10 +785,12 @@ class _LayoutKey {
   final double scale;
   final SkinType type;
   final double tilt;
+  final double plate;
 
   @override
   bool operator ==(Object other) =>
       other is _LayoutKey &&
+      other.plate == plate &&
       listEquals(other.names, names) &&
       other.room == room &&
       other.scale == scale &&
@@ -786,5 +798,6 @@ class _LayoutKey {
       other.tilt == tilt;
 
   @override
-  int get hashCode => Object.hash(Object.hashAll(names), room, scale, tilt);
+  int get hashCode =>
+      Object.hash(Object.hashAll(names), room, scale, tilt, plate);
 }

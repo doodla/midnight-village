@@ -19,6 +19,7 @@ class TextBacking extends StatelessWidget {
     this.id = 'plate',
     this.fill,
     this.part = PaperPart.tag,
+    this.bleed,
   });
 
   final Widget child;
@@ -33,24 +34,29 @@ class TextBacking extends StatelessWidget {
   /// names it (a component names its own part, so the inventory can check it).
   final PaperPart part;
 
-  /// The colour of words on a plate: the tag's ink where dressed up, the
-  /// ground's own text where there is no plate.
-  static Color inkOf(BuildContext context) => context.dress.isPaper
-      ? PaperPiece.inkOf(context, PaperPart.tag)
+  /// How far the plate reaches past the words (sideways, up and down): the
+  /// skin's `backingBleed` where null.
+  final Offset? bleed;
+
+  /// The colour of words on a plate of [part]: the part's ink where dressed
+  /// up, the ground's own text where there is no plate.
+  static Color inkOf(BuildContext context, {PaperPart part = PaperPart.tag}) =>
+      context.dress.isPaper
+      ? PaperPiece.inkOf(context, part)
       : context.ground.text;
 
   @override
   Widget build(BuildContext context) {
     if (!context.dress.isPaper) return child;
-    final parts = context.skin.parts;
+    final bleed = this.bleed ?? context.skin.parts.backingBleed;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Positioned(
-          left: -parts.backingBleed.dx,
-          right: -parts.backingBleed.dx,
-          top: -parts.backingBleed.dy,
-          bottom: -parts.backingBleed.dy,
+          left: -bleed.dx,
+          right: -bleed.dx,
+          top: -bleed.dy,
+          bottom: -bleed.dy,
           child: IgnorePointer(
             child: PaperPiece(
               part: part,

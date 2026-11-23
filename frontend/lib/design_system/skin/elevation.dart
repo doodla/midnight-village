@@ -25,6 +25,12 @@ class HardShadow {
   final bool edge;
   final bool drop;
 
+  HardShadow withColor(Color color) => edge
+      ? HardShadow.edge(offset, color)
+      : drop
+      ? HardShadow.drop(offset, color)
+      : HardShadow(offset, color);
+
   HardShadow withOffset(Offset offset) => edge
       ? HardShadow.edge(offset, color)
       : drop

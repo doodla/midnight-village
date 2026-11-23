@@ -5,6 +5,7 @@ import 'package:midnight_village/design_system/primitives/deckle.dart';
 import 'package:midnight_village/design_system/primitives/paper_light.dart';
 import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/design_system/primitives/text_backing.dart';
 import 'package:midnight_village/design_system/primitives/tilted_paper.dart';
 import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/dress_style.dart';
@@ -212,6 +213,9 @@ List<PaperPieceFacts> piecesOf(WidgetTester tester) {
       final w = e.widget;
       // A piece laid on this one holds its own words.
       if (w is PaperPiece) return;
+      // A name plate's words lie on its own plate (a sibling of the words),
+      // not on the piece the plate is laid on.
+      if (w is TextBacking) return;
       if (w is Text && w.data != null) {
         final style = DefaultTextStyle.of(e).style.merge(w.style);
         if (style.color != null) words.add(style.color!);
@@ -422,6 +426,12 @@ void main() {
           final now = await pieces(sample);
           // "Done" is the one state that is words and a mark, not paper.
           if (now.isEmpty) continue;
+          // A picked chip is its own form on purpose (lifted, sealed:
+          // `PaperPart.chipPicked`); `paper_consistency_test.dart` holds it
+          // to be no button's.
+          if (entry.key == 'PresetChip' && sample.state == PartState.picked) {
+            continue;
+          }
           expect(
             _signature(now.first),
             _signature(base.first),

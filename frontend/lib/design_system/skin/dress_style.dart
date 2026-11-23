@@ -36,17 +36,31 @@ enum PaperPart {
   /// A bone scrap: the secondary action, an icon action, a stepper's glyph.
   scrap,
 
-  /// A cut-paper tag the player can pick (a chip).
+  /// A cut-paper tag the player can pick (a chip), not picked: a dim, flat
+  /// scrap of navy paper.
   chip,
+
+  /// The chip that IS picked: bone paper lifted high, a wax seal over its
+  /// corner. Its own form, so a picked chip is never read as a button (the
+  /// bone scraps, which lie low and wear no seal).
+  chipPicked,
 
   /// A cut-paper tag that only says something ("Werewolf", "You").
   tag,
+
+  /// The quiet tag a player's name sits on over the night board: navy paper
+  /// with bone words, so a name never outshouts the dark cards it names.
+  nameTag,
 
   /// A small paper disc: a count, a seat, a progress pip.
   disc,
 
   /// A drop of wax with a number in it (a count on a card).
   wax,
+
+  /// A punched paper dot of a count of progress: a disc with its own shadow
+  /// (a little higher than a plain disc, so it shows on a dark ground).
+  pip,
 
   /// A panel of paper laid on the ground (a field, the deck's box).
   panel,
@@ -69,7 +83,7 @@ enum PaperFill {
 
 /// How high a piece lies above what is under it: the elevation of the
 /// ground it is on.
-enum PaperRaise { primary, card, badge, none }
+enum PaperRaise { primary, card, badge, lifted, none }
 
 /// How rough the torn edge is (`skin.parts`).
 enum PaperEdge { standard, plaque, pinned }
@@ -83,6 +97,7 @@ class PartLook {
     this.tilted = true,
     this.round = false,
     this.blob = false,
+    this.seal = false,
   });
 
   final PaperFill fill;
@@ -97,6 +112,9 @@ class PartLook {
 
   /// A drop of wax (a count), not a cut disc.
   final bool blob;
+
+  /// Wears a wax seal over its corner (a picked chip).
+  final bool seal;
 }
 
 /// A part's look in both dresses.
@@ -127,17 +145,38 @@ abstract final class DressStyle {
     ),
     PaperPart.chip: PartDress(
       plain: 'outlined box, ring when selected',
-      paper: PartLook(fill: PaperFill.bone, raise: PaperRaise.badge),
+      paper: PartLook(fill: PaperFill.inset, raise: PaperRaise.badge),
+    ),
+    PaperPart.chipPicked: PartDress(
+      plain: 'outlined box, ring when selected',
+      paper: PartLook(
+        fill: PaperFill.bone,
+        raise: PaperRaise.lifted,
+        seal: true,
+      ),
     ),
     PaperPart.tag: PartDress(
       plain: 'flat fill (ink), or an outline for "You"',
       paper: PartLook(fill: PaperFill.ink, raise: PaperRaise.badge),
+    ),
+    PaperPart.nameTag: PartDress(
+      plain: 'the name as words, no plate',
+      paper: PartLook(fill: PaperFill.inset, raise: PaperRaise.badge),
     ),
     PaperPart.disc: PartDress(
       plain: 'flat disc, outlined when empty',
       paper: PartLook(
         fill: PaperFill.bone,
         raise: PaperRaise.badge,
+        tilted: false,
+        round: true,
+      ),
+    ),
+    PaperPart.pip: PartDress(
+      plain: 'flat pips: filled ink, an empty hairline',
+      paper: PartLook(
+        fill: PaperFill.bone,
+        raise: PaperRaise.card,
         tilted: false,
         round: true,
       ),

@@ -25,8 +25,16 @@ import 'sheet_data.dart';
 // app's own views (features/lobby) drawn from recorded lobby bodies, with
 // states no lobby body carries yet (a dropped phone, dimmed with no words).
 
-/// Ana's table of five, as the server recorded it (the Classic chip).
-LobbyState _table() => FromSample.lobby(v2Lobby('detail_auto_deck_5'));
+/// Ana's table of five, as the server recorded it (the Classic chip): game 6's
+/// lobby by default; [gameSevenLobby] is game 7's (the Seer's game, whose night
+/// board, vote and results the other pages show), so a picture can show ONE
+/// game from the table to the end.
+LobbyState _table([String sample = 'detail_auto_deck_5']) =>
+    FromSample.lobby(v2Lobby(sample));
+
+/// The lobby of game 7 (`me_choose_prompt_seer`'s table: Ana the moth, Ben the
+/// hare, Cleo the spindle, Dev the scythe, Esme the bell).
+const gameSevenLobby = 'settings_deck_chip';
 
 /// The table's join link, as the app makes it.
 Uri _link(LobbyState lobby) =>
@@ -54,16 +62,24 @@ class JoinPage extends StatelessWidget {
 /// 02: the host's table (guests scan the code) or a guest's ([guest]); Dev's
 /// phone has dropped.
 class TablePage extends StatelessWidget {
-  const TablePage({super.key, this.guest = false, this.dress});
+  const TablePage({
+    super.key,
+    this.guest = false,
+    this.dress,
+    this.lobby = 'detail_auto_deck_5',
+  });
 
   final bool guest;
+
+  /// The recorded lobby body shown (`contract_samples/http/lobby/`).
+  final String lobby;
 
   /// How the table is dressed; null: as the live screen (`AtTableView.defaultDress`).
   final Dress? dress;
 
   @override
   Widget build(BuildContext context) {
-    final lobby = _table();
+    final lobby = _table(this.lobby);
     final viewer = lobby.players[guest ? 1 : 0].id;
     return AtTableView(
       dress: dress,
@@ -93,8 +109,8 @@ Widget deckStrip(RoleCardSize size, [Map<RoleId, int>? deck]) => Row(
 );
 
 /// 03 at a table set for eight, four here, the host's own deck.
-Widget _deck() => DeckView(
-  lobby: FromSample.lobby(v2Lobby('detail_seats_8_four_here')),
+Widget _deck([String sample = 'detail_seats_8_four_here']) => DeckView(
+  lobby: FromSample.lobby(v2Lobby(sample)),
   onSeats: (_) {},
   onChip: (_) {},
   onDeck: (_, {seats}) {},
@@ -104,10 +120,13 @@ Widget _deck() => DeckView(
 
 /// 03: the players, the chips, the grid of roles, the lengths.
 class DeckPage extends StatelessWidget {
-  const DeckPage({super.key});
+  const DeckPage({super.key, this.lobby = 'detail_seats_8_four_here'});
+
+  /// The recorded lobby body shown ([gameSevenLobby] for game 7's).
+  final String lobby;
 
   @override
-  Widget build(BuildContext context) => _deck();
+  Widget build(BuildContext context) => _deck(lobby);
 }
 
 /// 03b over 03: the role text and "Close".

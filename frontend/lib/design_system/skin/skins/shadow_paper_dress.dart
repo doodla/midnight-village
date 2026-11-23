@@ -197,7 +197,7 @@ final _shadowPaperDressed = Skin(
     stroke: 2,
     edgeWidth: 0,
     pressKeep: 0.2,
-    pip: Size.square(12),
+    pip: Size.square(14),
     pipRoundness: 1,
     pipEmptyStroke: 0,
     pipStretch: false,

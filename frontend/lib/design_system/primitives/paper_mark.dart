@@ -44,31 +44,51 @@ class PaperMark extends StatelessWidget {
 /// A [PaperMark] on the upper corner of what is picked, half over its edge
 /// (on a dressed screen; a plain one marks a pick by its ring alone).
 class PaperMarkCorner extends StatelessWidget {
-  const PaperMarkCorner({super.key, required this.child, required this.shown});
+  const PaperMarkCorner({
+    super.key,
+    required this.child,
+    required this.shown,
+    this.seal = false,
+  });
 
   /// What wears the mark.
   final Widget child;
   final bool shown;
+
+  /// A seal (a picked chip's): the larger mark, hung further over the corner,
+  /// in navy wax with a bone tick so it stands off bone paper.
+  final bool seal;
 
   /// The mark's width, and how far it hangs over the corner.
   static const size = 22.0;
   static const hang = 8.0;
 
   @override
-  Widget build(BuildContext context) => !context.dress.isPaper
-      ? child
-      : Stack(
-          clipBehavior: Clip.none,
-          children: [
-            child,
-            if (shown)
-              const Positioned(
-                top: -hang,
-                right: -hang,
-                child: IgnorePointer(child: PaperMark(size: size)),
+  Widget build(BuildContext context) {
+    if (!context.dress.isPaper) return child;
+    final parts = context.skin.parts;
+    final ground = context.ground;
+    final size = seal ? parts.sealSize : PaperMarkCorner.size;
+    final hang = seal ? parts.sealHang : PaperMarkCorner.hang;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        if (shown)
+          Positioned(
+            top: -hang,
+            right: -hang,
+            child: IgnorePointer(
+              child: PaperMark(
+                size: size,
+                color: seal ? ground.onMark : null,
+                onColor: seal ? ground.mark : null,
               ),
-          ],
-        );
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _MarkPainter extends CustomPainter {

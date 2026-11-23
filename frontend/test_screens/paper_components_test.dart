@@ -1,6 +1,9 @@
 // The paper components in pictures, for a look: the table (host and guest),
 // your card (back and face), the night board (5 and 10 at the table) and the
-// card-details sheet, as the live app has them, at 2x. Run it with
+// card-details sheet, as the live app has them, at 2x. All of ONE recorded game
+// (game 7: Ana the moth, Ben the hare, Cleo the spindle, Dev the scythe, Esme
+// the bell; the ten-seat board is the same game with five more seats), so a
+// player's sigil is the same on every picture. Run it with
 // `just paper-components [folder]`; it is not part of `just test`. The same test
 // on main and on a branch makes the before and after pictures.
 import 'dart:io';
@@ -78,15 +81,22 @@ void main() {
   for (final guest in [false, true]) {
     testWidgets('the table, ${guest ? 'guest' : 'host'}', (tester) async {
       _phone(tester);
-      await _page(tester, TablePage(guest: guest));
+      await _page(tester, TablePage(guest: guest, lobby: gameSevenLobby));
       await _settle(tester);
       await _save(tester, 'table-${guest ? 'guest' : 'host'}');
     });
   }
 
+  testWidgets('the deck set-up page', (tester) async {
+    _phone(tester);
+    await _page(tester, const DeckPage(lobby: gameSevenLobby));
+    await _settle(tester);
+    await _save(tester, 'deck');
+  });
+
   testWidgets('the card-details sheet, opened from the table', (tester) async {
     _phone(tester);
-    await _page(tester, const TablePage());
+    await _page(tester, const TablePage(lobby: gameSevenLobby));
     await _settle(tester);
     await tester.tap(find.byType(RoleCard).first);
     await tester.pump(const Duration(milliseconds: 600));
@@ -110,13 +120,7 @@ void main() {
 
   testWidgets('the night board, 5 at the table', (tester) async {
     _phone(tester);
-    await _page(
-      tester,
-      BoardPage(
-        viewer: Viewer.seer,
-        table: (me) => tableOf(me, leave: {dev.name, esme.name}),
-      ),
-    );
+    await _page(tester, const BoardPage(viewer: Viewer.seer));
     await _settle(tester);
     await _save(tester, 'board-5');
   });
@@ -126,8 +130,10 @@ void main() {
     await _page(
       tester,
       BoardPage(
-        viewer: Viewer.drunk,
-        table: (me) => tableOf(me, add: 1, rename: longNames),
+        viewer: Viewer.robber,
+        // The same game 7 (Ben the Robber's phone), five more at the table (new seats, the tokens no
+        // one has), the names long to show the worst.
+        table: (me) => tableOf(me, add: 5, rename: longNames),
       ),
     );
     await _settle(tester);

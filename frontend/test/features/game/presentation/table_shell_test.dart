@@ -260,7 +260,7 @@ void main() {
       final s = await ShellSetup.pump(tester, recordedMe('me_look_stage'));
       await s.settle(tester);
       expect(find.text(CardCopy.headline), findsOneWidget);
-      expect(_button(tester), CardCopy.ready);
+      expect(_button(tester), CardCopy.readyLocked);
       expect(_phase(tester), ButtonPhase.locked);
       expect(find.text('0 of 5 ready'), findsOneWidget);
       // First game: the plain hold ring.
