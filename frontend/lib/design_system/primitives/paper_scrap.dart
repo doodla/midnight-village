@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
@@ -7,6 +8,7 @@ import '../skin/skin.dart';
 import 'fit_line.dart';
 import 'paper_pin.dart';
 import 'paper_piece.dart';
+import 'secondary_button.dart' show BusyMark;
 
 /// A scrap of bone paper pinned to a board, and tapped as a whole: "What
 /// happened", "Edit deck", "Leave". Its paper is [paperHeight] tall (more where
@@ -24,11 +26,16 @@ class PaperScrap extends StatelessWidget {
     this.id,
     this.pinned = true,
     this.width,
+    this.busy = false,
   });
 
   /// The words. A break the caller wants is a newline.
   final String label;
   final VoidCallback onTap;
+
+  /// Its request is on its way: the busy mark turns beside the paper (which
+  /// does not move) and a tap does nothing.
+  final bool busy;
 
   /// Seeds the tear and the tilt (the label when null).
   final Object? id;
@@ -46,37 +53,61 @@ class PaperScrap extends StatelessWidget {
   /// What a finger can hit: the paper and the invisible margin round it.
   static const touchHeight = 48.0;
 
+  Widget _busy(BuildContext context, Widget scrap) =>
+      _busyOver(context, scrap, busy);
+
   @override
   Widget build(BuildContext context) {
     final words = _Words(label, pinned: pinned && context.dress.isPaper);
+    final tap = busy ? null : onTap;
     return Semantics(
       button: true,
       label: label.replaceAll('\n', ' '),
+      value: busy ? SpokenCopy.working : null,
       excludeSemantics: true,
-      onTap: onTap,
+      onTap: tap,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onTap,
+        onTap: tap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: touchHeight),
           child: Center(
             widthFactor: 1,
             heightFactor: 1,
-            child: context.dress.isPaper
-                ? SizedBox(
-                    width: width,
-                    child: PaperPiece(
-                      part: PaperPart.scrap,
-                      id: id ?? label,
-                      child: words,
-                    ),
-                  )
-                : SizedBox(width: width, child: words),
+            child: _busy(
+              context,
+              context.dress.isPaper
+                  ? SizedBox(
+                      width: width,
+                      child: PaperPiece(
+                        part: PaperPart.scrap,
+                        id: id ?? label,
+                        child: words,
+                      ),
+                    )
+                  : SizedBox(width: width, child: words),
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// While busy: the scrap dimmed where it lies and the busy mark turning over
+/// its middle, in its words' ink; nothing beside it moves.
+Widget _busyOver(BuildContext context, Widget scrap, bool busy) {
+  if (!busy) return scrap;
+  final ink = context.dress.isPaper
+      ? PaperPiece.inkOf(context, PaperPart.scrap)
+      : context.ground.text;
+  return Stack(
+    alignment: Alignment.center,
+    children: [
+      Opacity(opacity: context.skin.dimmed, child: scrap),
+      BusyMark(size: Space.xl, color: ink),
+    ],
+  );
 }
 
 /// A slip of bone paper that says something and is no control: the words of a

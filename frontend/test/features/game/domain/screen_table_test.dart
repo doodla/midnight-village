@@ -57,7 +57,7 @@ void main() {
         );
       }
     }
-    // At the results, "See who won" goes on to 11.
+    // At the results, the end board, whatever the old step to 11 says.
     final results = FromSample.gameMe(recordedMe('me_results'));
     expect(
       screen(
@@ -65,7 +65,7 @@ void main() {
         me: results,
         local: const LocalSteps(countSeen: true),
       ),
-      AppScreen.results,
+      AppScreen.end,
     );
   }
 
@@ -89,10 +89,10 @@ void main() {
     expect(of('night'), AppScreen.nightBoard);
     expect(of('discussion'), AppScreen.talk);
     expect(of('voting'), AppScreen.vote);
-    expect(of('results'), AppScreen.count);
+    expect(of('results'), AppScreen.end);
     expect(
       of('results', local: const LocalSteps(countSeen: true)),
-      AppScreen.results,
+      AppScreen.end,
     );
   }
 
@@ -137,12 +137,16 @@ void main() {
     everyMeMapsToItsScreen();
     everyWhereAmIMapsToItsScreen();
     everyLobbyBodyMapsToItsScreen();
+    // 10 and 11 are no longer shown (the end board is); piece 5b deletes
+    // them.
+    final shown = AppScreen.values.toSet()
+      ..removeAll({AppScreen.count, AppScreen.results});
     expect(
       reached,
-      AppScreen.values.toSet(),
+      shown,
       reason:
           'missing: '
-          '${AppScreen.values.toSet().difference(reached)}',
+          '${shown.difference(reached)}',
     );
   });
 

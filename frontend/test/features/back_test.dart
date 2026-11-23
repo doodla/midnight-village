@@ -58,6 +58,7 @@ const _owners = <AppScreen, BackRule>{
   AppScreen.vote: BackRule.staysPut,
   AppScreen.count: BackRule.staysPut,
   AppScreen.results: BackRule.staysPut,
+  AppScreen.end: BackRule.staysPut,
 };
 
 /// What the platform is told: that Back left the app (`SystemNavigator.pop`:
@@ -757,13 +758,14 @@ void main() {
   });
 
   group('in a game Back does nothing; only Leave exits', () {
-    // One recorded `/me/` per game screen, and 11 (who won) from 10.
+    // One recorded `/me/` per game screen (the end board's results arrive
+    // with it).
     const samples = <String, AppScreen>{
       'me_look_stage': AppScreen.yourCard,
       'me_choose_prompt_seer': AppScreen.nightBoard,
       'me_talk_results_seen': AppScreen.talk,
       'me_voting_picked': AppScreen.vote,
-      'me_results': AppScreen.count,
+      'me_results': AppScreen.end,
     };
     for (final MapEntry(key: sample, value: screen) in samples.entries) {
       testWidgets('${screen.number} ${screen.briefName} ($sample)', (
@@ -796,15 +798,17 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('11 Results', (tester) async {
+    testWidgets('the end board: Back during "What happened" does nothing '
+        'either, and the night stays open', (tester) async {
       final platform = _Platform.listen(tester);
       final s = await _game(tester, 'me_results');
       await s.settle(tester);
-      await tester.tap(find.text(CountCopy.seeWhoWon));
+      expect(s.screenOn(tester), AppScreen.end);
+      await tester.tap(find.bySemanticsLabel(EndCopy.whatHappened));
       await s.settle(tester);
-      expect(s.screenOn(tester), AppScreen.results);
       await _back(tester);
-      expect(s.screenOn(tester), AppScreen.results);
+      expect(s.screenOn(tester), AppScreen.end);
+      expect(find.bySemanticsLabel(EndCopy.backToResult), findsOneWidget);
       expect(platform.left, isFalse);
       await s.close(tester);
     });

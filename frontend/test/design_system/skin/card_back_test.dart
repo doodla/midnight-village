@@ -16,7 +16,6 @@ import 'package:midnight_village/design_system/skin_loader.dart';
 import 'package:midnight_village/features/lobby/presentation/last_seat.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 
@@ -228,15 +227,15 @@ void main() {
   });
 
   group('the shell gives a game one back on every screen and phone', () {
-    // Every recorded /me/ of a night, a talk and the count, as a different
-    // phone of the table would hold it: the back is that of the game's id,
-    // and the same for the same id.
+    // Every recorded /me/ of a night, as a different phone of the table would
+    // hold it: the back is that of the game's id, and the same for the same
+    // id. (The end board shows backs only in its reveal, which a phone that
+    // opens at the results never plays: end_board_shell_test.dart.)
     const samples = [
       'me_look_stage',
       'me_choose_prompt_seer',
       'me_choose_prompt_robber',
       'me_choose_prompt_troublemaker',
-      'me_results',
     ];
     final backsByGame = <String, Set<String>>{};
     for (final sample in samples) {
@@ -254,7 +253,6 @@ void main() {
         expect(
           find.byType(switch (meScreens[sample]!) {
             AppScreen.yourCard => YourCardScreen,
-            AppScreen.count => CountScreen,
             _ => NightScreen,
           }),
           findsOneWidget,

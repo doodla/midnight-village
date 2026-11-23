@@ -236,7 +236,7 @@ void main() {
 
       // Play again, from the phone: back to 02, the table waiting.
       await ui.tapAndSubmit(
-        find.text(ResultsCopy.playAgain),
+        find.text(EndCopy.playAgain),
         until: shows<AtTableScreen>,
       );
       await ui.readLobby(code);

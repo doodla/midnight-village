@@ -31,11 +31,11 @@ DONE: no vibration anywhere on a card (`feel.md` section 3; `Haptics` has no cal
 
 > I feel like instead of just the texts there, maybe we could have the images for the roles in the game, then results pages. It's just that things are too big, the texts, and you're kind of just trying to figure out what is important to read. The images are nice: "What, I was dealt this card and this is what they are now," but I feel like the name shouldn't be on the right side. The name maybe should be like the header of the card and then I can go to the "See who won" page.
 
-OPEN: role images on the results pages, text too big (the type tokens change), the name as the card's header rather than on the right.
+DONE by the end board (pieces 1 to 5a; live with 5a): every player is a card with the role's image, the name as the card's header, and only three text sizes (`docs/specs/frontend/end-board.md`). The type tokens' change was the type-scale piece.
 
 > What was the screen just before this? I feel a little redundant so maybe we merge those two to show a singular results screen.
 
-OPEN: merge the two results screens into one.
+DONE by the end board (piece 5a): the count, "See who won" and the results are one screen; "What happened" is part of it, replayed on the board itself. The old two screens' code goes in piece 5b.
 
 > I think, yes, our design is still a bit weak. I'd like to see a few more mocks or a few more designs to see if we can show up all these issues.
 

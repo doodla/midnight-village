@@ -3,10 +3,12 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/widgets.dart';
 
+import '../../../../design_system/primitives/pending.dart' show RequestFailure;
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
+import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/paper_scrap.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/skin/skin.dart';
@@ -37,23 +39,34 @@ const _middleTurn = 1.5 * math.pi / 180;
 const _whatHappenedTurn = -3 * math.pi / 180;
 const _editTurn = 2 * math.pi / 180;
 
+/// What a control at the foot asks for: the one on its way shows busy, and
+/// the others take no second request.
+enum EndAct { playAgain, editDeck, leave }
+
 class EndFootBand extends StatelessWidget {
   const EndFootBand({
     super.key,
     required this.foot,
     required this.centre,
     required this.screenHeight,
-    required this.playAgainBusy,
+    required this.busy,
     required this.onWhatHappened,
     required this.onEditDeck,
     required this.onPlayAgain,
     required this.onLeave,
+    this.failure,
+    this.onTryAgain,
   });
 
   final EndFoot foot;
   final List<RoleId> centre;
   final double screenHeight;
-  final bool playAgainBusy;
+  final EndAct? busy;
+
+  /// The last request did not work: one quiet line over the controls, with
+  /// "Try again" where it may be sent again.
+  final RequestFailure? failure;
+  final VoidCallback? onTryAgain;
   final VoidCallback onWhatHappened;
   final VoidCallback onEditDeck;
   final VoidCallback onPlayAgain;
@@ -84,6 +97,14 @@ class EndFootBand extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (failure case final failure?) ...[
+                Notice(
+                  message: failure.words,
+                  action: failure.canRetry ? BannerCopy.tryAgain : null,
+                  onAction: failure.canRetry ? onTryAgain : null,
+                ),
+                SizedBox(height: between),
+              ],
               LayoutBuilder(
                 builder: (context, box) => _firstRow(context, box.maxWidth),
               ),
@@ -148,16 +169,27 @@ class EndFootBand extends StatelessWidget {
     children: [
       Transform.rotate(
         angle: _editTurn,
-        child: PaperScrap(label: EndCopy.editDeck, onTap: onEditDeck),
+        child: PaperScrap(
+          label: EndCopy.editDeck,
+          onTap: onEditDeck,
+          busy: busy == EndAct.editDeck,
+        ),
       ),
       const SizedBox(width: Space.md),
       Expanded(
-        child: PrimaryButton(
-          label: EndCopy.playAgain,
-          onPressed: onPlayAgain,
-          busy: playAgainBusy,
-          size: ButtonSize.large,
-        ),
+        // Busy stays a live look; while Edit deck is on its way it says so.
+        child: busy == null || busy == EndAct.playAgain
+            ? PrimaryButton(
+                label: EndCopy.playAgain,
+                onPressed: onPlayAgain,
+                busy: busy == EndAct.playAgain,
+                size: ButtonSize.large,
+              )
+            : PrimaryButton.waiting(
+                label: EndCopy.playAgain,
+                reason: SpokenCopy.working,
+                size: ButtonSize.large,
+              ),
       ),
     ],
   );
@@ -168,7 +200,12 @@ class EndFootBand extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        PaperScrap(label: EndCopy.leave, onTap: onLeave, pinned: false),
+        PaperScrap(
+          label: EndCopy.leave,
+          onTap: onLeave,
+          pinned: false,
+          busy: busy == EndAct.leave,
+        ),
         const SizedBox(width: Space.md),
         if (foot.hostName case final host?)
           Expanded(
