@@ -35,9 +35,21 @@ enum StoryKind {
 typedef StoryThread = ({CardPlace from, CardPlace to});
 
 /// What a card shows at a moment of the night: the portrait and the role on
-/// its strip (a Doppelganger's card shows the role it copied, and says
-/// "Doppelganger", from its copy on, as the settled board does).
+/// its strip ([cardFace]).
 typedef StoryFace = ({RoleId face, RoleId strip});
+
+/// The one rule for what a card shows, on the settled board and at every
+/// step of the night. A card has one role, printed on its strip wherever it
+/// goes: [role]. Its portrait is that role too, except the Doppelganger card
+/// once it has copied ([copied]) and while a player holds it ([held]): its
+/// holder plays the copied role (the server: "any player currently holding
+/// that card inherits the copied role"), so the portrait shows it and the
+/// strip still says "Doppelganger". In the middle nobody plays it: it is a
+/// Doppelganger card.
+StoryFace cardFace(RoleId role, {RoleId? copied, required bool held}) =>
+    role == RoleId.doppelganger && copied != null && held
+    ? (face: copied, strip: role)
+    : (face: role, strip: role);
 
 /// Every card's face at one moment: each player's and the middle's.
 @immutable
@@ -130,23 +142,19 @@ EndStory? endStoryOf(GameOutcome outcome) {
   final timeline = outcome.timeline;
   if (timeline == null) return null;
   final names = {for (final s in outcome.seats) s.id: s.name};
-  // The Doppelganger's card shows what it copied, from its copy on.
+  // What each card copied, from its copy on: a property of the card, drawn
+  // by [cardFace] only while a player holds it.
   final copies = <String, RoleId>{};
   StoryFaces faces(CardPositions at) {
-    StoryFace face(String card) {
-      final role = timeline.cards[card]!.role;
-      final copied = copies[card];
-      return copied == null
-          ? (face: role, strip: role)
-          : (face: copied, strip: RoleId.doppelganger);
-    }
+    StoryFace face(String card, {required bool held}) =>
+        cardFace(timeline.cards[card]!.role, copied: copies[card], held: held);
 
     return StoryFaces(
       {
         for (final MapEntry(:key, :value) in at.players.entries)
-          key: face(value),
+          key: face(value, held: true),
       },
-      [for (final card in at.center) face(card)],
+      [for (final card in at.center) face(card, held: false)],
     );
   }
 

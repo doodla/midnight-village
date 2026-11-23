@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/faces/face_content.dart'
+    show serverRole;
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/features/game/domain/end_story.dart';
 import 'package:midnight_village/features/game/domain/night_timeline.dart';
@@ -67,6 +69,52 @@ void main() {
         expect([
           for (final f in story.last.centre) f.face,
         ], outcome.result.centerCards);
+        // At the deal and after every step, every seat and every middle card
+        // shows the card the server recorded there, read from the recording
+        // itself: its role on the strip, and as its portrait, but for the
+        // Doppelganger card in a player's hand once it has copied, which
+        // shows what it copied. A card that moves keeps its own face.
+        final raw =
+            ContractSamples.map('http/game/$name')['night_timeline'] as Map;
+        final roleOf = {
+          for (final c in (raw['cards'] as List).cast<Map>())
+            c['card_id'] as String: serverRole(c['role']),
+        };
+        final rawSteps = [
+          for (final s in (raw['steps'] as List).cast<Map>())
+            if (s['action'] != 'skip') s,
+        ];
+        RoleId? copied;
+        void matchesRecording(StoryFaces faces, Map at, String when) {
+          void check(StoryFace f, String card, {required bool held}) {
+            final role = roleOf[card]!;
+            final copy = held && role == RoleId.doppelganger ? copied : null;
+            expect(f, (face: copy ?? role, strip: role), reason: '$name $when');
+          }
+
+          final players = (at['players'] as Map).cast<String, String>();
+          expect(faces.players.keys.toSet(), players.keys.map(int.parse));
+          for (final MapEntry(:key, :value) in players.entries) {
+            check(faces.players[int.parse(key)]!, value, held: true);
+          }
+          final centre = (at['center'] as List).cast<String>();
+          expect(faces.centre, hasLength(centre.length));
+          for (final (i, card) in centre.indexed) {
+            check(faces.centre[i], card, held: false);
+          }
+        }
+
+        matchesRecording(story.dealt, raw['dealt'] as Map, 'dealt');
+        for (final (i, step) in story.steps.indexed) {
+          if (rawSteps[i]['copied_role'] case final String role) {
+            copied = serverRole(role);
+          }
+          matchesRecording(
+            step.after,
+            rawSteps[i]['positions_after'] as Map,
+            step.line,
+          );
+        }
         // Numbered in order; a step that did nothing is not one.
         final did = outcome.timeline!.steps.where(
           (s) => s.action != TimelineAction.skip,
