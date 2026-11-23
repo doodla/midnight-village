@@ -4,7 +4,9 @@ The migrations run while the PREVIOUS code is still serving.
 That code INSERTs rows without the new columns, so each new NOT NULL column has a
 database default; and a member it adds after the token backfill has a blank token,
 which the deal fills in. Raw SQL below is the old code's INSERT (the column set
-before these migrations; see tests/old_code.py).
+before these migrations; see tests/old_code.py). The old code's member INSERT names
+the ready column, which a schema built from the models no longer has, so it runs
+only against the real migrations (tests/test_migrations.py).
 """
 
 from django.urls import reverse
@@ -15,7 +17,7 @@ from rest_framework import status
 from apps.core import tokens
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw.models import Game, PlayerRole
-from tests.old_code import insert_game, insert_member, insert_player_role
+from tests.old_code import insert_game, insert_player_role
 from tests.onuw.test_play_again import Table
 
 pytestmark = pytest.mark.integration
@@ -29,13 +31,6 @@ def lobby_and_user(db):
 
 
 class TestOldCodeInsertsStillWork:
-    def test_lobby_member_without_a_token_column(self, lobby_and_user) -> None:
-        lobby, user = lobby_and_user
-
-        insert_member(lobby.pk, user.pk)
-
-        assert LobbyMember.objects.get(lobby=lobby).token == ""
-
     def test_game_and_player_role_without_the_new_columns(self, lobby_and_user) -> None:
         lobby, user = lobby_and_user
 
@@ -182,7 +177,7 @@ class TestARefusedDealWritesNothing:
             body = {"debug": {"seed": "not a number"}}
         before = list(
             LobbyMember.objects.filter(lobby__code=table.code).values_list(
-                "pk", "token", "is_ready"
+                "pk", "token"
             )
         )
         status_before = Lobby.objects.get(code=table.code).status
@@ -195,12 +190,12 @@ class TestARefusedDealWritesNothing:
         assert (
             list(
                 LobbyMember.objects.filter(lobby__code=table.code).values_list(
-                    "pk", "token", "is_ready"
+                    "pk", "token"
                 )
             )
             == before
         )
-        assert not any(token for _, token, _ in before)  # tokens still blank
+        assert not any(token for _, token in before)  # tokens still blank
 
     def test_the_same_start_succeeds_once_the_table_is_valid(self, table) -> None:
         LobbyMember.objects.filter(lobby__code=table.code).update(token="")

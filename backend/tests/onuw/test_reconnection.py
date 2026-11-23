@@ -47,7 +47,7 @@ def _create_game(
         settings={"roles": {}},
     )
     for user in users.values():
-        LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=user)
     lobby.status = Lobby.Status.IN_GAME
     lobby.save()
 
@@ -148,8 +148,8 @@ class TestCurrentGame:
             game_type="onuw",
             settings={"roles": {}},
         )
-        LobbyMember.objects.create(lobby=lobby1, user=user, is_ready=True)
-        LobbyMember.objects.create(lobby=lobby1, user=other, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby1, user=user)
+        LobbyMember.objects.create(lobby=lobby1, user=other)
         lobby1.status = Lobby.Status.IN_GAME
         lobby1.save()
         game1 = Game.objects.create(
@@ -172,8 +172,8 @@ class TestCurrentGame:
             game_type="onuw",
             settings={"roles": {}},
         )
-        LobbyMember.objects.create(lobby=lobby2, user=user, is_ready=True)
-        LobbyMember.objects.create(lobby=lobby2, user=other, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby2, user=user)
+        LobbyMember.objects.create(lobby=lobby2, user=other)
         lobby2.status = Lobby.Status.IN_GAME
         lobby2.save()
         game2 = Game.objects.create(
@@ -211,8 +211,8 @@ class TestCurrentGame:
                 game_type="onuw",
                 settings={"roles": {}},
             )
-            LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
-            LobbyMember.objects.create(lobby=lobby, user=other, is_ready=True)
+            LobbyMember.objects.create(lobby=lobby, user=user)
+            LobbyMember.objects.create(lobby=lobby, user=other)
             lobby.status = Lobby.Status.IN_GAME
             lobby.save()
             game = Game.objects.create(

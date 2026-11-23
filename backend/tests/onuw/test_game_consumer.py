@@ -53,9 +53,9 @@ def _create_game_with_players(player_count=3):
         max_players=10,
         settings={"roles": roles_config},
     )
-    LobbyMember.objects.create(lobby=lobby, user=host, is_ready=True)
+    LobbyMember.objects.create(lobby=lobby, user=host)
     for p in players:
-        LobbyMember.objects.create(lobby=lobby, user=p, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=p)
 
     game = Game.objects.create(
         lobby=lobby,

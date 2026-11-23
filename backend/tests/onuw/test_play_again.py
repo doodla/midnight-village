@@ -313,11 +313,6 @@ class TestPlayAgainRules:
 
     def test_the_host_can_deal_straight_away(self, table) -> None:
         table.play_to_results()
-        # A ready flag older code left behind gates nothing.
-        LobbyMember.objects.filter(lobby=table.lobby(), user_id=table.ids[2]).update(
-            is_ready=False
-        )
-
         response = table.play_again()
 
         assert all("is_ready" not in p for p in response.data["players"])

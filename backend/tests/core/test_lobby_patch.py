@@ -36,14 +36,14 @@ def _create_lobby_with_players(player_count: int, extra_settings: dict | None = 
         max_players=10,
         settings=extra_settings or {"roles": {}},
     )
-    LobbyMember.objects.create(lobby=lobby, user=host, is_ready=True)
+    LobbyMember.objects.create(lobby=lobby, user=host)
 
     players = []
     for i in range(player_count - 1):
         player = User.objects.create_user(
             username=f"player_patch_{player_count}_{i}", password="pass"
         )
-        LobbyMember.objects.create(lobby=lobby, user=player, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=player)
         players.append(player)
 
     return lobby, host, players

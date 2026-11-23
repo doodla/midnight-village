@@ -59,7 +59,7 @@ def _create_game(
     game_settings = {"roles": {}, "night_min_window_seconds": 0}
     game_settings.update(extra_settings or {})
     for user in users.values():
-        LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=user)
     lobby.status = Lobby.Status.IN_GAME
     lobby.save()
 

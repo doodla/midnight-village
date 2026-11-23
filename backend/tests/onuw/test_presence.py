@@ -818,7 +818,7 @@ def _make_table():
         center_cards=["Villager", "Villager", "Villager"],
     )
     for user in (host, other, third):
-        LobbyMember.objects.create(lobby=lobby, user=user, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=user)
         PlayerRole.objects.create(
             game=game, user=user, original_role="Villager", current_role="Villager"
         )

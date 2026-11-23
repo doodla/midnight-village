@@ -238,7 +238,7 @@ class TestTheDeckIsCheckedOnlyWhenTheDeckChanges:
         """The deck fits 3 players; a 4th sits down afterwards."""
         lobby, _, client = table
         newcomer = User.objects.create_user(username="latecomer", password="x")
-        LobbyMember.objects.create(lobby=lobby, user=newcomer, is_ready=True)
+        LobbyMember.objects.create(lobby=lobby, user=newcomer)
         return lobby, client
 
     def test_a_pace_only_patch_is_not_refused_because_a_player_joined(

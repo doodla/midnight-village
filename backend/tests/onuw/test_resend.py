@@ -565,8 +565,7 @@ class TestLobbyRequestsResent:
     def lobby_state(table) -> tuple:
         lobby = table.lobby()
         members = sorted(
-            (m.user_id, m.token, m.is_ready)
-            for m in LobbyMember.objects.filter(lobby=lobby)
+            (m.user_id, m.token) for m in LobbyMember.objects.filter(lobby=lobby)
         )
         return lobby.status, lobby.settings, lobby.host_id, members
 
