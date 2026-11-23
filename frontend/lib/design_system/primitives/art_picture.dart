@@ -20,8 +20,20 @@ class ArtPicture extends StatelessWidget {
   /// of the reveal (`secretArt`), so revealing it fetches nothing.
   final Size? decodeAt;
 
+  /// Test hooks (`test/flutter_test_config.dart`); null in the app. Quietly
+  /// drawing nothing is right for a player on a bad line, but it let a missing
+  /// Werewolf portrait ship with every test green: under test a picture that
+  /// is not in the bundle, or whose bytes do not decode, fails the test that
+  /// shows it.
+  @visibleForTesting
+  static void Function(ArtImage image)? debugBeforeDraw;
+
+  @visibleForTesting
+  static void Function(ArtImage image, Object error)? debugOnError;
+
   @override
   Widget build(BuildContext context) {
+    debugBeforeDraw?.call(image);
     final ratio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
     return LayoutBuilder(
       builder: (context, constraints) => Image(
@@ -37,6 +49,7 @@ class ArtPicture extends StatelessWidget {
           DefaultAssetBundle.of(context).evict(image.path);
           // A page where a picture should be: the build may be out of date.
           StaleSmell.report();
+          debugOnError?.call(image, error);
           return const SizedBox.expand();
         },
       ),

@@ -7,6 +7,7 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/art_picture.dart';
 import 'package:midnight_village/design_system/primitives/art_precache.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
@@ -89,11 +90,21 @@ void main() {
       }
     });
 
-    test('the old asset name is referenced nowhere', () {
-      expect(
-        File('assets/skins/shadow_paper/roles/werewolf.webp').existsSync(),
-        isFalse,
-      );
+    test('the old asset name is kept for phones on the last build, and '
+        'referenced nowhere', () {
+      // The web app's service worker drops a file the new build does not
+      // list as the new build arrives; a tab left open still runs the old
+      // code, which asks for it. It stays, a copy of the lunge.
+      for (final MapEntry(key: old, value: now) in ArtSet.retired.entries) {
+        final kept = File('${_art.folder}/$old');
+        expect(kept.existsSync(), isTrue, reason: old);
+        expect(
+          kept.readAsBytesSync(),
+          File('${_art.folder}/$now').readAsBytesSync(),
+          reason: '$old is a copy of $now',
+        );
+      }
+      expect(ArtSet.retired.keys, contains('roles/werewolf.webp'));
       expect(
         File('../docs/design/art/roles/werewolf.jpg').existsSync(),
         isFalse,
@@ -102,7 +113,8 @@ void main() {
       for (final root in ['lib', 'test', 'test_screens', 'tool']) {
         for (final file in Directory(root).listSync(recursive: true)) {
           if (file is! File ||
-              file.path.endsWith('werewolf_portrait_test.dart')) {
+              file.path.endsWith('werewolf_portrait_test.dart') ||
+              file.path.endsWith('skin/art_set.dart')) {
             continue;
           }
           if (!RegExp(r'\.(dart|py|md|yaml)$').hasMatch(file.path)) continue;
