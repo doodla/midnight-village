@@ -27,24 +27,26 @@ BoardPaper paperOf(EndCardLook look) => switch (look) {
 /// What a screen reader says for a card: the name (and that it is you, or the
 /// Hunter's pick), the role (and the dealt one), won, hanged, the votes.
 String spokenCard(EndCard c, EndBoardPlan plan) {
-  final hunter = plan.pick;
+  final hunter = plan.picks.where((p) => p.pickId == c.id).firstOrNull;
   final words = [
     if (c.you)
       EndCopy.cardYou.fill({'name': c.name})
-    else if (c.pickedByHunter && hunter != null)
+    else if (hunter != null)
       EndCopy.cardPicked.fill({'name': c.name, 'hunter': hunter.hunterName})
     else
-      '${c.name}.',
+      EndCopy.cardName.fill({'name': c.name}),
     if (c.dealt != null)
       EndCopy.wasRole.fill({
         'now': c.strip.displayName,
         'dealt': c.dealt!.displayName,
       })
     else
-      '${c.strip.displayName}.',
+      EndCopy.cardRole.fill({'role': c.strip.displayName}),
     if (c.hanged) EndCopy.hangedWord else if (c.won) EndCopy.wonWord,
     if (c.tags.isNotEmpty)
-      EndCopy.votes.fill({'names': c.tags.map((t) => t.name).join(', ')}),
+      EndCopy.votes.fill({
+        'names': c.tags.map((t) => t.name).join(EndCopy.listComma),
+      }),
   ];
   return words.join(' ');
 }
@@ -61,39 +63,50 @@ class StrandTwines extends StatelessWidget {
   Widget build(BuildContext context) => Stack(
     children: [
       for (final c in plan.cards)
-        if (c.pin != null && c.tags.isNotEmpty)
-          Positioned.fill(
-            child: LitAt(
-              rect: c.reach,
-              child: Transform.translate(
-                offset: origin,
-                child: Twine(route: _route(c)),
+        if (c.pin != null)
+          for (final last in _lastOfEachColumn(c))
+            Positioned.fill(
+              child: LitAt(
+                rect: c.reach,
+                child: Transform.translate(
+                  offset: origin,
+                  child: Twine(route: _route(c, last)),
+                ),
               ),
             ),
-          ),
     ],
   );
 
-  TwineRoute _route(EndCard c) {
+  /// The last tag of each of the strand's columns: a twine runs to each.
+  static List<Rect> _lastOfEachColumn(EndCard c) => [
+    for (final column in {for (final t in c.tags) t.column})
+      c.tags.lastWhere((t) => t.column == column).rect,
+  ];
+
+  TwineRoute _route(EndCard c, Rect last) {
     final from = c.pin!.center;
-    final last = c.tags.last.rect;
-    final to = Offset(last.left + 12, last.center.dy);
+    final to = Offset(last.left + VoteTag.holeAt, last.center.dy);
     final middle = Offset.lerp(from, to, 0.5)!;
     return TwineRoute(from, middle + const Offset(-10, 0), to);
   }
 }
 
-/// The Hunter's twine between the two cards.
+/// The Hunter's twine between the two cards: bone, as every twine that is not
+/// a Werewolf's (the Hunter is the village's).
 class HunterTwine extends StatelessWidget {
-  const HunterTwine({super.key, required this.plan, required this.origin});
+  const HunterTwine({
+    super.key,
+    required this.plan,
+    required this.pick,
+    required this.origin,
+  });
 
   final EndBoardPlan plan;
+  final EndPick pick;
   final Offset origin;
 
   @override
   Widget build(BuildContext context) {
-    final pick = plan.pick;
-    if (pick == null) return const SizedBox.shrink();
     final a = plan.card(pick.hunterId), b = plan.card(pick.pickId);
     final avoid = [
       for (final c in plan.cards)
@@ -104,10 +117,7 @@ class HunterTwine extends StatelessWidget {
         rect: pick.slip,
         child: Transform.translate(
           offset: origin,
-          child: Twine(
-            werewolf: true,
-            route: TwineRoute.between(a.rect, b.rect, avoid: avoid),
-          ),
+          child: Twine(route: TwineRoute.between(a.rect, b.rect, avoid: avoid)),
         ),
       ),
     );
@@ -237,6 +247,7 @@ class EndTagsView extends StatelessWidget {
               name: t.name,
               token: t.token,
               maxWidth: t.rect.width,
+              height: t.rect.height,
             ),
           ),
         ),

@@ -26,10 +26,10 @@ abstract final class DeathMark {
     return over.width * over.height / (portrait.width * portrait.height);
   }
 
-  /// The ribbon's width on a portrait [portraitWidth] wide: a third of it,
-  /// at least 24 and at most 34.
+  /// The ribbon's width on a portrait [portraitWidth] wide: a good third of
+  /// it, at least 30 and at most 38 (it reads at arm's length).
   static double ribbonWidth(double portraitWidth) =>
-      (portraitWidth * 0.34).clamp(24.0, 34.0);
+      (portraitWidth * 0.38).clamp(30.0, 38.0);
 
   /// The ribbon is as tall as its picture says.
   static double ribbonHeight(double width) =>

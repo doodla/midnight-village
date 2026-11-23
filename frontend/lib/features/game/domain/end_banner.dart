@@ -123,6 +123,6 @@ String _you(EndSeat? you, List<TeamId> winners) {
 String _join(List<String> names) => names.length < 2
     ? names.join()
     : EndCopy.andThen.fill({
-        'first': names.sublist(0, names.length - 1).join(', '),
+        'first': names.sublist(0, names.length - 1).join(EndCopy.listComma),
         'last': names.last,
       });

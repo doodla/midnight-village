@@ -358,10 +358,9 @@ const inventory = <PartEntry>[
   PartEntry(
     'VoteTag',
     'primitives/vote_tag.dart',
-    part: PaperPart.scrap,
     plain: 'the voter\'s sigil and their name, no paper',
     paper:
-        'a name tag of bone paper, 28 tall, with a punched hole, the voter\'s sigil in a small disc and their name in the name face, set smaller rather than cut',
+        'a name tag of bone paper (the scrap\'s), its left end cut to a point, at least 26 tall, with a punched hole, the voter\'s sigil in a small disc and their name in the name face, set smaller rather than cut',
   ),
   PartEntry(
     'Twine',

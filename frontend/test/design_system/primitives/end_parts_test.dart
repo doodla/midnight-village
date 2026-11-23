@@ -170,7 +170,7 @@ void main() {
           greaterThanOrEqualTo(paragraph.getMaxIntrinsicWidth(double.infinity)),
         );
         final tag = tester.getRect(find.byType(VoteTag));
-        expect(tag.height, VoteTag.height);
+        expect(tag.height, VoteTag.defaultHeight);
         expect(tester.getRect(words).right, lessThanOrEqualTo(tag.right));
         // A tag fits the room it is given while its name can be set smaller to
         // fit it; where the name would pass the label floor, the tag is as wide
@@ -309,8 +309,9 @@ void main() {
         'You lose to',
         'the Werewolves.',
       ], red: true);
-      expect(rect.height, BannerSlice.heightFor(3));
-      expect(rect.height, greaterThan(BannerSlice.height));
+      // Taller by the third line's own height: the paper round the words is
+      // as drawn.
+      expect(rect.height, greaterThan(BannerSlice.height + 20));
       expect(
         image.centerSlice,
         SliceArt.bannerRed.inPoints(SliceArt.bannerTall),
@@ -593,7 +594,7 @@ void main() {
     test('the ribbon: a third of the portrait, 92% outside, clear of it', () {
       for (final w in <double>[44, 64, 90, 110, 130]) {
         final width = DeathMark.ribbonWidth(w);
-        expect(width, inInclusiveRange(24, 34));
+        expect(width, inInclusiveRange(30, 38));
         final ribbon = DeathMark.ribbonRect(cardOf(w), w);
         // Mostly hanging outside the card...
         final inside = ribbon.intersect(cardOf(w));

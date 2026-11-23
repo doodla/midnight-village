@@ -51,8 +51,8 @@ class SlicedArt extends StatelessWidget {
 /// (the Werewolf team won, or the Tanner) with bone words. The words are the
 /// 24 pt headline, centred: a line wider than the room (the screen less its
 /// margins) is broken between words, balanced, into at most three lines; a
-/// third line makes the middle taller ([extraLine]) and the ends stay as they
-/// are. When even three lines will not take a sentence, the next of [forms]
+/// third line or larger text makes the middle taller (`heightOf`) and the ends
+/// stay as they are. When even three lines will not take a sentence, the next of [forms]
 /// (shorter, by the caller's rule) is tried; a name is never cut, and a word
 /// wider than the room keeps the headline's size but stops growing with the
 /// phone's text size. On a plain screen it is its words.
@@ -90,10 +90,9 @@ class BannerSlice extends StatelessWidget {
 
   final double angle;
 
+  /// Two lines of the headline at its own size: the paper round them is the
+  /// art's, as drawn.
   static const height = 128.0;
-
-  /// How much taller each line after the second makes the banner.
-  static const extraLine = 30.0;
 
   /// The most lines.
   static const mostLines = 3;
@@ -103,8 +102,27 @@ class BannerSlice extends StatelessWidget {
 
   static const turn = -1.2 * math.pi / 180;
 
-  static double heightFor(int lines) =>
-      height + (lines > 2 ? (lines - 2) * extraLine : 0);
+  /// How tall a banner of [set] is in [style]: [height] for two lines at the
+  /// headline's own size, and as much taller as its words are past that (a
+  /// third line, a larger text size): the paper above and below the words
+  /// stays as drawn and the middle stretches. Never clips its words.
+  static double heightOf(
+    BannerFit set,
+    TextStyle style,
+    TextDirection direction,
+  ) {
+    // A line's height at the headline's own size; the words are drawn at
+    // [BannerFit.factor] times it.
+    final p = TextPainter(
+      text: TextSpan(style: style),
+      textDirection: direction,
+      textScaler: TextScaler.noScaling,
+    );
+    final line = p.preferredLineHeight;
+    p.dispose();
+    final paper = height - 2 * line;
+    return math.max(height, set.lines.length * line * set.factor + paper);
+  }
 
   /// How [forms] are set at [room] wide in [style] at [scale] (the phone's
   /// text size): the lines, and the largest text size the words keep. Public
@@ -245,7 +263,11 @@ class BannerSlice extends StatelessWidget {
         child: words,
       );
     }
-    final h = heightFor(lines.length);
+    final h = heightOf(
+      set,
+      skin.typography.screenTitle,
+      Directionality.of(context),
+    );
     if (!paper) {
       return Semantics(
         label: lines.join(' '),
@@ -278,7 +300,7 @@ class BannerSlice extends StatelessWidget {
                     Positioned.fill(
                       child: SlicedArt(
                         art: art,
-                        slice: lines.length > 2 ? SliceArt.bannerTall : null,
+                        slice: h > height + 0.5 ? SliceArt.bannerTall : null,
                       ),
                     ),
                     Padding(

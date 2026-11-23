@@ -24,7 +24,8 @@ import 'paper_light.dart';
 enum BoardPaper { winner, loser, werewolfWon, werewolfLost, night }
 
 /// A player's card pinned on the board: the name (when there is one), the
-/// portrait in a 4:3 window, the role on a strip across its foot. A card far
+/// portrait in a 4:3 window showing the whole face with headroom, the role on
+/// a tab of paper glued over the portrait's foot and the card's own. A card far
 /// from the light is a little darker; one that is [raised] (hanged) casts a
 /// bigger shadow. Plain, it is the words alone.
 class BoardCard extends StatelessWidget {
@@ -76,6 +77,15 @@ class BoardCard extends StatelessWidget {
   static const defaultStripHeight = 17.0;
   static const inset = 4.0;
 
+  /// The tab is as wide as its words and this each side, its foot this far
+  /// above the card's.
+  static const stripPad = 5.0;
+  static const stripUp = 1.0;
+
+  /// Where the portrait is cut from its picture: the face and the air above
+  /// it (the picture's own focus is lower, for a taller window).
+  static const portraitFocus = Alignment(0, -0.56);
+
   Color _fill(BuildContext context) {
     final parts = context.skin.parts;
     return switch (paper) {
@@ -116,7 +126,7 @@ class BoardCard extends StatelessWidget {
         ? elevation.boxShadowsLeaning(lean)
         : paperShadows(light, rect, elevation);
     final loser = paper == BoardPaper.loser || paper == BoardPaper.werewolfLost;
-    Widget portrait = ArtPicture(context.roleArt(role));
+    Widget portrait = ArtPicture(context.roleArt(role), focus: portraitFocus);
     if (loser) {
       portrait = ColorFiltered(
         colorFilter: ColorFilter.mode(
@@ -138,18 +148,32 @@ class BoardCard extends StatelessWidget {
         child: portrait,
       ),
     );
-    final top = name == null ? inset : headerHeight;
-    // The strip lies across the portrait's foot, as wide as the card inside its
-    // paper (a role wider than the portrait still reads whole).
+    // The tab lies over the portrait's foot, as wide as its words (a role
+    // wider than the portrait still reads whole: the card is as wide as it).
     final stripBar = Positioned(
-      left: inset,
-      right: inset,
-      top: top + portraitWidth * 3 / 4 - stripHeight,
+      left: 0,
+      right: 0,
+      bottom: stripUp,
       height: stripHeight,
-      child: ColoredBox(
-        color: fill,
-        child: Center(
-          child: FitLine(strip, style: type.tag.copyWith(color: ink)),
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: fill,
+            boxShadow: [
+              BoxShadow(
+                color: parts.boardShade.withValues(alpha: 0.35),
+                blurRadius: 2,
+                offset: const Offset(0, -1),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: stripPad),
+            child: Center(
+              widthFactor: 1,
+              child: FitLine(strip, style: type.tag.copyWith(color: ink)),
+            ),
+          ),
         ),
       ),
     );
@@ -257,7 +281,10 @@ class DealtCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
                   child: ColorFiltered(
                     colorFilter: _sepia,
-                    child: ArtPicture(context.roleArt(role)),
+                    child: ArtPicture(
+                      context.roleArt(role),
+                      focus: BoardCard.portraitFocus,
+                    ),
                   ),
                 ),
               ),

@@ -1,259 +1,48 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../../../design_system/copy/copy.dart';
 import '../../../design_system/models/game_result.dart';
 import '../../../design_system/models/role.dart';
-import '../../../design_system/skin/art_set.dart' show TokenId;
+import '../../../design_system/skin/end_art.dart' show EndArt;
 import 'end_banner.dart';
+import 'end_board_cards.dart';
 import 'end_board_metrics.dart';
 import 'end_board_rows.dart';
 import 'game_outcome.dart';
 import 'outcome_view.dart';
 
-// The end board's layout (the end-board SPEC, section 3), pure: from the
-// results body, who "you" are and the size of the screen, to where every card,
-// tag, ribbon and seal lies, in the board's own coordinates (0,0 is its top
-// left). Computed once: night faces, hidden tags and the reveal never move a
-// card. Nothing here draws; `presentation/end/` does, from this plan.
+export 'end_board_cards.dart';
+
+// The end board's layout (docs/specs/frontend/end-board.md, section 3), pure:
+// from the results body, who "you" are, the size of the screen and the words
+// measured at the phone's text size, to where every card, tag, ribbon and seal
+// lies, in the board's own coordinates (0,0 is its top left). Computed once:
+// night faces, hidden tags and the reveal never move a card. Nothing here
+// draws; `presentation/end/` does, from this plan.
 //
 // What it decides: the order (living winners, living losers, the dead), rows
 // of two, a name too long for its slot alone on its row, sizes (a winner's
-// portrait 90, a loser's 64; up to 1.3 times with five players or fewer while
-// it still fits; never smaller), the air above and below each row, the
-// seeded tilt, where each vote tag hangs, the Hunter's pick, the centre cards,
-// the banner's sentences, and whether the board scrolls (and then, that a
-// card is cut by the bottom edge).
+// portrait 90, a loser's 64; with five players or fewer each row grows up to
+// 1.3 times while it keeps its cards and the board still fits; never
+// smaller), the air above and below each row (a small group stands centred),
+// the seeded tilt and how far it really leans, where each vote tag hangs (in
+// two columns past three, when two fit), the Hunter's picks, the centre cards,
+// whether the board scrolls (and then, that a card is cut by the bottom edge)
+// and where it stands scrolled when it opens (the hanged in view).
 
-/// Which paper a card is cut from.
-enum EndCardLook { winner, loser, werewolfWon, werewolfLost }
-
-/// A vote tag: [voterId] voted for the card it hangs under.
-class EndTag {
-  const EndTag({
-    required this.voterId,
-    required this.name,
-    required this.token,
-    required this.rect,
-  });
-
-  final int voterId;
-  final String name;
-  final TokenId? token;
-  final Rect rect;
-}
-
-/// One player's card on the board.
-class EndCard {
-  const EndCard({
-    required this.id,
-    required this.name,
-    required this.token,
-    required this.row,
-    required this.look,
-    required this.face,
-    required this.strip,
-    required this.dealt,
-    required this.won,
-    required this.hanged,
-    required this.pickedByHunter,
-    required this.you,
-    required this.lit,
-    required this.rect,
-    required this.portraitWidth,
-    required this.angle,
-    required this.column,
-    required this.tags,
-    required this.pin,
-    required this.dealtRect,
-    required this.ribbonRect,
-    required this.sealRect,
-    required this.header,
-    required this.stripHeight,
-  });
-
-  final int id;
-  final String name;
-  final TokenId? token;
-  final int row;
-  final EndCardLook look;
-
-  /// The portrait: the final role, or the role a Doppelganger copied.
-  final RoleId face;
-
-  /// The role on the strip: the final role; "Doppelganger" for a Doppelganger.
-  final RoleId strip;
-
-  /// The role dealt, when it is not the one at the end.
-  final RoleId? dealt;
-  final bool won;
-
-  /// Dead (by the vote or by the Hunter): the ribbon.
-  final bool hanged;
-  final bool pickedByHunter;
-  final bool you;
-
-  /// A living winner: in the lantern's pool.
-  final bool lit;
-
-  /// The card, upright, jitter included.
-  final Rect rect;
-  final double portraitWidth;
-  final double angle;
-
-  /// The room across the board the card and its strand have: its slot.
-  final Rect column;
-  final List<EndTag> tags;
-  final Rect? pin;
-  final Rect? dealtRect;
-  final Rect? ribbonRect;
-  final Rect? sealRect;
-
-  /// How tall the name's header and the role's strip are on this phone.
-  final double header;
-  final double stripHeight;
-
-  Rect get nameRect => Rect.fromLTWH(rect.left, rect.top, rect.width, header);
-
-  /// Where the name's letters lie: the header less its room each side. A
-  /// ribbon pinned to the corner may lie over the header's end, never this.
-  Rect get nameText => Rect.fromLTWH(
-    rect.left + EndMetrics.nameRoom / 2,
-    rect.top,
-    math.max(0.0, rect.width - EndMetrics.nameRoom),
-    header,
-  );
-
-  Rect get portrait => Rect.fromLTWH(
-    rect.left + (rect.width - portraitWidth) / 2,
-    rect.top + header,
-    portraitWidth,
-    EndMetrics.portraitHeight(portraitWidth),
-  );
-
-  /// The card as it lies tilted, as a box.
-  Rect get leaned => rect.inflate(EndMetrics.tiltReach);
-
-  /// Everything of this card: the card, what is pinned to it and its strand.
-  Rect get reach {
-    var r = leaned;
-    for (final part in [dealtRect, ribbonRect, sealRect, pin]) {
-      if (part != null) r = r.expandToInclude(part);
-    }
-    for (final tag in tags) {
-      r = r.expandToInclude(tag.rect);
-    }
-    return r;
-  }
-}
-
-/// The Hunter's second death: a red twine from [hunter] to [pick] and a slip
-/// hung under it.
-class EndPick {
-  const EndPick({
-    required this.hunterId,
-    required this.pickId,
-    required this.hunterName,
-    required this.slip,
-  });
-
-  final int hunterId;
-  final int pickId;
-  final String hunterName;
-  final Rect slip;
-}
-
-/// The foot, by who this phone is.
-class EndFoot {
-  const EndFoot({
-    required this.host,
-    required this.whatHappened,
-    required this.hostName,
-  });
-
-  /// The host: "Edit deck" and "Play again"; a guest: "Leave".
-  final bool host;
-
-  /// There is a night to replay (the results carry its timeline).
-  final bool whatHappened;
-
-  /// A guest's "{host} deals next.": null when the host is not at the table.
-  final String? hostName;
-}
-
-/// The whole settled board for one phone.
-class EndBoardPlan {
-  const EndBoardPlan({
-    required this.banner,
-    required this.bannerLines,
-    required this.cards,
-    required this.rows,
-    required this.pick,
-    required this.centre,
-    required this.foot,
-    required this.screen,
-    required this.boardWidth,
-    required this.boardTop,
-    required this.viewHeight,
-    required this.boardHeight,
-    required this.scrolls,
-    required this.growth,
-    required this.lantern,
-    required this.light,
-    required this.nobodyHanged,
-  });
-
-  final EndBanner banner;
-  final int bannerLines;
-
-  /// In the order they are laid out: the living winners, the living losers,
-  /// the dead (the vote's, then the Hunter's pick).
-  final List<EndCard> cards;
-
-  /// Indexes into [cards], a row each, left to right.
-  final List<List<int>> rows;
-  final EndPick? pick;
-
-  /// The three cards nobody held, as they ended.
-  final List<RoleId> centre;
-  final EndFoot foot;
-  final Size screen;
-  final double boardWidth;
-
-  /// Where the board's top lies on the screen.
-  final double boardTop;
-
-  /// The height of the board's window: from [boardTop] to the foot's top.
-  final double viewHeight;
-
-  /// The board's own height: [viewHeight] when it fits, taller when it scrolls.
-  final double boardHeight;
-  final bool scrolls;
-
-  /// How much the cards grew (1 to 1.3).
-  final double growth;
-  final Rect lantern;
-  final Offset light;
-  final bool nobodyHanged;
-
-  EndCard card(int id) => cards.firstWhere((c) => c.id == id);
-
-  /// What a card's winners are lit by: the living winners.
-  Iterable<EndCard> get pool => cards.where((c) => c.lit);
-
-  /// How much of the board is under the foot's lip at scroll 0.
-  double get seenAtTop => viewHeight - EndMetrics.lip;
-}
-
-/// The board for [viewerId] of [outcome] on a screen of [screen]. [bannerLines]
-/// is how many lines the banner took (a third pushes the board down).
-/// [measure] sets a text at this phone's size.
+/// The board for [viewerId] of [outcome] on a screen of [screen], its frame
+/// beginning [boardTop] down the screen and its window [viewHeight] tall (to
+/// the foot's top). [measure] sets a text at this phone's size; [nameLine] and
+/// [roleLine] are how tall a line of a name and of a role are at it.
 EndBoardPlan planEndBoard({
   required GameOutcome outcome,
   required int viewerId,
   required bool isHost,
   required String? hostName,
   required Size screen,
-  required int bannerLines,
+  required double boardTop,
+  required double viewHeight,
   required EndMeasure measure,
   double nameLine = 17.6,
   double roleLine = 14.4,
@@ -263,10 +52,9 @@ EndBoardPlan planEndBoard({
   final deaths = deathsOf(seats);
   final nobody = deaths.nobody;
   final boardWidth = screen.width - EndMetrics.boardMargin;
-  final boardTop =
-      EndMetrics.boardTop +
-      (bannerLines > 2 ? EndMetrics.bannerExtra * (bannerLines - 2) : 0);
-  final view = math.max(0.0, screen.height - EndMetrics.foot - boardTop);
+  final view = math.max(0.0, viewHeight);
+  final tagHeight = EndMetrics.tagHeightFor(nameLine);
+  final slot = (boardWidth - 2 * EndMetrics.insetX) / 2 - 2 * EndMetrics.clear;
 
   // The order: living winners, living losers, then the dead.
   final living = [
@@ -281,78 +69,125 @@ EndBoardPlan planEndBoard({
   final firstDead = living.length;
   final order = [...living, ...dead];
 
-  // Who the Hunter took, and by whom.
-  final chosen = deaths.chosen.firstOrNull;
-  final hunter = chosen == null
-      ? null
-      : deaths.voted
-            .where(
-              (s) => s.plays == RoleId.hunter && s.votedFor == chosen.seat.id,
-            )
-            .firstOrNull;
+  // Who each Hunter took: the vote's dead Hunter whose vote was for them.
+  final hunters = <(EndSeat, EndSeat)>[
+    for (final chosen in deaths.chosen)
+      for (final hunter in deaths.voted.where(
+        (s) => s.plays == RoleId.hunter && s.votedFor == chosen.seat.id,
+      ))
+        (hunter, chosen),
+  ];
 
   Iterable<EndSeat> votersOf(EndSeat s) =>
       seats.where((v) => v.votedFor == s.seat.id);
   bool tagged(EndSeat s) => nobody || s.diedBy == EliminationReason.vote;
 
-  List<SizedCard> sized(double growth) => [
-    for (final s in order)
-      sizeCard(
-        id: s.seat.id,
-        pw:
-            (s.won ? EndMetrics.winnerPortrait : EndMetrics.loserPortrait) *
-            growth,
-        name: s.seat.name,
-        stripWords: [
-          _roleWords(s.copied != null ? RoleId.doppelganger : s.now),
-          if (s.moved) _roleWords(s.dealt),
-        ],
-        tagNames: tagged(s) ? [for (final v in votersOf(s)) v.seat.name] : [],
-        dealt: s.moved,
-        you: s.seat.id == viewerId,
-        hanged: s.died,
-        maxWidth: boardWidth - 2 * EndMetrics.insetX - 2 * EndMetrics.clear,
-        header: EndMetrics.headerFor(nameLine),
-        measure: measure,
-      ),
+  // A card with more than three tags beside one with none hangs its strand
+  // across the whole row (set once the rows are known), unless the other is
+  // the Hunter's pick.
+  final wide = <int>{};
+  SizedCard sized(int index, double growth) {
+    final s = order[index];
+    final isWide = wide.contains(index);
+    return sizeCard(
+      id: s.seat.id,
+      pw:
+          (s.won ? EndMetrics.winnerPortrait : EndMetrics.loserPortrait) *
+          growth,
+      name: s.seat.name,
+      stripWords: [
+        _roleWords(s.copied != null ? RoleId.doppelganger : s.now),
+        if (s.moved) _roleWords(s.dealt),
+      ],
+      tagNames: tagged(s) ? [for (final v in votersOf(s)) v.seat.name] : [],
+      dealt: s.moved,
+      you: s.seat.id == viewerId,
+      hanged: s.died,
+      maxWidth: boardWidth - 2 * EndMetrics.insetX - 2 * EndMetrics.clear,
+      header: EndMetrics.headerFor(nameLine),
+      tagHeight: tagHeight,
+      angle: EndMetrics.angleOf(s.seat.id, hanged: s.died),
+      slot: isWide ? slot * 2 + 2 * EndMetrics.clear : slot,
+      wideStrand: isWide,
+      measure: measure,
+    );
+  }
+
+  List<SizedCard> sizedAll(List<double> growths) => [
+    for (var i = 0; i < order.length; i++) sized(i, growths[i]),
   ];
 
-  // Grow while it still fits (five players or fewer); never shrink.
-  var growth = 1.0;
-  Rows rows;
-  var cards = sized(growth);
-  rows = packRows(cards, boardWidth, firstDead);
-  var rowTops = rowTopsOf(rows, cards, boardWidth);
+  // Sizes are fixed; with five or fewer each row grows as far as its own room
+  // lets it (the first stops at the lantern), then all of them less until the
+  // board fits its window. Never smaller.
+  final growths = List.filled(order.length, 1.0);
+  var cards = sizedAll(growths);
+  final rows = packRows(cards, boardWidth, firstDead);
+  for (final row in rows.rows) {
+    // A card alone on its row has the row's width for its strand.
+    if (row.length == 1 &&
+        cards[row.first].tagNames.length > EndMetrics.tagsInOneColumn) {
+      wide.add(row.first);
+    }
+    if (row.length != 2) continue;
+    final [a, b] = row;
+    // Not beside the Hunter's pick: the slip hangs between those two.
+    if (row.any((i) => order[i].diedBy == EliminationReason.hunterChain)) {
+      continue;
+    }
+    final many = cards[a].tagNames.length > EndMetrics.tagsInOneColumn;
+    final manyB = cards[b].tagNames.length > EndMetrics.tagsInOneColumn;
+    if (many && cards[b].tagNames.isEmpty) wide.add(a);
+    if (manyB && cards[a].tagNames.isEmpty) wide.add(b);
+  }
+  if (wide.isNotEmpty) cards = sizedAll(growths);
   if (seats.length <= EndMetrics.growsUpTo) {
-    for (
-      var g = EndMetrics.mostGrowth;
-      g > 1 + 1e-9;
-      g -= EndMetrics.growthStep
-    ) {
-      final c = sized(g);
-      final r = packRows(c, boardWidth, firstDead);
-      final t = rowTopsOf(r, c, boardWidth);
-      if (t.contentHeight <= view && _sameRows(r.rows, rows.rows)) {
-        growth = g;
+    final most = List.filled(order.length, 1.0);
+    for (final row in rows.rows) {
+      for (
+        var g = EndMetrics.mostGrowth;
+        g > 1 + 1e-9;
+        g -= EndMetrics.growthStep
+      ) {
+        final trial = [...most];
+        for (final i in row) {
+          trial[i] = g;
+        }
+        final c = sizedAll(trial);
+        if (_sameRows(packRows(c, boardWidth, firstDead).rows, rows.rows)) {
+          for (final i in row) {
+            most[i] = g;
+          }
+          break;
+        }
+      }
+    }
+    for (var k = 1.0; k > 1e-9; k -= 0.05) {
+      final trial = [for (final g in most) 1 + (g - 1) * k];
+      final c = sizedAll(trial);
+      if (rowTopsOf(rows, c, boardWidth).contentHeight <= view) {
+        growths.setAll(0, trial);
         cards = c;
-        rows = r;
-        rowTops = t;
         break;
       }
     }
   }
+  final rowTops = rowTopsOf(rows, cards, boardWidth);
 
-  final scrolls = rowTops.contentHeight > view;
+  final scrolls = rowTops.contentHeight > view + 0.01;
   final tops = [...rowTops.tops];
   var content = rowTops.contentHeight;
   if (scrolls) {
     content += cutByTheEdge(tops, rows, cards, view - EndMetrics.lip);
   } else {
-    // Spare height is shared evenly between the rows.
+    // Spare height is shared between the rows, up to a point; what is left
+    // goes above and below, so a small group stands centred.
     final spare = view - content;
-    final each = spare / rows.rows.length;
-    for (var r = 1; r < tops.length; r++) {
-      tops[r] += each * r;
+    final n = rows.rows.length;
+    final each = math.min(spare / n, EndMetrics.mostSpare);
+    final offset = (spare - each * (n - 1)) / 2;
+    for (var r = 0; r < tops.length; r++) {
+      tops[r] += each * r + offset;
     }
   }
 
@@ -362,10 +197,10 @@ EndBoardPlan planEndBoard({
     EndMetrics.lanternSize.width,
     EndMetrics.lanternSize.height,
   );
-  // The light is the centre of the lantern's panes (`EndArt.lanternLight`).
+  // The light is the centre of the lantern's panes.
   final light = Offset(
-    lantern.left + 0.41 * lantern.width,
-    lantern.top + 0.755 * lantern.height,
+    lantern.left + EndArt.lanternLight.dx * lantern.width,
+    lantern.top + EndArt.lanternLight.dy * lantern.height,
   );
 
   final placed = <EndCard>[];
@@ -373,108 +208,34 @@ EndBoardPlan planEndBoard({
     final row = rows.rows[r];
     final xs = rowPositions(rows, r, cards, boardWidth);
     for (var i = 0; i < row.length; i++) {
-      final index = row[i];
-      final c = cards[index];
-      final s = order[index];
+      final c = cards[row[i]];
+      final s = order[row[i]];
       final top = tops[r] + EndMetrics.jitterOf(c.id);
       final rect = Rect.fromLTWH(xs.lefts[i], top, c.width, c.height);
-      final tagList = <EndTag>[];
-      final names = c.tagNames;
-      final voters = tagged(s) ? votersOf(s).toList() : <EndSeat>[];
-      for (var t = 0; t < voters.length; t++) {
-        final width = math.min(
-          EndMetrics.tagApron + measure(EndText.tag, names[t]),
-          xs.columns[i].width - 2 * EndMetrics.clear,
-        );
-        final natural =
-            rect.left + EndMetrics.tagRoom / 4 - EndMetrics.tagStagger * t;
-        final left = natural
-            .clamp(
-              xs.columns[i].left + EndMetrics.clear,
-              math.max(
-                xs.columns[i].left + EndMetrics.clear,
-                xs.columns[i].right - EndMetrics.clear - width,
-              ),
-            )
-            .toDouble();
-        tagList.add(
-          EndTag(
-            voterId: voters[t].seat.id,
-            name: voters[t].seat.name,
-            token: voters[t].seat.token,
-            rect: Rect.fromLTWH(
-              left,
-              rect.bottom + EndMetrics.tagFirst + EndMetrics.tagStep * t,
-              width,
-              EndMetrics.tagHeight,
-            ),
-          ),
-        );
-      }
-      final dw = EndMetrics.dealtWidth(c.pw);
-      final dh = dw * EndMetrics.dealtRatio;
-      final rw = EndMetrics.ribbonWidth(c.pw);
-      final rh = EndMetrics.ribbonHeight(rw);
+      final lowest = [
+        for (final j in row)
+          tops[r] +
+              EndMetrics.jitterOf(cards[j].id) +
+              cards[j].height +
+              cards[j].lean.height,
+      ].fold(0.0, math.max);
+      final tagList = _tags(
+        voters: tagged(s) ? votersOf(s).toList() : const [],
+        card: c,
+        rect: rect,
+        column: c.wideStrand ? spanOf(r, boardWidth) : xs.columns[i],
+        from: c.wideStrand ? lowest : rect.bottom + c.lean.height,
+        measure: measure,
+      );
       placed.add(
-        EndCard(
-          id: c.id,
-          name: s.seat.name,
-          token: s.seat.token,
-          row: r,
-          look: _lookOf(s),
-          face: s.plays,
-          strip: s.copied != null ? RoleId.doppelganger : s.now,
-          dealt: c.dealt ? s.dealt : null,
-          won: s.won,
-          hanged: s.died,
-          pickedByHunter: s.diedBy == EliminationReason.hunterChain,
-          you: c.you,
-          lit: s.won && !s.died,
-          rect: rect,
-          portraitWidth: c.pw,
-          angle: EndMetrics.angleOf(c.id, hanged: s.died),
-          column: xs.columns[i],
-          tags: tagList,
-          pin: tagList.isEmpty
-              ? null
-              : Rect.fromLTWH(
-                  rect.left + EndMetrics.pinIn,
-                  rect.bottom - EndMetrics.pinUp,
-                  EndMetrics.pin,
-                  EndMetrics.pin,
-                ),
-          dealtRect: c.dealt
-              ? Rect.fromLTWH(
-                  rect.left - EndMetrics.dealtOutX * dw,
-                  rect.top - EndMetrics.dealtOutY * dh,
-                  dw,
-                  dh,
-                )
-              : null,
-          ribbonRect: s.died
-              ? Rect.fromLTWH(
-                  rect.right - rw * EndMetrics.ribbonInside,
-                  rect.top - rh * (1 - EndMetrics.ribbonInside),
-                  rw,
-                  rh,
-                )
-              : null,
-          header: c.header,
-          stripHeight: EndMetrics.stripFor(roleLine),
-          sealRect: c.you
-              ? Rect.fromLTWH(
-                  rect.right + EndMetrics.sealHang - EndMetrics.seal,
-                  math.max(
-                    rect.top +
-                        rect.height * EndMetrics.sealDown -
-                        EndMetrics.seal / 2,
-                    // Below the name, whatever the card's height.
-                    rect.top + c.header + 1,
-                  ),
-                  EndMetrics.seal,
-                  EndMetrics.seal,
-                )
-              : null,
+        _card(
+          s,
+          c,
+          r,
+          rect,
+          c.wideStrand ? spanOf(r, boardWidth) : xs.columns[i],
+          tagList,
+          roleLine: roleLine,
         ),
       );
     }
@@ -483,25 +244,28 @@ EndBoardPlan planEndBoard({
   final byId = {for (final c in placed) c.id: c};
   final cardsInOrder = [for (final s in order) byId[s.seat.id]!];
 
-  EndPick? pick;
-  if (hunter != null && chosen != null) {
-    pick = EndPick(
-      hunterId: hunter.seat.id,
-      pickId: chosen.seat.id,
-      hunterName: hunter.seat.name,
-      slip: placeSlip(
-        from: byId[hunter.seat.id]!,
-        to: byId[chosen.seat.id]!,
-        all: cardsInOrder,
-        boardWidth: boardWidth,
-        width: measure(EndText.slip, '${hunter.seat.name}\'s pick'),
+  final picks = [
+    for (final (hunter, chosen) in hunters)
+      EndPick(
+        hunterId: hunter.seat.id,
+        pickId: chosen.seat.id,
+        hunterName: hunter.seat.name,
+        slip: placeSlip(
+          from: byId[hunter.seat.id]!,
+          to: byId[chosen.seat.id]!,
+          all: cardsInOrder,
+          boardWidth: boardWidth,
+          width: measure(
+            EndText.slip,
+            EndCopy.picked.fill({'hunter': hunter.seat.name}),
+          ),
+        ),
       ),
-    );
-  }
+  ];
 
+  final boardHeight = scrolls ? content : view;
   return EndBoardPlan(
     banner: banner,
-    bannerLines: bannerLines,
     cards: cardsInOrder,
     rows: [
       for (final row in rows.rows)
@@ -510,7 +274,7 @@ EndBoardPlan planEndBoard({
             cardsInOrder.indexWhere((c) => c.id == cards[i].id),
         ],
     ],
-    pick: pick,
+    picks: picks,
     centre: outcome.result.centerCards,
     foot: EndFoot(
       host: isHost,
@@ -521,13 +285,162 @@ EndBoardPlan planEndBoard({
     boardWidth: boardWidth,
     boardTop: boardTop,
     viewHeight: view,
-    boardHeight: scrolls ? content : view,
+    boardHeight: boardHeight,
     scrolls: scrolls,
-    growth: growth,
+    growth: growths.fold(1.0, math.max),
     lantern: lantern,
     light: light,
     nobodyHanged: nobody,
+    initialScroll: scrolls ? _hangedInView(cardsInOrder, view, boardHeight) : 0,
   );
+}
+
+/// One card placed at [rect], with what is pinned to it.
+EndCard _card(
+  EndSeat s,
+  SizedCard c,
+  int row,
+  Rect rect,
+  Rect column,
+  List<EndTag> tags, {
+  required double roleLine,
+}) {
+  final dw = EndMetrics.dealtWidth(c.pw);
+  final dh = dw * EndMetrics.dealtRatio;
+  final rw = EndMetrics.ribbonWidth(c.pw);
+  final rh = EndMetrics.ribbonHeight(rw);
+  return EndCard(
+    id: c.id,
+    name: s.seat.name,
+    token: s.seat.token,
+    row: row,
+    look: _lookOf(s),
+    face: s.plays,
+    strip: s.copied != null ? RoleId.doppelganger : s.now,
+    dealt: c.dealt ? s.dealt : null,
+    won: s.won,
+    hanged: s.died,
+    pickedByHunter: s.diedBy == EliminationReason.hunterChain,
+    you: c.you,
+    lit: s.won && !s.died,
+    rect: rect,
+    portraitWidth: c.pw,
+    angle: EndMetrics.angleOf(c.id, hanged: s.died),
+    column: column,
+    tags: tags,
+    pin: tags.isEmpty
+        ? null
+        : Rect.fromLTWH(
+            rect.left + EndMetrics.pinIn,
+            rect.bottom - EndMetrics.pinUp,
+            EndMetrics.pin,
+            EndMetrics.pin,
+          ),
+    dealtRect: c.dealt
+        ? Rect.fromLTWH(
+            rect.left - EndMetrics.dealtOutX * dw,
+            rect.top - EndMetrics.dealtOutY * dh,
+            dw,
+            dh,
+          )
+        : null,
+    ribbonRect: s.died
+        ? Rect.fromLTWH(
+            rect.right - rw * EndMetrics.ribbonInside,
+            rect.top - rh * (1 - EndMetrics.ribbonInside),
+            rw,
+            rh,
+          )
+        : null,
+    header: c.header,
+    stripHeight: EndMetrics.stripFor(roleLine),
+    sealRect: c.you
+        ? Rect.fromLTWH(
+            rect.right + EndMetrics.sealHang - EndMetrics.seal,
+            math.max(
+              rect.top +
+                  rect.height * EndMetrics.sealDown -
+                  EndMetrics.seal / 2,
+              // Below the name, whatever the card's height.
+              rect.top + c.header + 1,
+            ),
+            EndMetrics.seal,
+            EndMetrics.seal,
+          )
+        : null,
+  );
+}
+
+/// Where the board opens scrolled so the hanged are in view: their cards and
+/// what hangs on them above the foot's lip, or, when they are taller than the
+/// window, their tops just under the eave. 0 when they are in view already.
+double _hangedInView(List<EndCard> cards, double view, double boardHeight) {
+  final hanged = [
+    for (final c in cards)
+      if (c.hanged) c.reach,
+  ];
+  if (hanged.isEmpty) return 0;
+  final top = hanged.map((r) => r.top).fold(double.infinity, math.min);
+  final bottom = hanged.map((r) => r.bottom).fold(0.0, math.max);
+  final seen = view - EndMetrics.lip;
+  final want = math.min(
+    bottom + EndMetrics.clear - seen,
+    top - EndMetrics.clear,
+  );
+  return want.clamp(0.0, math.max(0.0, boardHeight - view)).toDouble();
+}
+
+/// The tags of [voters] under a card at [rect]: one under the other from the
+/// pin, a little to the left each; past three, in as many columns as fit its
+/// [column]. Each keeps inside the column, clear of the next.
+List<EndTag> _tags({
+  required List<EndSeat> voters,
+  required SizedCard card,
+  required Rect rect,
+  required Rect column,
+  required double from,
+  required EndMeasure measure,
+}) {
+  final room = column.width - 2 * EndMetrics.clear;
+  final widths = [
+    for (final v in voters)
+      math.min(EndMetrics.tagApron + measure(EndText.tag, v.seat.name), room),
+  ];
+  final columns = card.tagColumns;
+  final perColumn = math.max(1, (voters.length / columns).ceil());
+  final widest = widths.fold(0.0, math.max);
+  final band = columns * widest + (columns - 1) * EndMetrics.tagGap;
+  final first = from + EndMetrics.tagFirst;
+  final lo = column.left + EndMetrics.clear;
+  final hi = math.max(lo, column.right - EndMetrics.clear - band);
+  final tags = <EndTag>[];
+  for (var t = 0; t < voters.length; t++) {
+    final col = t ~/ perColumn;
+    final down = t % perColumn;
+    final natural =
+        rect.left +
+        EndMetrics.tagRoom / 4 -
+        (columns == 1 ? EndMetrics.tagStagger * t : 0);
+    final left = math.min(
+      natural.clamp(lo, hi).toDouble() + col * (widest + EndMetrics.tagGap),
+      column.right - EndMetrics.clear - widths[t],
+    );
+    tags.add(
+      EndTag(
+        voterId: voters[t].seat.id,
+        name: voters[t].seat.name,
+        token: voters[t].seat.token,
+        column: col,
+        rect: Rect.fromLTWH(
+          math.max(lo, left),
+          first + (card.tagHeight + EndMetrics.tagGap) * down,
+          widths[t],
+          card.tagHeight,
+        ),
+      ),
+    );
+  }
+  return tags;
 }
 
 /// The words on a role's strip.

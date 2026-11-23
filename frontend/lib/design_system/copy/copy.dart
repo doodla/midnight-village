@@ -510,6 +510,9 @@ abstract final class EndCopy {
   /// "Ana, Ben" and "Cleo": the names of a list.
   static const andThen = Template('{first} and {last}');
 
+  /// Between the names of a list, before its last.
+  static const listComma = ', ';
+
   /// A number in place of the names, when the names will not fit.
   static const hangedCount = Template('{n} hanged.');
 
@@ -532,6 +535,9 @@ abstract final class EndCopy {
 
   /// The foot.
   static const whatHappened = 'What happened';
+
+  /// The same on two lines, where one line leaves no room for the middle cards.
+  static const whatHappenedTwoLines = 'What\nhappened';
   static const editDeck = ResultsCopy.editDeck;
   static const playAgain = ResultsCopy.playAgain;
   static const leave = CommonCopy.leave;
@@ -541,6 +547,8 @@ abstract final class EndCopy {
   static const picked = Template("{hunter}'s pick");
 
   /// What a screen reader says for a card and the middle.
+  static const cardName = Template('{name}.');
+  static const cardRole = Template('{role}.');
   static const cardYou = Template('{name}, you.');
   static const cardPicked = Template("{name}, {hunter}'s pick.");
   static const wasRole = Template('{now}, was {dealt}.');

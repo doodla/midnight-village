@@ -21,6 +21,7 @@ Future<void> pumpEndBoard(
   double textScale = 1,
   Size? screen,
   bool scrolled = false,
+  bool top = false,
 }) async {
   if (screen != null) {
     tester.view.physicalSize = screen * tester.view.devicePixelRatio;
@@ -35,13 +36,18 @@ Future<void> pumpEndBoard(
     scale: textScale,
     controller: controller,
   );
-  if (scrolled && controller.hasClients) {
-    controller.jumpTo(controller.position.maxScrollExtent);
+  if (controller.hasClients && (scrolled || top)) {
+    controller.jumpTo(scrolled ? controller.position.maxScrollExtent : 0);
     await tester.pump();
   }
 }
 
-Map<String, dynamic> _ten() => widened(
+/// The guest's page: Cleo, a Werewolf who lost to the village (the mock's
+/// guest is one too).
+const endGuestSeat = 2;
+
+/// Ten players with long names, a tie (the mocks' 1d and 1e).
+Map<String, dynamic> endTen() => widened(
   recordedResults('results_doppelganger'),
   add: 2,
   rename: longEndNames,
@@ -76,14 +82,14 @@ final endBoardEntries = <ScreenEntry>[
       (t) =>
           pumpEndBoard(t, recordedResults('results_three_players'), viewer: 1),
     ),
-    ('12-end-ten-top', (t) => pumpEndBoard(t, _ten())),
-    ('12-end-ten-end', (t) => pumpEndBoard(t, _ten(), scrolled: true)),
+    ('12-end-ten-top', (t) => pumpEndBoard(t, endTen(), top: true)),
+    ('12-end-ten-end', (t) => pumpEndBoard(t, endTen(), scrolled: true)),
     (
       '12-end-guest',
       (t) => pumpEndBoard(
         t,
         recordedResults('results_five'),
-        viewer: 1,
+        viewer: endGuestSeat,
         host: false,
       ),
     ),

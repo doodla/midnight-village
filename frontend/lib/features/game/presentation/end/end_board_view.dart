@@ -21,14 +21,16 @@ import 'end_cards.dart';
 import 'end_foot.dart';
 
 /// The end of the game, settled: a notice board in the village square at
-/// dawn, lit by one lantern. The banner says who was hanged and what that
-/// means for this phone's player; every player's card is pinned on the board
-/// (winners larger and in the light, the hanged with a black ribbon, the votes
-/// as name tags under the card they chose); at the foot are the scraps and the
-/// one amber plaque. The board is the plan `planEndBoard` made: this only draws
-/// it. With ten players it scrolls between the fixed banner (the roof its eave)
-/// and the fixed foot. No motion: the reveal and "What happened" are other
-/// pieces.
+/// dawn, lit by one lantern (docs/specs/frontend/end-board.md). The banner
+/// says who was hanged and what that means for this phone's player; every
+/// player's card is pinned on the board (winners larger and in the light, the
+/// hanged with a black ribbon, the votes as name tags under the card they
+/// chose); at the foot are the scraps and the one amber plaque. The board is
+/// the plan `planEndBoard` made: this measures the words, gives the plan the
+/// room there is, and draws it. When the board is taller than its window it
+/// scrolls between the fixed banner (the roof its eave) and the fixed foot,
+/// opening where the hanged are in view. No motion: the reveal and "What
+/// happened" are other pieces.
 ///
 /// Built from the results alone (what this phone's player may see is exactly
 /// what the results body gives), who this phone's player is ([viewerId]), and
@@ -71,60 +73,129 @@ class EndBoardView extends StatelessWidget {
           backgroundColor: context.skin.night.ground,
           body: GroundScope(
             ground: GroundKind.night,
-            child: LayoutBuilder(builder: _board),
+            child: LayoutBuilder(builder: _page),
           ),
         ),
       ),
     ),
   );
 
-  Widget _board(BuildContext context, BoxConstraints box) {
-    final skin = context.skin;
-    final type = skin.typography;
+  Widget _page(BuildContext context, BoxConstraints box) {
+    final type = context.skin.typography;
+    final direction = Directionality.of(context);
+    final screen = Size(box.maxWidth, box.maxHeight);
+    // The banner first: how tall its words are decides where the board starts.
+    final banner = endBannerOf(outcome, viewerId);
+    final fit = BannerSlice.fit(
+      forms: banner.forms,
+      minLines: 2,
+      room: screen.width - 2 * BannerSlice.margin,
+      style: type.screenTitle,
+      direction: direction,
+      scale: MediaQuery.textScalerOf(context).scale(1),
+    );
+    final bannerHeight = BannerSlice.heightOf(fit, type.screenTitle, direction);
+    final bannerTop = EndMetrics.bannerTopFor(screen.height);
+    final boardTop = EndMetrics.boardTopFor(screen.height, bannerHeight);
+    final windowTop = boardTop - EndMetrics.roof;
+    return Stack(
+      children: [
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          height: boardTop + EndMetrics.roof,
+          child: const _DawnSky(),
+        ),
+        Positioned.fill(
+          child: Column(
+            children: [
+              SizedBox(height: windowTop),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, window) => _window(
+                    context,
+                    screen: screen,
+                    boardTop: boardTop,
+                    view: window.maxHeight - EndMetrics.roof,
+                  ),
+                ),
+              ),
+              EndFootBand(
+                foot: EndFoot(
+                  host: isHost,
+                  whatHappened: outcome.timeline != null,
+                  hostName: hostName,
+                ),
+                centre: outcome.result.centerCards,
+                screenHeight: screen.height,
+                playAgainBusy: playAgainBusy,
+                onWhatHappened: onWhatHappened,
+                onEditDeck: onEditDeck,
+                onPlayAgain: onPlayAgain,
+                onLeave: onLeave,
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: windowTop,
+          child: BoardRoof(width: screen.width),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: bannerTop,
+          child: BannerSlice.sentences(
+            forms: banner.forms,
+            minLines: 2,
+            red: banner.red,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The board in its window, planned for the room the window has.
+  Widget _window(
+    BuildContext context, {
+    required Size screen,
+    required double boardTop,
+    required double view,
+  }) {
+    final type = context.skin.typography;
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
+    TextPainter set(TextStyle style, String text) => TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
     double measure(TextStyle style, String text) {
-      final p = TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: 1,
-      )..layout();
+      final p = set(style, text);
       final w = p.width;
       p.dispose();
       return w;
     }
 
     double lineHeight(TextStyle style) {
-      final p = TextPainter(
-        text: TextSpan(text: 'Ag', style: style),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: 1,
-      )..layout();
+      final p = set(style, 'Ag');
       final h = p.height;
       p.dispose();
       return h;
     }
 
-    final screen = Size(box.maxWidth, box.maxHeight);
-    // The banner first: how many lines it takes decides where the board starts.
-    final forms = endBannerOf(outcome, viewerId);
-    final fit = BannerSlice.fit(
-      forms: forms.forms,
-      minLines: 2,
-      room: screen.width - 2 * BannerSlice.margin,
-      style: type.screenTitle,
-      direction: direction,
-      scale: scaler.scale(1),
-    );
     final plan = planEndBoard(
       outcome: outcome,
       viewerId: viewerId,
       isHost: isHost,
       hostName: hostName,
       screen: screen,
-      bannerLines: fit.lines.length,
+      boardTop: boardTop,
+      viewHeight: view,
       nameLine: lineHeight(type.name),
       roleLine: lineHeight(type.tag),
       measure: (kind, text) => switch (kind) {
@@ -132,64 +203,111 @@ class EndBoardView extends StatelessWidget {
         EndText.name || EndText.tag || EndText.slip => measure(type.name, text),
       },
     );
-    return EndBoardLayout(
-      plan: plan,
-      forms: forms.forms,
-      red: forms.red,
-      isHost: isHost,
-      playAgainBusy: playAgainBusy,
-      onWhatHappened: onWhatHappened,
-      onEditDeck: onEditDeck,
-      onPlayAgain: onPlayAgain,
-      onLeave: onLeave,
-      scrollController: scrollController,
-    );
+    return EndBoardWindow(plan: plan, scrollController: scrollController);
   }
 }
 
-/// The plan drawn on a page: sky, board (scrolling when the plan says so),
-/// roof, banner, the foot.
-class EndBoardLayout extends StatelessWidget {
-  const EndBoardLayout({
-    super.key,
-    required this.plan,
-    required this.forms,
-    required this.red,
-    required this.isHost,
-    required this.playAgainBusy,
-    required this.onWhatHappened,
-    required this.onEditDeck,
-    required this.onPlayAgain,
-    required this.onLeave,
-    this.scrollController,
-  });
+/// The square at dawn above the board: the sky plate under a dusk (the
+/// skin's), then the gallows and the roofs, so the banner is the bright thing.
+class _DawnSky extends StatelessWidget {
+  const _DawnSky();
+
+  @override
+  Widget build(BuildContext context) => LayeredArt(
+    LayeredSceneId.dawnGallows,
+    travel: false,
+    slots: {
+      'sun': (context, geometry, slot, arrival) {
+        final parts = context.skin.parts;
+        return IgnorePointer(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: parts.duskReach,
+              width: double.infinity,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: parts.duskTint,
+                    stops: parts.duskStops,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    },
+  );
+}
+
+/// The board's window: the frame, the cards and what hangs on them, the
+/// light, the lantern; scrolling when the plan says so, opened where the plan
+/// says ([EndBoardPlan.initialScroll]).
+class EndBoardWindow extends StatefulWidget {
+  const EndBoardWindow({super.key, required this.plan, this.scrollController});
 
   final EndBoardPlan plan;
-  final List<String> forms;
-  final bool red;
-  final bool isHost;
-  final bool playAgainBusy;
-  final VoidCallback onWhatHappened;
-  final VoidCallback onEditDeck;
-  final VoidCallback onPlayAgain;
-  final VoidCallback onLeave;
   final ScrollController? scrollController;
+
+  @override
+  State<EndBoardWindow> createState() => _EndBoardWindowState();
+}
+
+class _EndBoardWindowState extends State<EndBoardWindow> {
+  ScrollController? _own;
+  var _opened = false;
+
+  ScrollController get _controller =>
+      widget.scrollController ??
+      (_own ??= ScrollController(
+        initialScrollOffset: widget.plan.initialScroll,
+      ));
+
+  @override
+  void initState() {
+    super.initState();
+    _openWhereTheHangedAre();
+  }
+
+  @override
+  void didUpdateWidget(EndBoardWindow old) {
+    super.didUpdateWidget(old);
+    _openWhereTheHangedAre();
+  }
+
+  /// A controller from outside starts at 0: it is moved, once, where the
+  /// plan opens the board.
+  void _openWhereTheHangedAre() {
+    final given = widget.scrollController;
+    if (given == null || _opened || widget.plan.initialScroll == 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !given.hasClients || _opened) return;
+      _opened = true;
+      given.jumpTo(widget.plan.initialScroll);
+    });
+  }
+
+  @override
+  void dispose() {
+    _own?.dispose();
+    super.dispose();
+  }
 
   /// The board stands in from the screen's edge by half the margin.
   static const _side = EndMetrics.boardMargin / 2;
 
   @override
   Widget build(BuildContext context) {
-    final screen = plan.screen;
-    final footTop = screen.height - EndMetrics.foot;
-    final windowTop = plan.boardTop - EndMetrics.roof;
+    final plan = widget.plan;
     // The board's content: the roof's height of air above the frame, for the
     // lantern's hook and the eave.
     const origin = Offset(_side, EndMetrics.roof);
-    final contentHeight = plan.boardHeight + EndMetrics.roof;
     final content = SizedBox(
-      width: screen.width,
-      height: contentHeight,
+      width: plan.screen.width,
+      height: plan.boardHeight + EndMetrics.roof,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -201,11 +319,12 @@ class EndBoardLayout extends StatelessWidget {
             child: const BoardFrame(child: SizedBox.expand()),
           ),
           StrandTwines(plan: plan, origin: origin),
-          HunterTwine(plan: plan, origin: origin),
+          for (final pick in plan.picks)
+            HunterTwine(plan: plan, pick: pick, origin: origin),
           for (final c in plan.cards)
             EndCardView(card: c, plan: plan, origin: origin),
           for (final c in plan.cards) EndTagsView(card: c, origin: origin),
-          if (plan.pick case final pick?) _slip(context, pick, origin),
+          for (final pick in plan.picks) _slip(pick, origin),
           Positioned(
             left: _side,
             top: EndMetrics.roof,
@@ -225,68 +344,21 @@ class EndBoardLayout extends StatelessWidget {
         ],
       ),
     );
-    final window = ClipRect(
+    return ClipRect(
       child: OneLightScope(
         light: OneLight(plan.light + origin),
         child: plan.scrolls
             ? SingleChildScrollView(
-                controller: scrollController,
+                controller: _controller,
                 physics: const ClampingScrollPhysics(),
                 child: content,
               )
             : content,
       ),
     );
-    return Stack(
-      children: [
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          height: plan.boardTop + EndMetrics.roof,
-          child: LayeredArt(LayeredSceneId.dawnGallows, travel: false),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: windowTop,
-          height: footTop - windowTop,
-          child: window,
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: windowTop,
-          child: BoardRoof(width: screen.width),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 36,
-          child: BannerSlice.sentences(forms: forms, minLines: 2, red: red),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: footTop - EndMetrics.lip,
-          bottom: 0,
-          child: const BoardFoot(height: double.infinity),
-        ),
-        ...endFootPieces(
-          context,
-          plan: plan,
-          top: footTop,
-          playAgainBusy: playAgainBusy,
-          onWhatHappened: onWhatHappened,
-          onEditDeck: onEditDeck,
-          onPlayAgain: onPlayAgain,
-          onLeave: onLeave,
-        ),
-      ],
-    );
   }
 
-  Widget _slip(BuildContext context, EndPick pick, Offset origin) {
+  Widget _slip(EndPick pick, Offset origin) {
     final r = pick.slip;
     return Positioned(
       left: r.left + origin.dx,

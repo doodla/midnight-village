@@ -4,7 +4,7 @@ import 'package:midnight_village/features/game/domain/game_outcome.dart';
 
 import '../../../helpers/outcome_samples.dart';
 
-// The end board's banner (SPEC section 4): every sentence, from the recorded
+// The end board's banner (docs/specs/frontend/end-board.md, section 4): every sentence, from the recorded
 // results and who is looking.
 
 EndBanner _banner(String sample, String viewer) {

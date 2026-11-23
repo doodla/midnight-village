@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/death_mark.dart';
 import 'package:midnight_village/design_system/primitives/paper_scrap.dart';
@@ -17,22 +18,10 @@ import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/truncated_text.dart';
 import '../../../helpers/end_board_pump.dart';
 
-// The static end board on the real fonts: every recorded results body on three
-// phones and at normal and 1.6 text, nothing cut and nothing off the screen;
-// the banner in at most three lines, even for three long names hanged and the
-// Werewolves winning; the two feet; the one seal; the red banner only when the
+// The static end board on the real fonts (the sweep of every sample, phone and
+// text size is `end_board_sweep_test.dart`): the banner in at most three
+// lines, even for three long names hanged and the Werewolves winning; the two feet; the one seal; the red banner only when the
 // Werewolf team or the Tanner wins; the numbers that are also a part's own.
-
-const _samples = [
-  'results',
-  'results_tie',
-  'results_nobody_dies',
-  'results_werewolves_win',
-  'results_tanner_alone',
-  'results_three_players',
-  'results_doppelganger',
-  'results_five',
-];
 
 Future<void> _pump(
   WidgetTester tester,
@@ -55,56 +44,23 @@ Future<void> _pump(
 }
 
 /// Three players hanged with long names and the Werewolves win: the longest
-/// banner there is (a recording's players renamed and killed by the vote).
-Map<String, dynamic> _threeLongNamesHanged() {
-  final results = recordedResults('results_werewolves_win');
-  final players = (results['players'] as List).cast<Map<String, dynamic>>();
-  const names = ['Bartholomew', 'Maximiliano', 'Wolfgangamadeus'];
-  for (var i = 0; i < 3; i++) {
-    players[i]['display_name'] = names[i];
-    players[i]['is_eliminated'] = true;
-    players[i]['elimination_reason'] = 'vote';
-  }
-  return results;
-}
+/// banner there is (a recording's players renamed and killed by the vote: no
+/// game ends so, and the test says so).
+Map<String, dynamic> _threeLongNamesHanged() => offContractResults(
+  'results_werewolves_win',
+  offContract: true,
+  edit: (results) {
+    final players = (results['players'] as List).cast<Map<String, dynamic>>();
+    const names = ['Bartholomew', 'Maximiliano', 'Wolfgangamadeus'];
+    for (var i = 0; i < 3; i++) {
+      players[i]['display_name'] = names[i];
+      players[i]['is_eliminated'] = true;
+      players[i]['elimination_reason'] = 'vote';
+    }
+  },
+);
 
 void main() {
-  group('nothing is cut and nothing leaves the screen', () {
-    for (final sample in _samples) {
-      for (final size in [
-        const Size(360, 780),
-        const Size(390, 844),
-        const Size(360, 640),
-      ]) {
-        for (final scale in [1.0, 1.6]) {
-          testWidgets('$sample at ${size.width.toInt()}x${size.height.toInt()}'
-              ' text x$scale', (tester) async {
-            await _pump(
-              tester,
-              recordedResults(sample),
-              size: size,
-              scale: scale,
-            );
-            expect(tester.takeException(), isNull);
-            expect(truncatedText(tester), isEmpty);
-            // The banner's words are on the screen, whatever the ends do.
-            for (final line
-                in find
-                    .descendant(
-                      of: find.byType(BannerSlice),
-                      matching: find.byType(Text),
-                    )
-                    .evaluate()) {
-              final rect = tester.getRect(find.byWidget(line.widget));
-              expect(rect.left, greaterThanOrEqualTo(-1));
-              expect(rect.right, lessThanOrEqualTo(size.width + 1));
-            }
-          });
-        }
-      }
-    }
-  });
-
   group('the banner takes any sentence', () {
     for (final width in [360.0, 390.0]) {
       for (final scale in [1.0, 1.3, 1.6]) {
@@ -190,7 +146,10 @@ void main() {
       tester,
     ) async {
       await _pump(tester, recordedResults('results'));
-      for (final word in ['What happened', 'Edit deck', 'Play again']) {
+      // "What happened" on one line, or two where one leaves the middle
+      // cards no room.
+      expect(find.bySemanticsLabel(EndCopy.whatHappened), findsOneWidget);
+      for (final word in ['Edit deck', 'Play again']) {
         expect(find.text(word), findsOneWidget, reason: word);
       }
       expect(find.text('Leave'), findsNothing);
@@ -228,7 +187,7 @@ void main() {
       final results = recordedResults('results');
       results['night_timeline'] = null;
       await _pump(tester, results);
-      expect(find.text('What happened'), findsNothing);
+      expect(find.bySemanticsLabel(EndCopy.whatHappened), findsNothing);
       expect(find.text('Play again'), findsOneWidget);
     });
   });
@@ -290,15 +249,21 @@ void main() {
       final banner = tester.getTopLeft(find.byType(BannerSlice));
       await tester.drag(scroll, const Offset(0, -2000));
       await tester.pump();
-      expect(tester.getTopLeft(find.text('Play again')), top);
+      expect(
+        (tester.getTopLeft(find.text('Play again')) - top).distance,
+        lessThan(0.01),
+      );
       expect(tester.getTopLeft(find.byType(BannerSlice)), banner);
       final view = tester.state<ScrollableState>(find.byType(Scrollable));
-      expect(view.position.pixels, view.position.maxScrollExtent);
+      expect(
+        view.position.pixels,
+        closeTo(view.position.maxScrollExtent, 0.01),
+      );
       expect(view.position.maxScrollExtent, greaterThan(0));
     });
 
     testWidgets('six players fit one screen: nothing scrolls', (tester) async {
-      for (final sample in ['results_nobody_dies', 'results_tie']) {
+      for (final sample in ['results_nobody_dies', 'results_moved_dead_card']) {
         await _pump(tester, recordedResults(sample));
         expect(
           find.byType(SingleChildScrollView),
@@ -312,7 +277,7 @@ void main() {
   group('the numbers that are also a part\'s own', () {
     test('the tag, the ribbon, the slip and the lantern', () {
       expect(EndMetrics.tagApron, VoteTag.apron);
-      expect(EndMetrics.tagHeight, VoteTag.height);
+      expect(EndMetrics.tagLeast, VoteTag.defaultHeight);
       expect(EndMetrics.ribbonInside, DeathMark.ribbonInside);
       for (final w in [20.0, 64.0, 90.0, 117.0]) {
         expect(EndMetrics.ribbonWidth(w), DeathMark.ribbonWidth(w));

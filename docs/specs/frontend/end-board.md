@@ -1,0 +1,343 @@
+# The end board: final design and build spec (23 Nov 2026)
+
+This is the design round's spec, kept in the repo and updated to what is built (piece 2, the static board, and its
+fixing pass). Where the build and the round's mocks differ on purpose, it says so. The mocks themselves stayed with
+the design round; the build's pictures come from `just end-pictures` (in `frontend/`).
+
+For Flutter builders who have not seen the rounds before this one. Everything here is decided; where something is
+still open it says "open" and who decides.
+
+## 0. What this is, and what it replaces
+
+At the end of a game every phone shows one screen: **the end board**. It is a notice board in the village square at
+dawn, lit by one lantern. A banner says who was hanged and whether you won. Every player's card is pinned on the
+board. The winners are bigger and sit in the lantern's light, and the hanged carry a black ribbon. The votes hang
+as name tags under the card they chose. At the foot are "What happened" (the night, replayed on the board),
+"Edit deck" and the one amber control, "Play again".
+
+The owner's decision (23 Nov 2026): round four's board and light, with round three's bottom. That means the
+smaller "What happened" and "Edit deck" scraps, and more air between the scraps, the middle cards and the plaque.
+
+**It replaces two screens and one tap. All three go away:**
+
+| Today | File (under `frontend/lib/`) | Goes |
+|---|---|---|
+| 10 The count | `features/game/presentation/shell/count_screen.dart` (`CountScreen`, `CountView`; `EndWaiting` moves to the new screen) | deleted |
+| 11 Results | `features/game/presentation/shell/results_screen.dart` (`ResultsScreen`, `ResultsView`, `ResultsAct`) | deleted; its Play again / Edit deck / Leave logic (`Pending`, host or guest) moves to the new screen |
+| "See who won" | `features/game/presentation/table_screen.dart` (`StepRecord.wonPrefix`, `LocalStepsNotifier.seeWhoWon`), `features/game/domain/screen_table.dart` (`AppScreen.count`, `AppScreen.results`), `features/game/presentation/shell/table_shell.dart` (lines 274 to 279), `design_system/copy/copy.dart` (`CountCopy.seeWhoWon` and the rest of `CountCopy` and `ResultsCopy` that is no longer used) | removed; one `AppScreen.end` |
+
+The tests and harness words that go with them are in TICKETS.md, piece 5.
+
+Pictures: the design round's `sheet-final.png`, `sheet-motion.png`, `compare-final.png` and single phones in
+`png/` (not in the repo). The build's own: `just end-pictures` (every outcome at 360 x 780, a 360 x 640 phone, text at
+1.3 and 1.6) and `just screens`.
+
+## 1. Rules that hold everywhere
+
+- **Four text sizes:** 40, 24, 16 and 12. This screen uses only three of them:
+  - 24 (Gloock): the banner.
+  - 16 (Gloock): names, tags, scraps, slips and the plaque.
+  - 12 (Figtree Bold): role strips, and HANGED on the stamp, in capitals.
+- **Names are 16 Gloock and are never cut.** A card is always as wide as its name needs (section 3). The audit
+  checks this.
+- **Contrast:** at least 4.5:1, measured on what is really behind the letters. The lowest on any final phone is
+  4.71 (`audit.txt`). The one flag is in 1d: there, the labels of the cards that have scrolled under the bottom band
+  are measured although they are hidden.
+- **One amber control: Play again.** It shows only on the host's phone. A guest's phone has none.
+- **Touch targets:** each is at least 48 pt tall, even where the scrap looks 40 pt. The extra is invisible padding
+  (the dashed boxes in `0-anatomy.png`).
+- **One light: the lantern.** Every shadow falls away from it. Cards further from it are a little darker. While What
+  happened plays, the moon is the light and the lantern is out.
+- **One death mark: the black ribbon.** HANGED is a stamp seen only during the reveal (beat 3), then it lifts off.
+- **Vote tags** hang on one length of twine from the pin at the bottom-left of the card they voted for.
+- **The dealt card** is a small, older card tucked behind its own card's top-left corner. It shows only when the
+  dealt role differs from the final one.
+- **Hidden information:** everything on this board is public once the game has ended. Only two things differ from
+  phone to phone: the wax seal ("you"), and the banner's second line.
+- **No added waits:** the reveal uses existing motion tokens. One tap finishes it. Every control works from the
+  first frame.
+
+## 2. Anatomy
+
+The numbers match `png/0-anatomy.png`. Positions are in pt on a 360 x 780 phone. Data comes from
+`GET /onuw/games/<id>/results/` (fields in `code`), plus `GET .../me/` for who you are and who hosts.
+
+| # | Element | Role | Size, type token | Data |
+|---|---|---|---|---|
+| 1 | Sky: the square at dawn (sky plate under a purple dusk, gallows on the hill, far and near roofs, two crows): the banner is the bright thing in it | the place and the hour | full width, 0 to the board's top. The dusk is the skin's (`PaperParts.duskTint`), laid over the sky plate only | the gallows carries a small disc showing the **first hanged player's `token`**. With nobody hanged it shows none |
+| 15 | Banner | the result in one sentence, in two lines | three-piece slice, 128 tall for two lines at 24, and as much taller as its words measure past that (a third line, a larger text size): the paper round the words stays as drawn and the middle stretches, so it never clips (`BannerSlice.heightOf`). Top 36 on a phone 780 tall, 10 on one 640 tall, in between by the height (`EndMetrics.bannerTopFor`); the board starts 4 under it. Tilted -1.2°. Its width is the text plus both ends, and it may run past the screen's edges. Text 24 Gloock, centred: ink `#14172f` on bone, or `#f6ecd6` on the red banner | line 1 from `eliminated_players` (in death order, below); line 2 from `winning_teams` and the caller's own `outcome` and `team`. Red when the Werewolf team wins, or the Tanner (and not the village too); bone otherwise, whoever you are (the build's rule: the round's 1h mock shows red for a guest who lost to the village, and is wrong there). Copy: section 4 |
+| — | Roof | the board's top | `roof4` three-piece, x 120 to 509 stretches, 30 tall above the board | — |
+| 16 | Board: frame and felt | where everything is pinned | x 2 to 358, top 168, bottom 632. `frame4` nine-slice; the frame is about 19 pt. Felt `#20234a` (night `#191b3a`) with grain, and three dim torn notices behind the cards | — |
+| — | Posts | the board stands on the cobbles | `post4-l/-r`, 15 wide, 18 showing | — |
+| 2 | Lantern | the one light | `lantern` 88 wide (152 tall), flipped, hung from the board's top-right at x 272, y 162. Light point = the centre of its panes. Warm glow: radial, 180 across, screen blend | lit, except while What happened plays |
+| 6 | Pool of light | warmth on the winners | radial amber `255,184,96` at 25%, screen blend, over the living winners' cards, pulled 25% toward the lantern | the cards with `outcome == "win"` and `is_eliminated == false` |
+| — | Vignette | one light, falling off | two radial darkenings: 60% around the lantern, 32% at the edges | — |
+| 4 | Player card | one per player | name header 22 tall (16 Gloock; taller with larger text), portrait window 4:3 cut at the face with headroom (focus 22% down), 10 of paper under it, and the role on a tab 17 tall (12 Figtree Bold), as wide as the role and 5 each side, glued over the portrait's foot 1 above the card's. Width = the largest of: portrait + 8; name + 20; role + 18, using the wider of the dealt and final roles (+ 28 when it carries tags, to clear the pin). Portrait: winners 90 wide, losers 64 (section 3). Paper: winner `#f4e8cb`; loser `#c9c0aa`, portrait desaturated (0.55) and darkened (0.78); werewolf team red (`#9a2c25` won, `#7b231e` lost); night `#cfd2e2`. Tilt ±2°, seeded (section 3) | `display_name`, `final_role` (portrait and label), `team` (red paper when `werewolf`), `outcome` (lit or lost), `seat` (order). **Doppelganger:** the face shows the copied role from `night_timeline` (the `copy` step's `copied_role`), and the strip reads "Doppelganger". With no timeline it shows "Doppelganger" (section 7) |
+| 3 | Dealt card | where this card started | a small card 34 to 40 wide (0.38 x portrait), 1.3 tall, tucked at (-30% w, -50% h) behind the top-left corner, turned -13°, sepia portrait, no words | `original_role`, only when it differs from `final_role` |
+| 4 | Wax seal: "you" | which card is yours | `marks-1` 30 pt, pressed with **your own sigil** (`token`, greyscale, screen-blended). On the card's right edge, 44% down, 14 pt over the edge, so tags, ribbon and dealt card never cover it | the caller's `player_id` from `GET .../me/`. **The results body does not say who "you" are** |
+| 7 | A hanged card | who died | same card, raised higher (bigger shadow), turned ±3° | `is_eliminated` |
+| 9 | Ribbon | the one death mark | `marks-4`, 30 to 38 (0.38 x portrait), so it reads at arm's length, pinned on the top-right corner and turned 14°, with a bone edge so it reads on red. 92% of it hangs outside the card, clear of the name | `is_eliminated` (by vote and by the Hunter alike) |
+| 10 | Pin and twine | ties the tags to the card | a paper disc of 10 at the card's bottom-left (x + 8, bottom - 6). The twine is a sagging quadratic curve with a soft shadow away from the light | — |
+| 8 | Vote tags | who voted for this card | a tag of bone paper, its left end cut to a point, at least 26 tall and as tall as its name at the phone's text size: punched hole, the voter's sigil in an 18 circle, their name in 16. Each tag stands apart: the first 4 under the card's lowest corner, then 4 between tags. More than three hang in columns, as many as fit (two in the card's own slot, up to three when the strand has the row: a card alone on its row, or beside one with no tags that is not the Hunter's pick; then the strand hangs under the lower of the two cards). They are pushed sideways to stay inside their room and never lie on a card | every player's `vote_target_id`, grouped by target, in the voters' seat order. **Shown under the hanged cards only. When nobody is hanged, they are shown under every card** (each has at most one). Players who did not vote (`null`) have no tag |
+| — | The Hunter's pick | why a second card died | bone twine between the two cards (red twine is the Werewolves' alone; the Hunter is the village's), with a slip, "Dev's pick" (16), hung between them where it covers no name, role, tag, seal or ribbon, and as little of either card as it can. One per Hunter the vote took who took someone | the player with `elimination_reason == "hunter_chain"`, and the eliminated Hunter (final role Hunter, or a Doppelganger who copied the Hunter) whose `vote_target_id` is that player |
+| 11 | What happened | replays the night on this board | torn bone scrap as wide as its words, 40 tall, at the foot's left, turned -3°, flat iron pin, 16 Gloock. Touch target 48 tall. Where one line leaves the middle cards no room beside it, its words go on two lines ("What / happened", 48 tall); where two lines do not either, the middle cards take a row of their own above it. While the night plays it reads "Back to / the result" on two lines (48 tall, same place) | shown when `night_timeline` is not null; hidden otherwise |
+| 12 | The middle cards | the three cards nobody held | no name; portrait 44 x 33; role tab 12. Width = role + 12 (at least 52). Face up, level, side by side, right-aligned, 3 apart; past the width they have they wrap to a second row (large text). Never a pile. In the fixed band | `center_cards` (final). At night: `night_timeline.dealt.center` and then each step's `positions_after.center` |
+| 13 | Edit deck | host: back to the table with the deck open | scrap as wide as its words, 40 tall, at the foot's left under What happened, turned 2°. Touch target 48 | host only (`is_host`) |
+| 14 | Play again | host: the one action | amber paper `#e0a03e` with a deckled edge on a darker backing `#4a2a12`, in the type scale's large button label. From Edit deck's right (12 apart) to the foot's right, 50 tall (taller with larger text) | host only. Busy and failed states as on today's 11 (`Pending`: "Not sent." / "Try again") |
+| — | Guest's foot | a guest waits for the host | "Leave": a scrap, touch target 48 (the round's dark `#252849` scrap is not built yet: the build's is bone). "{host} deals next.": plain words beside it, wrapping, not a control and not a slip. No amber | `is_host == false`; `host_id` gives the name, and it shows only while the host is at the table (as today) |
+| — | Cobbles | the ground | `cobbles` under the board's foot | — |
+
+Things this screen no longer shows:
+- the words "Won", "Died", "Village", "Alone" and "Werewolf team": light, size, ribbon and red paper carry them;
+- the count rows and "No vote: {names}": the tags carry the votes;
+- the server's `reason` text.
+
+## 3. The layout rule, 3 to 10 players
+
+The layout is pure Dart and does not depend on what is showing at the moment. Night faces, hidden tags and the
+reveal never move a card. It is computed once from the results.
+
+1. **Order.** Living winners in seat order, then living losers in seat order, then the dead, in the order they died:
+   - killed by the vote first, in seat order;
+   - then the Hunter's pick.
+The foot (11 to 14) is laid out by measurement: two rows as tall as what is in them, at the phone's text size, with
+18 of air above, 12 between and 18 below on a phone 780 tall, 8 each on one 640 tall. The board's window is what is
+left between the banner and the foot.
+
+2. **Rows of two.** If the living players end on a single card and somebody died, that card joins the dead in the
+   last row, with the dead on the left (`1a`: Cleo hanged with Ben beside her). A single card left on a row is centred.
+3. **Slots.** Each row has two equal slots across the board's inside (about 311 pt). The first row stops at the
+   lantern (x 276), so its slots are about 125. A card is centred in its slot and keeps at least 6 pt clear on each
+   side.
+   - A name that does not fit its slot takes a row on its own. A 20-character one-word name, about 170 pt at 16, is
+     always on its own row.
+   - If a first-row name does not fit beside the lantern, swap it with the next row's narrower card.
+4. **Sizes are fixed.** Winners' portraits are 90 pt wide and losers' 64 (1.4x).
+   - With 5 players or fewer, each row grows up to 1.3x as far as its own room lets it while it keeps its cards (the
+     first row stops at the lantern; the rows below have the width), then all of them less until the board fits
+     (`1c`).
+   - Cards are never made smaller to fit.
+5. **Vertical.** Each card keeps 12 under whatever stands above it (a card, a strand of tags, the lantern); its
+   dealt card and its ribbon keep 8 under whatever stands above them, not under the whole row. A tilted card is
+   measured by its turned corners. Below a row: room for the longest strand of tags in it. Spare height is shared
+   between the rows, at most 40 to a gap; the rest goes above and below, so a small group stands centred.
+6. **Tilt.** ±2°, seeded from the player's `player_id`, so the same card tilts the same way on every phone and every
+   screen. Plus a ±2 pt vertical jitter from the same seed. Cosmetic, not game randomness.
+7. **Ties.** Every hanged card sits in the dead row(s), each with its own strand of tags (`1d`, `1e`).
+8. **Nobody hanged.** No dead row and no ribbon. Every card carries the one tag of the player who voted for it
+   (`1b`). The gallows hangs empty.
+9. **When it does not fit: the board scrolls.** **This is the 10-player rule.**
+   - The rows never shrink. The board grows downward and scrolls between two fixed parts:
+     - the sky, the banner and the roof, which becomes a fixed eave the board slides under;
+     - the bottom band, whose torn cobble lip, with a soft shadow, overlaps the board's foot.
+   - The lantern, the pool and the shadows belong to the board and scroll with it. Shadows are computed in board
+     coordinates, so nothing is recomputed while scrolling.
+   - The board opens where the hanged are in view (their cards and tags above the lip, or their tops under the
+     eave when they are taller than the window). When that is the top, the first view shows the banner and the
+     winners under the lantern, and the next row is cut by the lip, which says "more below" without words. The
+     round's 1d (ten players at the top, the hanged out of view) is the board scrolled back up.
+   - With 6 at the fixed size the board fits a 360 x 780 phone. From 7 players it scrolls. At 6 it can scroll in a
+     rare case: a strand of four tags or more that cannot take the row (beside the Hunter's pick), or a hanged winner
+     with a strand. A 360 x 640 phone scrolls sooner.
+   - Why: the owner found round three "too busy" and asked for calm. The one-screen version needs 48 pt portraits,
+     winners at only 1.25x and five cramped rows (round four's `1f`). Scrolling keeps every card, name and tag
+     exactly as it is at 6 players, and the rule stays the same at every count.
+   - Use a `SingleChildScrollView` with clamping physics inside a `ClipRect`. No scroll bar and no hint words.
+
+## 4. Copy
+
+Two lines, at most, at 24. They come from the payload, and every phone builds its own second line.
+
+- **Line 1, who died:**
+  - "{a} hanged." / "{a} and {b} hanged." / "{a}, {b} and {c} hanged."
+  - With the Hunter: "{a} hanged, {b} too."
+  - "No one hanged."
+- **Line 2, you:**
+  - When you won: "You and the village win." / "You and the Werewolves win." / "You win alone." (the Tanner).
+  - When you lost: "You lose to the village." / "You lose to the Werewolves." / "The Tanner wins. You lose."
+  - When nobody won: "Nobody wins."
+  - With two winning teams, name the one you are with; if you are with neither, name the first in `winning_teams`.
+- If a line is wider than about 320 pt (long names), the banner takes a third line: its middle band stretches in
+  height (`centerSlice` `Rect.fromLTRB(300, 140, 1130, 330)`). It never goes smaller than 24.
+- **Steps of What happened:** the timeline rows of first-time-play section 3 ("Ana sees Cleo's card.", "Ben takes
+  Rosa Maria's card.", "Dev swaps Ana and Maximilian.", and so on), without the "{role}:" prefix. The card shows the
+  role.
+- **Controls:** "What happened", "Back to / the result", "Edit deck", "Play again", "Leave" and "{host} deals next.".
+- This changes first-time-play section 3: 10 and 11 become one screen. The headlines there say "{name} dies." The
+  owner has seen and kept "hanged" since round two, so **update the spec in the same change** (TICKETS, piece 5).
+
+## 5. Assets
+
+**Already in the repo (`frontend/assets/`), used as they are:**
+- `skins/shadow_paper/roles/*.webp`: portraits for every role, the dealt cards and the middle cards.
+- `skins/shadow_paper/tokens/*.webp`: sigils, on tags, the seal and the gallows.
+- `skins/shadow_paper/layers/dawn_gallows/`: `sky_plate`, `gallows`, `roofs_mid` and `roofs_near`, through
+  `LayeredArt` / `SceneLayer`.
+- `skins/shadow_paper/layers/night_village/moon.webp`: the night of What happened.
+- The table's card back, through `CardBackScope`. The mocks show `card_back_moon`.
+- Fonts: Gloock and Figtree Bold.
+
+**Mock ornaments, generated in rounds 3 and 4.** They are in `final-end/assets/` (PNG with alpha). Each must be
+accepted by the owner as final art, or redrawn.
+
+| File | Made | Used as | Displayed | Proposed in-app file (webp, @3x max) |
+|---|---|---|---|---|
+| `banner.png` 1460 x 477 | round 3, generated (cut-paper swallowtail with laurels) | banner, three-piece | 128 tall | `end/banner.webp` |
+| `banner-red.png` 1460 x 477 | **generated 23 Nov 2026 with the owner's yes**: `banner.png`'s original edited into dried-blood red paper (one image, first try; same silhouette, folds and laurels; `PROVENANCE.md`) | banner when you lost | 128 tall | `end/banner_red.webp` |
+| `frame4.png` 666 x 863 | round 4, generated | board frame, nine-slice `Rect.fromLTRB(99, 102, 570, 761)` at scale 0.19 | about 19 pt frame | `end/frame.webp` |
+| `roof4.png` 629 x 140 | same image as the frame | roof, three-piece x 120 to 509 | 30 tall | `end/roof.webp` |
+| `post4-l.png` 79 x 147, `post4-r.png` 81 x 148 | same image as the frame | the posts | 15 wide | `end/post_l.webp`, `end/post_r.webp` |
+| `lantern.png` 677 x 1170 | round 3, generated | the lantern | 88 x 152 | `end/lantern.webp` (264 x 456) |
+| `crow4-1.png` to `crow4-6.png` | round 4, generated (flat single-layer crows) | crows in the sky; five lift in reveal beat 4 | 22 to 104 wide | `end/crow_1.webp` to `end/crow_6.webp` |
+| `cobbles.png` 1467 x 816 | round 3, generated | the ground | full width | `end/cobbles.webp` |
+| `marks-1.png` 430 x 430 | round 3, generated (blank wax seal) | "you" seal | 30 | `end/seal.webp` (90 x 90) |
+| `marks-4.png` 382 x 482 | round 3, generated (mourning ribbon) | death mark | 24 to 34 | `end/ribbon.webp` |
+
+**Drawn in code (no art):**
+- felt, grain and notices;
+- pins, twine, tags, scraps, slips, the plaque, the stamp and its ink burst;
+- glow, pool and vignettes.
+
+The paper grain should be one small tileable texture made in code (a noise PNG), not generated.
+
+**The owner's rule: "ask before generating large batches of art."** The smallest set is **no new generation at
+all**: accept the nine kinds above as final art, shown to the owner on `sheet-final.png`. The one honest exception is
+`banner-red.png`. It was a recolour, and "a look is never a recolour or filter", so it became one new generated
+image: the same ribbon cut from dried-blood red paper. **Done: generated 23 Nov 2026 with the owner's yes, one
+image** (`PROVENANCE.md`); the old recolour is kept only for the record as `gen/banner-red-round4-recolour.png`. Folder
+`frontend/assets/skins/shadow_paper/end/`, listed in `pubspec.yaml`. The art contract test checks the sizes.
+
+## 6. How each piece maps to a widget
+
+New code lives in `features/game/presentation/end/` (the screen), `features/game/domain/end_board.dart`
+(layout, pure Dart, no Flutter), `end_banner.dart` (copy) and `end_story.dart` (What happened, from `NightTimeline`).
+Reuse the existing domain where it already does the job: `GameOutcome`, `outcome_view.dart` (`EndSeat`,
+`Winners`, `NightLine`) and `night_timeline.dart`.
+
+| Piece | Widget |
+|---|---|
+| Sky (dawn and night) | `LayeredArt` with `LayeredSceneId.dawnGallows`. At night, cross-fade a night tint and lay `night_village/moon` over it (`SceneLayer`) |
+| Banner | `OverflowBox` + `Image.asset(centerSlice: …)` (a three-piece slice is a nine-slice whose middle runs the full height) + `Text` 24 |
+| Board frame, roof | `Image.asset(centerSlice: …)` over a felt `DecoratedBox` (colour + tiled grain `ImageShader`) |
+| Lantern, glow, pool, vignette | `Image` + `DecoratedBox(RadialGradient)`. The pool is a `CustomPaint` with `BlendMode.screen` |
+| One light | a new `OneLight` `InheritedWidget` (the light point, in board coordinates) and one function `paperShadows(rect, elevation)` that returns `BoxShadow`s thrown away from it. Every card, tag, scrap and pin uses it. Brightness fall-off: a `ColorFiltered` matrix per card |
+| Card | a new `BoardCard`: a paper `Container`, name `Text`, `ArtPicture` portrait in a 4:3 `ClipRRect`, role strip. `Transform.rotate` for the tilt. A `Stack(clipBehavior: Clip.none)` for the dealt card (behind), ribbon and seal (over) |
+| Turning a card | the existing `PaperFlip` (its own `turn` 160 ms) |
+| Wax seal | **`PaperSeal` does not exist yet: build it.** `seal.webp` with the player's token (`PlayerToken` art) at 52%, greyscale, screen-blended |
+| Vote tags | a new `VoteTag`: `ClipPath` (notched) + punched hole + `PlayerToken` art + `Text` 16 |
+| Twine | `CustomPainter`: quadratic segments, a 2.2 stroke, a blurred offset shadow path, dashed for a look |
+| Scrap, slip | a new `PaperScrap` / `PaperSlip`: `ClipPath` with a seeded torn polygon + grain + pin + `Text` 16. The touch target is an outer `SizedBox(height: 48)` with `HitTestBehavior.opaque`, wider than the paper where needed |
+| Plaque | the existing `PrimaryButton` (the amber control), given Shadow paper's plaque shape: deckled `ClipPath` twice, backing and face. It keeps busy and pending exactly as today |
+| Stamp and ink burst | a bordered `Container` + `Text` 12 caps, and a `CustomPainter` for the burst (beat 3 only) |
+| Crows | `Image` + `Transform` |
+| Scroll | `ClipRect` + `SingleChildScrollView`, between the fixed eave and the fixed band (section 3, rule 9) |
+| Waiting for results | today's `EndWaiting` (the dawn ground, the lanterns after 300 ms, "One moment") |
+
+## 7. What the payload does not carry, said plainly
+
+1. **Who "you" are.** It is `player_id` from `GET .../me/`, not from the results body. The seal and banner line 2
+   need it.
+2. **The host's name for a guest.** It comes from `GET .../me/` (`host_id`, `players`), and presence from the table,
+   as today.
+3. **The Doppelganger's copied role** is only in `night_timeline` (the `copy` step). If the timeline is null, the
+   card shows "Doppelganger" and its own portrait.
+4. **The tilt seed.** Derived on the phone from `player_id`. It is cosmetic.
+5. **Who is a practice player.** That is in `/me/`'s `players`, not in the results, and nothing on this board needs
+   it.
+
+Everything else on the board comes from the results body. That covers dealt and final roles, teams, outcomes,
+deaths and why, every vote, the middle cards, the night and every sigil. No server change is needed.
+
+## 8. Motion
+
+Tokens are from `docs/design/feel.md` section 2 (`Motion` in `design_system/layout/space.dart`). No literal
+durations.
+
+### The reveal, in place (`png/2-reveal-1` to `-5`)
+
+It plays once, when the results arrive while this phone is in the game (the phase change to `results`). A phone that
+opens or restarts in the results phase shows the settled board at once. Nothing is kept on the device: this replaces
+`StepRecord.wonPrefix`.
+
+| Beat | What moves | Tokens |
+|---|---|---|
+| 0 | The vote gives way to the board (the existing "Vote ends to the count" crossfade). The board shows every card face down, at one size, in seat order (rows of two), the banner rolled and tied, the middle cards face down. The bottom band is whole and live | `settle` |
+| 1 | The held beat: nothing moves (the count's beat, kept by decision on 22 Nov) | `beat` 1200 ms |
+| 2 | The hanged card lifts out of its seat to the middle of the board, big, and turns face up on the way. The others dim | travel `settle`; the turn `PaperFlip` landing at the end of `reveal`; dim `quick` |
+| 3 | HANGED stamps on it, with the ink burst. The banner unrolls. **The knock** (below) | stamp `press` with `Motion.land`; banner `settle`; then it holds for `reveal` 400 ms |
+| 4 | The crows lift off the roof and the gallows. Every other card turns where it sits, row by row. The middle cards turn with the last row. The hanged card drops back to its seat; the stamp lifts off and the ribbon is pinned | turns `PaperFlip` (`quick`), rows `stagger` 150 ms apart; drop `settle`; crows `scene` |
+| 5 | Every card travels to its row and size. Winners grow, the pool comes on, and the tags drop in on their twine | `settle` (`curve`); tags `Motion.land` |
+
+- **Length:** about 3.1 s at 6 players, and about 3.4 s at 10, all existing tokens.
+- **Several hanged:** beat 2 lifts them side by side, one stamp each, and one knock.
+- **Nobody hanged:** beats 2 and 3 are skipped, and the banner unrolls at the end of beat 1.
+- **Skip:** one tap anywhere on the board jumps to the settled board. There are no words; the reveal is short.
+  "What happened", "Edit deck" and "Play again" work from frame one. A tap on What happened finishes the reveal and
+  starts the night.
+- **Reduce motion** (`Motion.within`), or a screen reader on (`MediaQuery.accessibleNavigation`): the settled board
+  at once.
+- **At 7+ players:** the reveal plays at scroll 0. Cards below the window travel out of view.
+
+### What happened, on the board (`png/3-what-1` to `-5`)
+
+| Moment | What moves | Tokens |
+|---|---|---|
+| Tap "What happened" | The sky turns to night. The moon comes up and becomes the light; the lantern goes out. Every card turns to the face it was dealt, on cool night paper. Tags, ribbons and dealt cards fade out; the seal stays. The scrap becomes "Back to / the result" | sky `scene` 500 ms; turns `PaperFlip`; fades `quick` |
+| Each step, one per beat | Its twine is drawn between the cards' corners, never across another card: it rounds the column's outer side when it would. A paper number slip is pinned on the twine, kept off every card. The step's words go on one slip pinned to the board's bottom rail, always in the same place. Cards whose card moved turn to their new face. Earlier twines dim to 55%. Red twine for the werewolves (`cards[].werewolf`), dashed for a look | `beat` per step; twine `settle`; slip `Motion.land`; turns `PaperFlip` |
+| A tap on the board | The next step, now | — |
+| After the last step | It stays until "Back to the result" or a tap | — |
+| "Back to the result" | Dawn returns. The cards turn to their final faces, and tags, ribbon and the pool come back | `scene` |
+
+- **7+ players:** each step scrolls its cards into view (`settle`).
+- **Reduce motion:** every change is a cut, and the steps still go one per beat.
+- **Screen reader:** each step's words are announced (`SemanticsService.announce`).
+- **No timeline (null):** no scrap.
+
+## 9. Haptics
+
+- **No vibration when cards turn,** by the owner's word: not on the reveal and not in What happened.
+- **The knock belongs to the stamp.** `Haptics.thud` (`mediumImpact`, planned in feel.md, pass 4) fires once, as
+  HANGED lands in beat 3, on every phone. It fires once however many are hanged.
+- **Nobody hanged:** `Haptics.light` once, as the banner unrolls.
+- **A skipped or reduce-motion reveal** fires the same one vibration as the board settles.
+- **Never:** What happened, a scroll, What happened's steps, Edit deck or Leave.
+- **Play again:** as today.
+
+This one vibration replaces feel.md's two (the count's `thud` and 11's `light`). Update the rows in feel.md
+section 4 in the same change.
+
+## 10. Accessibility
+
+Screen-reader order:
+1. **The banner first,** as one sentence: "Cleo hanged. You and the village win."
+2. The board, row by row, in the visual order. Each card is one node, 8 words or fewer:
+   - "Ana, you. Villager, was Seer. Won."
+   - "Cleo. Werewolf. Hanged. Votes: Ana, Dev, Maximilian."
+   - "Cleo, Dev's pick. Werewolf. Died."
+3. The middle: "Middle cards: Insomniac, Villager, Drunk."
+4. "What happened", button.
+5. "Edit deck", button.
+6. "Play again", button (host); or "Ana deals next." and "Leave", button (guest).
+
+Tags, twine, ribbon, seal, crows and the lantern are excluded from semantics: the card nodes say it all. While What
+happened plays, its steps are announced, and "Back to the result" is the first button. Text scales with the system
+up to the point where a name would no longer fit a slot; past it, rows of one card.
+
+## 11. Proof in this folder
+
+- Phones, 360 x 780 at 2x:
+  - `1a` village wins;
+  - `1b` Werewolves win, nobody hanged;
+  - `1c` 3 players;
+  - `1d` and `1e`: 10 players, a tie, long names, scrolled to the top and to the end;
+  - `1f` the Hunter;
+  - `1g` a Tanner win;
+  - `1h` a guest's phone (Ben: the hare seal, the red banner, Leave);
+  - `2-reveal-1` to `-5`;
+  - `3-what-1` to `-5`;
+  - `0-anatomy`.
+- `audit.txt`, per phone:
+  - only sizes 12, 16 and 24;
+  - one amber control on the host's phones and none on the guest's;
+  - lowest contrast 4.71 on what is really behind the text;
+  - no name cut.

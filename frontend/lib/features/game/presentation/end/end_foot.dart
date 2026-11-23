@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/widgets.dart';
 
 import '../../../../design_system/copy/copy.dart';
+import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
 import '../../../../design_system/primitives/paper_scrap.dart';
@@ -11,83 +13,128 @@ import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
 
-// The foot of the end board, on the cobbles: "What happened" and the three
-// cards nobody held on a row; then, for the host, "Edit deck" and the amber
-// "Play again", and for a guest "Leave" and who deals next. Fixed to the
-// bottom of the screen whatever the board does. Positions are from the SPEC's
-// 360 x 780 phone, measured from the foot's top.
+// The foot of the end board, on the cobbles, under the board's window: "What
+// happened" and the three cards nobody held on a row; then, for the host,
+// "Edit deck" and the amber "Play again", and for a guest "Leave" and who
+// deals next. Its rows are as tall as what is in them, measured at the phone's
+// text size, and its air is less on a short phone; the board's window is what
+// is left above it. Its torn lip lies over the board's foot.
 
-/// Where each piece of the foot lies, from the foot's top (y) and the screen's
-/// edges (x).
-abstract final class EndFootAt {
-  static const whatHappenedLeft = 8.0;
-  static const whatHappenedTop = 14.0;
-  static const whatHappenedWidth = 139.0;
-  static const whatHappenedTurn = -3 * math.pi / 180;
+/// The middle cards' portrait, the least a middle card is wide, and the paper
+/// beside its role's tab (the tab is the role and 5 each side).
+const _middlePortrait = Size(44, 33);
+const _middleLeast = 52.0;
+const _middleRoom = 2 * BoardCard.stripPad + 2;
 
-  static const middleTop = 22.0;
-  static const middleRight = 6.0;
-  static const middleApart = 3.0;
-  static const middleLeast = 52.0;
-  static const middlePortrait = Size(44, 33);
-  static const middleStrip = 14.0;
-  static const fanRise = 29.0;
+/// How far apart the middle cards stand, and how much each is turned.
+const _middleApart = 3.0;
+const _middleTurn = 1.5 * math.pi / 180;
+const _whatHappenedTurn = -3 * math.pi / 180;
+const _editTurn = 2 * math.pi / 180;
 
-  static const rowTop = 80.0;
-  static const editLeft = 10.0;
-  static const editWidth = 97.0;
-  static const editTurn = 2 * math.pi / 180;
-  static const leaveWidth = 76.0;
-  static const playLeft = 121.0;
-  static const playRight = 8.0;
-  static const dealsLeft = 96.0;
-}
+class EndFootBand extends StatelessWidget {
+  const EndFootBand({
+    super.key,
+    required this.foot,
+    required this.centre,
+    required this.screenHeight,
+    required this.playAgainBusy,
+    required this.onWhatHappened,
+    required this.onEditDeck,
+    required this.onPlayAgain,
+    required this.onLeave,
+  });
 
-/// The foot's pieces as children of the page's stack.
-List<Widget> endFootPieces(
-  BuildContext context, {
-  required EndBoardPlan plan,
-  required double top,
-  required bool playAgainBusy,
-  required VoidCallback onWhatHappened,
-  required VoidCallback onEditDeck,
-  required VoidCallback onPlayAgain,
-  required VoidCallback onLeave,
-}) {
-  final width = plan.screen.width;
-  final foot = plan.foot;
-  return [
-    if (foot.whatHappened)
-      Positioned(
-        left: EndFootAt.whatHappenedLeft,
-        top: top + EndFootAt.whatHappenedTop,
-        child: Transform.rotate(
-          angle: EndFootAt.whatHappenedTurn,
-          child: PaperScrap(
-            label: EndCopy.whatHappened,
-            onTap: onWhatHappened,
-            width: EndFootAt.whatHappenedWidth,
+  final EndFoot foot;
+  final List<RoleId> centre;
+  final double screenHeight;
+  final bool playAgainBusy;
+  final VoidCallback onWhatHappened;
+  final VoidCallback onEditDeck;
+  final VoidCallback onPlayAgain;
+  final VoidCallback onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final tall = EndMetrics.tallness(screenHeight);
+    double air(double short, double tallAir) =>
+        lerpDouble(short, tallAir, tall)!;
+    final top = air(Space.sm, Space.lgPlus);
+    final between = air(Space.sm, Space.md);
+    final bottom =
+        air(Space.sm, Space.lgPlus) + MediaQuery.paddingOf(context).bottom;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Positioned(
+          left: 0,
+          right: 0,
+          top: -EndMetrics.lip,
+          bottom: 0,
+          child: BoardFoot(height: double.infinity),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(Space.sm, top, Space.sm, bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              LayoutBuilder(
+                builder: (context, box) => _firstRow(context, box.maxWidth),
+              ),
+              SizedBox(height: between),
+              foot.host ? _hostRow(context) : _guestRow(context),
+            ],
           ),
         ),
-      ),
-    ..._middle(context, plan, top),
-    if (foot.host) ...[
-      Positioned(
-        left: EndFootAt.editLeft,
-        top: top + EndFootAt.rowTop - 2,
-        child: Transform.rotate(
-          angle: EndFootAt.editTurn,
-          child: PaperScrap(
-            label: EndCopy.editDeck,
-            onTap: onEditDeck,
-            width: EndFootAt.editWidth,
-          ),
+      ],
+    );
+  }
+
+  /// "What happened" at the left and the middle cards at the right, on one
+  /// row when they fit (its words on two lines if that makes them fit);
+  /// otherwise the cards take a row of their own above.
+  Widget _firstRow(BuildContext context, double width) {
+    final cards = _MiddleCards(roles: centre);
+    if (!foot.whatHappened) {
+      return Align(alignment: Alignment.centerRight, child: cards);
+    }
+    Widget scrap(String label) => Transform.rotate(
+      angle: _whatHappenedTurn,
+      child: PaperScrap(label: label, onTap: onWhatHappened),
+    );
+    final room = width - Space.xs - cards.widthIn(context);
+    for (final label in [EndCopy.whatHappened, EndCopy.whatHappenedTwoLines]) {
+      if (_scrapWidth(context, label) <= room) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [scrap(label), const Spacer(), cards],
+        );
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(alignment: Alignment.centerRight, child: cards),
+        // Clear of the turned scrap's corners.
+        const SizedBox(height: Space.md),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: scrap(EndCopy.whatHappened),
         ),
+      ],
+    );
+  }
+
+  Widget _hostRow(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Transform.rotate(
+        angle: _editTurn,
+        child: PaperScrap(label: EndCopy.editDeck, onTap: onEditDeck),
       ),
-      Positioned(
-        left: EndFootAt.playLeft,
-        right: EndFootAt.playRight,
-        top: top + EndFootAt.rowTop - 8,
+      const SizedBox(width: Space.md),
+      Expanded(
         child: PrimaryButton(
           label: EndCopy.playAgain,
           onPressed: onPlayAgain,
@@ -95,115 +142,129 @@ List<Widget> endFootPieces(
           size: ButtonSize.large,
         ),
       ),
-    ] else ...[
-      Positioned(
-        left: EndFootAt.editLeft,
-        top: top + EndFootAt.rowTop - 2,
-        child: PaperScrap(
-          label: EndCopy.leave,
-          onTap: onLeave,
-          width: EndFootAt.leaveWidth,
-        ),
-      ),
-      if (foot.hostName case final host?)
-        Positioned(
-          left: EndFootAt.dealsLeft,
-          top: top + EndFootAt.rowTop + 2,
-          child: PaperSlip(
-            label: EndCopy.hostDealsNext.fill({'host': host}),
-            maxWidth: width - EndFootAt.dealsLeft - EndFootAt.playRight,
-          ),
-        ),
     ],
-  ];
-}
+  );
 
-/// The three middle cards: on a row when they fit beside "What happened",
-/// otherwise a small fan (the first at the left, the third at the right, the
-/// middle one raised and on top) so every role stays whole.
-List<Widget> _middle(BuildContext context, EndBoardPlan plan, double top) {
-  final skin = context.skin;
-  final scaler = MediaQuery.textScalerOf(context);
-  final direction = Directionality.of(context);
-  double roleWidth(RoleId role) {
-    final p = TextPainter(
-      text: TextSpan(text: role.displayName, style: skin.typography.tag),
-      textDirection: direction,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-    final w = p.width;
-    p.dispose();
-    return w;
-  }
-
-  final line = TextPainter(
-    text: TextSpan(text: 'Ag', style: skin.typography.tag),
-    textDirection: direction,
-    textScaler: scaler,
-    maxLines: 1,
-  )..layout();
-  final strip = math.max(EndFootAt.middleStrip, line.height + 2);
-  line.dispose();
-  final roles = plan.centre;
-  final widths = [
-    for (final r in roles)
-      math.max(EndFootAt.middleLeast, roleWidth(r) + EndMetrics.roleRoom),
-  ];
-  final height =
-      EndFootAt.middlePortrait.height +
-      2 * BoardCard.inset +
-      (strip - EndFootAt.middleStrip);
-  final right = plan.screen.width - EndFootAt.middleRight;
-  final room =
-      right -
-      (EndFootAt.whatHappenedLeft +
-          EndFootAt.whatHappenedWidth +
-          2 * EndFootAt.middleApart +
-          EndFootAt.middleRight);
-  final total =
-      widths.fold(0.0, (a, b) => a + b) +
-      EndFootAt.middleApart * (roles.length - 1);
-  final fits = total <= room || !plan.foot.whatHappened && total <= right;
-  final y = top + EndFootAt.middleTop;
-  Widget card(int i, double left, double upBy) {
-    final rect = Rect.fromLTWH(left, y - upBy, widths[i], height);
-    return Positioned(
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      child: BoardCard(
-        role: roles[i],
-        strip: roles[i].displayName,
-        paper: BoardPaper.winner,
-        size: rect.size,
-        portraitWidth: EndFootAt.middlePortrait.width,
-        rect: rect,
-        angle: (i - 1) * 2 * math.pi / 180,
-        stripHeight: strip,
-        semantics: roles[i].displayName,
-      ),
+  /// "Leave", and beside it in plain words who deals next (not a control).
+  Widget _guestRow(BuildContext context) {
+    final type = context.skin.typography;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        PaperScrap(label: EndCopy.leave, onTap: onLeave, pinned: false),
+        const SizedBox(width: Space.md),
+        if (foot.hostName case final host?)
+          Expanded(
+            child: Text(
+              EndCopy.hostDealsNext.fill({'host': host}),
+              style: type.name.copyWith(color: context.ground.text),
+            ),
+          )
+        else
+          const Spacer(),
+      ],
     );
   }
 
-  if (roles.length != 3) return const [];
-  if (fits) {
-    var left = right - total;
+  /// How wide a pinned scrap of [label] is: its widest line, its padding,
+  /// its pin.
+  static double _scrapWidth(BuildContext context, String label) {
+    final skin = context.skin;
+    return label
+            .split('\n')
+            .map((line) => _textWidth(context, line, skin.typography.name))
+            .fold(0.0, math.max) +
+        2 * Space.md +
+        skin.parts.pinSize;
+  }
+}
+
+double _textWidth(BuildContext context, String text, TextStyle style) {
+  final p = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final w = p.width;
+  p.dispose();
+  return w;
+}
+
+/// The three cards nobody held, face up, side by side and level; past the
+/// width they have, they wrap to a second row, right-aligned.
+class _MiddleCards extends StatelessWidget {
+  const _MiddleCards({required this.roles});
+
+  final List<RoleId> roles;
+
+  /// Each card's size at this phone's text size.
+  List<Size> _sizes(BuildContext context) {
+    final type = context.skin.typography;
+    final scaler = MediaQuery.textScalerOf(context);
+    final strip = math.max(
+      EndMetrics.stripHeight,
+      scaler.scale(type.tag.fontSize!) * (type.tag.height ?? 1.2) + 2,
+    );
+    final height =
+        BoardCard.inset +
+        _middlePortrait.height +
+        EndMetrics.cardFoot +
+        (strip - EndMetrics.stripHeight);
     return [
-      for (var i = 0; i < 3; i++)
-        card(i, left += i == 0 ? 0 : widths[i - 1] + EndFootAt.middleApart, 0),
+      for (final r in roles)
+        Size(
+          math.max(
+            _middleLeast,
+            _textWidth(context, r.displayName, type.tag) + _middleRoom,
+          ),
+          height,
+        ),
     ];
   }
-  // A fan: the first at the left of the room, the third at the right, the
-  // middle one raised and on top.
-  final span = math.min(right - 8, widths[0] + widths[2] + widths[1] * 0.5);
-  final first = right - span;
-  final third = right - widths[2];
-  final middle = (first + third) / 2 + (widths[0] - widths[2]) / 4;
-  return [
-    card(0, first, 0),
-    card(2, third, 0),
-    card(1, middle, EndFootAt.fanRise),
-  ];
+
+  double widthIn(BuildContext context) {
+    final sizes = _sizes(context);
+    return sizes.fold(0.0, (a, s) => a + s.width) +
+        _middleApart * math.max(0, sizes.length - 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final type = context.skin.typography;
+    final scaler = MediaQuery.textScalerOf(context);
+    final strip = math.max(
+      EndMetrics.stripHeight,
+      scaler.scale(type.tag.fontSize!) * (type.tag.height ?? 1.2) + 2,
+    );
+    final sizes = _sizes(context);
+    return Semantics(
+      label: EndCopy.middle.fill({
+        'roles': roles.map((r) => r.displayName).join(EndCopy.listComma),
+      }),
+      excludeSemantics: true,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: _middleApart,
+        runSpacing: Space.xs,
+        children: [
+          for (var i = 0; i < roles.length; i++)
+            SizedBox.fromSize(
+              size: sizes[i],
+              child: BoardCard(
+                role: roles[i],
+                strip: roles[i].displayName,
+                paper: BoardPaper.winner,
+                size: sizes[i],
+                portraitWidth: _middlePortrait.width,
+                rect: Offset.zero & sizes[i],
+                angle: (i - 1) * _middleTurn,
+                stripHeight: strip,
+                semantics: roles[i].displayName,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

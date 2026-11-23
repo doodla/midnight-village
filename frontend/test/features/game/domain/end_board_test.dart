@@ -4,100 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/features/game/domain/end_board.dart';
 import 'package:midnight_village/features/game/domain/end_board_metrics.dart';
-import 'package:midnight_village/features/game/domain/game_outcome.dart';
 
+import '../../../helpers/end_board_plans.dart';
 import '../../../helpers/outcome_samples.dart';
 
-// The end board's layout (end-board SPEC section 3), on every recorded
-// results body and on the table sizes no recording has (the recordings
-// widened, as `widened` does). The measure is a plain stand-in for the serif
-// (a name 8.4 a letter, a role 6.8 a letter): the invariants hold whatever the
-// letters measure, and `end_board_view_test.dart` runs the same plans on the
-// real fonts.
-
-double _measure(EndText kind, String text) => switch (kind) {
-  EndText.role => text.length * 6.8,
-  _ => text.length * 8.4,
-};
-
-const _phone = Size(360, 780);
-const _big = Size(390, 844);
-const _short = Size(360, 640);
-
-EndBoardPlan _plan(
-  Map<String, dynamic> results, {
-  int? viewer,
-  Size screen = _phone,
-  int bannerLines = 2,
-  bool host = true,
-  double Function(EndText, String) measure = _measure,
-}) {
-  final outcome = GameOutcome.fromJson(results);
-  return planEndBoard(
-    outcome: outcome,
-    viewerId: viewer ?? outcome.seats.first.id,
-    isHost: host,
-    hostName: host ? null : outcome.seats.first.name,
-    screen: screen,
-    bannerLines: bannerLines,
-    measure: measure,
-  );
-}
-
-/// A table of [n] (6 to 10) as the recordings have them, with the long names.
-Map<String, dynamic> _table(int n, {bool longNames = false}) {
-  final base = n <= 8 ? 'results_doppelganger' : 'results_doppelganger';
-  final results = recordedResults(base);
-  final have = (results['players'] as List).length;
-  if (n < have) throw ArgumentError('no recording of $n');
-  return widened(
-    results,
-    add: n - have,
-    rename: longNames ? longEndNames : const {},
-  );
-}
-
-final _samples = <String, Map<String, dynamic>>{
-  for (final name in [
-    'results',
-    'results_tie',
-    'results_nobody_dies',
-    'results_werewolves_win',
-    'results_tanner_alone',
-    'results_three_players',
-    'results_doppelganger',
-    'results_five',
-    'results_moved_dead_card',
-    'results_hunter_chain',
-  ])
-    name: recordedResults(name),
-  for (final n in [9, 10]) 'doppelganger_$n': _table(n),
-  'doppelganger_10_long': _table(10, longNames: true),
-  'hunter_10': widened(recordedResults('results'), add: 4),
-  'werewolves_10': widened(recordedResults('results_werewolves_win'), add: 4),
-};
-
-Iterable<(String, EndBoardPlan)> _everyPlan() sync* {
-  for (final entry in _samples.entries) {
-    final ids = [
-      for (final p in entry.value['players'] as List)
-        (p as Map)['player_id'] as int,
-    ];
-    for (final screen in [_phone, _big, _short]) {
-      for (final viewer in [ids.first, ids.last]) {
-        yield (
-          '${entry.key} on ${screen.width.toInt()}x${screen.height.toInt()} '
-              'for $viewer',
-          _plan(entry.value, viewer: viewer, screen: screen),
-        );
-      }
-    }
-  }
-}
+// The end board's layout (docs/specs/frontend/end-board.md, section 3), on
+// every recorded results body and on the table sizes no recording has (the
+// recordings widened, as `widened` does), at text sizes 1, 1.3 and 1.6. The
+// measure is a plain stand-in for the serif (a name 8.4 a letter, a role 6.8 a
+// letter, times the text size): the invariants hold whatever the letters
+// measure, and `end_board_sweep_test.dart` checks the drawn board on the real
+// fonts.
 
 void main() {
   group('no card overlaps another, the lantern or the board\'s edge', () {
-    for (final (name, plan) in _everyPlan()) {
+    for (final (name, plan) in everyEndPlan()) {
       test(name, () {
         final inner = Rect.fromLTWH(0, 0, plan.boardWidth, plan.boardHeight);
         final lantern = plan.lantern.deflate(8);
@@ -152,7 +73,7 @@ void main() {
   });
 
   group('what hangs on a card covers no other card, name or tag', () {
-    for (final (name, plan) in _everyPlan()) {
+    for (final (name, plan) in everyEndPlan()) {
       test(name, () {
         for (final a in plan.cards) {
           final hung = <(String, Rect)>[
@@ -191,8 +112,16 @@ void main() {
               }
             }
           }
-          // A strand hangs in its card's column, one tag every 24.
+          // A strand hangs in its card's column, every tag clear of the next.
           for (final t in a.tags) {
+            for (final u in a.tags) {
+              if (identical(t, u)) continue;
+              expect(
+                t.rect.overlaps(u.rect),
+                isFalse,
+                reason: '${t.name}\'s and ${u.name}\'s tags touch',
+              );
+            }
             expect(
               t.rect.left >= a.column.left - 0.01 &&
                   t.rect.right <= a.column.right + 0.01,
@@ -201,7 +130,7 @@ void main() {
             );
           }
         }
-        if (plan.pick case final pick?) {
+        for (final pick in plan.picks) {
           for (final c in plan.cards) {
             expect(
               pick.slip.overlaps(c.nameText),
@@ -210,6 +139,13 @@ void main() {
             );
             for (final t in c.tags) {
               expect(pick.slip.overlaps(t.rect), isFalse);
+            }
+            if (c.id != pick.hunterId && c.id != pick.pickId) {
+              expect(
+                pick.slip.overlaps(c.leaned),
+                isFalse,
+                reason: 'the Hunter\'s slip covers ${c.name}',
+              );
             }
             for (final part in [c.sealRect, c.ribbonRect]) {
               if (part != null) expect(pick.slip.overlaps(part), isFalse);
@@ -229,7 +165,7 @@ void main() {
         'the Hunter\'s pick', () {
       // results: Ana, Ben, Dev win and live; Cleo loses and lives; Fin (the
       // Hunter) is hanged and takes Esme.
-      final plan = _plan(recordedResults('results'));
+      final plan = endPlan(recordedResults('results'));
       expect(
         [for (final c in plan.cards) c.name],
         ['Ana', 'Ben', 'Dev', 'Cleo', 'Fin', 'Esme'],
@@ -248,7 +184,7 @@ void main() {
         'the left', () {
       // results_werewolves_win: Fin is hanged; five live; the last living
       // card (a loser) stands beside Fin.
-      final plan = _plan(recordedResults('results_werewolves_win'));
+      final plan = endPlan(recordedResults('results_werewolves_win'));
       final last = plan.rows.last;
       expect(last.length, 2);
       expect(plan.cards[last[0]].hanged, isTrue);
@@ -257,7 +193,7 @@ void main() {
 
     test('a tie: every hanged card is in the dead rows, each with its own '
         'strand', () {
-      final plan = _plan(recordedResults('results_tie'));
+      final plan = endPlan(recordedResults('results_tie'));
       final hanged = plan.cards.where((c) => c.hanged).toList();
       expect([for (final c in hanged) c.name], ['Cleo', 'Dev']);
       expect(hanged.every((c) => c.ribbonRect != null), isTrue);
@@ -270,7 +206,7 @@ void main() {
 
     test('nobody hanged: no ribbon, and every card carries the one tag of '
         'whoever voted for it', () {
-      final plan = _plan(recordedResults('results_nobody_dies'));
+      final plan = endPlan(recordedResults('results_nobody_dies'));
       expect(plan.nobodyHanged, isTrue);
       expect(plan.cards.any((c) => c.hanged || c.ribbonRect != null), isFalse);
       expect(plan.cards.every((c) => c.tags.length == 1), isTrue);
@@ -282,16 +218,16 @@ void main() {
     });
 
     test('a player who did not vote has no tag', () {
-      final plan = _plan(recordedResults('results_doppelganger'));
+      final plan = endPlan(recordedResults('results_doppelganger'));
       // Dev, Esme, Fin, Gus and Hana did not vote: only Ana and Ben did.
       final tags = [for (final c in plan.cards) ...c.tags];
       expect(tags.map((t) => t.name).toSet(), {'Ana', 'Ben'});
       expect(plan.card(9).tags.length, 2);
     });
 
-    test('the Hunter: the pick dies too, the red slip hangs between them', () {
-      final plan = _plan(recordedResults('results'));
-      final pick = plan.pick!;
+    test('the Hunter: the pick dies too, the slip hangs between them', () {
+      final plan = endPlan(recordedResults('results'));
+      final pick = plan.picks.single;
       expect(plan.card(pick.hunterId).name, 'Fin');
       expect(plan.card(pick.pickId).name, 'Esme');
       expect(pick.hunterName, 'Fin');
@@ -307,12 +243,12 @@ void main() {
         'results_three_players',
         'results_tanner_alone',
       ]) {
-        expect(_plan(recordedResults(name)).pick, isNull, reason: name);
+        expect(endPlan(recordedResults(name)).picks, isEmpty, reason: name);
       }
     });
 
     test('the dealt card shows only when the role changed', () {
-      final plan = _plan(recordedResults('results'));
+      final plan = endPlan(recordedResults('results'));
       // Ana was dealt the Seer and ends the Troublemaker; Cleo never moved.
       expect(plan.cards.firstWhere((c) => c.name == 'Ana').dealt, isNotNull);
       expect(plan.cards.firstWhere((c) => c.name == 'Cleo').dealt, isNull);
@@ -320,7 +256,7 @@ void main() {
 
     test('a Doppelganger\'s face is the role she copied; the strip says '
         'Doppelganger', () {
-      final plan = _plan(recordedResults('results_doppelganger'));
+      final plan = endPlan(recordedResults('results_doppelganger'));
       final ana = plan.cards.firstWhere((c) => c.name == 'Ana');
       expect(ana.face.displayName, 'Seer');
       expect(ana.strip.displayName, 'Doppelganger');
@@ -329,7 +265,7 @@ void main() {
 
     test('winners are larger than losers, and the Tanner who wins is a '
         'winner', () {
-      final plan = _plan(recordedResults('results_tanner_alone'));
+      final plan = endPlan(recordedResults('results_tanner_alone'));
       final dev = plan.cards.firstWhere((c) => c.name == 'Dev');
       final ana = plan.cards.firstWhere((c) => c.name == 'Ana');
       expect(dev.won, isTrue);
@@ -339,12 +275,12 @@ void main() {
     });
 
     test('red paper is the Werewolf team\'s, won or lost', () {
-      final plan = _plan(recordedResults('results_werewolves_win'));
+      final plan = endPlan(recordedResults('results_werewolves_win'));
       expect(
         {for (final c in plan.cards) c.name: c.look}['Cleo'],
         EndCardLook.werewolfWon,
       );
-      final lost = _plan(recordedResults('results'));
+      final lost = endPlan(recordedResults('results'));
       expect(
         lost.cards.firstWhere((c) => c.name == 'Cleo').look,
         EndCardLook.werewolfLost,
@@ -352,7 +288,7 @@ void main() {
     });
 
     test('the centre cards are the three nobody held', () {
-      final plan = _plan(recordedResults('results'));
+      final plan = endPlan(recordedResults('results'));
       expect(
         [for (final r in plan.centre) r.displayName],
         ['Villager', 'Insomniac', 'Villager'],
@@ -362,10 +298,10 @@ void main() {
 
   group('sizes', () {
     test('winners 90, losers 64 at six and more; never smaller', () {
-      for (final entry in _samples.entries) {
+      for (final entry in endSamples.entries) {
         final n = (entry.value['players'] as List).length;
         if (n <= EndMetrics.growsUpTo) continue;
-        final plan = _plan(entry.value);
+        final plan = endPlan(entry.value);
         expect(plan.growth, 1, reason: entry.key);
         for (final c in plan.cards) {
           expect(
@@ -379,32 +315,29 @@ void main() {
 
     test('five or fewer: the cards grow, up to 1.3, while they fit', () {
       for (final name in ['results_three_players', 'results_five']) {
-        final plan = _plan(recordedResults(name), screen: _big);
+        final plan = endPlan(recordedResults(name), screen: endBig);
         expect(plan.growth, greaterThan(1), reason: name);
         expect(plan.growth, lessThanOrEqualTo(EndMetrics.mostGrowth));
         expect(plan.scrolls, isFalse);
-        expect(
-          plan.cards.first.portraitWidth,
-          closeTo(
-            (plan.cards.first.won
-                    ? EndMetrics.winnerPortrait
-                    : EndMetrics.loserPortrait) *
-                plan.growth,
-            0.001,
-          ),
-        );
+        for (final c in plan.cards) {
+          final base = c.won
+              ? EndMetrics.winnerPortrait
+              : EndMetrics.loserPortrait;
+          expect(c.portraitWidth / base, inInclusiveRange(1, plan.growth));
+        }
       }
       // On the short phone three players still grow as far as they fit.
-      final short = _plan(
+      final short = endPlan(
         recordedResults('results_three_players'),
-        screen: _short,
+        screen: endShort,
       );
       expect(short.growth, greaterThanOrEqualTo(1));
     });
 
-    test('7 or more scroll; 6 fit one screen at 360x780', () {
+    test('7 or more scroll; 6 fit one screen at 390x844, and at 360x780 '
+        'unless a hanged winner carries a strand or one has four tags', () {
       for (final n in [7, 8, 9, 10]) {
-        final plan = _plan(_table(n < 8 ? 8 : n));
+        final plan = endPlan(endTable(n < 8 ? 8 : n));
         expect(plan.scrolls, isTrue, reason: '$n');
       }
       for (final name in [
@@ -417,29 +350,40 @@ void main() {
         'results_hunter_chain',
       ]) {
         final n = (recordedResults(name)['players'] as List).length;
-        final plan = _plan(recordedResults(name));
-        // SPEC 3: six fit, except the rare table with a strand of four tags
+        final plan = endPlan(recordedResults(name));
+        final hangedWinner = plan.cards.any(
+          (c) => c.hanged && c.won && c.tags.isNotEmpty,
+        );
+        // Spec section 3: six fit, except the rare table with a strand of four tags
         // and a dealt card in every row.
         final longest = plan.cards
             .map((c) => c.tags.length)
             .fold(0, (a, b) => a > b ? a : b);
         if (n == 6 && longest <= 3) {
+          expect(
+            endPlan(recordedResults(name), screen: endBig).scrolls,
+            isFalse,
+            reason: '$name at 390x844',
+          );
+        }
+        if (n == 6 && longest <= 3 && !hangedWinner) {
           expect(plan.scrolls, isFalse, reason: name);
         }
       }
       final seven = widened(recordedResults('results'), add: 1);
-      expect(_plan(seven).scrolls, isTrue);
+      expect(endPlan(seven).scrolls, isTrue);
       expect(
-        _plan(widened(recordedResults('results'), add: 4)).scrolls,
+        endPlan(widened(recordedResults('results'), add: 4)).scrolls,
         isTrue,
       );
     });
 
-    test('when it scrolls a card is cut by the bottom edge', () {
-      for (final entry in _samples.entries) {
-        for (final screen in [_phone, _big, _short]) {
-          final plan = _plan(entry.value, screen: screen);
-          if (!plan.scrolls) continue;
+    test('when it scrolls and opens at the top, a card is cut by the bottom '
+        'edge', () {
+      for (final entry in endSamples.entries) {
+        for (final screen in [endPhone, endBig, endShort]) {
+          final plan = endPlan(entry.value, screen: screen);
+          if (!plan.scrolls || plan.initialScroll > 0) continue;
           final edge = plan.seenAtTop;
           bool straddles(Rect r) => r.top < edge - 8 && r.bottom > edge + 4;
           final cut = plan.cards.any(
@@ -452,7 +396,7 @@ void main() {
 
     test('the board is as tall as its window when it fits, taller when it '
         'scrolls', () {
-      for (final (name, plan) in _everyPlan()) {
+      for (final (name, plan) in everyEndPlan()) {
         if (plan.scrolls) {
           expect(plan.boardHeight, greaterThan(plan.viewHeight), reason: name);
         } else {
@@ -461,22 +405,44 @@ void main() {
       }
     });
 
-    test('a third line pushes the board down; the cards do not shrink', () {
-      final two = _plan(recordedResults('results'));
-      final three = _plan(recordedResults('results'), bannerLines: 3);
-      expect(three.boardTop, two.boardTop + EndMetrics.bannerExtra);
-      expect(three.viewHeight, two.viewHeight - EndMetrics.bannerExtra);
+    test('a taller banner pushes the board down; the cards do not shrink', () {
+      final two = endPlan(recordedResults('results'));
+      final three = endPlan(recordedResults('results'), bannerHeight: 158);
+      expect(three.boardTop, two.boardTop + 30);
+      expect(three.viewHeight, two.viewHeight - 30);
       expect(three.cards.first.portraitWidth, two.cards.first.portraitWidth);
+    });
+
+    test('a short phone has less sky above the banner', () {
+      expect(
+        EndMetrics.bannerTopFor(640),
+        lessThan(EndMetrics.bannerTopFor(780)),
+      );
+      expect(EndMetrics.bannerTopFor(780), EndMetrics.bannerTopTall);
+      expect(EndMetrics.bannerTopFor(900), EndMetrics.bannerTopTall);
+    });
+
+    test('a tilted card\'s box is its corners turned, not a flat margin', () {
+      const rect = Rect.fromLTWH(0, 0, 160, 100);
+      final lean = EndMetrics.leanOf(rect.size, 3 * 3.14159265 / 180);
+      // A wide card at 3 degrees leans out further down than across.
+      expect(
+        lean.height,
+        closeTo((160 * 0.0523 + 100 * 0.9986 - 100) / 2, 0.05),
+      );
+      expect(lean.width, greaterThan(0));
+      expect(EndMetrics.leaned(rect, 0), rect);
     });
   });
 
   group('long names', () {
     test('a 20-character name is whole, and alone in its row', () {
-      final plan = _plan(_table(10, longNames: true));
+      final plan = endPlan(endTable(10, longNames: true));
       final long = plan.cards.firstWhere((c) => c.name.length == 20);
       expect(long.name, 'Rosalind Fairweather');
       // A name that does not fit a slot has a row of its own.
-      final nameWidth = _measure(EndText.name, long.name) + EndMetrics.nameRoom;
+      final nameWidth =
+          endMeasure(EndText.name, long.name) + EndMetrics.nameRoom;
       final slot = (plan.boardWidth - 2 * EndMetrics.insetX) / 2;
       if (nameWidth + 2 * EndMetrics.clear > slot) {
         expect(
@@ -489,11 +455,11 @@ void main() {
 
     test('a one-word name of 20 letters, ten players, nobody leaves the '
         'board', () {
-      final results = _table(10);
+      final results = endTable(10);
       (results['players'] as List)
               .cast<Map<String, dynamic>>()[3]['display_name'] =
           'Wolfgangamadeusmozart';
-      final plan = _plan(results);
+      final plan = endPlan(results);
       final long = plan.cards.firstWhere((c) => c.name.length > 20);
       expect(
         plan.rows.firstWhere((r) => r.contains(plan.cards.indexOf(long))),
@@ -507,8 +473,8 @@ void main() {
     test('the tilt comes from the id: the same card leans the same way for '
         'every viewer and every screen', () {
       final results = recordedResults('results');
-      final a = _plan(results, viewer: 1);
-      final b = _plan(results, viewer: 6, screen: _big);
+      final a = endPlan(results, viewer: 1);
+      final b = endPlan(results, viewer: 6, screen: endBig);
       for (final c in a.cards) {
         expect(b.card(c.id).angle, c.angle);
       }
@@ -525,13 +491,13 @@ void main() {
     test(
       'who is looking moves no card: only the seal and the banner differ',
       () {
-        for (final entry in _samples.entries) {
+        for (final entry in endSamples.entries) {
           final ids = [
             for (final p in entry.value['players'] as List)
               (p as Map)['player_id'] as int,
           ];
-          final first = _plan(entry.value, viewer: ids.first);
-          final last = _plan(entry.value, viewer: ids.last);
+          final first = endPlan(entry.value, viewer: ids.first);
+          final last = endPlan(entry.value, viewer: ids.last);
           expect(first.rows, last.rows, reason: entry.key);
           for (final c in first.cards) {
             expect(last.card(c.id).rect, c.rect, reason: entry.key);
@@ -548,8 +514,8 @@ void main() {
     );
 
     test('the same results, the same plan', () {
-      final a = _plan(recordedResults('results_tie'));
-      final b = _plan(recordedResults('results_tie'));
+      final a = endPlan(recordedResults('results_tie'));
+      final b = endPlan(recordedResults('results_tie'));
       expect(
         [for (final c in a.cards) c.rect],
         [for (final c in b.cards) c.rect],
@@ -560,10 +526,10 @@ void main() {
   group('the foot', () {
     test('the host has What happened, Edit deck, Play again; a guest has '
         'Leave and who deals next', () {
-      final host = _plan(recordedResults('results'), host: true);
+      final host = endPlan(recordedResults('results'), host: true);
       expect(host.foot.host, isTrue);
       expect(host.foot.whatHappened, isTrue);
-      final guest = _plan(recordedResults('results'), host: false);
+      final guest = endPlan(recordedResults('results'), host: false);
       expect(guest.foot.host, isFalse);
       expect(guest.foot.hostName, 'Ana');
     });

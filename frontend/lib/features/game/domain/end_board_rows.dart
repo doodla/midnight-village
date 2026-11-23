@@ -4,7 +4,8 @@ import 'dart:ui';
 import 'end_board.dart';
 import 'end_board_metrics.dart';
 
-// The packing under `planEndBoard` (SPEC section 3, rules 2, 3 and 5): what a
+// The packing under `planEndBoard` (docs/specs/frontend/end-board.md, section
+// 3, rules 2, 3 and 5): what a
 // card needs, which cards share a row, how high each row stands, and where the
 // Hunter's slip hangs. Pure arithmetic on numbers and rectangles.
 
@@ -24,6 +25,10 @@ class SizedCard {
     required this.reachRight,
     required this.above,
     required this.header,
+    required this.lean,
+    required this.tagHeight,
+    required this.tagColumns,
+    required this.wideStrand,
   });
 
   final int id;
@@ -51,13 +56,32 @@ class SizedCard {
   /// The name's header: as tall as the name is at this text size.
   final double header;
 
+  /// How far the card, turned by its own tilt, reaches out of its upright box
+  /// across and down (the same up).
+  final Size lean;
+
+  /// How tall each of its tags is, and in how many columns they hang.
+  final double tagHeight;
+  final int tagColumns;
+
+  /// Its strand hangs across the whole row (the other card in it has none),
+  /// from under the lower of the two.
+  final bool wideStrand;
+
   bool get hasTags => tagNames.isNotEmpty;
 
-  /// The room it needs across the board: the card, or its widest tag.
-  double get need => math.max(width, tagWidth);
+  /// The room it needs across the board: the card, or its strand of tags.
+  double get need => math.max(
+    width + 2 * lean.width,
+    wideStrand
+        ? tagWidth
+        : tagWidth * tagColumns + EndMetrics.tagGap * (tagColumns - 1),
+  );
 
-  /// How far its strand hangs below its bottom.
-  double get strand => EndMetrics.strand(tagNames.length);
+  /// How far it reaches under its upright bottom: its lean, then its strand.
+  double get under =>
+      lean.height +
+      EndMetrics.strand(tagNames.length, tagHeight, columns: tagColumns);
 }
 
 /// A card sized: the width is the largest of the portrait plus 8, the name plus
@@ -74,7 +98,11 @@ SizedCard sizeCard({
   required bool hanged,
   required double maxWidth,
   required double header,
+  required double tagHeight,
+  required double angle,
+  required double slot,
   required EndMeasure measure,
+  bool wideStrand = false,
 }) {
   final role = stripWords
       .map((w) => measure(EndText.role, w))
@@ -96,16 +124,35 @@ SizedCard sizeCard({
   final rh = EndMetrics.ribbonHeight(rw);
   final dealtUp = EndMetrics.dealtOutY * dw * EndMetrics.dealtRatio;
   final ribbonUp = rh * (1 - EndMetrics.ribbonInside);
+  final height = EndMetrics.cardHeight(pw, header: header);
+  final lean = EndMetrics.leanOf(Size(width, height), angle);
+  final tagWidth = tagNames
+      .map((n) => EndMetrics.tagApron + measure(EndText.tag, n))
+      .fold(0.0, math.max);
+  // More than three tags hang in as many columns as fit the room (two in a
+  // card's own slot, up to three across a row), so a strand stays short.
+  var columns = 1;
+  if (tagNames.length > EndMetrics.tagsInOneColumn) {
+    for (var k = EndMetrics.mostTagColumns; k > 1; k--) {
+      if (k * tagWidth + (k - 1) * EndMetrics.tagGap <=
+          slot - 2 * EndMetrics.clear) {
+        columns = k;
+        break;
+      }
+    }
+  }
   return SizedCard(
     id: id,
     pw: pw,
     width: width,
-    height: EndMetrics.cardHeight(pw, header: header),
+    height: height,
     header: header,
+    lean: lean,
+    tagHeight: tagHeight,
+    tagColumns: columns,
+    wideStrand: wideStrand && columns > 1,
     tagNames: tagNames,
-    tagWidth: tagNames
-        .map((n) => EndMetrics.tagApron + measure(EndText.tag, n))
-        .fold(0.0, math.max),
+    tagWidth: tagWidth,
     dealt: dealt,
     you: you,
     hanged: hanged,
@@ -115,12 +162,14 @@ SizedCard sizeCard({
       EndMetrics.sealHang,
       hanged ? rw * (1 - EndMetrics.ribbonInside) : 0,
     ),
-    above: math.max(
-      dealt
-          ? math.max(EndMetrics.gapDealt, dealtUp + EndMetrics.hangClear)
-          : EndMetrics.gap,
-      hanged ? ribbonUp + EndMetrics.hangClear : 0,
-    ),
+    above:
+        lean.height +
+        math.max(
+          dealt
+              ? math.max(EndMetrics.gapDealt, dealtUp + EndMetrics.hangClear)
+              : EndMetrics.gap,
+          hanged ? ribbonUp + EndMetrics.hangClear : 0,
+        ),
   );
 }
 
@@ -157,6 +206,11 @@ Rows packRows(List<SizedCard> cards, double boardWidth, int firstDead) {
     if (!fits(a, half) || !fits(b, half)) return false;
     final ca = cards[a], cb = cards[b];
     final gap = (half - ca.width) / 2 + (half - cb.width) / 2;
+    // Two strands side by side keep clear of each other.
+    if (ca.hasTags && cb.hasTags) {
+      final strands = (half - ca.need) / 2 + (half - cb.need) / 2;
+      if (strands < EndMetrics.clear) return false;
+    }
     final slack =
         math.max(0.0, (half - ca.width) / 2 - EndMetrics.clear) +
         math.max(0.0, (half - cb.width) / 2 - EndMetrics.clear);
@@ -204,7 +258,7 @@ Rows packRows(List<SizedCard> cards, double boardWidth, int firstDead) {
 }
 
 double _needGap(SizedCard a, SizedCard b) =>
-    a.reachRight + b.reachLeft + 2 * EndMetrics.tiltReach;
+    a.reachRight + b.reachLeft + a.lean.width + b.lean.width + EndMetrics.clear;
 
 /// A row's cards across the board: where each card's left lies and the column
 /// (slot) it keeps its strand in.
@@ -258,39 +312,111 @@ class RowTops {
   final double contentHeight;
 }
 
-/// Air above a row (12, or 24 where a card shows a dealt card, more for a
-/// ribbon), then the row, then room for the longest strand of tags in it.
+/// Air above a row: each card keeps [EndMetrics.gap] under whatever stands
+/// above it, and what it holds up (its dealt card at the top left, its ribbon
+/// at the top right) keeps [EndMetrics.hangClear] under whatever stands above
+/// that, not under the whole row: a ribbon beside an empty corner needs no
+/// room. Under a row: room for the longest strand of tags in it.
 RowTops rowTopsOf(Rows rows, List<SizedCard> cards, double boardWidth) {
-  var cursor = EndMetrics.insetTop;
   final tops = <double>[];
   final heights = <double>[];
-  final lanternFoot = EndMetrics.lanternTop + EndMetrics.lanternSize.height;
-  final lanternLeft = boardWidth - EndMetrics.lanternLeftFromRight;
+  // What stands on the board so far: its width across and how low it reaches.
+  final floors = <(double, double, double)>[
+    (0, boardWidth, EndMetrics.insetTop - EndMetrics.gap),
+    // The lantern hangs from the top right.
+    (
+      boardWidth - EndMetrics.lanternLeftFromRight + 8,
+      boardWidth,
+      EndMetrics.lanternTop + EndMetrics.lanternSize.height,
+    ),
+  ];
+  double floorUnder(double from, double to) {
+    var low = 0.0;
+    for (final (a, b, bottom) in floors) {
+      if (a < to + EndMetrics.clear && b > from - EndMetrics.clear) {
+        low = math.max(low, bottom);
+      }
+    }
+    return low;
+  }
+
   for (var r = 0; r < rows.rows.length; r++) {
     final row = rows.rows[r];
-    final above = row.map((i) => cards[i].above).fold(0.0, math.max);
-    var top = cursor + above;
-    // A card of the row under the first that stands under the lantern is
-    // clear of its foot, with whatever hangs above it.
-    if (r == 1) {
-      final at = rowPositions(rows, r, cards, boardWidth);
-      for (var i = 0; i < row.length; i++) {
-        final c = cards[row[i]];
-        if (at.lefts[i] + c.width + c.reachRight > lanternLeft + 8) {
-          top = math.max(
-            top,
-            lanternFoot + EndMetrics.clear + above - EndMetrics.hangClear,
-          );
-        }
+    final at = rowPositions(rows, r, cards, boardWidth);
+    var top = tops.isEmpty ? 0.0 : tops.last + 1;
+    for (var i = 0; i < row.length; i++) {
+      final c = cards[row[i]];
+      final left = at.lefts[i], right = left + c.width;
+      final lean = c.lean;
+      top = math.max(
+        top,
+        floorUnder(left - lean.width, right + lean.width) +
+            EndMetrics.gap +
+            lean.height,
+      );
+      if (c.dealt) {
+        final dw = EndMetrics.dealtWidth(c.pw);
+        final up = EndMetrics.dealtOutY * dw * EndMetrics.dealtRatio;
+        top = math.max(
+          top,
+          floorUnder(
+                left - EndMetrics.dealtOutX * dw - lean.width,
+                left + (1 - EndMetrics.dealtOutX) * dw,
+              ) +
+              up +
+              EndMetrics.hangClear +
+              lean.height,
+        );
+      }
+      if (c.hanged) {
+        final rw = EndMetrics.ribbonWidth(c.pw);
+        final up = EndMetrics.ribbonHeight(rw) * (1 - EndMetrics.ribbonInside);
+        top = math.max(
+          top,
+          floorUnder(
+                right - EndMetrics.ribbonInside * rw,
+                right + (1 - EndMetrics.ribbonInside) * rw + lean.width,
+              ) +
+              up +
+              EndMetrics.hangClear +
+              lean.height,
+        );
       }
     }
     tops.add(top);
     heights.add(row.map((i) => cards[i].height).fold(0.0, math.max));
-    cursor =
-        top +
-        row.map((i) => cards[i].height + cards[i].strand).fold(0.0, math.max);
+    // A wide strand hangs from under the row's lowest card.
+    final body = row
+        .map((i) => cards[i].height + cards[i].lean.height)
+        .fold(0.0, math.max);
+    for (var i = 0; i < row.length; i++) {
+      final c = cards[row[i]];
+      final left = at.lefts[i], right = left + c.width;
+      floors.add((
+        left - c.reachLeft - c.lean.width,
+        right + c.reachRight + c.lean.width,
+        top + c.height + c.lean.height,
+      ));
+      if (c.hasTags) {
+        final column = c.wideStrand ? spanOf(r, boardWidth) : at.columns[i];
+        floors.add((
+          column.left,
+          column.right,
+          top +
+              (c.wideStrand
+                  ? body + c.under - c.lean.height
+                  : c.height + c.under),
+        ));
+      }
+    }
   }
-  return RowTops(tops, heights, cursor + EndMetrics.insetBottom);
+  final bottom = floors.map((f) => f.$3).fold(0.0, math.max);
+  // The last row's cards may sit lower by their jitter.
+  return RowTops(
+    tops,
+    heights,
+    bottom + EndMetrics.jitter + EndMetrics.insetBottom,
+  );
 }
 
 /// When the board scrolls, the bottom edge must cut a card (not fall between
@@ -306,7 +432,7 @@ double cutByTheEdge(
   double card(int r) =>
       rows.rows[r].map((i) => cards[i].height).fold(0.0, math.max);
   double extent(int r) => rows.rows[r]
-      .map((i) => cards[i].height + cards[i].strand)
+      .map((i) => cards[i].height + cards[i].under)
       .fold(0.0, math.max);
   bool cuts(double top, double height) =>
       top < seen - EndMetrics.clear - 2 && top + height > seen + 4;
@@ -315,10 +441,15 @@ double cutByTheEdge(
     for (final i in rows.rows[r]) {
       final c = cards[i];
       if (cuts(tops[r], c.height)) return true;
-      for (var t = 0; t < c.tagNames.length; t++) {
+      final rowsOfTags = (c.tagNames.length / c.tagColumns).ceil();
+      for (var t = 0; t < rowsOfTags; t++) {
         final top =
-            tops[r] + c.height + EndMetrics.tagFirst + EndMetrics.tagStep * t;
-        if (cuts(top, EndMetrics.tagHeight)) return true;
+            tops[r] +
+            c.height +
+            c.lean.height +
+            EndMetrics.tagFirst +
+            (c.tagHeight + EndMetrics.tagGap) * t;
+        if (cuts(top, c.tagHeight)) return true;
       }
     }
     return false;
@@ -340,7 +471,7 @@ double cutByTheEdge(
   return 0;
 }
 
-/// The Hunter's slip: hung between [from] and [to] under the red twine, where
+/// The Hunter's slip: hung between [from] and [to] under the twine, where
 /// it covers no card's name, tag, seal, ribbon or pin.
 Rect placeSlip({
   required EndCard from,
@@ -393,18 +524,37 @@ Rect placeSlip({
   }
 
   final tries = <Offset>[
-    for (var dy = -60.0; dy <= 60; dy += 4)
-      for (var dx = -48.0; dx <= 48; dx += 8) Offset(dx, dy),
+    for (var dy = -90.0; dy <= 90; dy += 4)
+      for (var dx = -80.0; dx <= 80; dx += 8) Offset(dx, dy),
   ]..sort((p, q) => p.distanceSquared.compareTo(q.distanceSquared));
+  // How much of the cards' faces it covers: least wins, then the nearest to
+  // the middle between the two (it hangs between them, not on one).
+  double covered(Rect s) {
+    var area = 0.0;
+    for (final c in all) {
+      final over = s.intersect(c.leaned);
+      if (over.width > 0 && over.height > 0) area += over.width * over.height;
+    }
+    return area;
+  }
+
+  Rect? best;
+  var least = double.infinity;
   for (final t in tries) {
     final s = Rect.fromCenter(center: centre + t, width: w, height: h);
     if (s.left < EndMetrics.insetX ||
         s.right > boardWidth - EndMetrics.insetX) {
       continue;
     }
-    if (clean(s)) return s;
+    if (!clean(s)) continue;
+    final area = covered(s);
+    if (area < least - 1) {
+      least = area;
+      best = s;
+      if (area == 0) break;
+    }
   }
-  return Rect.fromCenter(center: centre, width: w, height: h);
+  return best ?? Rect.fromCenter(center: centre, width: w, height: h);
 }
 
 void _swap(List<int> q, int i, int j) {

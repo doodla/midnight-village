@@ -536,6 +536,7 @@ final screens = <String, Screen>{
         text(EndCopy.hanged),
         text(EndCopy.andThen),
         headline(EndCopy.youWinShort),
+        button(EndCopy.whatHappenedTwoLines),
       ],
     },
   ),

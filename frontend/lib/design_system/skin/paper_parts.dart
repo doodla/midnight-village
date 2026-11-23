@@ -75,6 +75,15 @@ class PaperParts {
     this.vignetteEdge = 0.32,
     this.loserKeep = 0.55,
     this.loserDark = 0.78,
+    this.duskTint = const [
+      Color(0xD12C2460),
+      Color(0x80965C8C),
+      Color(0x73E88C70),
+      Color(0x80FABE82),
+      Color(0x80FCD6A5),
+    ],
+    this.duskStops = const [0, 0.1, 0.2, 0.34, 1],
+    this.duskReach = 300,
   });
 
   /// The standard parts (the dressed skin's).
@@ -235,6 +244,13 @@ class PaperParts {
   final double poolPull;
   final double vignetteLantern;
   final double vignetteEdge;
+
+  /// The end board's sky at dawn: the dusk laid over the sky plate (under
+  /// the gallows and the roofs), top to bottom, at [duskStops] of
+  /// [duskReach] points; so the banner is the bright thing in the sky.
+  final List<Color> duskTint;
+  final List<double> duskStops;
+  final double duskReach;
 
   /// A loser's portrait: how much of its colour it keeps, and how dark it is.
   final double loserKeep;
