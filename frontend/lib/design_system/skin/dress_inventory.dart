@@ -346,6 +346,59 @@ const inventory = <PartEntry>[
     paper:
         'the same window; a closed one is a recess of paper (the corners are a drawing, allowed: `Drawn.scanner`)',
   ),
+  // ---- The end board
+  PartEntry(
+    'PaperScrap / PaperSlip',
+    'primitives/paper_scrap.dart',
+    part: PaperPart.scrap,
+    plain: 'its words in the ground\'s ink, with the same 48 touch target',
+    paper:
+        'a scrap of bone paper pinned to the board (a scrap: the paper 40 tall, the touch target 48, a flat pin through its top left), its words in the name face; a slip is the same paper and says something, no tap',
+  ),
+  PartEntry(
+    'VoteTag',
+    'primitives/vote_tag.dart',
+    part: PaperPart.scrap,
+    plain: 'the voter\'s sigil and their name, no paper',
+    paper:
+        'a name tag of bone paper, 28 tall, with a punched hole, the voter\'s sigil in a small disc and their name in the name face, set smaller rather than cut',
+  ),
+  PartEntry(
+    'Twine',
+    'primitives/twine.dart',
+    plain:
+        'the same thread (filled, never a stroke): solid for a move, gapped for a look',
+    paper:
+        'paper thread in bone, a sagging curve between two cards\' corners with a paper shadow away from the light; solid for a move, gapped for a look; red only for the Werewolf team',
+  ),
+  PartEntry(
+    'YouSeal',
+    'primitives/you_seal.dart',
+    plain: 'the player\'s own sigil alone',
+    paper:
+        'a blank seal of black wax pressed with the player\'s own sigil in grey, a disc of shadow away from the light',
+  ),
+  PartEntry(
+    'InkStamp / DeathRibbon',
+    'primitives/death_mark.dart',
+    plain: 'the ribbon\'s picture alone; the stamp the same (no paper in it)',
+    paper:
+        'the black mourning ribbon pinned on a card\'s top right corner, a bone edge so it reads on red, a shadow away from the light; the stamp an ink block with its word knocked out in bone and a spatter of ink round it, no outline; neither covers more than a set part of a portrait',
+  ),
+  PartEntry(
+    'BannerSlice / BoardFrame / BoardRoof',
+    'primitives/sliced_art.dart',
+    plain: 'the banner\'s words alone; no frame (the child as it is), no roof',
+    paper:
+        'a swallowtail banner of cut paper (bone, or red when you lost) that stretches with its words, ends never distorted; a nine-slice frame of planks about 19 thick round felt with grain; a three-slice roof',
+  ),
+  PartEntry(
+    'EndLantern',
+    'primitives/end_lantern.dart',
+    plain: 'the lantern\'s picture alone, no glow',
+    paper:
+        'the paper lantern, lit with a warm glow laid on with the screen blend; unlit, the same lantern with no glow',
+  ),
 ];
 
 /// Files in `primitives/` that are not a component a player sees as one: what
@@ -364,6 +417,8 @@ const notAComponent = <String, String>{
   'primitives/layered_art.dart': 'the layered village art',
   'primitives/mood.dart': 'the dressed screen\'s light behind everything',
   'primitives/nudge.dart': 'a short shake; draws nothing',
+  'primitives/one_light.dart':
+      'the end board\'s one light as a point: the lean and the dimming of every piece on it; draws nothing',
   'primitives/paper_flip.dart': 'the card turning; motion only',
   'primitives/paper_grain.dart': 'the paper\'s grain tile',
   'primitives/paper_light.dart': 'the screen\'s one light',
