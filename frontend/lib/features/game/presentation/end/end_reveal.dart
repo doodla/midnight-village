@@ -11,7 +11,7 @@ import '../../../../design_system/primitives/paper_flip.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_reveal.dart';
-import 'end_card_back.dart';
+import '../../../../design_system/primitives/board_pieces.dart';
 
 // The end board's reveal, in place (docs/specs/frontend/end-board.md, section
 // 8): one clock ([EndRevealDriver]) and the timeline it runs (`revealOf`),

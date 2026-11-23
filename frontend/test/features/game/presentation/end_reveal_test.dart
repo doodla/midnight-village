@@ -9,7 +9,7 @@ import 'package:midnight_village/design_system/primitives/layered_art.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/sliced_art.dart';
 import 'package:midnight_village/features/game/domain/end_reveal.dart';
-import 'package:midnight_village/features/game/presentation/end/end_card_back.dart';
+import 'package:midnight_village/design_system/primitives/board_pieces.dart';
 import 'package:midnight_village/features/game/presentation/end/end_reveal.dart';
 
 import '../../../helpers/end_board_pump.dart';
