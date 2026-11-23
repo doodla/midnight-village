@@ -70,7 +70,10 @@ def test_the_parts_exist_and_the_scan_sees_imports() -> None:
     # the scan works: the top imports parts below it, recovery reads the layers
     assert "game_presence" in imported_modules(ONUW / "services.py")
     assert imported_modules(ONUW / "recovery.py") & set(LAYERS)
-    assert set(BESIDE) <= imported_modules(ONUW / "views.py")
+    views = set()
+    for name in ("views", "views_play", "views_read"):
+        views |= imported_modules(ONUW / f"{name}.py")
+    assert set(BESIDE) <= views
 
 
 def test_no_part_is_too_long_to_read_whole() -> None:
