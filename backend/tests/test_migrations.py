@@ -18,14 +18,19 @@ from collections.abc import Iterator
 from datetime import timedelta
 from typing import Any
 
-from django.db import IntegrityError, connection, transaction
+from django.db import IntegrityError, ProgrammingError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 
 import pytest
 
 from apps.core import tokens
-from tests.old_code import insert_game, insert_member, insert_player_role
+from tests.old_code import (
+    insert_game,
+    insert_member,
+    insert_member_without_ready,
+    insert_player_role,
+)
 
 pytestmark = [pytest.mark.migration, pytest.mark.django_db(transaction=True)]
 
@@ -265,3 +270,83 @@ class TestReadyFlagLeftToTheDatabase:
             lobby_id=lobby.pk, user_id=users[3].pk
         )
         assert ready_flags(lobby.pk) == [True, False, False]
+
+
+# Before and after the ready column is dropped (core 0012).
+DROPPED_AFTER = [
+    ("core", "0012_lobbymember_drop_is_ready"),
+    ("onuw", "0010_playerrole_v2_fields"),
+]
+
+
+def member_columns() -> set[str]:
+    with connection.cursor() as cursor:
+        return {
+            column.name
+            for column in connection.introspection.get_table_description(
+                cursor, "core_lobbymember"
+            )
+        }
+
+
+class TestReadyColumnDropped:
+    def seed(self, state) -> tuple[Any, list[Any]]:
+        users = [
+            state.get_model("core", "User").objects.create(username=f"d{i}")
+            for i in range(4)
+        ]
+        lobby = state.get_model("core", "Lobby").objects.create(
+            code="DRP234", host=users[0], game_type="onuw", status="waiting"
+        )
+        state.get_model("core", "LobbyMember").objects.create(
+            lobby=lobby, user=users[0], token="fox"
+        )
+        return lobby, users
+
+    def test_the_column_goes_and_both_builds_can_seat_a_player(self, migrator) -> None:
+        lobby, users = self.seed(migrator.apply(READY_AFTER))
+        assert "is_ready" in member_columns()
+
+        new = migrator.apply(DROPPED_AFTER)
+
+        assert "is_ready" not in member_columns()
+        member = new.get_model("core", "LobbyMember")
+        member.objects.create(lobby_id=lobby.pk, user_id=users[1].pk, token="owl")
+        # The previous build (after 0011) never names the column: its INSERT works.
+        insert_member_without_ready(lobby.pk, users[2].pk, token="elk")
+        rows = member.objects.filter(lobby_id=lobby.pk).order_by("id")
+        assert [m.token for m in rows] == ["fox", "owl", "elk"]  # rows are kept
+
+    def test_a_build_from_before_0011_can_no_longer_seat_a_player(
+        self, migrator
+    ) -> None:
+        """Written down as a test: this is why a rollback past 0011 is not allowed."""
+        lobby, users = self.seed(migrator.apply(READY_AFTER))
+        migrator.apply(DROPPED_AFTER)
+
+        with pytest.raises(ProgrammingError), transaction.atomic():
+            insert_member(lobby.pk, users[1].pk)
+
+    def test_back_and_forward_again(self, migrator) -> None:
+        lobby, users = self.seed(migrator.apply(READY_AFTER))
+        migrator.apply(DROPPED_AFTER)
+
+        back = migrator.apply(READY_AFTER)
+        # As 0011 left it: both shapes of INSERT work, and old rows read false.
+        back.get_model("core", "LobbyMember").objects.create(
+            lobby_id=lobby.pk, user_id=users[1].pk
+        )
+        insert_member(lobby.pk, users[2].pk)
+        assert ready_flags(lobby.pk) == [False, False, False]
+        with connection.cursor() as cursor:
+            described = connection.introspection.get_table_description(
+                cursor, "core_lobbymember"
+            )
+        assert [c.null_ok for c in described if c.name == "is_ready"] == [False]
+
+        again = migrator.apply(DROPPED_AFTER)
+        assert "is_ready" not in member_columns()
+        again.get_model("core", "LobbyMember").objects.create(
+            lobby_id=lobby.pk, user_id=users[3].pk
+        )
+        assert again.get_model("core", "LobbyMember").objects.count() == 4

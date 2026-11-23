@@ -9,6 +9,10 @@ migration these statements must keep working: every column a migration adds to a
 table that this code writes needs a database default. These functions stay in the
 OLD shape for good (never add a column to them): the migration test and
 ``test_rollout_safe_schema`` run them against the new schema.
+
+One has an end: ``insert_member`` names ``is_ready``, so it works only up to core
+0011 (0012 drops the column, two pushes after the code stopped naming it).
+``insert_member_without_ready`` is the shape the code wrote from 0011 on.
 """
 
 import uuid
@@ -31,6 +35,16 @@ def insert_member(
         "INSERT INTO core_lobbymember (lobby_id, user_id, is_ready, joined_at)"
         " VALUES (%s, %s, false, %s)",
         [lobby_id, user_id, joined_at or timezone.now()],
+    )
+
+
+def insert_member_without_ready(lobby_id: int, user_id: int, token: str = "") -> None:
+    """A LobbyMember row as the code AFTER core 0011 writes it: ``token``, and no
+    ``is_ready`` (the model had stopped naming it before the column was dropped)."""
+    _insert(
+        "INSERT INTO core_lobbymember (lobby_id, user_id, joined_at, token)"
+        " VALUES (%s, %s, %s, %s)",
+        [lobby_id, user_id, timezone.now(), token],
     )
 
 
