@@ -34,6 +34,16 @@ def insert_member(
     )
 
 
+def insert_member_without_ready(lobby_id: int, user_id: int, token: str = "") -> None:
+    """A LobbyMember row as the code AFTER core 0011 writes it: ``token``, and no
+    ``is_ready`` (the model had stopped naming it before the column was dropped)."""
+    _insert(
+        "INSERT INTO core_lobbymember (lobby_id, user_id, joined_at, token)"
+        " VALUES (%s, %s, %s, %s)",
+        [lobby_id, user_id, timezone.now(), token],
+    )
+
+
 def insert_game(lobby_id: int) -> uuid.UUID:
     """A Game row as the old code wrote it (no ``dealt_center_cards``)."""
     game_id = uuid.uuid4()
