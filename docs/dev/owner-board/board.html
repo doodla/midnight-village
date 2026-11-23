@@ -132,6 +132,32 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
 .choices.sound .choice { padding-inline: 4px }
 .choices.sound .dflt { font-size: 9.5px; letter-spacing: .06em; padding: 2px 4px }
 
+/* a picker card: every option for one slot in one swipeable strip; mark the ones you want */
+.pk { display: grid; gap: 2px; background: var(--paper-2); padding-bottom: 8px }
+.pk-strip { display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 14px 11% 6px; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none }
+.pk-strip::-webkit-scrollbar { display: none }
+.pk-item { flex: 0 0 100%; min-width: 0; margin: 0; display: grid; gap: 8px; align-content: start; scroll-snap-align: center; scroll-snap-stop: always }
+.pk-pic { position: relative; aspect-ratio: 9 / 16; border-radius: 4px; background: var(--pic-ground); transition: box-shadow .12s ease }
+.pk-item.on .pk-pic { box-shadow: 0 0 0 3px var(--lamp), 0 0 0 6px var(--ink) }
+.pk-open { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: zoom-in; overflow: hidden }
+.pk-open img { display: block; width: 100%; height: 100%; object-fit: contain }
+.pk-toggle { position: absolute; top: 2px; right: 2px; width: 52px; height: 52px; padding: 0; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center }
+.pk-badge { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(20,23,47,.82); border: 2.5px solid #EEE7D6; transition: transform .1s ease, background .1s ease }
+.pk-badge svg { width: 20px; height: 20px; opacity: 0; transition: opacity .1s ease }
+.pk-item.on .pk-badge { background: var(--lamp); border-color: #14172F; box-shadow: 2px 3px 0 #14172F; transform: rotate(-6deg) scale(1.08) }
+.pk-item.on .pk-badge svg { opacity: 1 }
+.pk-cap { font-size: 15px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; padding-inline: 2px }
+.pk-item.on .pk-cap::before { content: "\2713\00a0"; color: var(--blood) }
+.pk-pos { margin: 0; text-align: center; font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--ink-soft); font-variant-numeric: tabular-nums }
+.pk-count { margin: 0; font-weight: 700; font-size: 15px }
+.pk-hint { margin: 0; font-size: 14px; color: var(--ink-soft) }
+.pk-none { justify-self: center; border: 0; background: none; padding: 8px 12px; min-height: 48px; color: var(--ink-soft); font-weight: 600; font-size: 15px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px }
+.pk-none[disabled] { opacity: .5; cursor: not-allowed }
+@media (min-width: 640px) {
+  .pk-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); overflow: visible; padding: 14px 14px 8px; gap: 14px 12px; scroll-snap-type: none }
+  .pk-pos { display: none }
+}
+
 /* decided: a ledger */
 .ledger { list-style: none; margin: 0; padding: 0; background: var(--paper); border-radius: var(--r); box-shadow: 5px 6px 0 var(--cut); }
 .ledger li { display: grid; grid-template-columns: 54px 1fr; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); min-width: 0 }
@@ -169,7 +195,7 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
   .top .wrap { padding-block: 170px 22px }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card, .choice, .take button { transition: none }
+  .card, .choice, .take button, .pk-pic, .pk-badge, .pk-badge svg { transition: none }
 }
 </style>
 
@@ -238,16 +264,24 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
 
   /* ---------- full-size viewer ---------- */
   var lastFocus = null;
-  function openViewer(figs) {
+  function openViewer(figs, at) {
     lastFocus = document.activeElement;
     var v = el("div", "viewer"); v.setAttribute("role", "dialog"); v.setAttribute("aria-modal", "true"); v.setAttribute("aria-label", "Full-size picture");
     var x = el("button", "x"); x.innerHTML = ICON_X; x.setAttribute("aria-label", "Close");
     var inner = el("div", "inner");
+    var imgs = [];
     figs.forEach(function (f) {
-      var fig = el("figure"); var img = el("img"); img.src = f.src; img.alt = str(f.alt);
+      var fig = el("figure"); var img = el("img"); img.src = f.src; img.alt = str(f.alt); imgs.push(img);
       fig.appendChild(img); if (f.caption) fig.appendChild(el("figcaption", null, f.caption)); inner.appendChild(fig);
     });
     v.appendChild(inner); document.body.appendChild(v); document.body.appendChild(x);
+    if (at > 0 && inner.children[at]) {   // open at that picture; keep it in place while the ones above it load
+      var touched = false, mark = function () { touched = true; };
+      var align = function () { if (!touched) v.scrollTop = inner.children[at].offsetTop - 64; };
+      ["wheel", "touchstart", "keydown"].forEach(function (n) { v.addEventListener(n, mark, { passive: true }); });
+      imgs.slice(0, at).forEach(function (im) { im.addEventListener("load", align); });
+      align();
+    }
     var prev = document.body.style.overflow; document.body.style.overflow = "hidden";
     function close() { v.remove(); x.remove(); document.body.style.overflow = prev; document.removeEventListener("keydown", onKey); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
     function onKey(e) { if (e.key === "Escape") close(); }
@@ -409,11 +443,94 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
     return box;
   }
 
+  /* ---------- a picker: all the options for one slot ---------- */
+  var ICON_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="#14172F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+  var picks = {};           // marked picture ids by item id (kept across redraws)
+  function pickPics(it) {   // the pictures of a picker item, each with a stable `pid`; null if the card is not a picker
+    if (it.pick !== "many" && it.pick !== "one") return null;
+    var all = Array.isArray(it.pictures) ? it.pictures.filter(function (p) { return p && p.src; }) : [];
+    if (all.length < 2) return null;
+    return all.map(function (p, i) { var o = Object.assign({}, p); o.pid = p.id != null && p.id !== "" ? String(p.id) : "p" + (i + 1); return o; });
+  }
+  function picName(p) { return str(p.caption) || str(p.alt) || p.pid; }
+  function noteBox(it, onType) {
+    var inp = el("input", "note"); inp.type = "text"; inp.id = "note-" + it.id; inp.maxLength = 500;
+    inp.placeholder = "Add a note (optional)"; inp.setAttribute("aria-label", "Note for " + str(it.title));
+    inp.value = drafts[it.id] || ""; inp.oninput = function () { drafts[it.id] = inp.value; onType(); };
+    return inp;
+  }
+  function pickerCard(it, pics, card, body) {
+    var one = it.pick === "one", locked = S.canWrite === false;
+    var sel = picks[it.id] || (picks[it.id] = {});
+    Object.keys(sel).forEach(function (k) { if (!pics.some(function (p) { return p.pid === k; })) delete sel[k]; });
+    var wrap = el("div", "pk"), strip = el("div", "pk-strip"), items = [];
+    strip.setAttribute("role", "group"); strip.setAttribute("aria-label", "Options: " + str(it.title));
+    var count = el("p", "pk-count"), hint = el("p", "pk-hint"), send, none;
+    count.setAttribute("aria-live", "polite");
+    function marked() { return pics.filter(function (p) { return sel[p.pid]; }); }
+    function refresh() {
+      var m = marked().length, noted = !!(drafts[it.id] || "").trim(), can = !locked && !S.pending[it.id] && (m > 0 || noted);
+      count.textContent = m ? m + " picked" : "Nothing picked yet";
+      send.disabled = !can; hint.hidden = can || locked;
+    }
+    pics.forEach(function (p, i) {
+      var fig = el("figure", "pk-item"), pic = el("div", "pk-pic");
+      var open = el("button", "pk-open"); open.type = "button"; open.setAttribute("aria-label", "See full size: " + picName(p));
+      var img = el("img"); img.src = p.src; img.alt = str(p.alt); img.loading = "lazy"; img.decoding = "async"; open.appendChild(img);
+      open.onclick = function () { openViewer(pics, i); };
+      var tg = el("button", "pk-toggle"); tg.type = "button"; tg.setAttribute("aria-label", "Pick: " + picName(p));
+      var badge = el("span", "pk-badge"); badge.innerHTML = ICON_TICK; tg.appendChild(badge);
+      function show() { fig.classList.toggle("on", !!sel[p.pid]); tg.setAttribute("aria-pressed", sel[p.pid] ? "true" : "false"); }
+      p._show = show; show();
+      tg.onclick = function () {
+        if (sel[p.pid]) delete sel[p.pid];
+        else { if (one) { Object.keys(sel).forEach(function (k) { delete sel[k]; }); pics.forEach(function (q) { q._show(); }); } sel[p.pid] = true; }
+        show(); refresh();
+      };
+      if (locked) tg.disabled = true;
+      pic.appendChild(open); pic.appendChild(tg); fig.appendChild(pic);
+      fig.appendChild(el("figcaption", "pk-cap", str(p.caption))); strip.appendChild(fig); items.push(fig);
+    });
+    strip.addEventListener("keydown", function (e) {   // arrows move along the strip; Space marks (it is a button)
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      var t = e.target, kind = t.classList.contains("pk-toggle") ? "pk-toggle" : t.classList.contains("pk-open") ? "pk-open" : null;
+      if (!kind) return;
+      var j = items.indexOf(t.closest(".pk-item")) + (e.key === "ArrowRight" ? 1 : -1);
+      if (j < 0 || j >= items.length) return;
+      e.preventDefault(); items[j].querySelector("." + kind).focus();
+    });
+    var pos = el("p", "pk-pos", "1 of " + pics.length), raf = 0;
+    strip.addEventListener("scroll", function () {
+      if (raf) return;
+      raf = requestAnimationFrame(function () {
+        raf = 0; var step = items.length > 1 ? items[1].offsetLeft - items[0].offsetLeft : 0;
+        var i = step > 0 ? Math.max(0, Math.min(items.length - 1, Math.round(strip.scrollLeft / step))) : 0;
+        pos.textContent = (i + 1) + " of " + items.length;
+      });
+    }, { passive: true });
+    wrap.appendChild(strip); wrap.appendChild(pos);
+
+    body.appendChild(count);
+    if (it.note !== false && !locked) body.appendChild(noteBox(it, refresh));
+    send = el("button", "choice"); send.type = "button"; send.textContent = one ? "Send my pick" : "Send my picks";
+    hint.id = "hint-" + it.id;
+    hint.textContent = "Mark " + (one ? "one picture" : "one or more pictures") + (it.note !== false ? ", or type a note." : " first.");
+    send.setAttribute("aria-describedby", hint.id);
+    send.onclick = function () { pickSend(it, pics, marked().map(function (p) { return p.pid; }), card); };
+    none = el("button", "pk-none", "None of these"); none.type = "button"; if (locked) none.disabled = true;
+    none.onclick = function () { pickSend(it, pics, [], card); };
+    body.appendChild(send); body.appendChild(hint); body.appendChild(none);
+    if (it.default) { var p = el("p", "ifnot"); p.appendChild(el("b", null, "If you don’t answer")); p.appendChild(el("span", null, it.default)); body.appendChild(p); }
+    if (locked) body.appendChild(el("p", "viewonly", "Only the owner can answer here."));
+    refresh();
+    return wrap;
+  }
+
   /* ---------- one card ---------- */
   function cardFor(it) {
     var card = el("article", "card"); if (!it.lead) card.dataset.key = it.id;
-    var pic = pictureArea(it); if (pic) card.appendChild(pic);
-    var body = el("div", "body");
+    var pk = pickPics(it), body = el("div", "body");
+    var pic = pk ? null : pictureArea(it); if (pic) card.appendChild(pic);
     body.appendChild(el("h3", null, str(it.title)));
     var lines = el("div", "lines");
     if (it.what) lines.appendChild(el("p", "what", it.what));
@@ -421,7 +538,7 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
     if (lines.childNodes.length) body.appendChild(lines);
     var hear = Array.isArray(it.sounds) && it.sounds.length ? soundsArea(it) : null;
     if (hear) body.appendChild(hear);
-    var choices = Array.isArray(it.choices) ? it.choices.filter(function (c) { return c && c.id && c.label; }) : [];
+    var choices = !pk && Array.isArray(it.choices) ? it.choices.filter(function (c) { return c && c.id && c.label; }) : [];
     if (choices.length) {
       var long = !hear && (choices.some(function (c) { return String(c.label).length > 16; }) || choices.length > 3);
       var row = el("div", "choices" + (long ? " long" : "") + (hear && choices.length === 4 ? " sound" : ""));
@@ -443,6 +560,7 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
       }
       if (S.canWrite === false) body.appendChild(el("p", "viewonly", "Only the owner can answer here."));
     }
+    if (pk) { card.appendChild(pickerCard(it, pk, card, body)); }
     if (it.ref) body.appendChild(el("p", "ref", it.ref));
     card.appendChild(body);
     if (it.lead) {   // one plain line above the card (used on the first of a group)
@@ -455,10 +573,20 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
 
   /* ---------- answering ---------- */
   function choose(it, c, card) {
-    if (!db || S.pending[it.id]) return;
-    var note = (drafts[it.id] || "").trim();
     var saidAs = str(c.say) || c.label;   // optional fuller words for the record, e.g. "Take A"
-    var doc = { item: it.id, choice: c.id, label: saidAs, note: note, at: new Date().toISOString() };
+    submit(it, { item: it.id, choice: c.id, label: saidAs, note: (drafts[it.id] || "").trim(), at: new Date().toISOString() }, card);
+  }
+  function pickSend(it, pics, ids, card) {   // a picker answer: ids in strip order; none = "None of these"
+    var chosen = pics.filter(function (p) { return ids.indexOf(p.pid) >= 0; });
+    submit(it, {
+      item: it.id, choice: chosen.length ? ids.join(",") : "none", choices: ids,
+      label: chosen.length ? chosen.map(picName).join(", ") : "None of these",
+      note: (drafts[it.id] || "").trim(), at: new Date().toISOString()
+    }, card);
+  }
+  function submit(it, doc, card) {
+    if (!db || S.pending[it.id]) return;
+    var saidAs = doc.label;
     S.pending[it.id] = doc;
     var go = function () {
       stopAll(); render();
@@ -474,6 +602,7 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
   function reopen(id, a) {
     if (!db) return;
     if (a && a.note) drafts[id] = a.note;
+    if (a && Array.isArray(a.choices)) { picks[id] = {}; a.choices.forEach(function (k) { picks[id][String(k)] = true; }); }
     db.doc("answers/" + id).delete().then(function () {
       var target = $("list-answer").querySelector('[data-key="' + CSS.escape(id) + '"]') || $("list-look").querySelector('[data-key="' + CSS.escape(id) + '"]');
       if (target) target.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -504,7 +633,7 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
     var open = { answer: [], look: [] }, answered = [];
     items.forEach(function (it) {
       var sec = it.section === "look" ? "look" : "answer";
-      var hasChoices = Array.isArray(it.choices) && it.choices.length;
+      var hasChoices = (Array.isArray(it.choices) && it.choices.length) || !!pickPics(it);
       var a = hasChoices ? answerFor(it.id) : null;
       if (a) answered.push({ it: it, a: a }); else open[sec].push(it);
     });
