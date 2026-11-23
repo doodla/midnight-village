@@ -523,6 +523,16 @@ final screens = <String, Screen>{
           button(EndCopy.leave),
         ],
       },
+      // The reveal at the stamp: the word on the hanged card, the banner
+      // just out, the foot live.
+      'reveal, the stamp': [
+        text(EndCopy.hanged),
+        headline(EndCopy.youWinVillage),
+        text(EndCopy.hangedStamp),
+        button(EndCopy.whatHappened),
+        button(EndCopy.editDeck),
+        button(EndCopy.playAgain),
+      ],
       'nobody hanged, count form': [
         text(EndCopy.nobodyHanged),
         text(EndCopy.hangedCount),

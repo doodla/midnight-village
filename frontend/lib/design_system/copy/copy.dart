@@ -553,6 +553,10 @@ abstract final class EndCopy {
   static const cardPicked = Template("{name}, {hunter}'s pick.");
   static const wasRole = Template('{now}, was {dealt}.');
   static const hangedWord = 'Hanged.';
+
+  /// The stamp that slams on the hanged in the reveal (12 pt capitals, the
+  /// spec's one).
+  static const hangedStamp = 'HANGED';
   static const diedWord = 'Died.';
   static const wonWord = 'Won.';
   static const votes = Template('Votes: {names}.');

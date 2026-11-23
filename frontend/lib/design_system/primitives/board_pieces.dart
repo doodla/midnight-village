@@ -77,6 +77,9 @@ class BoardCard extends StatelessWidget {
   static const defaultStripHeight = 17.0;
   static const inset = 4.0;
 
+  /// The room beside the name in its header.
+  static const namePad = 10.0;
+
   /// The tab is as wide as its words and this each side, its foot this far
   /// above the card's.
   static const stripPad = 5.0;
@@ -197,7 +200,7 @@ class BoardCard extends StatelessWidget {
                     height: headerHeight,
                     width: size.width,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: namePad),
                       child: FitLine(
                         name!,
                         style: type.name.copyWith(color: ink),
