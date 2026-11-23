@@ -53,13 +53,20 @@ final class Door {
   }
 }
 
+/// How many player requests are out right now. The app does not renew
+/// itself for a new build while one is (`NewBuild`, `reload_rule.dart`);
+/// it looks again when this falls back to none.
+final ValueNotifier<int> playerRequestsOut = ValueNotifier(0);
+
 /// Runs [send] with the door open, and shuts it when [send] is done.
 Future<T> playerRequest<T>(Future<T> Function(Door door) send) async {
   final door = Door._();
+  playerRequestsOut.value++;
   try {
     return await send(door);
   } finally {
     door._open = false;
+    playerRequestsOut.value--;
   }
 }
 

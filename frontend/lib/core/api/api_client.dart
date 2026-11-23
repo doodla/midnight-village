@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../config/env.dart';
+import '../update/stale_page_interceptor.dart';
 import 'logging_interceptor.dart';
 
 /// Low-level HTTP client wrapper around Dio.
@@ -24,8 +25,9 @@ class ApiClient {
               },
             ),
           ) {
-    if (dio == null && Env.isDev) {
-      _dio.interceptors.add(LoggingInterceptor());
+    if (dio == null) {
+      _dio.interceptors.add(StalePageInterceptor());
+      if (Env.isDev) _dio.interceptors.add(LoggingInterceptor());
     }
   }
 

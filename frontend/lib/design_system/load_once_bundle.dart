@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../core/update/stale_smell.dart';
+
 /// The bundle the app's pictures are read from ([DefaultAssetBundle] over
 /// the app, and `SkinLoader`): on the web, [LoadOnceBundle] over the root
 /// bundle; elsewhere the root bundle itself (no network under it).
@@ -28,6 +30,8 @@ class LoadOnceBundle extends AssetBundle {
       (_) {},
       onError: (Object _) {
         _reads.remove(key);
+        // A file the page cannot read: the build may be out of date.
+        StaleSmell.report();
       },
     );
     return read;

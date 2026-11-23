@@ -6,6 +6,7 @@ import '../../auth/domain/auth_state.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../game/domain/screen_table.dart' show backRuleFor;
 import '../../game/presentation/shell/table_shell.dart';
+import '../../game/presentation/new_build_provider.dart';
 import '../../game/presentation/table_screen.dart' show tableScreenProvider;
 import 'join_flow.dart';
 import 'join_screen.dart';
@@ -37,6 +38,9 @@ class HomeGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final (rule, place, screen) = _place(ref);
+    // The app renews itself for a newer build at a safe moment, by what is
+    // shown (`mayReloadNow`).
+    ref.read(newBuildProvider)?.seen(place);
     return BackPolicy(rule: rule, place: place, child: screen);
   }
 

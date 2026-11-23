@@ -103,6 +103,12 @@ class Outbox {
       if (item.leg == Leg.unsent) item.lane,
   };
 
+  /// A tap that is not settled: waiting, in flight or unsent. (One that was
+  /// answered and only waits for `/me/` to show it is settled.)
+  bool get hasTapsOnTheWay =>
+      _queued.isNotEmpty ||
+      _current.values.any((item) => item.leg != Leg.confirming);
+
   Outbox withCurrent(OutboxItem item) =>
       Outbox._({..._current, item.lane: item}, _queued);
 

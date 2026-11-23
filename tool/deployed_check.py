@@ -138,6 +138,14 @@ def check_app(api, app):
             f"the app's bundle ({app}/main.dart.js, status {status}) does not name the server"
             f" {api}: the app was built against another server"
         )
+    # A file that is not there must look missing: an open app that asks for a picture
+    # a newer build removed must get a 404, never the app's page (frontend/vercel.json).
+    status, _, _ = call("GET", f"{app}/assets/no-such-picture-deployed-check.webp")
+    if status != 404:
+        raise Failed(
+            f"a missing picture: GET {app}/assets/no-such-picture-deployed-check.webp"
+            f" answered {status}, wanted 404 (the app's page must not stand in for a file)"
+        )
     status, headers, _ = call(
         "OPTIONS",
         f"{api}/api/auth/guest/",

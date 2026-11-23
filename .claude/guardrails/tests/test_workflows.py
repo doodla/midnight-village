@@ -241,9 +241,23 @@ class WorkflowPublishing(unittest.TestCase):
             "android-latest/midnight-village.apk",
         )
         # The single-page rewrite stays; Vercel answers redirects before rewrites.
-        self.assertEqual(
-            cfg["rewrites"], [{"source": "/(.*)", "destination": "/index.html"}]
-        )
+        (rewrite,) = cfg["rewrites"]
+        self.assertEqual(rewrite["destination"], "/index.html")
+        # ... for the app's routes only: a file that is not there (a picture a newer
+        # build removed) must answer a real 404, never the app's page.
+        import re
+
+        serves_the_app = re.compile("^" + rewrite["source"] + "$")
+        for route in ("/", "/join/ABCD", "/lobby/K7QX4M", "/app/x"):
+            self.assertTrue(serves_the_app.match(route), route)
+        for file in (
+            "/assets/assets/skins/shadow_paper/roles/werewolf.webp",
+            "/assets/anything",
+            "/main.dart.js",
+            "/somewhere/else.png",
+            "/commit.txt",
+        ):
+            self.assertFalse(serves_the_app.match(file), file)
 
 
 class WorkflowAfterMerge(unittest.TestCase):

@@ -90,15 +90,23 @@ def test_a_join_whose_answer_was_lost_is_still_cleaned_up(live_server, monkeypat
 
 
 class AppStub(http.server.BaseHTTPRequestHandler):
-    """The web app as Vercel serves it: real files first, the page for every other path."""
+    """The web app as Vercel serves it: real files first, the page for a path with no
+    extension, a 404 for any other missing file (frontend/vercel.json)."""
 
     files: dict = {}
+    serve_page_for_files = False
     page = (
         b"<!DOCTYPE html><html><body><script>flutter bootstrap</script></body></html>"
     )
 
     def do_GET(self):
-        body = self.files.get(self.path, self.page)
+        body = self.files.get(self.path)
+        if body is None and (self.serve_page_for_files or "." not in self.path):
+            body = self.page
+        if body is None:
+            self.send_response(404)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header(
             "Content-Type", "text/html" if body is self.page else "text/plain"
@@ -116,6 +124,7 @@ def app_stub():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     AppStub.files = {}
+    AppStub.serve_page_for_files = False
     yield f"http://127.0.0.1:{server.server_port}"
     server.shutdown()
     thread.join()
@@ -145,3 +154,13 @@ def test_the_app_steps_pass_when_bundle_and_cors_agree(live_server, app_stub, se
     settings.CORS_ALLOWED_ORIGINS = [app_stub]
     AppStub.files = {"/main.dart.js": f'var api="{live_server.url}";'.encode()}
     deployed_check.check_app(live_server.url, app_stub)
+
+
+def test_an_app_that_answers_a_missing_picture_with_its_page_fails(
+    live_server, app_stub, settings
+):
+    settings.CORS_ALLOWED_ORIGINS = [app_stub]
+    AppStub.files = {"/main.dart.js": f'var api="{live_server.url}";'.encode()}
+    AppStub.serve_page_for_files = True
+    with pytest.raises(deployed_check.Failed, match="wanted 404"):
+        deployed_check.check_app(live_server.url, app_stub)

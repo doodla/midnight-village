@@ -20,6 +20,7 @@ if [ -z "$out" ]; then
   tmp="$(mktemp -d)"
   out="$tmp/web"
   flutter build web --release --dart-define=ENV=prod \
-    --dart-define=API_ORIGIN=http://127.0.0.1:9 --output "$out" >/dev/null
+    --dart-define=API_ORIGIN=http://127.0.0.1:9 \
+    --dart-define=BUILD_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --output "$out" >/dev/null
 fi
 node "$here/smoke.cjs" "$out"
