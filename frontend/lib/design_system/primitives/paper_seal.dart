@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
-import '../primitives/drawn.dart';
 
 /// A seal cut from paper: a scalloped disc with a hard shadow under it and a
 /// padlock cut out of it. It is what a locked vote is stamped with (09), on
@@ -78,6 +78,7 @@ class _PaperSealState extends State<PaperSeal>
   @override
   Widget build(BuildContext context) {
     final ground = context.ground;
+    final paper = context.dress.isPaper;
     return ExcludeSemantics(
       child: AnimatedBuilder(
         animation: _controller,
@@ -101,24 +102,24 @@ class _PaperSealState extends State<PaperSeal>
             ),
           );
         },
-        child: Drawn(
-          DrawnKind.mark,
-          child: CustomPaint(
-            size: Size.square(widget.size),
-            painter: _SealPainter(
-              paper: ground.paper,
-              shadow:
-                  ground.elevation.card.layers.firstOrNull?.color ??
-                  ground.shadow,
-              mark: ground.danger,
-            ),
-            child: SizedBox.square(
-              dimension: widget.size,
-              child: Icon(
-                Icons.lock,
-                size: widget.size * 0.5,
-                color: ground.danger,
-              ),
+        child: CustomPaint(
+          size: Size.square(widget.size),
+          painter: _SealPainter(
+            // Dressed up the seal is a disc of red wax with the padlock cut
+            // out of bone paper, no ring; plain, a bone disc with a red ring.
+            paper: paper ? ground.danger : ground.paper,
+            shadow:
+                ground.elevation.card.layers.firstOrNull?.color ??
+                ground.shadow,
+            mark: ground.danger,
+            ring: !paper,
+          ),
+          child: SizedBox.square(
+            dimension: widget.size,
+            child: Icon(
+              Icons.lock,
+              size: widget.size * 0.5,
+              color: paper ? ground.onDanger : ground.danger,
             ),
           ),
         ),
@@ -128,11 +129,17 @@ class _PaperSealState extends State<PaperSeal>
 }
 
 class _SealPainter extends CustomPainter {
-  _SealPainter({required this.paper, required this.shadow, required this.mark});
+  _SealPainter({
+    required this.paper,
+    required this.shadow,
+    required this.mark,
+    required this.ring,
+  });
 
   final Color paper;
   final Color shadow;
   final Color mark;
+  final bool ring;
 
   Path _edge(Offset centre, double radius) {
     final path = Path();
@@ -162,8 +169,9 @@ class _SealPainter extends CustomPainter {
         edge.shift(const Offset(0, PaperSeal.drop)),
         Paint()..color = shadow,
       )
-      ..drawPath(edge, Paint()..color = paper)
-      ..drawCircle(
+      ..drawPath(edge, Paint()..color = paper);
+    if (ring) {
+      canvas.drawCircle(
         centre,
         radius * 0.78,
         Paint()
@@ -171,9 +179,13 @@ class _SealPainter extends CustomPainter {
           ..strokeWidth = math.max(1.5, radius * 0.07)
           ..color = mark,
       );
+    }
   }
 
   @override
   bool shouldRepaint(_SealPainter old) =>
-      paper != old.paper || shadow != old.shadow || mark != old.mark;
+      paper != old.paper ||
+      shadow != old.shadow ||
+      mark != old.mark ||
+      ring != old.ring;
 }

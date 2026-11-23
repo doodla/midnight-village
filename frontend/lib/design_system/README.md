@@ -104,10 +104,11 @@ state (`test/design_system/primitives/paper_rules_test.dart`): SHADOW (every sha
 from the screen's one light, `PaperLight`, which a sheet or dialog carries over in `GameScopes`; the
 paper shadow is moved copies, never a spread, so there is no halo), SEPARATION (a piece differs from
 what it lies on by 1.25:1 and casts a shadow; its words 4.5:1) and MATERIAL (pressed, picked, locked
-and focused are the same piece as rest; only the colour moves). Drawings that are lines by nature (the
-QR code's modules, the paper mark's tick, tally strokes, lantern cords, the scanner's corners) sit in
-a `Drawn` (`primitives/drawn.dart`), the one allow-list the stroke test knows; it is to shrink to the
-QR code's modules, and these are the ones still to be redrawn as filled shapes. The plain dress
+and focused are the same piece as rest; only the colour moves). Only drawings that are lines by nature (the
+QR code's modules and the scanner's camera frame) sit in a `Drawn` (`primitives/drawn.dart`), the
+one allow-list the stroke test knows; the images (roles, card backs) are pictures and need none.
+The paper mark's tick, the tally strokes, the seal and both lanterns are filled shapes of paper with
+a shadow, never strokes. The plain dress
 is every component's own code, kept exactly as it was (the owner has not asked for those screens).
 
 | Component | Plain look | Paper look | File (under `lib/design_system/`) |
@@ -127,7 +128,7 @@ is every component's own code, kept exactly as it was (the owner has not asked f
 | SeatDot / SlotMark | filled disc or slip; empty ones outlined | filled paper disc or slip; empty ones a darker paper disc, no outline | `primitives/dots.dart` |
 | ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | punched paper dots with a shadow; the unlit one a darker paper that keeps 3:1 against the ground | `primitives/progress_pips.dart` |
 | ScrapLabel | words in ink ("Edit") | a small bone scrap with the words | `primitives/scrap_label.dart` |
-| PlayerRow | paper row with a ring when picked or your own | a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are a drawing (`Drawn.tally`) | `primitives/player_row.dart` |
+| PlayerRow | paper row with a ring when picked or your own | a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are strips of paper with a shadow | `primitives/player_row.dart` |
 | PlayerToken | round token art | a cut disc of paper with its shadow, the emblem laid in it (its printed rim left outside); never a ring | `primitives/player_token.dart` |
 | RoleCard | portrait with a ring (lit or hairline) and a count badge | a mini card cut from paper: deckled, with its shadow while it is in the deck; the count a wax badge on its corner | `primitives/role_card.dart` |
 | Fanned | cards in a row | cards fanned a hair, paint only | `primitives/fanned.dart` |
@@ -147,12 +148,12 @@ is every component's own code, kept exactly as it was (the owner has not asked f
 | Band / TimerBand | a band with the clock, the sun or the bar | the same band; the night board's sits on a banner | `primitives/band.dart` |
 | WorldTimer | the seconds beside a candle on a panel with a hairline frame | the same panel with no frame | `primitives/world_timer.dart` |
 | CandleGauge | the paper candle (art) on a ledge with a hairline | the candle on a ledge with no hairline (the candle is art) | `primitives/candle_gauge.dart` |
-| PaperMark | not drawn (a pick is a ring) | wax, a pressed ring and a brush tick: the one mark for picked and done (a drawing, allowed: `Drawn.mark`) | `primitives/paper_mark.dart` |
-| PaperSeal | a scalloped seal with a padlock | the same (a drawing, allowed: `Drawn.mark`) | `primitives/paper_seal.dart` |
+| PaperMark | not drawn (a pick is a ring) | a drop of wax with a tick cut from paper laid on it (filled, with a shadow; no ring): the one mark for picked and done | `primitives/paper_mark.dart` |
+| PaperSeal | a scalloped seal with a padlock | a disc of red wax with the padlock in bone, no ring | `primitives/paper_seal.dart` |
 | PaperPin | takes no room | a flat pin: only where something is pinned (a notice, a slip) | `primitives/paper_pin.dart` |
 | Pending / BusyMark | the control sinks with a small lantern in its padding | the same, on the control's own paper | `primitives/pending.dart` |
 | Waiting | three paper lanterns on cords, lit one after another | the same | `primitives/waiting_sign.dart` |
-| PaperLantern | a cut-paper lantern with a warm glow | the same (a drawing, allowed: `Drawn.lantern`) | `primitives/paper_lantern.dart` |
+| PaperLantern | a cut-paper lantern with a warm glow | cut from paper: a cord strip, filled ribs, no outline; the busy mark a punched lantern whose flame is a hole | `primitives/paper_lantern.dart` |
 | Viewfinder / ShutteredWindow | a paper window with four corners; a closed one is outlined | the same window; a closed one is a recess of paper (the corners are a drawing, allowed: `Drawn.scanner`) | `primitives/viewfinder.dart` |
 
 ## First-time play pieces

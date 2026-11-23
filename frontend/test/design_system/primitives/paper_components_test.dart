@@ -232,7 +232,7 @@ void main() {
     ) async {
       final line = CustomPaint(painter: _Line(), size: const Size(20, 20));
       expect(
-        await _strokes(tester, Drawn(DrawnKind.tally, child: line)),
+        await _strokes(tester, Drawn(DrawnKind.qrCode, child: line)),
         isEmpty,
       );
       expect(await _strokes(tester, line), isNotEmpty);
@@ -241,9 +241,6 @@ void main() {
     test('the allow-list is the named drawings and no more', () {
       expect(DrawnKind.values.map((k) => k.name).toSet(), {
         'qrCode',
-        'mark',
-        'tally',
-        'lantern',
         'scanner',
       });
     });

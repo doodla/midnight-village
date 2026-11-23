@@ -5,11 +5,10 @@ import 'package:flutter/widgets.dart';
 import '../skin/dress.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
-import '../primitives/drawn.dart';
 
 /// The one mark for "picked" and "done": a drop of ink-dark wax pressed on the
-/// paper, its edge a little uneven, a ring stamped in it and a brush tick
-/// across it, in the ground's own mark colours (bone on night, ink on day and
+/// paper, its edge a little uneven and a tick cut from paper laid on it
+/// (filled shapes with a shadow each: no stroke, no ring), in the ground's own mark colours (bone on night, ink on day and
 /// paper; never amber, never a stock tick in a circle). A picked row or card
 /// wears it on its corner ([PaperMarkCorner]); a button that is done wears it
 /// before its word. It is a still picture: nothing animates, so reduced motion
@@ -29,15 +28,12 @@ class PaperMark extends StatelessWidget {
     final ground = context.ground;
     return ExcludeSemantics(
       child: RepaintBoundary(
-        child: Drawn(
-          DrawnKind.mark,
-          child: CustomPaint(
-            size: Size.square(size),
-            painter: _MarkPainter(
-              wax: color ?? ground.mark,
-              tick: onColor ?? ground.onMark,
-              cast: ground.shadow,
-            ),
+        child: CustomPaint(
+          size: Size.square(size),
+          painter: _MarkPainter(
+            wax: color ?? ground.mark,
+            tick: onColor ?? ground.onMark,
+            cast: ground.shadow,
           ),
         ),
       ),
@@ -115,32 +111,41 @@ class _MarkPainter extends CustomPainter {
       );
     }
     canvas.drawPath(_blob(centre, radius), Paint()..color = wax);
-    // The ring pressed into it.
-    canvas.drawCircle(
-      centre,
-      radius * 0.72,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = unit * 0.045
-        ..color = tick.withValues(alpha: 0.35),
-    );
-    // The brush tick: a short stroke down, a long one up, heavier at the turn.
-    final ink = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = tick;
+    // The tick: a paper cut, a short stroke down and a long one up, heavier
+    // at the turn, with its own small shadow on the wax.
+    final cut = _tick(centre, unit);
+    canvas
+      ..drawPath(
+        cut.shift(Offset(0, unit * 0.035)),
+        Paint()..color = cast.withValues(alpha: 0.4),
+      )
+      ..drawPath(cut, Paint()..color = tick);
+  }
+
+  /// The tick as one filled shape: two tapering bars meeting at the turn.
+  Path _tick(Offset centre, double unit) {
+    final start = centre + Offset(-unit * 0.2, unit * 0.01);
     final turn = centre + Offset(-unit * 0.04, unit * 0.15);
-    canvas.drawLine(
-      centre + Offset(-unit * 0.2, unit * 0.01),
-      turn,
-      ink..strokeWidth = unit * 0.115,
-    );
-    canvas.drawLine(
-      turn,
-      centre + Offset(unit * 0.22, -unit * 0.17),
-      ink..strokeWidth = unit * 0.085,
-    );
+    final end = centre + Offset(unit * 0.22, -unit * 0.17);
+    final down = unit * 0.115 / 2;
+    final up = unit * 0.085 / 2;
+    // The bars' sides, from each bar's normal.
+    Offset normal(Offset a, Offset b) {
+      final d = b - a;
+      return Offset(-d.dy, d.dx) / d.distance;
+    }
+
+    final n1 = normal(start, turn);
+    final n2 = normal(turn, end);
+    final nTurn = (n1 + n2) / (n1 + n2).distance;
+    return Path()
+      ..moveTo((start + n1 * down).dx, (start + n1 * down).dy)
+      ..lineTo((turn + nTurn * up * 1.2).dx, (turn + nTurn * up * 1.2).dy)
+      ..lineTo((end + n2 * up).dx, (end + n2 * up).dy)
+      ..lineTo((end - n2 * up).dx, (end - n2 * up).dy)
+      ..lineTo((turn - nTurn * up * 0.9).dx, (turn - nTurn * up * 0.9).dy)
+      ..lineTo((start - n1 * down).dx, (start - n1 * down).dy)
+      ..close();
   }
 
   @override

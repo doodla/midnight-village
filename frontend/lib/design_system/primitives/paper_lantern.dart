@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../skin/skin.dart';
-import '../primitives/drawn.dart';
+import '../skin/dress.dart';
 
 /// A small cut-paper lantern, the village's own light (the one in the door's
 /// window in 01, the candle of the night): a paper body with ribs, a dark
@@ -39,21 +39,19 @@ class PaperLantern extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    return Drawn(
-      DrawnKind.lantern,
-      child: CustomPaint(
-        size: Size(width, heightFor(width, cord)),
-        painter: _LanternPainter(
-          cord: cord,
-          lit: lit.clamp(0, 1),
-          paper: ground.paper,
-          rib: ground.hairline,
-          cap: ground.paperEdge,
-          ink: ground.outline,
-          shadow: ground.shadow,
-          glow: ground.accent,
-          stroke: skin.shape.stroke,
-        ),
+    return CustomPaint(
+      size: Size(width, heightFor(width, cord)),
+      painter: _LanternPainter(
+        cord: cord,
+        lit: lit.clamp(0, 1),
+        paper: ground.paper,
+        rib: ground.hairline,
+        cap: ground.paperEdge,
+        ink: ground.outline,
+        shadow: ground.shadow,
+        glow: ground.accent,
+        stroke: skin.shape.stroke,
+        cut: context.dress.isPaper,
       ),
     );
   }
@@ -70,8 +68,12 @@ class _LanternPainter extends CustomPainter {
     required this.shadow,
     required this.glow,
     required this.stroke,
+    this.cut = false,
   });
 
+  /// Dressed up: every part is a filled shape of paper (the cord a thin strip,
+  /// the ribs slivers), no stroke and no outline.
+  final bool cut;
   final double cord;
   final double lit;
   final Color paper;
@@ -95,13 +97,20 @@ class _LanternPainter extends CustomPainter {
     );
 
     // The cord, up to what it hangs from.
-    canvas.drawLine(
-      Offset(cx, 0),
-      Offset(cx, bodyTop),
-      Paint()
-        ..color = ink
-        ..strokeWidth = stroke * 0.8,
-    );
+    if (cut) {
+      canvas.drawRect(
+        Rect.fromLTRB(cx - stroke * 0.4, 0, cx + stroke * 0.4, bodyTop),
+        Paint()..color = ink,
+      );
+    } else {
+      canvas.drawLine(
+        Offset(cx, 0),
+        Offset(cx, bodyTop),
+        Paint()
+          ..color = ink
+          ..strokeWidth = stroke * 0.8,
+      );
+    }
 
     // The glow in the air round it, then the hard paper shadow.
     if (lit > 0) {
@@ -146,26 +155,49 @@ class _LanternPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     for (final k in [-0.24, 0.0, 0.24]) {
       final x = cx + w * k;
+      final top = cx + (x - cx) * 0.35;
+      final bow = cx + (x - cx) * 1.5;
+      if (cut) {
+        // A sliver of darker paper: two curves a rib's width apart, filled.
+        final half = stroke * 0.3;
+        canvas.drawPath(
+          Path()
+            ..moveTo(top - half, bodyTop)
+            ..quadraticBezierTo(
+              bow - half,
+              bodyTop + bodyH / 2,
+              top - half,
+              bodyTop + bodyH,
+            )
+            ..lineTo(top + half, bodyTop + bodyH)
+            ..quadraticBezierTo(
+              bow + half,
+              bodyTop + bodyH / 2,
+              top + half,
+              bodyTop,
+            )
+            ..close(),
+          Paint()..color = rib,
+        );
+        continue;
+      }
       canvas.drawPath(
         Path()
-          ..moveTo(cx + (x - cx) * 0.35, bodyTop)
-          ..quadraticBezierTo(
-            cx + (x - cx) * 1.5,
-            bodyTop + bodyH / 2,
-            cx + (x - cx) * 0.35,
-            bodyTop + bodyH,
-          ),
+          ..moveTo(top, bodyTop)
+          ..quadraticBezierTo(bow, bodyTop + bodyH / 2, top, bodyTop + bodyH),
         ribs,
       );
     }
     canvas.restore();
-    canvas.drawRRect(
-      body,
-      Paint()
-        ..color = ink
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke * 0.8,
-    );
+    if (!cut) {
+      canvas.drawRRect(
+        body,
+        Paint()
+          ..color = ink
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke * 0.8,
+      );
+    }
 
     // The cap and the foot.
     final capPaint = Paint()..color = cap;
@@ -191,7 +223,8 @@ class _LanternPainter extends CustomPainter {
       old.cord != cord ||
       old.paper != paper ||
       old.glow != glow ||
-      old.ink != ink;
+      old.ink != ink ||
+      old.cut != cut;
 }
 
 /// The mark beside a button's words while its tap is on its way: a small
@@ -241,15 +274,14 @@ class _LanternMarkState extends State<LanternMark>
     return ExcludeSemantics(
       child: AnimatedBuilder(
         animation: _breath,
-        builder: (context, _) => Drawn(
-          DrawnKind.lantern,
-          child: CustomPaint(
-            size: Size(widget.size * 0.7, widget.size),
-            painter: _MarkPainter(
-              color: color,
-              flame: 0.35 + 0.65 * _breath.value,
-              stroke: stroke,
-            ),
+        builder: (context, _) => CustomPaint(
+          size: Size(widget.size * 0.7, widget.size),
+          painter: _MarkPainter(
+            color: color,
+            flame: 0.35 + 0.65 * _breath.value,
+            stroke: stroke,
+            cut: context.dress.isPaper,
+            cast: context.ground.shadow,
           ),
         ),
       ),
@@ -262,16 +294,24 @@ class _MarkPainter extends CustomPainter {
     required this.color,
     required this.flame,
     required this.stroke,
+    this.cut = false,
+    this.cast = const Color(0x00000000),
   });
 
   final Color color;
   final double flame;
   final double stroke;
 
+  /// Dressed up: a lantern cut from paper (cap, body and foot filled, the
+  /// flame a hole through it that breathes) with a small shadow, no outline.
+  final bool cut;
+  final Color cast;
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
+    if (cut) return _paintCut(canvas, w, h);
     final line = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -305,7 +345,46 @@ class _MarkPainter extends CustomPainter {
     );
   }
 
+  void _paintCut(Canvas canvas, double w, double h) {
+    final cap = h * 0.1;
+    final shape = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.25, 0, w * 0.5, cap),
+          Radius.circular(cap * 0.4),
+        ),
+      )
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, h * 0.14, w, h * 0.72),
+          Radius.circular(w * 0.4),
+        ),
+      )
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.25, h - cap, w * 0.5, cap),
+          Radius.circular(cap * 0.4),
+        ),
+      );
+    // The flame is a hole through the paper, as large as it burns.
+    final hole = Path()
+      ..addOval(
+        Rect.fromCenter(
+          center: Offset(w / 2, h * 0.52),
+          width: w * 0.34 * flame,
+          height: h * 0.4 * flame,
+        ),
+      );
+    final cutOut = Path.combine(PathOperation.difference, shape, hole);
+    canvas
+      ..drawPath(
+        cutOut.shift(Offset(0, h * 0.06)),
+        Paint()..color = cast.withValues(alpha: 0.4),
+      )
+      ..drawPath(cutOut, Paint()..color = color);
+  }
+
   @override
   bool shouldRepaint(_MarkPainter old) =>
-      old.flame != flame || old.color != color;
+      old.flame != flame || old.color != color || old.cut != cut;
 }

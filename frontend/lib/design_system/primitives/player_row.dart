@@ -18,7 +18,6 @@ import 'fit_line.dart';
 import 'paper_seal.dart';
 import 'player_token.dart';
 import 'you_tag.dart';
-import '../primitives/drawn.dart';
 
 /// [PlayerRow]'s sizes: the mocks' rows, shrunk to the one name size (16,
 /// `type.name`; the owner's type choice of 23 November 2026). A row that is
@@ -555,13 +554,13 @@ class Tally extends StatelessWidget {
         children: [
           number,
           ExcludeSemantics(
-            child: Drawn(
-              DrawnKind.tally,
-              child: CustomPaint(
-                size: TallyMarks.sizeOf(count),
-                painter: TallyMarks([
-                  for (var k = 0; k < count; k++) struck(k),
-                ], ink),
+            child: CustomPaint(
+              size: TallyMarks.sizeOf(count),
+              painter: TallyMarks(
+                [for (var k = 0; k < count; k++) struck(k)],
+                ink,
+                // Dressed up each mark is a strip of paper with its shadow.
+                cast: context.dress.isPaper ? context.ground.shadow : null,
               ),
             ),
           ),
@@ -575,7 +574,11 @@ class Tally extends StatelessWidget {
 /// across them), each stroke drawn downward as it is struck. A hand's cut, so
 /// every stroke leans a little differently, the same each time.
 class TallyMarks extends CustomPainter {
-  TallyMarks(this.progress, this.ink);
+  TallyMarks(this.progress, this.ink, {this.cast});
+
+  /// The ink the strips of paper cast, where the marks are cut paper (a
+  /// dressed screen); null draws the plain strokes, as ever.
+  final Color? cast;
 
   /// How far each mark is struck, 0 to 1, in order.
   final List<double> progress;
@@ -599,12 +602,31 @@ class TallyMarks extends CustomPainter {
     return Size(width, strokeHeight);
   }
 
+  /// A strip of paper from [a] to [b], [strokeWidth] wide, a shadow under it.
+  void _strip(Canvas canvas, Offset a, Offset b, Color shadow) {
+    final d = b - a;
+    final n = Offset(-d.dy, d.dx) / d.distance * (strokeWidth / 2);
+    final path = Path()
+      ..moveTo((a + n).dx, (a + n).dy)
+      ..lineTo((b + n).dx, (b + n).dy)
+      ..lineTo((b - n).dx, (b - n).dy)
+      ..lineTo((a - n).dx, (a - n).dy)
+      ..close();
+    canvas
+      ..drawPath(
+        path.shift(const Offset(0, 1.5)),
+        Paint()..color = shadow.withValues(alpha: 0.4),
+      )
+      ..drawPath(path, Paint()..color = ink);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = ink
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.butt;
+    final shadow = cast;
     for (var k = 0; k < progress.length; k++) {
       final t = Motion.curve.transform(progress[k].clamp(0.0, 1.0));
       if (t <= 0) continue;
@@ -615,20 +637,23 @@ class TallyMarks extends CustomPainter {
       final lean = ((k * 7) % 5 - 2) * 0.35;
       if (at < 4) {
         final x = left + at * pitch + strokeWidth / 2;
-        canvas.drawLine(
-          Offset(x - lean, 0),
-          Offset(x - lean + (lean * 2) * t, strokeHeight * t),
-          paint,
-        );
+        final from = Offset(x - lean, 0);
+        final to = Offset(x - lean + (lean * 2) * t, strokeHeight * t);
+        shadow == null
+            ? canvas.drawLine(from, to, paint)
+            : _strip(canvas, from, to, shadow);
       } else {
         final end = Offset(left + _group + 1, strokeHeight * 0.15);
         final start = Offset(left - 1, strokeHeight * 0.85);
-        canvas.drawLine(start, Offset.lerp(start, end, t)!, paint);
+        final to = Offset.lerp(start, end, t)!;
+        shadow == null
+            ? canvas.drawLine(start, to, paint)
+            : _strip(canvas, start, to, shadow);
       }
     }
   }
 
   @override
   bool shouldRepaint(TallyMarks old) =>
-      ink != old.ink || !listEquals(progress, old.progress);
+      ink != old.ink || cast != old.cast || !listEquals(progress, old.progress);
 }

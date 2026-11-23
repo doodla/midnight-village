@@ -18,6 +18,7 @@ class TextBacking extends StatelessWidget {
     required this.child,
     this.id = 'plate',
     this.fill,
+    this.part = PaperPart.tag,
   });
 
   final Widget child;
@@ -27,6 +28,10 @@ class TextBacking extends StatelessWidget {
 
   /// The plate's own paper (a role's team colour); the tag's ink where null.
   final Color? fill;
+
+  /// The kind of paper the plate is cut from: a tag's, unless the caller
+  /// names it (a component names its own part, so the inventory can check it).
+  final PaperPart part;
 
   /// The colour of words on a plate: the tag's ink where dressed up, the
   /// ground's own text where there is no plate.
@@ -48,7 +53,7 @@ class TextBacking extends StatelessWidget {
           bottom: -parts.backingBleed.dy,
           child: IgnorePointer(
             child: PaperPiece(
-              part: PaperPart.tag,
+              part: part,
               id: id,
               fill: fill,
               child: const SizedBox.expand(),

@@ -28,7 +28,7 @@ class PaperParts {
     this.plaqueDepth = 3.4,
     this.plaqueStep = 7,
     this.markScale = 1.4,
-    this.backingBleed = const Offset(8, 5),
+    this.backingBleed = const Offset(8, 7),
     this.backingAlpha = 0.9,
     this.fanAngle = 0.12,
     this.fanScale = 1.1,
@@ -37,11 +37,11 @@ class PaperParts {
     this.discStep = 5,
     this.lockedTone = const Color(0xFF2A1D10),
     this.lockedDim = 0.3,
-    this.villageTag = const Color(0xFF2A4270),
-    this.tannerTag = const Color(0xFF5E3F18),
-    this.werewolfTag = const Color(0xFF80241E),
+    this.villageTag = const Color(0xFF203660),
+    this.tannerTag = const Color(0xFF523714),
+    this.werewolfTag = const Color(0xFF6E1D18),
     this.onTeamTag = const Color(0xFFE9E2D0),
-    this.markWax = const Color(0xFF80241E),
+    this.markWax = const Color(0xFF6E1D18),
   });
 
   /// The standard parts (the dressed skin's).

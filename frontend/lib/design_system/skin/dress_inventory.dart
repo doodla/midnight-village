@@ -156,7 +156,7 @@ const inventory = <PartEntry>[
     'primitives/player_row.dart',
     plain: 'paper row with a ring when picked or your own',
     paper:
-        'a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are a drawing (`Drawn.tally`)',
+        'a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are strips of paper with a shadow',
   ),
   PartEntry(
     'PlayerToken',
@@ -294,13 +294,13 @@ const inventory = <PartEntry>[
     'primitives/paper_mark.dart',
     plain: 'not drawn (a pick is a ring)',
     paper:
-        'wax, a pressed ring and a brush tick: the one mark for picked and done (a drawing, allowed: `Drawn.mark`)',
+        'a drop of wax with a tick cut from paper laid on it (filled, with a shadow; no ring): the one mark for picked and done',
   ),
   PartEntry(
     'PaperSeal',
     'primitives/paper_seal.dart',
     plain: 'a scalloped seal with a padlock',
-    paper: 'the same (a drawing, allowed: `Drawn.mark`)',
+    paper: 'a disc of red wax with the padlock in bone, no ring',
   ),
   PartEntry(
     'PaperPin',
@@ -325,7 +325,8 @@ const inventory = <PartEntry>[
     'PaperLantern',
     'primitives/paper_lantern.dart',
     plain: 'a cut-paper lantern with a warm glow',
-    paper: 'the same (a drawing, allowed: `Drawn.lantern`)',
+    paper:
+        'cut from paper: a cord strip, filled ribs, no outline; the busy mark a punched lantern whose flame is a hole',
   ),
   // ---- Scanner
   PartEntry(

@@ -3,22 +3,18 @@ import 'package:flutter/widgets.dart';
 
 /// What a drawing, not a border, is. A paper component paints no stroke of
 /// its own (`dress_style.dart`): a stroke is allowed only inside a [Drawn] of
-/// one of these, each a thing that IS a line by nature. `paper_strokes_test`
-/// walks every component's paint and fails on a stroke outside them.
+/// one of these, each a thing that IS a line by nature and no piece of paper.
+/// The marks, tally strokes and lanterns are not here: dressed up they are
+/// filled shapes of paper with a shadow, cut like the rest. The role and card
+/// back pictures are images, not strokes, and need no entry.
+/// `paper_components_test` walks every component's paint and fails on a stroke
+/// outside them.
 enum DrawnKind {
-  /// A QR code's modules.
+  /// A QR code's modules: the code is its squares, nothing to dress.
   qrCode,
 
-  /// The wax and brush tick of a pick or a done mark, and the seal's cut.
-  mark,
-
-  /// Tally strokes struck on a vote's paper.
-  tally,
-
-  /// A lantern, its frame and cord (the village's own light).
-  lantern,
-
-  /// The scanner's corners round what the camera sees.
+  /// The scanner's camera frame (the corners round what the camera sees, and
+  /// the same corners on 01's scan glyph): a viewfinder is its lines.
   scanner,
 }
 

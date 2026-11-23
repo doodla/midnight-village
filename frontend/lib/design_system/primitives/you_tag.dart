@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/skin.dart';
 import 'fit_line.dart';
+import 'paper_piece.dart';
 import 'text_backing.dart';
 
 /// "You" beside the viewer's own name wherever players are listed (02's
@@ -70,23 +72,36 @@ class _OutlineTag extends StatelessWidget {
     // Dressed up: a cut-paper tag (a [PaperPiece]), never an outline.
     if (context.dress.isPaper) {
       // A plate of paper in the ink of what it lies on (a navy tag on a bone
-      // row, a bone one on the night), reaching past its words on every side
-      // (paint only, `TextBacking`), the words the other way round, in the tag
-      // face the table's own "You" is set in everywhere.
-      return Padding(
-        padding: EdgeInsets.symmetric(horizontal: skin.parts.backingBleed.dx),
-        child: TextBacking(
-          id: text,
-          fill: ink,
-          child: FitWords(
-            text,
-            maxLines: 1,
-            style: ((compact ? style : null) ?? skin.typography.tag).copyWith(
-              color: ink.computeLuminance() < 0.3
-                  ? skin.night.text
-                  : skin.night.ground,
-            ),
+      // row, a bone one on the night), the words the other way round, in the
+      // tag face the table's own "You" is set in everywhere.
+      final face = ((compact ? style : null) ?? skin.typography.tag).copyWith(
+        color: ink.computeLuminance() < 0.3
+            ? skin.night.text
+            : skin.night.ground,
+      );
+      // Under a card (compact) the plate is paint only and takes no room, so
+      // the name keeps the room it had; in a row it is a piece with its own.
+      if (compact) {
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: skin.parts.backingBleed.dx),
+          child: TextBacking(
+            part: PaperPart.tag,
+            id: text,
+            fill: ink,
+            child: FitWords(text, maxLines: 1, style: face),
           ),
+        );
+      }
+      return PaperPiece(
+        part: PaperPart.tag,
+        id: text,
+        fill: ink,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.smPlus,
+            vertical: Space.xs,
+          ),
+          child: FitWords(text, maxLines: 1, style: face),
         ),
       );
     }

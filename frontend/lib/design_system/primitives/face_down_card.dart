@@ -399,13 +399,18 @@ class _FaceDownCardState extends State<FaceDownCard> {
             TeamId.village => parts.villageTag,
             TeamId.independent => parts.tannerTag,
           },
-          child: Text(
-            role.displayName,
-            maxLines: 1,
-            softWrap: false,
-            textAlign: TextAlign.center,
-            textScaler: TextScaler.noScaling,
-            style: style.copyWith(color: parts.onTeamTag),
+          // The slip's own padding keeps the words in the middle of the plate
+          // (the plate's stack would set them at its start edge).
+          child: Padding(
+            padding: padding,
+            child: Text(
+              role.displayName,
+              maxLines: 1,
+              softWrap: false,
+              textAlign: TextAlign.center,
+              textScaler: TextScaler.noScaling,
+              style: style.copyWith(color: parts.onTeamTag),
+            ),
           ),
         ),
       );
