@@ -24,7 +24,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import services
+from apps.onuw import recovery
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from apps.onuw.views import GameStartView
 from tests.onuw.test_play_again import Table
@@ -169,8 +169,8 @@ class TestStartupRecoveryInsideAnEventLoop:
         async def import_the_app_in_a_loop() -> None:
             # What an ASGI server does: the app is built with a loop running.
             with pytest.raises(SynchronousOnlyOperation):
-                services.recover_timers()  # the premise: direct ORM use is refused
-            services.run_startup_recovery()  # must work anyway
+                recovery.recover_timers()  # the premise: direct ORM use is refused
+            recovery.run_startup_recovery()  # must work anyway
 
         with patch("apps.core.timers.schedule") as schedule:
             asyncio.run(import_the_app_in_a_loop())
@@ -188,8 +188,8 @@ class TestStartupRecoveryInsideAnEventLoop:
 
     def test_it_still_works_with_no_loop_running(self, db, settings) -> None:
         settings.ONUW_RECOVER_TIMERS_ON_START = True
-        with patch("apps.onuw.services.recover_timers", return_value=0) as recover:
-            services.run_startup_recovery()
+        with patch("apps.onuw.recovery.recover_timers", return_value=0) as recover:
+            recovery.run_startup_recovery()
         recover.assert_called_once()
 
     def test_the_recovery_thread_closes_its_own_database_connections(
@@ -199,13 +199,13 @@ class TestStartupRecoveryInsideAnEventLoop:
         closed: list[bool] = []
 
         with (
-            patch("apps.onuw.services.recover_timers", return_value=0),
+            patch("apps.onuw.recovery.recover_timers", return_value=0),
             patch(
                 "django.db.connections.close_all",
                 side_effect=lambda: closed.append(True),
             ),
         ):
-            services.run_startup_recovery()
+            recovery.run_startup_recovery()
 
         assert closed == [True]
 

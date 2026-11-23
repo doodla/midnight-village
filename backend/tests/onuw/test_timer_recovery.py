@@ -25,7 +25,7 @@ from django.utils import timezone
 import pytest
 
 from apps.core import timers
-from apps.onuw import presence, services
+from apps.onuw import presence, recovery, services
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night, _Recorder
@@ -52,7 +52,7 @@ def _restart(night: Night) -> None:
 
 def _recover(night: Night) -> None:
     with night.committed():
-        services.recover_timers()
+        recovery.recover_timers()
     night.refresh()
 
 
@@ -73,7 +73,7 @@ def _phase_timer_keys(night: Night) -> list[str]:
     ]
 
 
-ALLOWANCE = services.RECOVERY_RECONNECT_ALLOWANCE_SECONDS
+ALLOWANCE = recovery.RECOVERY_RECONNECT_ALLOWANCE_SECONDS
 
 
 def _reconnect_everyone_quietly(night: Night) -> None:
@@ -524,11 +524,11 @@ class TestIdempotenceAndLazyRepair:
         key = f"{night.game.id}:wave:2"
         assert not timers.is_scheduled(key)
 
-        services.recover_timers()
+        recovery.recover_timers()
         first = timers._registry[key]
         assert timers.is_scheduled(key)
-        services.ensure_timers(night.refresh())  # already there: left alone
-        services.recover_timers()  # a second worker / a second pass
+        recovery.ensure_timers(night.refresh())  # already there: left alone
+        recovery.recover_timers()  # a second worker / a second pass
 
         assert timers._registry[key] is first
         live = [k for k in timers._registry if k.startswith(f"{night.game.id}:wave")]
@@ -606,14 +606,14 @@ class TestIdempotenceAndLazyRepair:
 
 class TestStartupHook:
     def test_it_is_off_under_the_test_settings(self) -> None:
-        with patch("apps.onuw.services.recover_timers") as recover:
-            services.run_startup_recovery()
+        with patch("apps.onuw.recovery.recover_timers") as recover:
+            recovery.run_startup_recovery()
         recover.assert_not_called()
 
     def test_it_runs_once_when_enabled(self, settings) -> None:
         settings.ONUW_RECOVER_TIMERS_ON_START = True
-        with patch("apps.onuw.services.recover_timers", return_value=2) as recover:
-            services.run_startup_recovery()
+        with patch("apps.onuw.recovery.recover_timers", return_value=2) as recover:
+            recovery.run_startup_recovery()
         recover.assert_called_once()
 
     @pytest.mark.parametrize(
@@ -623,8 +623,8 @@ class TestStartupHook:
         self, settings, error: Exception
     ) -> None:
         settings.ONUW_RECOVER_TIMERS_ON_START = True
-        with patch("apps.onuw.services.recover_timers", side_effect=error):
-            services.run_startup_recovery()  # must not raise
+        with patch("apps.onuw.recovery.recover_timers", side_effect=error):
+            recovery.run_startup_recovery()  # must not raise
 
 
 # ── Presence after a restart ─────────────────────────────────────────────────
