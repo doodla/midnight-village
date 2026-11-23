@@ -23,6 +23,7 @@ work stands: `docs/dev/status.md`.
 - A screen is judged by eye: render it (`just screens`), look at every picture, and hand over before and after.
 - The owner plays the live app. What they hit is in `docs/dev/owner-feedback.md`: read it before touching a screen.
 - Fix the cause as a mechanism, not the instance.
+- A source file stays under 600 lines (`tool/check_file_sizes.py`, in `just check` and the commit gate); the ones already over may only shrink.
 - Each checkout has its own `DB_NAME`. `just test-harness` takes its own free port and stops only its own backend. Timer tests wait on the timer itself (`backend/tests/timer_threads.py`), never on a sleep.
 - Test fixtures come only from `contract_samples/`; after a payload change run `just samples` and review the diff.
 - The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes"). Do not touch the owner's Vercel, Neon or Redis accounts; ask before generating large batches of art.

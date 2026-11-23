@@ -1,0 +1,20 @@
+# Source files over 600 lines, with the size each had when it was listed
+# (tool/check_file_sizes.py). A file may shrink freely; it may not grow past
+# its number: split it. Remove a line once its file is under 600.
+2275 backend/apps/onuw/services.py
+940 backend/apps/onuw/views.py
+916 frontend/lib/features/lobby/presentation/at_table_screen.dart
+851 frontend/lib/features/lobby/presentation/lobby_notifier.dart
+825 frontend/lib/features/game/presentation/live_game.dart
+820 .claude/hooks/git_guard.py
+798 frontend/lib/features/game/presentation/shell/results_screen.dart
+781 frontend/lib/design_system/primitives/screen_frame.dart
+766 frontend/lib/design_system/night/night_board.dart
+727 frontend/lib/design_system/primitives/mood.dart
+726 frontend/lib/features/lobby/presentation/deck_screen.dart
+710 frontend/lib/design_system/primitives/band.dart
+708 frontend/lib/features/game/presentation/shell/count_screen.dart
+695 frontend/lib/features/lobby/presentation/join_screen.dart
+646 frontend/lib/design_system/primitives/player_row.dart
+631 frontend/lib/features/lobby/domain/lobby_state.dart
+616 frontend/lib/features/game/presentation/shell/talk_screen.dart
