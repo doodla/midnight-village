@@ -7,8 +7,8 @@ import '../skin/elevation.dart';
 import '../skin/skin.dart';
 
 /// The one mark for "picked" and "done": a drop of ink-dark wax pressed on the
-/// paper, its edge a little uneven, a ring stamped in it and a brush tick
-/// across it, in the ground's own mark colours (bone on night, ink on day and
+/// paper, its edge a little uneven and a tick cut from paper laid on it
+/// (filled shapes with a shadow each: no stroke, no ring), in the ground's own mark colours (bone on night, ink on day and
 /// paper; never amber, never a stock tick in a circle). A picked row or card
 /// wears it on its corner ([PaperMarkCorner]); a button that is done wears it
 /// before its word. It is a still picture: nothing animates, so reduced motion
@@ -44,31 +44,51 @@ class PaperMark extends StatelessWidget {
 /// A [PaperMark] on the upper corner of what is picked, half over its edge
 /// (on a dressed screen; a plain one marks a pick by its ring alone).
 class PaperMarkCorner extends StatelessWidget {
-  const PaperMarkCorner({super.key, required this.child, required this.shown});
+  const PaperMarkCorner({
+    super.key,
+    required this.child,
+    required this.shown,
+    this.seal = false,
+  });
 
   /// What wears the mark.
   final Widget child;
   final bool shown;
+
+  /// A seal (a picked chip's): the larger mark, hung further over the corner,
+  /// in navy wax with a bone tick so it stands off bone paper.
+  final bool seal;
 
   /// The mark's width, and how far it hangs over the corner.
   static const size = 22.0;
   static const hang = 8.0;
 
   @override
-  Widget build(BuildContext context) => !context.dress.isPaper
-      ? child
-      : Stack(
-          clipBehavior: Clip.none,
-          children: [
-            child,
-            if (shown)
-              const Positioned(
-                top: -hang,
-                right: -hang,
-                child: IgnorePointer(child: PaperMark(size: size)),
+  Widget build(BuildContext context) {
+    if (!context.dress.isPaper) return child;
+    final parts = context.skin.parts;
+    final ground = context.ground;
+    final size = seal ? parts.sealSize : PaperMarkCorner.size;
+    final hang = seal ? parts.sealHang : PaperMarkCorner.hang;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        if (shown)
+          Positioned(
+            top: -hang,
+            right: -hang,
+            child: IgnorePointer(
+              child: PaperMark(
+                size: size,
+                color: seal ? ground.onMark : null,
+                onColor: seal ? ground.mark : null,
               ),
-          ],
-        );
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _MarkPainter extends CustomPainter {
@@ -111,32 +131,41 @@ class _MarkPainter extends CustomPainter {
       );
     }
     canvas.drawPath(_blob(centre, radius), Paint()..color = wax);
-    // The ring pressed into it.
-    canvas.drawCircle(
-      centre,
-      radius * 0.72,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = unit * 0.045
-        ..color = tick.withValues(alpha: 0.35),
-    );
-    // The brush tick: a short stroke down, a long one up, heavier at the turn.
-    final ink = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = tick;
+    // The tick: a paper cut, a short stroke down and a long one up, heavier
+    // at the turn, with its own small shadow on the wax.
+    final cut = _tick(centre, unit);
+    canvas
+      ..drawPath(
+        cut.shift(Offset(0, unit * 0.035)),
+        Paint()..color = cast.withValues(alpha: 0.4),
+      )
+      ..drawPath(cut, Paint()..color = tick);
+  }
+
+  /// The tick as one filled shape: two tapering bars meeting at the turn.
+  Path _tick(Offset centre, double unit) {
+    final start = centre + Offset(-unit * 0.2, unit * 0.01);
     final turn = centre + Offset(-unit * 0.04, unit * 0.15);
-    canvas.drawLine(
-      centre + Offset(-unit * 0.2, unit * 0.01),
-      turn,
-      ink..strokeWidth = unit * 0.115,
-    );
-    canvas.drawLine(
-      turn,
-      centre + Offset(unit * 0.22, -unit * 0.17),
-      ink..strokeWidth = unit * 0.085,
-    );
+    final end = centre + Offset(unit * 0.22, -unit * 0.17);
+    final down = unit * 0.115 / 2;
+    final up = unit * 0.085 / 2;
+    // The bars' sides, from each bar's normal.
+    Offset normal(Offset a, Offset b) {
+      final d = b - a;
+      return Offset(-d.dy, d.dx) / d.distance;
+    }
+
+    final n1 = normal(start, turn);
+    final n2 = normal(turn, end);
+    final nTurn = (n1 + n2) / (n1 + n2).distance;
+    return Path()
+      ..moveTo((start + n1 * down).dx, (start + n1 * down).dy)
+      ..lineTo((turn + nTurn * up * 1.2).dx, (turn + nTurn * up * 1.2).dy)
+      ..lineTo((end + n2 * up).dx, (end + n2 * up).dy)
+      ..lineTo((end - n2 * up).dx, (end - n2 * up).dy)
+      ..lineTo((turn - nTurn * up * 0.9).dx, (turn - nTurn * up * 0.9).dy)
+      ..lineTo((start - n1 * down).dx, (start - n1 * down).dy)
+      ..close();
   }
 
   @override

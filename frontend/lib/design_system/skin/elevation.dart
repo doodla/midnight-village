@@ -25,6 +25,12 @@ class HardShadow {
   final bool edge;
   final bool drop;
 
+  HardShadow withColor(Color color) => edge
+      ? HardShadow.edge(offset, color)
+      : drop
+      ? HardShadow.drop(offset, color)
+      : HardShadow(offset, color);
+
   HardShadow withOffset(Offset offset) => edge
       ? HardShadow.edge(offset, color)
       : drop
@@ -35,23 +41,25 @@ class HardShadow {
 /// The paper shadow, the one token every cast shadow goes through: a tight
 /// CONTACT shadow where the paper meets what it lies on, and a soft CAST
 /// shadow beyond it. The reach comes from the drop (the layer's larger
-/// offset); light falls from above, so both go down. The cast is a few
-/// stacked flat copies of the shape (each wider and fainter than the one
-/// above), so it reads as soft with no blur, no layer and no cost per frame
-/// (a blur per list item was ruled out); a press scales the drop and so
-/// shrinks both.
+/// offset); both fall AWAY from the screen's one light (`PaperLight`: straight
+/// down, or leaning to a side). The cast is a few stacked flat copies of the
+/// shape, each pushed a little further than the one above and fainter, so it
+/// reads as soft with no blur, no layer and no cost per frame (a blur per list
+/// item was ruled out). A copy is only ever MOVED, never grown: a shadow that
+/// is wider than its paper (a spread) shows on the side of the light, an
+/// all-round halo that reads as a border, and `paper_rules_test.dart` ("one light") fails
+/// any shadow that has one or that falls toward the light. A press scales the
+/// drop and so shrinks both.
 abstract final class PaperShadow {
   /// The contact shadow: its alpha, and how much of the drop it takes.
   static const contactAlpha = 0.62;
   static const contactReach = 0.2;
 
-  /// The cast: the steps, how far it spreads (of the drop), how far down it
-  /// falls (of the drop) and the alpha of each step (they add up near 0.3
-  /// next to the paper).
+  /// The cast: the steps, how far it falls (of the drop) and the alpha of
+  /// each step (they add up near 0.4 next to the paper).
   static const castSteps = 5;
-  static const castSpread = 2.4;
-  static const castFall = 1.0;
-  static const castAlpha = 0.075;
+  static const castFall = 2.0;
+  static const castAlpha = 0.08;
 
   /// The shadows of a drop of [offset] cast in [ink], outermost first (the
   /// order a [BoxDecoration] paints them: the last is on top).
@@ -64,8 +72,10 @@ abstract final class PaperShadow {
       for (var i = castSteps; i >= 1; i--)
         BoxShadow(
           color: ink.withValues(alpha: alpha(castAlpha)),
-          offset: Offset(lean * drop * 0.5, drop * castFall),
-          spreadRadius: drop * castSpread * i / castSteps - 0.5,
+          offset: Offset(
+            lean * drop * castFall * i / castSteps,
+            drop * castFall * i / castSteps,
+          ),
         ),
       BoxShadow(
         color: ink.withValues(alpha: alpha(contactAlpha)),
@@ -95,7 +105,14 @@ class Elevation {
   List<BoxShadow> boxShadowsLeaning(double lean) => [
     for (final layer in layers.reversed)
       if (!layer.drop)
-        BoxShadow(color: layer.color, offset: layer.offset)
+        // The paper's own thickness leans with the light too: one light. (A
+        // plain layer is the hard copy of today and never leans.)
+        BoxShadow(
+          color: layer.color,
+          offset: layer.edge
+              ? layer.offset + Offset(lean * layer.offset.dy, 0)
+              : layer.offset,
+        )
       else
         for (final s in PaperShadow.of(layer.offset, layer.color))
           if (lean == 0)

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter/painting.dart';
 
+import 'ground.dart';
+
 /// The sizes, angles and edges of the paper parts a dressed screen is made of
 /// (pins, banners, the plaque, torn cards), so no part and no screen carries a
 /// number of its own. Only a screen dressed up draws them (`Dress.paper`).
@@ -25,16 +27,38 @@ class PaperParts {
     this.barDepth = 2,
     this.plaqueDepth = 3.4,
     this.plaqueStep = 7,
-    this.plaqueInset = 3,
-    this.plaquePin = 5,
-    this.plaquePinIn = 11,
-    this.plaqueLineAlpha = 0.28,
-    this.plaquePinAlpha = 0.55,
     this.markScale = 1.4,
-    this.backingBleed = const Offset(8, 5),
+    this.backingBleed = const Offset(8, 7),
     this.backingAlpha = 0.9,
     this.fanAngle = 0.12,
     this.fanScale = 1.1,
+    this.tokenInset = 0.055,
+    this.discDepth = 1.3,
+    this.discStep = 5,
+    this.waxDepth = 2.2,
+    this.waxStep = 6,
+    this.lockedWell = 0.9,
+    this.lockedDark = 0.72,
+    this.lockedLift = 0.35,
+    this.lockedShadow = 0.5,
+    this.villageTag = const Color(0xFF203660),
+    this.tannerTag = const Color(0xFF523714),
+    this.werewolfTag = const Color(0xFF6E1D18),
+    this.onTeamTag = const Color(0xFFE9E2D0),
+    this.cardRim = const Color(0xFF080A1A),
+    this.outSaturation = 0.15,
+    this.holdBand = 0.07,
+    this.holdBandLeast = 3,
+    this.holdBandGap = 2,
+    this.holdDrop = 2,
+    this.holdArcAlpha = 0.5,
+    this.tallyDrop = 1.5,
+    this.tallyAlpha = 0.4,
+    this.lanternCast = const Offset(0.07, 0.09),
+    this.lanternHalo = 1.25,
+    this.lanternHaloAlpha = 0.34,
+    this.sealSize = 30,
+    this.sealHang = 12,
   });
 
   /// The standard parts (the dressed skin's).
@@ -68,16 +92,9 @@ class PaperParts {
   final double skyStep;
   final double barDepth;
 
-  /// The plaque (the primary button's amber paper): its torn edge, the cut
-  /// line set in from it, the pin at each end and how far in it sits, and how
-  /// strongly the line and the pins show.
+  /// The plaque (the primary button's amber paper): its torn edge.
   final double plaqueDepth;
   final double plaqueStep;
-  final double plaqueInset;
-  final double plaquePin;
-  final double plaquePinIn;
-  final double plaqueLineAlpha;
-  final double plaquePinAlpha;
 
   /// The done mark's size, of the label's.
   final double markScale;
@@ -91,4 +108,88 @@ class PaperParts {
   /// larger each card is drawn.
   final double fanAngle;
   final double fanScale;
+
+  /// How much of a token's printed rim a dressed token leaves outside its
+  /// paper disc, of the picture's width.
+  final double tokenInset;
+
+  /// A cut disc's rim: how far it steps in and the length of one nibble.
+  final double discDepth;
+  final double discStep;
+
+  /// A drop of wax's edge (a count): rounder and more uneven than a cut disc.
+  final double waxDepth;
+  final double waxStep;
+
+  /// An unlit progress dot: the ground's ink laid half-way into the ground,
+  /// so it keeps 3:1 against it.
+  Color pipUnlit(Ground ground) => Color.lerp(ground.ground, ground.text, 0.5)!;
+
+  /// A locked piece (a button that cannot act yet) is the QUIETEST form of
+  /// button, never the brightest: dark indigo paper, [lockedWell] of the way
+  /// from the ground to the ground's panel (so it stands off the ground by
+  /// 1.25:1 and lies lower than a chip), no amber and no bone, its words the
+  /// ground's own text (4.5:1 or more), barely lifted: its lift is
+  /// [lockedLift] of a scrap's and it casts [lockedShadow] of a scrap's ink.
+  /// `paper_rules_test.dart` ("locked") holds it lower than every live button
+  /// form in luminance and in shadow.
+  final double lockedWell;
+
+  /// On a light ground: how far the paper is laid from the ground toward its
+  /// ink, so a locked piece is still the darkest button there.
+  final double lockedDark;
+  final double lockedLift;
+  final double lockedShadow;
+
+  /// A team's tag, the same on every surface and ground (a tag is paper of
+  /// its own colour, never the ground's): the Village's slate blue, the
+  /// Tanner's umber, the Werewolf team's red; words in [onTeamTag].
+  final Color villageTag;
+  final Color tannerTag;
+  final Color werewolfTag;
+  final Color onTeamTag;
+
+  /// The paper a face-down card's navy layer lies on: a darker indigo, never
+  /// red (red is the Werewolf team's, on its tag, rows and markers, and
+  /// nowhere else; `paper_red_test.dart`).
+  final Color cardRim;
+
+  /// The hold disc's amber arc: its band's share of the disc (at least
+  /// [holdBandLeast] px), the gap between band and disc, and the ink of its
+  /// shadow (the drop is two px a unit of the light's lean, and two down).
+  final double holdBand;
+  final double holdBandLeast;
+  final double holdBandGap;
+  final double holdDrop;
+  final double holdArcAlpha;
+
+  /// A tally strip's shadow: how far it drops and its ink.
+  final double tallyDrop;
+  final double tallyAlpha;
+
+  /// The paper lantern's shadow (of its width, sideways and down), the glow
+  /// round it (its radius in widths) and how bright that is at most.
+  final Offset lanternCast;
+  final double lanternHalo;
+  final double lanternHaloAlpha;
+
+  /// A card OUT of the deck keeps this share of its colour (a colour matrix).
+  final double outSaturation;
+
+  /// A colour filter that keeps [keep] of every colour (1 all, 0 grey).
+  ColorFilter desaturate(double keep) {
+    final inv = 1 - keep;
+    final r = 0.2126 * inv, g = 0.7152 * inv, b = 0.0722 * inv;
+    return ColorFilter.matrix([
+      r + keep, g, b, 0, 0, //
+      r, g + keep, b, 0, 0, //
+      r, g, b + keep, 0, 0, //
+      0, 0, 0, 1, 0,
+    ]);
+  }
+
+  /// The wax seal a picked chip wears: its size, and how far it hangs over the
+  /// chip's corner.
+  final double sealSize;
+  final double sealHang;
 }

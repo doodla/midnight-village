@@ -94,6 +94,20 @@ Future<void> _expectReadable(WidgetTester tester) async {
 }
 
 void main() {
+  // The host steps from the table into the deck set-up page: paper too. It
+  // scrolls under its button, so it is read whole, on a phone as tall as it is.
+  for (final width in [360.0, 390.0]) {
+    testWidgets(
+      'the deck set-up page at ${width.round()} wide: every word keeps 7:1 on '
+      'the worst pixel round it, village on',
+      (tester) async {
+        final before = await _pump(tester, const DeckPage(), Size(width, 1500));
+        await _untilComposed(tester, before);
+        await _expectReadable(tester);
+      },
+    );
+  }
+
   for (final phone in _phones) {
     final size = '${phone.width.round()} x ${phone.height.round()}';
     for (final (name, page) in <(String, Widget)>[

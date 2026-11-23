@@ -401,9 +401,6 @@ class _PlayerRowState extends State<PlayerRow> {
     // Dressed up: torn paper set down a hair off square (the same every build,
     // from its name and token), pinned to the table; the words stay level.
     final seed = (token, name);
-    final ringed = widget.condemned
-        ? skin.shape.selectedRing + PlayerRow.condemnedExtra
-        : skin.shape.selectedRing;
     Widget dressedPaper() => AnimatedContainer(
       key: ValueKey(red),
       duration: duration,
@@ -418,22 +415,9 @@ class _PlayerRowState extends State<PlayerRow> {
           id: seed,
           elevation: dip > 0 ? base.lowered(dip) : base,
         ),
-        // The ring follows the torn edge: never a rounded one over it.
-        foregroundDecoration: picked
-            ? deckledRing(
-                context,
-                id: seed,
-                color: ground.selection,
-                width: ringed,
-              )
-            : own
-            ? deckledRing(
-                context,
-                id: seed,
-                color: ink,
-                width: skin.shape.selectedRing,
-              )
-            : null,
+        // Picked is the paper's mark and the lift, never a ring; the viewer's
+        // own row is told by its "You" tag (a ring along the torn edge was a
+        // border).
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             Space.sm,
@@ -572,9 +556,14 @@ class Tally extends StatelessWidget {
           ExcludeSemantics(
             child: CustomPaint(
               size: TallyMarks.sizeOf(count),
-              painter: TallyMarks([
-                for (var k = 0; k < count; k++) struck(k),
-              ], ink),
+              painter: TallyMarks(
+                [for (var k = 0; k < count; k++) struck(k)],
+                ink,
+                // Dressed up each mark is a strip of paper with its shadow.
+                cast: context.dress.isPaper ? context.ground.shadow : null,
+                drop: context.skin.parts.tallyDrop,
+                castAlpha: context.skin.parts.tallyAlpha,
+              ),
             ),
           ),
         ],
@@ -587,7 +576,21 @@ class Tally extends StatelessWidget {
 /// across them), each stroke drawn downward as it is struck. A hand's cut, so
 /// every stroke leans a little differently, the same each time.
 class TallyMarks extends CustomPainter {
-  TallyMarks(this.progress, this.ink);
+  TallyMarks(
+    this.progress,
+    this.ink, {
+    this.cast,
+    this.drop = 0,
+    this.castAlpha = 0,
+  });
+
+  /// The ink the strips of paper cast, where the marks are cut paper (a
+  /// dressed screen); null draws the plain strokes, as ever.
+  final Color? cast;
+
+  /// How far a cut strip's shadow drops, and its ink (`PaperParts`).
+  final double drop;
+  final double castAlpha;
 
   /// How far each mark is struck, 0 to 1, in order.
   final List<double> progress;
@@ -611,12 +614,31 @@ class TallyMarks extends CustomPainter {
     return Size(width, strokeHeight);
   }
 
+  /// A strip of paper from [a] to [b], [strokeWidth] wide, a shadow under it.
+  void _strip(Canvas canvas, Offset a, Offset b, Color shadow) {
+    final d = b - a;
+    final n = Offset(-d.dy, d.dx) / d.distance * (strokeWidth / 2);
+    final path = Path()
+      ..moveTo((a + n).dx, (a + n).dy)
+      ..lineTo((b + n).dx, (b + n).dy)
+      ..lineTo((b - n).dx, (b - n).dy)
+      ..lineTo((a - n).dx, (a - n).dy)
+      ..close();
+    canvas
+      ..drawPath(
+        path.shift(Offset(0, drop)),
+        Paint()..color = shadow.withValues(alpha: castAlpha),
+      )
+      ..drawPath(path, Paint()..color = ink);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = ink
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.butt;
+    final shadow = cast;
     for (var k = 0; k < progress.length; k++) {
       final t = Motion.curve.transform(progress[k].clamp(0.0, 1.0));
       if (t <= 0) continue;
@@ -627,20 +649,23 @@ class TallyMarks extends CustomPainter {
       final lean = ((k * 7) % 5 - 2) * 0.35;
       if (at < 4) {
         final x = left + at * pitch + strokeWidth / 2;
-        canvas.drawLine(
-          Offset(x - lean, 0),
-          Offset(x - lean + (lean * 2) * t, strokeHeight * t),
-          paint,
-        );
+        final from = Offset(x - lean, 0);
+        final to = Offset(x - lean + (lean * 2) * t, strokeHeight * t);
+        shadow == null
+            ? canvas.drawLine(from, to, paint)
+            : _strip(canvas, from, to, shadow);
       } else {
         final end = Offset(left + _group + 1, strokeHeight * 0.15);
         final start = Offset(left - 1, strokeHeight * 0.85);
-        canvas.drawLine(start, Offset.lerp(start, end, t)!, paint);
+        final to = Offset.lerp(start, end, t)!;
+        shadow == null
+            ? canvas.drawLine(start, to, paint)
+            : _strip(canvas, start, to, shadow);
       }
     }
   }
 
   @override
   bool shouldRepaint(TallyMarks old) =>
-      ink != old.ink || !listEquals(progress, old.progress);
+      ink != old.ink || cast != old.cast || !listEquals(progress, old.progress);
 }

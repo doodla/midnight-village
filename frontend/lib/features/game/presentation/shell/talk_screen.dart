@@ -589,12 +589,10 @@ class _DeckChip extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onOpen,
         onLongPress: onOpen,
-        child: Container(
+        child: OutlinePanel(
           padding: portrait ? _DeckGrid._pad : _DeckGrid._namePad,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(skin.shape.radius),
-            border: Border.all(color: ground.outline, width: skin.shape.ring),
-          ),
+          color: ground.outline,
+          width: skin.shape.ring,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             spacing: Space.sm,

@@ -17,6 +17,8 @@ class DeckleBorder extends ShapeBorder {
     this.step = 6,
     this.torn = false,
     this.side = BorderSide.none,
+    this.round = false,
+    this.blob = false,
   });
 
   final int seed;
@@ -24,6 +26,11 @@ class DeckleBorder extends ShapeBorder {
   final double step;
   final bool torn;
   final BorderSide side;
+
+  /// A disc, not a rectangle: a circle whose rim steps in and out by a hair
+  /// (a cut disc of paper). [blob] smooths it into a drop of wax.
+  final bool round;
+  final bool blob;
 
   @override
   EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
@@ -44,7 +51,31 @@ class DeckleBorder extends ShapeBorder {
     return depth * (h < 0.12 ? 1 : 0.15 + 0.6 * h);
   }
 
+  Path _roundPath(Rect rect) {
+    final centre = rect.center;
+    final radius = math.min(rect.width, rect.height) / 2;
+    final n = math.max(10, (2 * math.pi * radius / step).round());
+    final points = [
+      for (var i = 0; i < n; i++)
+        centre +
+            Offset.fromDirection(
+              2 * math.pi * i / n,
+              radius - (blob ? depth * (0.3 + 1.4 * _h(0, i)) : _bite(0, i)),
+            ),
+    ];
+    final path = Path();
+    if (!blob) return path..addPolygon(points, true);
+    // Wax: the rim runs through the midpoints, the points pulling it.
+    Offset mid(int i) => (points[i % n] + points[(i + 1) % n]) / 2;
+    path.moveTo(mid(n - 1).dx, mid(n - 1).dy);
+    for (var i = 0; i < n; i++) {
+      path.quadraticBezierTo(points[i].dx, points[i].dy, mid(i).dx, mid(i).dy);
+    }
+    return path..close();
+  }
+
   Path _path(Rect rect) {
+    if (round) return _roundPath(rect);
     final path = Path();
     final w = rect.width;
     final h = rect.height;
@@ -71,17 +102,39 @@ class DeckleBorder extends ShapeBorder {
     return path;
   }
 
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
+  /// The paths already cut, by what makes one (the edge's make and the rect):
+  /// a piece whose paper is painted again (a new painter, a clip asked for
+  /// again) is not torn again. A [Path] is only ever read after it is built;
+  /// a caller that moves one ([Path.shift]) gets a copy. Oldest out first.
+  static final _cut = <(int, double, double, bool, bool, bool, Rect), Path>{};
+  static const _cutMost = 512;
+
+  /// How many paths were torn (not found in the cache) since the app began:
+  /// `paint_cache_test.dart` reads it.
+  @visibleForTesting
+  static int tornCount = 0;
+
+  Path _cached(Rect rect) {
+    final key = (seed, depth, step, torn, round, blob, rect);
+    final found = _cut.remove(key);
+    if (found != null) return _cut[key] = found;
+    tornCount++;
+    final path = _path(rect);
+    if (_cut.length >= _cutMost) _cut.remove(_cut.keys.first);
+    return _cut[key] = path;
+  }
 
   @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _cached(rect);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => _cached(rect);
 
   @override
   void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
     if (side.style == BorderStyle.none || side.width <= 0) return;
     canvas.drawPath(
-      _path(rect),
+      _cached(rect),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round
@@ -100,10 +153,12 @@ class DeckleBorder extends ShapeBorder {
       other.depth == depth &&
       other.step == step &&
       other.torn == torn &&
+      other.round == round &&
+      other.blob == blob &&
       other.side == side;
 
   @override
-  int get hashCode => Object.hash(seed, depth, step, torn, side);
+  int get hashCode => Object.hash(seed, depth, step, torn, side, round, blob);
 }
 
 /// A seed from any id (djb2 over its text; the same on every platform).

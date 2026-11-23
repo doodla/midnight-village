@@ -11,7 +11,7 @@ import 'package:midnight_village/design_system/primitives/paper_banner.dart';
 import 'package:midnight_village/design_system/primitives/paper_light.dart';
 import 'package:midnight_village/design_system/primitives/paper_mark.dart';
 import 'package:midnight_village/design_system/primitives/paper_pin.dart';
-import 'package:midnight_village/design_system/primitives/plaque.dart';
+import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
@@ -22,6 +22,7 @@ import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
+import 'package:midnight_village/design_system/skin/mood_palette.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/design_system/skin/skin_tilt.dart';
@@ -134,7 +135,7 @@ void main() {
       );
       expect(tester.getSize(find.byType(PaperPin)), Size.zero);
       expect(find.byType(PaperMark), findsNothing);
-      expect(find.byType(Plaque), findsNothing);
+      expect(find.byType(PaperPiece), findsNothing);
       expect(find.byType(DeckleBorder), findsNothing);
       // The banner is its words and nothing round them.
       expect(
@@ -270,14 +271,16 @@ void main() {
       expect(tilt.angle(Tilt.seededRow('x')), tilt.angle(Tilt.seededRow('x')));
     });
 
-    testWidgets('the primary button is a plaque, its words level, and still '
-        'one amber fill', (tester) async {
+    testWidgets('the primary button is amber paper on a backing (one '
+        'PaperPiece), nothing in it but its label', (tester) async {
       await _pump(
         tester,
         const PrimaryButton(label: 'Go', onPressed: _noop),
         dress: Dress.paper,
       );
-      expect(find.byType(Plaque), findsOneWidget);
+      expect(find.byType(PaperPiece), findsOneWidget);
+      // No pin, no inset line: the label is all that is drawn in it.
+      expect(find.byType(PaperPin), findsNothing);
       expect(find.byType(DeckleBorder), findsNothing); // a shape, not a widget
     });
 
@@ -308,11 +311,31 @@ void main() {
       final straight = drop.boxShadowsLeaning(0);
       final left = drop.boxShadowsLeaning(-0.5);
       expect(left.first.offset.dx, lessThan(straight.first.offset.dx));
-      // An edge, the paper's thickness, never leans.
+      // The edge, the paper's own thickness, leans with the one light too (the
+      // deliberate one-light direction since e0b1dce, not a drift): the moon
+      // stands high on the right at night, so everything it lights throws
+      // left, the edge by the SAME share of its fall as every cast copy. The
+      // expected value is derived from the light, no number written in.
+      final moon = Mood.leanOf(MoodKind.night, const MoodPalette());
+      expect(moon, lessThan(0), reason: 'the night\'s light is on the right');
       const edge = Elevation([
         HardShadow.edge(Offset(0, 5), Color(0xFF000000)),
       ]);
-      expect(edge.boxShadowsLeaning(-0.5).single.offset, const Offset(0, 5));
+      final edgeAt = edge.boxShadowsLeaning(moon).single.offset;
+      expect(edgeAt.dx / edgeAt.dy, closeTo(moon, 1e-9));
+      for (final cast in drop.boxShadowsLeaning(moon)) {
+        expect(
+          cast.offset.dx / cast.offset.dy,
+          closeTo(edgeAt.dx / edgeAt.dy, 1e-9),
+          reason: 'the edge and the cast fall the same way',
+        );
+      }
+      // Lit from straight above it leans nowhere.
+      expect(edge.boxShadowsLeaning(0).single.offset, const Offset(0, 5));
+      // And no layer is wider than its paper: moved copies, never a spread.
+      for (final s in left) {
+        expect(s.spreadRadius, lessThanOrEqualTo(0));
+      }
     });
 
     test('a plain layer is the hard copy of today', () {

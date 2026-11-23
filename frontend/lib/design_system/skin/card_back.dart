@@ -20,6 +20,18 @@ enum CardBack {
 
   const CardBack(this.fileName);
 
+  /// How much of the picture's own printed edge (a cream margin, a red rim)
+  /// a dressed card leaves outside its cut-paper frame, as a share of the
+  /// picture's width: the art inside is untouched, and the card's edge is
+  /// paper layers (a red one under the navy), never a drawn line.
+  double get frameInset => switch (this) {
+    moon => 0.040,
+    window => 0.040,
+    teeth => 0.070,
+    eye => 0.055,
+    quilt => 0.042,
+  };
+
   /// The picture's name in the skin's `scenes/` folder after `card_back_`.
   final String fileName;
 

@@ -21,6 +21,7 @@ import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../design_system/primitives/value_stepper.dart';
 import '../../../design_system/primitives/world_timer.dart';
+import '../../../design_system/skin/dress.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
@@ -29,6 +30,7 @@ import '../domain/role_config.dart';
 import 'lobby_notifier.dart';
 import 'seats_line.dart';
 import 'where_am_i_provider.dart';
+import '../../../design_system/primitives/dots.dart';
 
 /// A deck chip's name on screen.
 String deckChipLabel(DeckChip chip) => DeckCopy.chips[chip.index];
@@ -116,16 +118,19 @@ class _DeckScreenState extends ConsumerState<DeckScreen> {
       // Read until it answers; "One moment" while it cannot be.
       return BackHandler(
         onBack: close,
-        child: ScreenFrame(
-          ground: GroundKind.night,
-          body: Align(
-            alignment: Alignment.topCenter,
-            child: Waiting(
-              failing: read?.hasError ?? false,
-              onRetry: table == null
-                  ? () => ref.invalidate(myTableProvider)
-                  : () => ref.invalidate(lobbyProvider(table.lobbyCode)),
-              centred: true,
+        child: DressScope(
+          dress: DeckView.defaultDress,
+          child: ScreenFrame(
+            ground: GroundKind.night,
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: Waiting(
+                failing: read?.hasError ?? false,
+                onRetry: table == null
+                    ? () => ref.invalidate(myTableProvider)
+                    : () => ref.invalidate(lobbyProvider(table.lobbyCode)),
+                centred: true,
+              ),
             ),
           ),
         ),
@@ -178,7 +183,16 @@ class DeckView extends StatefulWidget {
     this.onPracticeSwitch,
     this.onPractice,
     this.onRetry,
+    this.dress,
   });
+
+  /// How the screen is dressed (null: as the live screen, [defaultDress]).
+  final Dress? dress;
+
+  /// The dress the live screen has: the host steps from the table (paper) to
+  /// here, so it is paper too (the owner, 23 November 2026: "some are paper,
+  /// some are not").
+  static const defaultDress = Dress.paper;
 
   final LobbyState lobby;
   final ValueChanged<int?> onSeats;
@@ -272,7 +286,14 @@ class DeckViewState extends State<DeckView> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: widget.dress ?? DeckView.defaultDress,
+    // Everything the page reads or opens (the type, a card's sheet) is read
+    // from a context UNDER the dress: this State's own is above it.
+    child: Builder(builder: _page),
+  );
+
+  Widget _page(BuildContext context) {
     final type = context.skin.typography;
     final table = lobby.table;
     final seats = table.seats;
@@ -318,7 +339,6 @@ class DeckViewState extends State<DeckView> {
             deck: lobby.tableCards,
             onAdd: (role) => _change(role, RoleConfig.stepSize(role)),
             onRemove: (role) => _change(role, -RoleConfig.stepSize(role)),
-            onHold: (role) => unawaited(showRoleSheet(context, role)),
           ),
           _Lengths(lobby: lobby, onLength: widget.onLength),
         ],
@@ -456,17 +476,11 @@ class DeckCount extends StatelessWidget {
     Widget slot(int i) {
       final filled = i < picked;
       final ink = i >= need ? ground.dangerText : ground.text;
-      return Container(
-        width: size.width,
-        height: size.height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(skin.shape.radiusSmall / 2),
-          color: filled ? ink : null,
-          border: Border.all(
-            color: filled ? ink : ground.outline,
-            width: skin.shape.stroke,
-          ),
-        ),
+      return SlotMark(
+        filled: filled,
+        size: size,
+        ink: ink,
+        outline: ground.outline,
       );
     }
 
@@ -649,13 +663,11 @@ class _Grid extends StatelessWidget {
     required this.deck,
     required this.onAdd,
     required this.onRemove,
-    required this.onHold,
   });
 
   final Map<RoleId, int> deck;
   final ValueChanged<RoleId> onAdd;
   final ValueChanged<RoleId> onRemove;
-  final ValueChanged<RoleId> onHold;
 
   static const _gap = Space.md;
 
@@ -696,7 +708,9 @@ class _Grid extends StatelessWidget {
               count: deck[role] ?? 0,
               lit: (deck[role] ?? 0) > 0,
               onTap: () => onAdd(role),
-              onLongPress: () => onHold(role),
+              // From this widget's own context: under the page's frame, so the
+              // sheet is lit and dressed as the page is.
+              onLongPress: () => unawaited(showRoleSheet(context, role)),
               onRemove: () => onRemove(role),
               removeLabel: SpokenCopy.takeOut.fill({'role': role.displayName}),
             ),
@@ -715,10 +729,9 @@ Future<void> showRoleSheet(BuildContext context, RoleId role) =>
         actions: [
           const Spacer(),
           // Quiet: the screen under the sheet keeps the one amber.
-          PrimaryButton.quiet(
+          SheetClose(
             label: RoleSheetCopy.close,
             onPressed: () => Navigator.of(sheet).pop(),
-            size: ButtonSize.compact,
           ),
         ],
         child: RoleSheetBody(role),

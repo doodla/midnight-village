@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/skin.dart';
 import 'fit_line.dart';
+import 'paper_piece.dart';
 
 /// A value between a minus and a plus (S03: the number of players, each
 /// length): the glyphs are round outlined buttons of the reading floor's 44,
@@ -68,12 +70,13 @@ class ValueStepper extends StatelessWidget {
 
   Widget _backed(BuildContext context, Widget value) => !context.dress.isPaper
       ? value
-      : DecoratedBox(
-          decoration: BoxDecoration(
-            color: context.ground.ground.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(context.skin.shape.radius),
+      : PaperPiece(
+          part: PaperPart.well,
+          id: #value,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.xxs),
+            child: value,
           ),
-          child: value,
         );
 
   @override
@@ -204,7 +207,7 @@ class LabelledStepper extends StatelessWidget {
   }
 }
 
-class _Glyph extends StatelessWidget {
+class _Glyph extends StatefulWidget {
   const _Glyph({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
@@ -212,15 +215,65 @@ class _Glyph extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<_Glyph> createState() => _GlyphState();
+}
+
+class _GlyphState extends State<_Glyph> {
+  var _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
+    final onTap = widget.onTap;
     final on = onTap != null;
     final ink = on ? ground.text : ground.faintText;
+    // Dressed up: a bone paper disc with the sign on it (a [PaperPiece]),
+    // faded where the value is at its end; no ring.
+    if (context.dress.isPaper) {
+      return Semantics(
+        button: true,
+        enabled: on,
+        label: widget.label,
+        excludeSemantics: true,
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: ValueStepper.glyph,
+          child: PaperPiece(
+            part: PaperPart.disc,
+            id: widget.label,
+            pressed: _pressed,
+            enabled: on,
+            child: Material(
+              type: MaterialType.transparency,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onTap,
+                customBorder: const CircleBorder(),
+                highlightColor: Colors.transparent,
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                onHighlightChanged: (v) => setState(() => _pressed = v),
+                child: Icon(
+                  widget.icon,
+                  color: PaperPiece.inkOf(
+                    context,
+                    PaperPart.disc,
+                    disabled: !on,
+                  ),
+                  size: ValueStepper.glyph * Sizes.glyphInDisc,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Semantics(
       button: true,
       enabled: on,
-      label: label,
+      label: widget.label,
       excludeSemantics: true,
       child: Material(
         type: MaterialType.transparency,
@@ -240,7 +293,7 @@ class _Glyph extends StatelessWidget {
               ),
             ),
             child: Icon(
-              icon,
+              widget.icon,
               color: ink,
               size: ValueStepper.glyph * Sizes.glyphInDisc,
             ),

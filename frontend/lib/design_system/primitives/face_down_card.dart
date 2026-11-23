@@ -1,4 +1,3 @@
-import 'paper_light.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,13 +5,19 @@ import 'package:flutter/material.dart';
 import '../layout/space.dart';
 import '../models/role.dart';
 import '../skin/card_back_scope.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/werewolf_portrait.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import '../teach/hold_cue.dart';
+import '../skin/elevation.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
+import 'deckle.dart';
+import 'deckled_paper.dart';
+import 'paper_light.dart';
 import 'paper_mark.dart';
 import 'fit_line.dart';
 import 'hold_to_reveal.dart' show HoldPress;
@@ -79,6 +84,7 @@ class FaceDownCard extends StatefulWidget {
     this.cardWidth,
     this.nameSize,
     this.nameHeight,
+    this.youName = false,
     this.semanticLabel,
     this.semanticHint,
     this.onTap,
@@ -110,6 +116,9 @@ class FaceDownCard extends StatefulWidget {
   final double? cardWidth;
   final double? nameSize;
   final double? nameHeight;
+
+  /// The name under the card is "You": the table's own tag, not a name.
+  final bool youName;
   final String? semanticLabel;
 
   /// What a screen reader adds after the label (a dimmed card: a tap still
@@ -155,6 +164,11 @@ class FaceDownCard extends StatefulWidget {
   /// A face-up card's role name sits this far above the token's top.
   static const faceNameLift = Space.xxs;
 
+  /// How far a dressed name's plate reaches past its words, sideways and up
+  /// and down; the board's columns leave room for twice the first.
+  static const nameBleed = 4.0;
+  static const nameBleedUp = 3.0;
+
   /// How far the text size grows a face-up card's role name.
   static const roleNameScale = 1.6;
 
@@ -190,37 +204,45 @@ class _FaceDownCardState extends State<FaceDownCard> {
       button: widget.onTap != null,
       selected: widget.selected,
       excludeSemantics: widget.semanticLabel != null,
-      child: Listener(
-        // The press answers the frame the finger lands, not when the tap is
-        // recognised (a card under a hold's cover waits for neither).
-        onPointerDown: (_) => _touch(true),
-        onPointerUp: (_) => _touch(false),
-        onPointerCancel: (_) => _touch(false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: duration,
-            curve: Motion.curve,
-            transform: Matrix4.translationValues(
-              0,
-              (widget.selected ? -FaceDownCard.lift : 0) + dip,
-              0,
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final most = widget.cardWidth ?? size.mock.width;
-                final width = constraints.hasBoundedWidth
-                    ? most.clamp(0.0, constraints.maxWidth)
-                    : most;
-                final column = _column(context, width, duration, dip);
-                return widget.tapExtra == 0
-                    ? column
-                    : Padding(
-                        padding: EdgeInsets.only(bottom: widget.tapExtra),
-                        child: column,
-                      );
-              },
+      // Its own layer: a lift or a dip moves this card's picture, and never
+      // repaints the paper round it (`paint_cache_test.dart`).
+      child: RepaintBoundary(
+        child: Listener(
+          // The press answers the frame the finger lands, not when the tap is
+          // recognised (a card under a hold's cover waits for neither).
+          onPointerDown: (_) => _touch(true),
+          onPointerUp: (_) => _touch(false),
+          onPointerCancel: (_) => _touch(false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: duration,
+              curve: Motion.curve,
+              transform: Matrix4.translationValues(
+                0,
+                (widget.selected ? -FaceDownCard.lift : 0) + dip,
+                0,
+              ),
+              // A pick lifts the card as one picture: its paper is painted
+              // once, not again each frame of the lift.
+              child: RepaintBoundary(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final most = widget.cardWidth ?? size.mock.width;
+                    final width = constraints.hasBoundedWidth
+                        ? most.clamp(0.0, constraints.maxWidth)
+                        : most;
+                    final column = _column(context, width, duration, dip);
+                    return widget.tapExtra == 0
+                        ? column
+                        : Padding(
+                            padding: EdgeInsets.only(bottom: widget.tapExtra),
+                            child: column,
+                          );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -247,7 +269,15 @@ class _FaceDownCardState extends State<FaceDownCard> {
       height: height,
       child: size == FaceDownSize.hero
           ? _hero(context, width)
-          : _back(context, width, duration, dip),
+          : _back(
+              context,
+              width,
+              duration,
+              dip,
+              foot: owner != null && widget.face != null
+                  ? _roleFoot(context, widget.face!, width)
+                  : 0,
+            ),
     );
     if (angle != 0) card = Transform.rotate(angle: angle, child: card);
     // A pick wears the mark on its corner.
@@ -326,6 +356,35 @@ class _FaceDownCardState extends State<FaceDownCard> {
     );
   }
 
+  /// The room under a face-up card's portrait that its role slip and the
+  /// owner's token take: the token's upper half, the slip's lift and height
+  /// (at the size the text size gives it: a longer name only sets smaller) and
+  /// a hair, so the slip sits UNDER the portrait and never over the face.
+  double _roleFoot(BuildContext context, RoleId role, double cardWidth) {
+    final skin = context.skin;
+    final dressed = context.dress.isPaper;
+    if (!dressed) return 0;
+    final base = skin.typography.tag;
+    final scale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1.0, FaceDownCard.roleNameScale);
+    final fontSize = base.fontSize! * scale;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: role.displayName,
+        style: base.copyWith(fontSize: fontSize),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final slip = painter.height + 2 * Space.xxs;
+    painter.dispose();
+    return FaceDownCard.ownerTokenFor(cardWidth) / 2 +
+        FaceDownCard.faceNameLift +
+        slip +
+        Space.xxs;
+  }
+
   /// A face-up card's role name, on a slip of paper across the card's foot,
   /// above the owner's token ([bottom] is the token's height). One line,
   /// whole: at the label size with the text size (as far as
@@ -341,7 +400,9 @@ class _FaceDownCardState extends State<FaceDownCard> {
   }) {
     final skin = context.skin;
     final ground = context.ground;
-    final base = skin.typography.caption.copyWith(color: ground.text);
+    final dressed = context.dress.isPaper;
+    final base = (dressed ? skin.typography.tag : skin.typography.caption)
+        .copyWith(color: ground.text);
     const padding = EdgeInsets.symmetric(
       horizontal: Space.xxs,
       vertical: Space.xxs,
@@ -372,6 +433,36 @@ class _FaceDownCardState extends State<FaceDownCard> {
     final style = base.copyWith(fontSize: size);
     final slip = painter.width.ceilToDouble() + padding.horizontal;
     painter.dispose();
+    // Dressed up the role is a cut-paper name tag, laid across the card's
+    // foot at the same size and in the same room as the slip it replaces.
+    if (dressed) {
+      return Positioned(
+        left: (cardWidth - slip) / 2,
+        width: slip,
+        bottom: bottom + FaceDownCard.faceNameLift,
+        child: TextBacking(
+          id: role.name,
+          // Neutral navy paper, never a team's colour: a Minion's card must
+          // not read as a Werewolf's (red is the Werewolf team's tag alone).
+          part: PaperPart.nameTag,
+          // The slip's own padding keeps the words in the middle of the plate
+          // (the plate's stack would set them at its start edge).
+          child: Padding(
+            padding: padding,
+            child: Text(
+              role.displayName,
+              maxLines: 1,
+              softWrap: false,
+              textAlign: TextAlign.center,
+              textScaler: TextScaler.noScaling,
+              style: style.copyWith(
+                color: TextBacking.inkOf(context, part: PaperPart.nameTag),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Positioned(
       left: (cardWidth - slip) / 2,
       width: slip,
@@ -399,17 +490,39 @@ class _FaceDownCardState extends State<FaceDownCard> {
   }
 
   /// The owner's name under the token.
-  Widget _name(BuildContext context, String name) => TextBacking(
-    child: FitWords(
-      name,
-      textAlign: TextAlign.center,
-      maxLines: 2,
-      style: context.skin.typography.nameSmall.copyWith(
-        fontSize: widget.nameSize,
-        color: context.ground.text,
-      ),
-    ),
-  );
+  Widget _name(BuildContext context, String name) =>
+      widget.youName && context.dress.isPaper
+      // "You" is the table's own tag: the tag face, on a plate in the tag's ink.
+      ? TextBacking(
+          id: name,
+          child: FitWords(
+            name,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: context.skin.typography.tag.copyWith(
+              fontSize: widget.nameSize,
+              height: 1,
+              color: TextBacking.inkOf(context),
+            ),
+          ),
+        )
+      // A player's name over the board is the quiet tag (navy paper, bone
+      // words: it never outshouts the dark cards), its plate reaching only a
+      // little past the words so neighbours keep a gap (`nameBleed`).
+      : TextBacking(
+          id: name,
+          part: PaperPart.nameTag,
+          bleed: const Offset(FaceDownCard.nameBleed, FaceDownCard.nameBleedUp),
+          child: FitWords(
+            name,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: context.skin.typography.nameSmall.copyWith(
+              fontSize: widget.nameSize,
+              color: TextBacking.inkOf(context, part: PaperPart.nameTag),
+            ),
+          ),
+        );
 
   /// The card back in its ring, lying on the table; picked, it is lifted: a
   /// deeper hard shadow, the ground's soft light and the selection's ring,
@@ -419,12 +532,33 @@ class _FaceDownCardState extends State<FaceDownCard> {
     BuildContext context,
     double width,
     Duration duration,
-    double dip,
-  ) {
+    double dip, {
+    double foot = 0,
+  }) {
     final skin = context.skin;
     final ground = context.ground;
     final selected = widget.selected;
     final radius = BorderRadius.circular(skin.shape.radius);
+    if (context.dress.isPaper) {
+      // Paper layers, no ring and no glow: lifted, it casts a deeper shadow.
+      final lying = selected
+          ? ground.elevation.selected
+          : ground.elevation.lying.scaled(width / FaceDownCard._shadowWidth);
+      return AnimatedContainer(
+        duration: duration,
+        curve: Motion.curve,
+        // A role's name goes UNDER its portrait, as on the held card and the
+        // sheet (one layout for a role's name, everywhere): the portrait stops
+        // above the slip's room, the slip is never laid over the face.
+        padding: EdgeInsets.only(bottom: foot),
+        child: CardBackPaper(
+          id: widget.face?.name ?? widget.owner ?? 'back',
+          elevation: dip > 0 ? lying.lowered(dip) : lying,
+          face: widget.face,
+          over: _hold(context, width),
+        ),
+      );
+    }
     final base = selected
         ? ground.elevation.selected
         : ground.elevation.lying.scaled(width / FaceDownCard._shadowWidth);
@@ -456,7 +590,8 @@ class _FaceDownCardState extends State<FaceDownCard> {
               ...(dip > 0 ? base.lowered(dip) : base).litBy(context),
             ],
           ),
-      foregroundDecoration: ringDecoration(
+      foregroundDecoration: frameRing(
+        context,
         color: selected ? ground.selection : ground.hairline,
         width: selected ? skin.shape.selectedRing : skin.shape.ring,
         radius: radius,
@@ -471,24 +606,31 @@ class _FaceDownCardState extends State<FaceDownCard> {
             else
               ArtPicture(context.cardBack),
             // Over the card's eye, clear of the token on its lower edge.
-            if (widget.hold case final teaching? when teaching)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: widget.owner == null
-                      ? 0
-                      : FaceDownCard.ownerTokenFor(width) / 2,
-                ),
-                child: Center(
-                  child: HoldCue(
-                    teaching: teaching,
-                    size: width * FaceDownCard.holdShare,
-                  ),
-                ),
-              ),
+            if (_hold(context, width) case final over?) over,
           ],
         ),
       ),
     );
+  }
+
+  /// The hold ring over the card's eye, clear of the token on its lower edge.
+  Widget? _hold(BuildContext context, double width) {
+    if (widget.hold case final teaching? when teaching) {
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: widget.owner == null
+              ? 0
+              : FaceDownCard.ownerTokenFor(width) / 2,
+        ),
+        child: Center(
+          child: HoldCue(
+            teaching: teaching,
+            size: width * FaceDownCard.holdShare,
+          ),
+        ),
+      );
+    }
+    return null;
   }
 
   /// The one card a screen is about: the back in a paper frame, lifted, with
@@ -497,6 +639,37 @@ class _FaceDownCardState extends State<FaceDownCard> {
     final skin = context.skin;
     final ground = context.ground;
     final scale = width / size.mock.width;
+    if (context.dress.isPaper) {
+      // A deckled paper card like the face's, the back laid on it in paper
+      // layers.
+      return DecoratedBox(
+        decoration: deckledPaper(
+          context,
+          fill: ground.paper,
+          id: #heroBack,
+          elevation: ground.elevation.heroSlab,
+          depth: skin.parts.pinnedDepth,
+          step: skin.parts.pinnedStep,
+          edgeLine: false,
+          side: BorderSide.none,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(Space.smPlus * scale),
+          child: CardBackPaper(
+            id: #hero,
+            elevation: ground.elevation.badge,
+            over: widget.hold == null
+                ? null
+                : Center(
+                    child: HoldCue(
+                      teaching: widget.hold!,
+                      size: HoldCue.maxSize * scale,
+                    ),
+                  ),
+          ),
+        ),
+      );
+    }
     return DecoratedBox(
       decoration: cutPaper(
         context,
@@ -523,6 +696,92 @@ class _FaceDownCardState extends State<FaceDownCard> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A card of dressed paper: a layer of red (or bone, for a face) paper with the
+/// card's navy paper laid on it a rim smaller, both deckled, the lower with a
+/// shadow cast by the paper above it. The picture inside is the card's art
+/// as it is, its own printed edge left outside the navy layer (`CardBack.
+/// frameInset`); the edge of the card is two cut layers and their shadows,
+/// never a line. [face] shows a role instead of the back.
+class CardBackPaper extends StatelessWidget {
+  const CardBackPaper({
+    super.key,
+    required this.id,
+    required this.elevation,
+    this.face,
+    this.over,
+  });
+
+  final Object id;
+
+  /// What the whole card casts.
+  final Elevation elevation;
+  final RoleId? face;
+
+  /// Laid over the picture (the hold ring).
+  final Widget? over;
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.skin;
+    final ground = context.ground;
+    final parts = skin.parts;
+    final art = face == null ? context.cardBack : context.roleArt(face!);
+    final inset = face == null ? CardBackScope.of(context).frameInset : 0.0;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final rim = (box.maxWidth * 0.035).clamp(2.0, 5.0);
+        final top = DeckleBorder(
+          seed: deckleSeed((id, 'top')),
+          depth: parts.deckleDepth,
+          step: parts.deckleStep,
+        );
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: deckledPaper(
+                context,
+                fill: face == null ? parts.cardRim : ground.paper,
+                id: (id, 'rim'),
+                elevation: elevation,
+                depth: parts.deckleDepth,
+                step: parts.deckleStep,
+                edgeLine: false,
+                side: BorderSide.none,
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(rim),
+              child: DecoratedBox(
+                decoration: deckledPaper(
+                  context,
+                  fill: skin.night.ground,
+                  id: (id, 'top'),
+                  elevation: ground.elevation.badge,
+                  depth: parts.deckleDepth,
+                  step: parts.deckleStep,
+                  edgeLine: false,
+                  side: BorderSide.none,
+                ),
+                child: ClipPath(
+                  clipper: ShapeBorderClipper(shape: top),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ArtPicture(art, inset: inset),
+                      ?over,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

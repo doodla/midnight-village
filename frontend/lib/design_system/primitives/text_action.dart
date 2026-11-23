@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
 import 'fit_line.dart';
 import 'secondary_button.dart' show BusyMark;
@@ -60,13 +61,17 @@ class _TextActionState extends State<TextAction> {
     final busy = widget.busy;
     final enabled = widget.onPressed != null || busy;
     final type = context.skin.typography;
-    final style = (widget.quiet ? type.lede : type.buttonLabelSmall).copyWith(
-      color: enabled
-          ? (widget.quiet ? ground.quietText : ground.text)
-          : ground.faintText,
-      decoration: TextDecoration.underline,
-      decorationColor: enabled ? ground.quietText : null,
-    );
+    // Dressed up a quiet action is plain serif words: no underline, no
+    // outline, no fill (the paper's language, `dress_style.dart`).
+    final style = context.dress.isPaper
+        ? type.name.copyWith(color: enabled ? ground.text : ground.faintText)
+        : (widget.quiet ? type.lede : type.buttonLabelSmall).copyWith(
+            color: enabled
+                ? (widget.quiet ? ground.quietText : ground.text)
+                : ground.faintText,
+            decoration: TextDecoration.underline,
+            decorationColor: enabled ? ground.quietText : null,
+          );
     return Semantics(
       button: true,
       enabled: enabled,

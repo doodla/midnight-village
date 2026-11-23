@@ -2,7 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'paper_light.dart';
+
 import '../skin/art_set.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
 
 /// The parts of the candle, the keys tests find them by.
@@ -249,11 +252,16 @@ class CandleGauge extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: ground.panel,
                   borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-                  border: Border(
-                    top: BorderSide(color: ground.hairline, width: 1),
-                  ),
+                  border: context.dress.isPaper
+                      ? null
+                      : Border(
+                          top: BorderSide(color: ground.hairline, width: 1),
+                        ),
                   boxShadow: [
-                    BoxShadow(color: ground.shadow, offset: const Offset(0, 2)),
+                    BoxShadow(
+                      color: ground.shadow,
+                      offset: Offset(PaperLight.of(context) * 2, 2),
+                    ),
                   ],
                 ),
               ),

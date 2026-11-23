@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/skin/skin.dart';
+import '../../../design_system/primitives/dots.dart';
 
 /// Who is here of how many, at a table set for a number (02 and 03, host and
 /// guests alike): "3 of 8" and a seat for each, the taken ones filled. The
@@ -46,17 +47,12 @@ class SeatsLine extends StatelessWidget {
               runSpacing: Space.xs,
               children: [
                 for (var i = dots == SeatDots.all ? 0 : present; i < seats; i++)
-                  Container(
-                    width: Sizes.seat,
-                    height: Sizes.seat,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i < present ? ground.text : null,
-                      border: Border.all(
-                        color: i < present ? ground.text : ground.outline,
-                        width: skin.shape.stroke,
-                      ),
-                    ),
+                  SeatDot(
+                    taken: i < present,
+                    side: Sizes.seat,
+                    ink: ground.text,
+                    outline: ground.outline,
+                    stroke: skin.shape.stroke,
                   ),
               ],
             ),

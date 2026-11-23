@@ -3,15 +3,13 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/skin.dart';
-import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
-import 'deckled_paper.dart';
 import 'fit_line.dart';
 import 'paper_lantern.dart';
-import 'paper_pin.dart';
+import 'paper_piece.dart';
 import 'primary_button.dart';
-import 'tilted_paper.dart';
 
 /// A second, quieter action beside or below the primary one: an outline on
 /// the ground ("Do nothing tonight", "Take out of deck"). Like the primary
@@ -89,6 +87,7 @@ class SecondaryButton extends StatefulWidget {
 
 class _SecondaryButtonState extends State<SecondaryButton> {
   var _pressed = false;
+  var _focused = false;
 
   VoidCallback? get _onTap => widget.onPressed ?? widget.onLockedTap;
 
@@ -192,51 +191,20 @@ class _SecondaryButtonState extends State<SecondaryButton> {
     );
   }
 
-  /// Dressed up, every secondary action is a scrap of paper pinned to the
-  /// table (see [SecondaryButton]).
+  /// Dressed up, every secondary action is a bone scrap of paper (a
+  /// [PaperPiece]: deckled, lying on the ground, no outline and no pin).
   Widget _scrap(BuildContext context) {
     final skin = context.skin;
-    final ground = context.ground;
     final busy = widget.busy;
     final enabled =
         widget.onPressed != null || widget.onLockedTap != null || busy;
     final radius = BorderRadius.circular(skin.shape.radius);
-    final paper = widget._paper;
-
-    // Every secondary action is a scrap of paper pinned to the table, torn at
-    // its edge: bone where it is the paper's own ([SecondaryButton.paper], or
-    // by day), a darker scrap with a bone rim where the night is the ground.
-    final bone = paper || ground.ground.computeLuminance() > 0.5;
-    final ink = paper ? skin.paper.text : ground.text;
-    final rest = ground.elevation.raised;
-    final decoration = deckledPaper(
-      context,
-      id: (widget.label, #scrap),
-      fill: !enabled
-          ? ground.disabled
-          : bone
-          ? ground.paper
-          : (_pressed ? ground.hairline : ground.panel),
-      elevation: enabled && !_pressed
-          ? rest
-          : rest.pressed(skin.shape.pressKeep),
-      side: bone
-          ? null
-          : BorderSide(
-              color: enabled ? ground.outline : ground.hairline,
-              width: skin.shape.stroke,
-            ),
-    );
     final style = widget.size
         .label(skin.typography)
-        .copyWith(color: enabled ? ink : ground.onDisabled);
-    final pinInk = bone ? skin.paper.text : ground.text;
-
-    // A pinned scrap sinks into its shadow under a finger, as the plaque does.
-    final sunk = enabled && _pressed
-        ? ground.elevation.raised.travel(skin.shape.pressKeep)
-        : Offset.zero;
-    final scrap = Semantics(
+        .copyWith(
+          color: PaperPiece.inkOf(context, PaperPart.scrap, locked: !enabled),
+        );
+    return Semantics(
       button: true,
       enabled: enabled,
       label: widget.label,
@@ -246,33 +214,31 @@ class _SecondaryButtonState extends State<SecondaryButton> {
       // left out with its words): a screen reader can press it.
       onTap: busy ? null : _onTap,
       excludeSemantics: true,
-      child: AnimatedContainer(
-        duration: Motion.press,
-        curve: Motion.curve,
-        transform: Matrix4.translationValues(sunk.dx, sunk.dy, 0),
+      child: ConstrainedBox(
         constraints: BoxConstraints(
           minHeight: widget.size.secondaryHeight,
           minWidth: widget.size.minWidth,
         ),
-        child: _scrapPaper(
-          decoration: decoration,
+        child: PaperPiece(
+          part: PaperPart.scrap,
+          id: widget.label,
+          pressed: _pressed,
+          lifted: _focused && !_pressed,
+          enabled: enabled,
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
               onTap: busy ? null : _onTap,
               onHighlightChanged: (value) => setState(() => _pressed = value),
+              onFocusChange: (value) => setState(() => _focused = value),
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
               highlightColor: Colors.transparent,
+              splashColor: Colors.transparent,
               borderRadius: radius,
               child: Stack(
                 alignment: Alignment.center,
-                clipBehavior: Clip.none,
                 children: [
-                  // The pin that holds a scrap to the table.
-                  Positioned(
-                    top: -skin.parts.pinSize / 2,
-                    left: Space.lg,
-                    child: PaperPin(ink: pinInk, size: skin.parts.pinSize),
-                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: Space.lg,
@@ -303,18 +269,7 @@ class _SecondaryButtonState extends State<SecondaryButton> {
         ),
       ),
     );
-    return scrap;
   }
-
-  /// A scrap's paper is set down a hair off square (the same every build,
-  /// from its label), its words level; the outlined button has no paper.
-  Widget _scrapPaper({required Decoration decoration, required Widget child}) =>
-      TiltedPaper(
-        angle: context.skin.tilt.angle(Tilt.seededRow(widget.label)),
-        duration: Motion.press,
-        decoration: decoration,
-        child: child,
-      );
 }
 
 /// The mark beside a button's words while its tap is on its way: a small

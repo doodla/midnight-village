@@ -2,21 +2,37 @@ import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
 import '../layout/space.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/skin.dart';
 import 'fit_line.dart';
+import 'paper_piece.dart';
+import 'text_backing.dart';
 
 /// "You" beside the viewer's own name wherever players are listed (02's
 /// table, 10's count, 11's results): outlined in [ink], never filled, so it
 /// does not read as a role's tag (cold read on the real screens: "which one
 /// is me?").
 class YouTag extends StatelessWidget {
-  const YouTag({super.key, required this.ink});
+  const YouTag({
+    super.key,
+    required this.ink,
+    this.compact = false,
+    this.style,
+  });
 
   /// The colour of the words on what it sits on.
   final Color ink;
 
+  /// One line tall, no more: under a board card, in the room of a name.
+  final bool compact;
+
+  /// A compact tag's face, one line tall exactly (the name's, under a card).
+  final TextStyle? style;
+
   @override
-  Widget build(BuildContext context) => _OutlineTag(NightCopy.you, ink: ink);
+  Widget build(BuildContext context) =>
+      _OutlineTag(NightCopy.you, ink: ink, compact: compact, style: style);
 }
 
 /// "Practice" after a practice player's name (a seat the server plays) at
@@ -38,14 +54,57 @@ class PracticeTag extends StatelessWidget {
 }
 
 class _OutlineTag extends StatelessWidget {
-  const _OutlineTag(this.text, {required this.ink});
+  const _OutlineTag(
+    this.text, {
+    required this.ink,
+    required this.compact,
+    this.style,
+  });
 
   final String text;
+  final bool compact;
   final Color ink;
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
+    // Dressed up: a cut-paper tag (a [PaperPiece]), never an outline.
+    if (context.dress.isPaper) {
+      // A plate of paper in the ink of what it lies on (a navy tag on a bone
+      // row, a bone one on the night), the words the other way round, in the
+      // tag face the table's own "You" is set in everywhere.
+      final face = ((compact ? style : null) ?? skin.typography.tag).copyWith(
+        color: ink.computeLuminance() < 0.3
+            ? skin.night.text
+            : skin.night.ground,
+      );
+      // Under a card (compact) the plate is paint only and takes no room, so
+      // the name keeps the room it had; in a row it is a piece with its own.
+      if (compact) {
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: skin.parts.backingBleed.dx),
+          child: TextBacking(
+            part: PaperPart.tag,
+            id: text,
+            fill: ink,
+            child: FitWords(text, maxLines: 1, style: face),
+          ),
+        );
+      }
+      return PaperPiece(
+        part: PaperPart.tag,
+        id: text,
+        fill: ink,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.smPlus,
+            vertical: Space.xs,
+          ),
+          child: FitWords(text, maxLines: 1, style: face),
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Space.sm,

@@ -29,6 +29,18 @@ BoxDecoration cutPaper(
   );
 }
 
+/// The ring round a card, a portrait or a pick on the current dress: plain
+/// draws it ([ringDecoration]); paper never does (a pick is its lift and the
+/// `PaperMark`, a card's edge is its shape and its shadow).
+BoxDecoration frameRing(
+  BuildContext context, {
+  required Color color,
+  required double width,
+  required BorderRadius radius,
+}) => context.dress.isPaper
+    ? const BoxDecoration()
+    : ringDecoration(color: color, width: width, radius: radius);
+
 /// A ring drawn just outside a shape, without changing its size (CSS's
 /// `box-shadow: 0 0 0 <width> <color>`). Paint it as a foreground decoration.
 BoxDecoration ringDecoration({

@@ -4,6 +4,9 @@ import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
+import 'deckle.dart';
+import 'paper_light.dart';
+import '../skin/dress.dart';
 
 /// The sizes a token is drawn at: the mocks', shrunk with the names (the
 /// owner's type choice of 23 November 2026).
@@ -65,13 +68,45 @@ class PlayerToken extends StatelessWidget {
     final emblem = token == null
         ? ColoredBox(color: skin.night.panel)
         : ArtPicture(skin.art.token(token));
+    // Dressed up: a cut disc of paper with its shadow, the emblem laid in it
+    // (its own printed rim left outside); never a ring.
+    if (context.dress.isPaper) {
+      final parts = skin.parts;
+      final shape = DeckleBorder(
+        seed: deckleSeed(token?.name ?? 'none'),
+        depth: parts.discDepth,
+        step: parts.discStep,
+        round: true,
+      );
+      return ExcludeSemantics(
+        child: Opacity(
+          opacity: away ? skin.dimmed : 1,
+          child: Container(
+            width: side,
+            height: side,
+            decoration: ShapeDecoration(
+              shape: shape,
+              color: skin.night.panel,
+              shadows: ground.elevation.badge.litBy(context),
+            ),
+            child: ClipPath(
+              clipper: ShapeBorderClipper(shape: shape),
+              child: token == null
+                  ? const SizedBox.expand()
+                  : ArtPicture(skin.art.token(token), inset: parts.tokenInset),
+            ),
+          ),
+        ),
+      );
+    }
     return ExcludeSemantics(
       child: Opacity(
         opacity: away ? skin.dimmed : 1,
         child: Container(
           width: side,
           height: side,
-          foregroundDecoration: ringDecoration(
+          foregroundDecoration: frameRing(
+            context,
             color: ringColor ?? (away ? ground.idle : ground.text),
             width: skin.shape.ring,
             radius: radius,

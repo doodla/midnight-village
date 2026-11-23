@@ -12,7 +12,12 @@ import '../skin/werewolf_portrait.dart';
 import '../skin/skin_tilt.dart';
 import 'art_picture.dart';
 import 'count_badge.dart';
+import '../skin/elevation.dart';
 import 'cut_paper.dart';
+import 'deckled_paper.dart';
+import 'paper_mark.dart';
+import 'text_backing.dart';
+import '../skin/dress_style.dart';
 import 'fit_line.dart';
 
 /// [RoleCard]'s sizes. The thumbnails are at most their mock size and
@@ -143,6 +148,27 @@ class RoleCard extends StatelessWidget {
   }) {
     final skin = context.skin;
     final corners = BorderRadius.circular(radius);
+    // Dressed up: a mini card cut from paper. IN the deck it is lifted paper
+    // in full colour (the page adds the mark on its corner); OUT of it, it is
+    // lowered paper with no shadow, its colour mostly gone and faded
+    // (`PaperParts.outSaturation`).
+    if (context.dress.isPaper) {
+      final picture = ArtPicture(context.roleArt(role));
+      return AnimatedOpacity(
+        duration: Motion.quick,
+        opacity: lit ? 1 : skin.dimmed,
+        child: DeckledPicture(
+          id: role.name,
+          elevation: lit ? context.ground.elevation.selected : Elevation.none,
+          child: lit
+              ? picture
+              : ColorFiltered(
+                  colorFilter: skin.parts.desaturate(skin.parts.outSaturation),
+                  child: picture,
+                ),
+        ),
+      );
+    }
     return AnimatedOpacity(
       duration: Motion.quick,
       opacity: lit ? 1 : skin.dimmed,
@@ -157,7 +183,8 @@ class RoleCard extends StatelessWidget {
                     : null,
               )
             : null,
-        foregroundDecoration: ringDecoration(
+        foregroundDecoration: frameRing(
+          context,
           color: ringColor,
           width: ringWidth,
           radius: corners,
@@ -209,28 +236,37 @@ class RoleCard extends StatelessWidget {
     // Set down by hand: the card turned a little, the same every build, from
     // its role; its name stays level.
     final angle = skin.tilt.angle(Tilt.seededCard(role.name));
+    final dressed = context.dress.isPaper;
     Widget turned(Widget card) =>
         angle == 0 ? card : Transform.rotate(angle: angle, child: card);
     final portrait = turned(
       AspectRatio(
         aspectRatio: _gridAspect,
-        child: Stack(
-          clipBehavior: Clip.none,
-          fit: StackFit.expand,
-          children: [
-            _portrait(
-              context,
-              radius: skin.shape.radius,
-              ringColor: lit ? ground.selection : ground.hairline,
-              ringWidth: lit ? skin.shape.selectedRing : skin.shape.ring,
-            ),
-            if (lit && count > 1)
-              Positioned(
-                right: -5,
-                top: -7,
-                child: CountBadge(count, size: BadgeSize.large),
+        // IN the deck a card wears the paper mark on its corner (dressed up
+        // only; a plain card is told by its ring).
+        child: PaperMarkCorner(
+          shown: lit,
+          child: Stack(
+            clipBehavior: Clip.none,
+            fit: StackFit.expand,
+            children: [
+              _portrait(
+                context,
+                radius: skin.shape.radius,
+                ringColor: lit ? ground.selection : ground.hairline,
+                ringWidth: lit ? skin.shape.selectedRing : skin.shape.ring,
               ),
-          ],
+              if (lit && count > 1)
+                Positioned(
+                  right: -5,
+                  // Dressed up the top corner is the mark's: the count sits on
+                  // the lower one.
+                  top: dressed ? null : -7,
+                  bottom: dressed ? -7 : null,
+                  child: CountBadge(count, size: BadgeSize.large),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -244,10 +280,23 @@ class RoleCard extends StatelessWidget {
           else
             portrait,
           const SizedBox(height: 5),
-          FitLine(
-            role.displayName,
-            style: skin.typography.badge.copyWith(
-              color: lit ? ground.text : ground.faintText,
+          // Dressed up the name may pass over the village or the moon: it
+          // keeps a backing (a plain screen's is nothing).
+          // IN the deck the name is on a bone tag, OUT of it on the quiet navy
+          // one (never a team's colour: red is the Werewolf team's tag).
+          TextBacking(
+            id: role.name,
+            part: lit ? PaperPart.tag : PaperPart.nameTag,
+            child: FitLine(
+              role.displayName,
+              style: skin.typography.badge.copyWith(
+                color: context.dress.isPaper
+                    ? TextBacking.inkOf(
+                        context,
+                        part: lit ? PaperPart.tag : PaperPart.nameTag,
+                      )
+                    : (lit ? ground.text : ground.faintText),
+              ),
             ),
           ),
         ],
@@ -388,25 +437,32 @@ class RolePortrait extends StatelessWidget {
       final corners = BorderRadius.circular(
         framed ? skin.shape.radiusSmall : skin.shape.radiusTiny,
       );
-      body = Container(
-        decoration: framed
-            ? BoxDecoration(
+      body = context.dress.isPaper && framed
+          ? DeckledPicture(
+              id: (#portrait, role),
+              elevation: ground.elevation.heroSlab,
+              child: AspectRatio(aspectRatio: aspect, child: picture),
+            )
+          : Container(
+              decoration: framed
+                  ? BoxDecoration(
+                      borderRadius: corners,
+                      boxShadow: ground.elevation.heroSlab.litBy(context),
+                    )
+                  : null,
+              foregroundDecoration: framed
+                  ? frameRing(
+                      context,
+                      color: ground.text,
+                      width: skin.shape.ring,
+                      radius: corners,
+                    )
+                  : null,
+              child: ClipRRect(
                 borderRadius: corners,
-                boxShadow: ground.elevation.heroSlab.litBy(context),
-              )
-            : null,
-        foregroundDecoration: framed
-            ? ringDecoration(
-                color: ground.text,
-                width: skin.shape.ring,
-                radius: corners,
-              )
-            : null,
-        child: ClipRRect(
-          borderRadius: corners,
-          child: AspectRatio(aspectRatio: aspect, child: picture),
-        ),
-      );
+                child: AspectRatio(aspectRatio: aspect, child: picture),
+              ),
+            );
     }
     final angle = skin.tilt.angle(tilt);
     return Semantics(

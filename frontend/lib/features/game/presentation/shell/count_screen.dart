@@ -657,11 +657,12 @@ class _TeamTag extends StatelessWidget {
   final TeamId team;
 
   @override
-  Widget build(BuildContext context) => team == TeamId.werewolf
-      ? TagChip.danger(
-          CountCopy.werewolfTeam.fill({'role': RoleText.teamTag(team)}),
-        )
-      : TagChip(RoleText.teamTag(team));
+  Widget build(BuildContext context) => TagChip.team(
+    team == TeamId.werewolf
+        ? CountCopy.werewolfTeam.fill({'role': RoleText.teamTag(team)})
+        : RoleText.teamTag(team),
+    team: team,
+  );
 }
 
 /// A role portrait that turns over: the card's back until half way, then

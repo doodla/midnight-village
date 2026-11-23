@@ -209,7 +209,10 @@ class BoardLayout {
   /// seat's name, this phone's own included (so every phone measures the
   /// same names), in [nameStyle]; [you] is the name under the player's own
   /// card; the table's [captions] are in [captionStyle]; all under
-  /// [scaler]. The table's cards tilt by at most [tilt] radians.
+  /// [scaler]. The table's cards tilt by at most [tilt] radians. A column is
+  /// [plate] wider than its widest name where the names sit on plates (dressed
+  /// up: `FaceDownCard.nameBleed` each side), so neighbours' plates keep the
+  /// column gap between them.
   factory BoardLayout.solve({
     required int others,
     required Iterable<String> names,
@@ -220,6 +223,7 @@ class BoardLayout {
     required TextStyle captionStyle,
     required TextScaler scaler,
     double tilt = 0,
+    double plate = 0,
   }) {
     final base = nameStyle.fontSize!;
     // The seats' names (a player may be called "You" too), and "You".
@@ -311,7 +315,7 @@ class BoardLayout {
           .fold(0.0, math.max);
       final seatColumn = math.min(
         column,
-        [card + seatGap, widestName / _safety, minTap].reduce(math.max),
+        [card + seatGap, widestName / _safety + plate, minTap].reduce(math.max),
       );
       final candidate = _Candidate(
         BoardLayout._(

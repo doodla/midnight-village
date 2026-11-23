@@ -11,6 +11,8 @@ import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/system_bars.dart';
 import 'paper_grain.dart';
+import 'primary_button.dart';
+import 'text_action.dart';
 import 'screen_frame.dart';
 
 /// Opens [builder]'s [SheetScaffold] from the bottom over the scrim, on the
@@ -21,11 +23,16 @@ import 'screen_frame.dart';
 /// cancels it: a sheet that could be dragged was swept shut by that touch,
 /// and the Back after it then did the screen's Back too (03 went to 02; 02
 /// asked to leave again). A sheet is dressed as the screen it is opened from
-/// is ([DressScope]).
+/// is ([DressScope]), and lit as it is: so it is opened from a context UNDER
+/// the screen's `ScreenFrame` (a widget its body holds, or a `Builder` in it;
+/// asserted, [FrameMark]): a State's own `context` is above the frame and
+/// misses the dress, ground and light it declares (the deck page's card sheet
+/// once came up plain on a paper page).
 Future<T?> showSkinSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
 }) {
+  assert(FrameMark.under(context));
   final scopes = GameScopes.capture(context);
   return showModalBottomSheet<T>(
     context: context,
@@ -50,6 +57,7 @@ Future<T?> showSkinDialog<T>(
   required WidgetBuilder builder,
   bool barrierDismissible = true,
 }) {
+  assert(FrameMark.under(context));
   final scopes = GameScopes.capture(context);
   return showDialog<T>(
     context: context,
@@ -57,6 +65,25 @@ Future<T?> showSkinDialog<T>(
     barrierColor: context.skin.scrim,
     builder: (dialogContext) => scopes.wrap(Builder(builder: builder)),
   );
+}
+
+/// A sheet's "Close": the quiet outlined button on a plain screen (as it was),
+/// plain serif words on a paper one (a [TextAction]: no piece laid on the sheet's
+/// own paper).
+class SheetClose extends StatelessWidget {
+  const SheetClose({super.key, required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => context.dress.isPaper
+      ? TextAction(label: label, onPressed: onPressed)
+      : PrimaryButton.quiet(
+          label: label,
+          onPressed: onPressed,
+          size: ButtonSize.compact,
+        );
 }
 
 /// A sheet of paper slid up from the bottom, its top edge lit by the
@@ -92,12 +119,13 @@ class SheetScaffold extends StatelessWidget {
 
   Widget _sheet(BuildContext context, BorderRadius top, MediaQueryData media) {
     final dressed = context.dress.isPaper;
+    // Dressed up the sheet has no lit edge (a strip of the selection's colour
+    // along its top was a line): the torn paper is its edge.
     final sheet = Container(
-      padding: const EdgeInsets.only(top: Space.xs),
-      decoration: BoxDecoration(
-        color: context.ground.selection,
-        borderRadius: top,
-      ),
+      padding: dressed ? EdgeInsets.zero : const EdgeInsets.only(top: Space.xs),
+      decoration: dressed
+          ? null
+          : BoxDecoration(color: context.ground.selection, borderRadius: top),
       child: Container(
         decoration: BoxDecoration(
           color: context.ground.paper,

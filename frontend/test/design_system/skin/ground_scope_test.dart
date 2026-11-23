@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
+import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
@@ -89,11 +90,14 @@ void main() {
     await pumpSkinned(
       tester,
       ground: GroundKind.day,
-      Builder(
-        builder: (context) => TextButton(
-          onPressed: () =>
-              open(context, (_) => _Probe((_, kind) => inside = kind)),
-          child: const Text('Open'),
+      ScreenFrame(
+        ground: GroundKind.day,
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                open(context, (_) => _Probe((_, kind) => inside = kind)),
+            child: const Text('Open'),
+          ),
         ),
       ),
     );
@@ -138,16 +142,19 @@ void main() {
     await pumpSkinned(
       tester,
       ground: GroundKind.day,
-      Builder(
-        builder: (context) => TextButton(
-          onPressed: () => showSkinSheet<void>(
-            context,
-            builder: (context) {
-              edge = context.ground.selection;
-              return SheetScaffold(child: _Probe((_, kind) => body = kind));
-            },
+      ScreenFrame(
+        ground: GroundKind.day,
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showSkinSheet<void>(
+              context,
+              builder: (context) {
+                edge = context.ground.selection;
+                return SheetScaffold(child: _Probe((_, kind) => body = kind));
+              },
+            ),
+            child: const Text('Open'),
           ),
-          child: const Text('Open'),
         ),
       ),
     );

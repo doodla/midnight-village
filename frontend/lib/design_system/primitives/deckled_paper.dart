@@ -21,6 +21,8 @@ Decoration deckledPaper(
   double? depth,
   double? step,
   bool torn = false,
+  bool round = false,
+  bool blob = false,
   bool grain = true,
   bool edgeLine = true,
   BorderSide? side,
@@ -49,6 +51,8 @@ Decoration deckledPaper(
       depth: depth ?? parts.deckleDepth,
       step: step ?? parts.deckleStep,
       torn: torn,
+      round: round,
+      blob: blob,
       side:
           side ??
           (edgeLine && edgeWidth > 0
@@ -86,4 +90,44 @@ Decoration deckledRing(
       side: BorderSide(color: color, width: width),
     ),
   );
+}
+
+/// A picture cut out of paper: its deckled edge clips [child], and the paper
+/// casts its shadow of [elevation] from the screen's light. What a dressed
+/// screen draws wherever a picture would be a rounded rectangle with a ring or
+/// a shadow (a role's thumbnail, the sheet's portrait).
+class DeckledPicture extends StatelessWidget {
+  const DeckledPicture({
+    super.key,
+    required this.id,
+    required this.elevation,
+    required this.child,
+    this.fill,
+  });
+
+  final Object id;
+  final Elevation elevation;
+  final Widget child;
+  final Color? fill;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = context.skin.parts;
+    final shape = DeckleBorder(
+      seed: deckleSeed(id),
+      depth: parts.deckleDepth,
+      step: parts.deckleStep,
+    );
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: shape,
+        color: fill,
+        shadows: elevation.litBy(context),
+      ),
+      child: ClipPath(
+        clipper: ShapeBorderClipper(shape: shape),
+        child: child,
+      ),
+    );
+  }
 }

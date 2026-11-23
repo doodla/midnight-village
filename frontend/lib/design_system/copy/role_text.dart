@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 
 import '../models/role.dart';
 import 'copy.dart';
@@ -44,6 +45,15 @@ class RoleText {
     _ => RoleCopy.village,
   };
 
+  /// The team the role's tag is coloured for, the same on every surface
+  /// (`TagChip.team`): the Werewolf team's red, the Tanner's umber, else the
+  /// Village's.
+  TeamId get team => switch (role) {
+    RoleId.werewolf || RoleId.minion => TeamId.werewolf,
+    RoleId.tanner => TeamId.independent,
+    _ => TeamId.village,
+  };
+
   /// The four parts in reading order, labels included: tag, "Night: ...",
   /// "Wins: ...", the shared line.
   List<String> get lines => [
@@ -59,4 +69,26 @@ class RoleText {
     TeamId.werewolf => RoleId.werewolf.displayName,
     TeamId.independent => RoleCopy.alone,
   };
+
+  /// One of the role's lines as words: its "Night:" or "Wins:" label in the
+  /// strong face, the rest in [style]. The one way every card, sheet and
+  /// page sets these lines, so the same words are in the same face
+  /// everywhere.
+  static TextSpan lineSpan(String line, TextStyle style, TextStyle strong) {
+    for (final label in [RoleCopy.nightLabel, RoleCopy.winsLabel]) {
+      if (line.startsWith('$label ')) {
+        return TextSpan(
+          style: style,
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: strong.copyWith(color: style.color),
+            ),
+            TextSpan(text: line.substring(label.length + 1)),
+          ],
+        );
+      }
+    }
+    return TextSpan(text: line, style: style);
+  }
 }

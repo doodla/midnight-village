@@ -26,6 +26,8 @@ just night-frames      # the night board's pick and candle, a frame per 17 ms
 just vote-frames       # the vote's finger, pick and lock (the seal landing), a frame per 17 ms
 just vote-pictures     # the locked vote, the lock in four frames, the vote at several table sizes
 just count-pictures    # the count: one death, a tie, nobody, the moment in four frames, ten with long names
+just paper-parts       # every component in paper dress, every state (the parts page)
+just paper-components  # the table, your card, the night board and the card sheet, for before and after
 just paper-dress       # the dressed-up pass: every paper part in both dresses, and the table, your card and the night board in paper dress
 just card-frames       # your card turning over (finger, hold, turn, release), a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
@@ -114,7 +116,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
   for anything that says something true; no uppercase micro-labels; one amber fill per screen; a selection is lift plus outline, never amber.
-- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks `ScreenFrame(dress: Dress.paper)`; shared parts read `context.dress`/`context.skin` and draw the paper, torn edges, pins, banners, plaque and mood only there; sizes, angles and colours are the skin's (`skin.parts`, `skin.mood`), never a number in a screen (`lib/design_system/README.md`, "The dress").
+- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks `ScreenFrame(dress: Dress.paper)`; shared parts read `context.dress`/`context.skin` and draw the paper, torn edges, pins, banners, the amber piece and mood only there; a paper component takes its look from the one table `skin/dress_style.dart` (`PaperPiece`), draws NO stroke, outline or border (`paper_components_test.dart` fails one), and is listed in the inventory with both dresses (`skin/dress_inventory.dart`); a screen never builds a raw Material button, chip, divider or border; sizes, angles and colours are the skin's (`skin.parts`, `skin.mood`), never a number in a screen (`lib/design_system/README.md`, "The dress").
 - **Values from the skin**: build screens from `lib/design_system/primitives/`, read
   `context.skin`, `context.ground`, `Space`, `Motion`; no literals (a text size, weight or face is a
   type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
@@ -124,7 +126,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   tap opens it as a sheet. Nothing vibrates on a card (owner, 23 November 2026).
 - **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
   the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
-  at the touch point (`lib/design_system/README.md`, "Where information a player asks for appears").
+  at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is (`lib/design_system/README.md`, "Where information a player asks for appears").
 
 ## Screens
 

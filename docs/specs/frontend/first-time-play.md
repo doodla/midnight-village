@@ -21,7 +21,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 4. **Buttons.**
    - A button label is 1 to 3 words: a verb, naming the person or card when there is one. A night button says what will happen with the picks ("See Cleo", "Swap Ana, Ben"), and a pass button is true for its role (rule 11).
    - A disabled button that is waiting for input names what is missing ("Pick a name", "Need 3 players", "Add 2 cards").
-   - A gate button keeps its label while locked: "Ready", "Done", "Ready to vote", "See who won". The night board's Choose waits for a whole pick ("Choose a card", "Choose 1 more").
+   - A locked main button says what unlocks it (changed 23 November 2026, art director: a locked "Ready" with no live button beside it read as live and did not say why): 04's "Ready" is "Look first" until the card has been looked at, then "Ready". The night board's Choose waits for a whole pick ("Choose a card", "Choose 1 more"). "Done", "Ready to vote" and "See who won" are never locked.
    - After the action, the button shows the state in one word and stays disabled: "Chosen", "Locked", "Ready ✓".
 5. **Where rules are stated.** Rules appear only in the role text (cards and 03b) and on the night face of "You". Every other screen states facts only, for example "Nobody got 2 or more votes."
 6. **Gestures are never explained in text.** The only exception is the one-word cue "Hold".
@@ -105,7 +105,7 @@ Shared rules for every phone at night:
 
 | Moment | What every phone shows | Held face | What the phone sends |
 |---|---|---|---|
-| Deal commits | 04: a face-down card, "Your card", "Ready" locked, pips "0 of {n}" | Role text, no cap | Opening event, then `GET /me` |
+| Deal commits | 04: a face-down card, "Your card", "Look first" locked, pips "0 of {n}" | Role text, no cap | Opening event, then `GET /me` |
 | A 0.8 s reveal | "Ready" turns amber | same | nothing |
 | Ready tapped | "Ready ✓" (disabled); the pips update on every phone | same | `POST ready {true}` |
 | Everyone present is ready, or the 30 s backstop fires | Every phone goes to 06 in the same broadcast. A phone still unrevealed goes too; the role text is on its "You" face. | — | `GET /me` |
@@ -316,8 +316,8 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 
 **04 Your card**
 - **One thing / loudest:** hold the card; a face-down card at 60% of the screen height.
-- **Locked until:** "Ready" unlocks after a 0.8 s reveal.
-- **Copy:** "Your card"; "Hold" (as the cue); "Ready" then "Ready ✓"; pips "{d} of {n} ready" (playtest: a bare "1 of 5" read as cards). Held face: the role text. **34 of 34 words.**
+- **Locked until:** "Ready" unlocks after a 0.8 s reveal; until then the button says "Look first" (23 November 2026: a locked button says what unlocks it).
+- **Copy:** "Your card"; "Hold" (as the cue); "Look first", then "Ready", then "Ready ✓"; pips "{d} of {n} ready" (playtest: a bare "1 of 5" read as cards). Held face: the role text. **34 of 34 words.**
 - **Removed:**
   - The card arriving face up, and "Holding…" (3).
   - "I know my card" being loud (4).

@@ -209,7 +209,7 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
     }
     if (_revealedIn != me.stage) {
       return PrimaryButton.locked(
-        label: CardCopy.ready,
+        label: CardCopy.readyLocked,
         onLockedTap: _replay.replay,
         size: ButtonSize.large,
       );

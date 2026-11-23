@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/mood.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 
@@ -24,6 +25,18 @@ Future<void> _loadImages(WidgetTester tester) async {
     ]),
   );
   await tester.pump();
+  // The screen's mood is composed once its village layers are decoded, which
+  // is real I/O of a speed that differs between machines: a picture taken
+  // before it is ready shows the bare ground (CI saw exactly that). Wait for it.
+  if (find.byType(Mood).evaluate().isNotEmpty) {
+    for (var i = 0; i < 500 && Mood.cachedPictures == 0; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+    expect(Mood.cachedPictures, greaterThan(0), reason: 'mood never composed');
+  }
 }
 
 void main() {
@@ -36,6 +49,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
 
+        Mood.forget();
         await pumpComponentPage(tester, page, ground, skin: skin.skin);
         await _loadImages(tester);
 

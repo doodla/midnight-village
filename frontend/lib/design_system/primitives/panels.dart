@@ -6,45 +6,71 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/card_back_scope.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import '../teach/hold_cue.dart';
 import 'art_picture.dart';
+import 'cut_paper.dart';
+import 'face_down_card.dart' show CardBackPaper;
 import 'fit_line.dart';
+import 'paper_piece.dart';
 
 /// A box drawn as an outline on the ground, holding a summary that opens
 /// something (the deck strip at the table, S02: thumbnails and "Edit").
-/// With [onTap] it is a button.
+/// With [onTap] it is a button. Dressed up it is a panel of paper set into
+/// the ground (a [PaperPiece]), never an outline. [color], [width] and
+/// [padding] are the plain outline's own where a screen needs another.
 class OutlinePanel extends StatelessWidget {
   const OutlinePanel({
     super.key,
     required this.child,
     this.onTap,
     this.semanticLabel,
+    this.color,
+    this.width,
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: Space.md,
+      vertical: Space.smPlus,
+    ),
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final String? semanticLabel;
 
+  /// The plain outline's colour and width: the hairline and the skin's stroke
+  /// where null.
+  final Color? color;
+  final double? width;
+  final EdgeInsetsGeometry padding;
+
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
     final radius = BorderRadius.circular(skin.shape.radius);
-    final panel = Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.md,
-        vertical: Space.smPlus,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        border: Border.all(color: ground.hairline, width: skin.shape.stroke),
-      ),
-      child: child,
-    );
+    final dressed = context.dress.isPaper;
+    final Widget panel = dressed
+        ? PaperPiece(
+            part: PaperPart.panel,
+            id: semanticLabel ?? #panel,
+            child: Padding(padding: padding, child: child),
+          )
+        : Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: color ?? ground.hairline,
+                width: width ?? skin.shape.stroke,
+              ),
+            ),
+            child: child,
+          );
     if (onTap == null) return panel;
     return Semantics(
       button: true,
@@ -55,6 +81,8 @@ class OutlinePanel extends StatelessWidget {
           onTap: onTap,
           borderRadius: radius,
           highlightColor: Colors.transparent,
+          focusColor: dressed ? Colors.transparent : null,
+          hoverColor: dressed ? Colors.transparent : null,
           child: panel,
         ),
       ),
@@ -119,17 +147,30 @@ class PeekBox extends StatelessWidget {
     final skin = context.skin;
     final ground = context.ground;
     final inset = large ? Space.lg : Space.smPlus;
-    return Container(
-      padding: EdgeInsets.fromLTRB(inset, inset, Space.lg, inset),
-      decoration: BoxDecoration(
-        color: skin.night.ground,
-        borderRadius: BorderRadius.circular(skin.shape.radius),
-        border: skin.shape.edgeWidth > 0
-            ? Border.all(color: ground.edge, width: skin.shape.edgeWidth)
-            : null,
-        boxShadow: ground.elevation.raised.litBy(context),
-      ),
-      child: GroundScope(
+    final padding = EdgeInsets.fromLTRB(inset, inset, Space.lg, inset);
+    Widget laid(Widget child) => context.dress.isPaper
+        // Dressed up: a panel of night paper (a [PaperPiece]), deckled, with the
+        // paper shadow of the screen's light; no edge line.
+        ? PaperPiece(
+            part: PaperPart.panel,
+            id: #peek,
+            fill: skin.night.panel,
+            child: Padding(padding: padding, child: child),
+          )
+        : Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: skin.night.ground,
+              borderRadius: BorderRadius.circular(skin.shape.radius),
+              border: skin.shape.edgeWidth > 0
+                  ? Border.all(color: ground.edge, width: skin.shape.edgeWidth)
+                  : null,
+              boxShadow: ground.elevation.raised.litBy(context),
+            ),
+            child: child,
+          );
+    return laid(
+      GroundScope(
         ground: GroundKind.night,
         child: Row(
           spacing: Space.mdPlus,
@@ -179,18 +220,32 @@ class _PeekCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final radius = BorderRadius.circular(skin.shape.radiusSmall);
+    if (context.dress.isPaper) {
+      return Transform.rotate(
+        angle: skin.tilt.angle(Tilt.thumb),
+        child: SizedBox.fromSize(
+          size: size,
+          child: CardBackPaper(
+            id: 'peek',
+            elevation: context.ground.elevation.card,
+            over: Padding(
+              padding: const EdgeInsets.all(Space.xxs),
+              child: HoldCue(teaching: teaching, size: size.width, word: false),
+            ),
+          ),
+        ),
+      );
+    }
     return Transform.rotate(
       angle: skin.tilt.angle(Tilt.thumb),
       child: Container(
         width: size.width,
         height: size.height,
-        foregroundDecoration: BoxDecoration(
-          borderRadius: radius,
-          border: Border.all(
-            color: context.ground.mark,
-            width: skin.shape.ring,
-            strokeAlign: BorderSide.strokeAlignOutside,
-          ),
+        foregroundDecoration: frameRing(
+          context,
+          color: context.ground.mark,
+          width: skin.shape.ring,
+          radius: radius,
         ),
         child: Stack(
           fit: StackFit.expand,

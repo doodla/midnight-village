@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
+import 'package:midnight_village/features/lobby/presentation/deck_screen.dart';
 
 import 'component_sheet.dart';
 import 'pump_skinned.dart';
@@ -66,6 +67,15 @@ void main() {
     final seen = await _dressOf(tester, const TablePage(), AtTableView);
     expect(seen, AtTableView.defaultDress);
   });
+
+  testWidgets(
+    'the deck set-up page is paper as the table it is reached from is',
+    (tester) async {
+      final seen = await _dressOf(tester, const DeckPage(), DeckView);
+      expect(seen, DeckView.defaultDress);
+      expect(seen, AtTableView.defaultDress);
+    },
+  );
 
   test('the live screens never pass a dress of their own to their view', () {
     for (final (path, call) in [

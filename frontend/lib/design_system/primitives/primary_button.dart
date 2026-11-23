@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
 import 'paper_mark.dart';
-import 'plaque.dart';
+import 'paper_piece.dart';
 import 'secondary_button.dart' show BusyMark;
 
 /// The mocks' button sizes, shrunk with the type (the owner's type choice of
@@ -209,6 +210,9 @@ class PrimaryButton extends StatefulWidget {
 class _PrimaryButtonState extends State<PrimaryButton> {
   var _pressed = false;
 
+  /// Keyboard focus (web): the paper lifts, no outline.
+  var _focused = false;
+
   /// The button has just become ready from a slot: for this one frame it is
   /// drawn down in the slot, and the next build lets it rise.
   var _rising = false;
@@ -298,21 +302,31 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     // Busy, it stays pressed into its shadow while it works; a rise (the
     // waiting slot's cut-in) presses it for the frame it appears.
     final down = (_pressed && _acts) || widget.busy || _rising;
-    final ink = switch (widget.phase) {
-      ButtonPhase.ready => ground.onAccent,
-      ButtonPhase.waiting => ground.quietText,
-      // Done says something true ("Nothing to do", "Locked"): full ink;
-      // with no outline it still reads as nothing to press (playtest: the
-      // quiet ink read as too pale).
-      ButtonPhase.done ||
-      ButtonPhase.locked ||
-      ButtonPhase.quiet => ground.text,
-    };
+    // Dressed up every phase but done is a piece of paper (`PaperPiece`): the
+    // amber plaque when ready; when it waits or is locked (a slot too) the
+    // quietest piece (dark indigo, barely lifted: one locked form), its label saying why; a
+    // quiet button a bone scrap.
+    final onPaper = context.dress.isPaper && widget.phase != ButtonPhase.done;
+    final part = widget.phase == ButtonPhase.quiet
+        ? PaperPart.scrap
+        : PaperPart.primary;
+    final dim =
+        widget.phase == ButtonPhase.waiting ||
+        widget.phase == ButtonPhase.locked;
+    final ink = onPaper
+        ? PaperPiece.inkOf(context, part, locked: dim)
+        : switch (widget.phase) {
+            ButtonPhase.ready => ground.onAccent,
+            ButtonPhase.waiting => ground.quietText,
+            // Done says something true ("Nothing to do", "Locked"): full ink;
+            // with no outline it still reads as nothing to press (playtest: the
+            // quiet ink read as too pale).
+            ButtonPhase.done ||
+            ButtonPhase.locked ||
+            ButtonPhase.quiet => ground.text,
+          };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;
-    // Dressed up the amber is a plaque (deckled paper on a backing, tilted):
-    // its paper is drawn by [Plaque], not by the button's own container.
-    final plaque = filled && context.dress.isPaper;
     final decoration = filled
         ? cutPaper(
             context,
@@ -351,13 +365,17 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           minHeight: widget.size.primaryHeight,
           minWidth: widget.size.minWidth,
         ),
-        transform: Matrix4.translationValues(
-          down ? rest.travel(keep).dx : 0,
-          down ? rest.travel(keep).dy : 0,
-          0,
-        ),
-        decoration: plaque ? null : decoration,
-        foregroundDecoration: widget.phase == ButtonPhase.locked && widget.slot
+        // A piece of paper sinks itself ([PaperPiece]).
+        transform: onPaper
+            ? null
+            : Matrix4.translationValues(
+                down ? rest.travel(keep).dx : 0,
+                down ? rest.travel(keep).dy : 0,
+                0,
+              ),
+        decoration: onPaper ? null : decoration,
+        foregroundDecoration:
+            widget.phase == ButtonPhase.locked && widget.slot && !onPaper
             // The slot's cut edge: a hard dark lip along its top, the paper
             // above it casting into the recess.
             ? BoxDecoration(
@@ -381,17 +399,16 @@ class _PrimaryButtonState extends State<PrimaryButton> {
               )
             : null,
         child: _paper(
-          plaque: plaque,
-          fill: ground.accent,
-          ink: ground.onAccent,
-          elevation: down ? rest.pressed(keep) : rest,
-          side: edge != null && skin.shape.edgeWidth == 0
-              ? BorderSide(color: edge, width: skin.shape.stroke)
-              : null,
+          part: onPaper ? part : null,
+          pressed: down,
+          locked: dim,
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
               onTap: _onTap,
+              focusColor: onPaper ? Colors.transparent : null,
+              hoverColor: onPaper ? Colors.transparent : null,
+              onFocusChange: (value) => setState(() => _focused = value),
               onHighlightChanged: (value) => setState(() {
                 _pressed = value;
                 if (value && !_rising) _duration = Motion.press;
@@ -438,24 +455,23 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     );
   }
 
-  /// The plaque's paper (dressed up: the same every build, from the label),
-  /// round the button's [child]; plain, the child as it is.
+  /// The paper under the button's [child] (dressed up: the same every build,
+  /// from the label); plain, the child as it is.
   Widget _paper({
-    required bool plaque,
-    required Color fill,
-    required Color ink,
-    required Elevation elevation,
-    required BorderSide? side,
+    required PaperPart? part,
+    required bool pressed,
+    required bool locked,
     required Widget child,
-  }) => !plaque
+  }) => part == null
       ? child
-      : Plaque(
+      : PaperPiece(
+          part: part,
           id: widget.label,
-          fill: fill,
-          ink: ink,
-          elevation: elevation,
+          pressed: pressed,
+          lifted: _focused && !pressed,
+          locked: locked,
+          enabled: widget.phase != ButtonPhase.waiting,
           duration: Motion.within(context, _duration),
-          side: side,
           child: child,
         );
 }

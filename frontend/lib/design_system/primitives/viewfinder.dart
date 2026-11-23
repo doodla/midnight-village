@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
 import 'cut_paper.dart';
+import 'drawn.dart';
+import 'paper_mark.dart';
+import 'paper_piece.dart';
 import 'primary_button.dart';
 
 /// The four corners of a viewfinder, drawn as [inset] (a fraction of the
@@ -84,9 +89,15 @@ class ScanGlyph extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    size: Size.square(size),
-    painter: _ScanGlyphPainter(color, stroke: context.skin.shape.stroke + 0.5),
+  Widget build(BuildContext context) => Drawn(
+    DrawnKind.scanner,
+    child: CustomPaint(
+      size: Size.square(size),
+      painter: _ScanGlyphPainter(
+        color,
+        stroke: context.skin.shape.stroke + 0.5,
+      ),
+    ),
   );
 }
 
@@ -177,27 +188,64 @@ class _GlyphButtonState extends State<GlyphButton> {
       label: widget.semanticLabel,
       onTap: widget.onPressed,
       excludeSemantics: true,
-      child: AnimatedContainer(
-        duration: Motion.press,
-        curve: Motion.curve,
-        width: side,
-        height: side,
-        decoration: BoxDecoration(
-          color: _pressed || widget.lit ? ground.hairline : Colors.transparent,
-          borderRadius: radius,
-          border: Border.all(
-            color: enabled ? ground.outline : ground.hairline,
-            width: skin.shape.stroke,
-          ),
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: widget.onPressed,
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            highlightColor: Colors.transparent,
-            borderRadius: radius,
-            child: Center(child: widget.glyph(ink)),
+      child: context.dress.isPaper
+          ? _scrap(context, side, enabled)
+          : AnimatedContainer(
+              duration: Motion.press,
+              curve: Motion.curve,
+              width: side,
+              height: side,
+              decoration: BoxDecoration(
+                color: _pressed || widget.lit
+                    ? ground.hairline
+                    : Colors.transparent,
+                borderRadius: radius,
+                border: Border.all(
+                  color: enabled ? ground.outline : ground.hairline,
+                  width: skin.shape.stroke,
+                ),
+              ),
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  onTap: widget.onPressed,
+                  onHighlightChanged: (value) =>
+                      setState(() => _pressed = value),
+                  highlightColor: Colors.transparent,
+                  borderRadius: radius,
+                  child: Center(child: widget.glyph(ink)),
+                ),
+              ),
+            ),
+    );
+  }
+
+  /// Dressed up: a bone scrap with the glyph on it; a switch that is on is
+  /// lifted and wears the paper mark (never a ring).
+  Widget _scrap(BuildContext context, double side, bool enabled) {
+    final ink = PaperPiece.inkOf(context, PaperPart.scrap, locked: !enabled);
+    return PaperMarkCorner(
+      shown: widget.lit,
+      child: SizedBox.square(
+        dimension: side,
+        child: PaperPiece(
+          part: PaperPart.scrap,
+          id: widget.semanticLabel,
+          pressed: _pressed,
+          lifted: widget.lit,
+          enabled: enabled,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: widget.onPressed,
+              onHighlightChanged: (value) => setState(() => _pressed = value),
+              highlightColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              borderRadius: BorderRadius.circular(context.skin.shape.radius),
+              child: Center(child: widget.glyph(ink)),
+            ),
           ),
         ),
       ),
@@ -266,13 +314,16 @@ class Viewfinder extends StatelessWidget {
                         tween: Tween(end: found ? 1.0 : 0.0),
                         duration: Motion.within(context, Motion.quick),
                         curve: Motion.curve,
-                        builder: (context, t, _) => CustomPaint(
-                          painter: ViewfinderBrackets(
-                            color: Color.lerp(ground.paper, ink, t)!,
-                            stroke: skin.shape.stroke + 1.5,
-                            inset:
-                                _lookingInset +
-                                (_foundInset - _lookingInset) * t,
+                        builder: (context, t, _) => Drawn(
+                          DrawnKind.scanner,
+                          child: CustomPaint(
+                            painter: ViewfinderBrackets(
+                              color: Color.lerp(ground.paper, ink, t)!,
+                              stroke: skin.shape.stroke + 1.5,
+                              inset:
+                                  _lookingInset +
+                                  (_foundInset - _lookingInset) * t,
+                            ),
                           ),
                         ),
                       ),
@@ -333,10 +384,17 @@ class ShutteredWindow extends StatelessWidget {
             width: width,
             height: width * _aspect,
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: radius,
-                border: Border.all(color: ground.outline, width: stroke * 2),
-              ),
+              // Dressed up the closed window is a recess of paper, not an
+              // outline.
+              decoration: context.dress.isPaper
+                  ? BoxDecoration(borderRadius: radius, color: ground.panel)
+                  : BoxDecoration(
+                      borderRadius: radius,
+                      border: Border.all(
+                        color: ground.outline,
+                        width: stroke * 2,
+                      ),
+                    ),
               child: Padding(
                 padding: const EdgeInsets.all(Space.xs),
                 child: Stack(

@@ -628,7 +628,7 @@ class TestRetries:
 
         fake.Message = Message  # type: ignore[attr-defined]
         fake.RetryAfter = RetryAfter  # type: ignore[attr-defined]
-        fake.subscribe = lambda topic: (lambda func: func)  # type: ignore[attr-defined]
+        fake.subscribe = lambda topic: lambda func: func  # type: ignore[attr-defined]
         monkeypatch.setitem(sys.modules, "vercel", types.ModuleType("vercel"))
         monkeypatch.setitem(sys.modules, "vercel.queue", fake)
         worker = importlib.reload(queue_worker)

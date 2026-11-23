@@ -361,6 +361,12 @@ final screens = <String, Screen>{
           text(CommonCopy.progress),
           ...lines,
         ],
+      'face down, before the hold': [
+        headline(CardCopy.headline),
+        cue(CommonCopy.hold),
+        button(CardCopy.readyLocked),
+        text(CommonCopy.progress),
+      ],
       'ready': [
         headline(CardCopy.headline),
         button(CommonCopy.readyDone),

@@ -22,12 +22,6 @@ class RoleSheetBody extends StatelessWidget {
     final type = context.skin.typography;
     final text = RoleText.of(role);
     final ink = context.ground.text;
-    TextSpan labelled(String label, String line) => TextSpan(
-      children: [
-        TextSpan(text: '$label ', style: type.bodyStrong),
-        TextSpan(text: line),
-      ],
-    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -43,20 +37,59 @@ class RoleSheetBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 spacing: Space.sm,
                 children: [
-                  TagChip(text.tag, small: true),
-                  FitLine(role.displayName, style: type.headline),
+                  RoleHead(
+                    name: role.displayName,
+                    tag: text.tag,
+                    team: text.team,
+                    style: type.headline.copyWith(color: ink),
+                  ),
                 ],
               ),
             ),
           ],
         ),
         for (final line in [
-          labelled(RoleCopy.nightLabel, text.night),
-          labelled(RoleCopy.winsLabel, text.wins),
-          const TextSpan(text: RoleCopy.shared),
+          '${RoleCopy.nightLabel} ${text.night}',
+          '${RoleCopy.winsLabel} ${text.wins}',
+          RoleCopy.shared,
         ])
-          Text.rich(line, style: type.bodyLarge.copyWith(color: ink)),
+          Text.rich(
+            RoleText.lineSpan(
+              line,
+              type.bodyLarge.copyWith(color: ink),
+              type.bodyStrong,
+            ),
+          ),
       ],
     );
   }
+}
+
+/// A role's name with its team tag ABOVE it, the one layout on every card,
+/// page and sheet (the tag small and level, the name under it in [style]); the
+/// tag is the team's own colour (`TagChip.team`). Either may be absent.
+class RoleHead extends StatelessWidget {
+  const RoleHead({
+    super.key,
+    required this.name,
+    required this.tag,
+    required this.team,
+    required this.style,
+  });
+
+  final String? name;
+  final String? tag;
+  final TeamId? team;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    spacing: Space.xs,
+    children: [
+      if (tag case final tag?) TagChip.team(tag, team: team ?? TeamId.village),
+      if (name case final name?) FitLine(name, style: style),
+    ],
+  );
 }
