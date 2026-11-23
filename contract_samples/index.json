@@ -458,12 +458,76 @@
       "description": "/me/ in the talk: the doppelganger's night results, canonical names."
     },
     {
+      "name": "http/game/me_discussion_choose_doppelganger_drunk",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied the Drunk and swapped with a centre card she chose."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_drunk_timed_out",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied the Drunk and chose no centre card: the server swapped her."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_insomniac",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied the Insomniac and looked at her own card at the end."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_look_timed_out",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she sent no look; window 1 ended on its timer and she copied nobody."
+    },
+    {
       "name": "http/game/me_discussion_choose_doppelganger_minion",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: the Doppelganger-Minion's night results (her look, then the Werewolves she saw)."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied the Robber and robbed a Werewolf."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_troublemaker",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied the Troublemaker and swapped a Werewolf with a Villager."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_villager",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied a Villager (nothing more to do)."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_werewolf",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied a Werewolf and woke with the Werewolves."
     },
     {
       "name": "http/game/me_discussion_choose_drunk",
@@ -474,12 +538,28 @@
       "description": "/me/ in the talk: the drunk's night results, canonical names."
     },
     {
+      "name": "http/game/me_discussion_choose_hunter",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the Hunter (no night action)."
+    },
+    {
       "name": "http/game/me_discussion_choose_insomniac",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: the insomniac's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_insomniac_changed",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the Insomniac whose card was swapped in the night (she now holds a Werewolf)."
     },
     {
       "name": "http/game/me_discussion_choose_mason",
@@ -490,12 +570,28 @@
       "description": "/me/ in the talk: the mason's night results, canonical names."
     },
     {
+      "name": "http/game/me_discussion_choose_mason_lone",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: a Mason whose fellow Mason card is in the centre."
+    },
+    {
       "name": "http/game/me_discussion_choose_minion",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: the minion's night results, canonical names."
+    },
+    {
+      "name": "http/game/me_discussion_choose_minion_no_werewolves",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: a Minion who sees no Werewolf (both are in the centre)."
     },
     {
       "name": "http/game/me_discussion_choose_robber",
@@ -514,12 +610,36 @@
       "description": "/me/ in the talk: the seer's night results."
     },
     {
+      "name": "http/game/me_discussion_choose_seer_center",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: a dealt Seer who looked at two centre cards."
+    },
+    {
       "name": "http/game/me_discussion_choose_seer_nothing_chosen",
       "kind": "http",
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: a Seer whose choose held nothing valid is told so (a `skip` result with `nothing_chosen`), only on their own phone."
+    },
+    {
+      "name": "http/game/me_discussion_choose_seer_timed_out",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: a Seer who sent no choose; her window ended on its timer."
+    },
+    {
+      "name": "http/game/me_discussion_choose_tanner",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: the Tanner (no night action)."
     },
     {
       "name": "http/game/me_discussion_choose_troublemaker",
@@ -882,6 +1002,38 @@
       "description": "Results of a game with a Doppelganger, a Drunk and a Tanner."
     },
     {
+      "name": "http/game/results_doppelganger_drunk",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "A game where she copied the Drunk and swapped with a centre card she chose."
+    },
+    {
+      "name": "http/game/results_doppelganger_insomniac",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "A game where she copied the Insomniac and looked at her own card at the end."
+    },
+    {
+      "name": "http/game/results_doppelganger_robber",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "A game where she copied the Robber and robbed a Werewolf."
+    },
+    {
+      "name": "http/game/results_doppelganger_troublemaker",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "A game where she copied the Troublemaker and swapped a Werewolf with a Villager."
+    },
+    {
       "name": "http/game/results_five",
       "kind": "http",
       "method": "GET",
@@ -896,6 +1048,14 @@
       "path": "/onuw/games/{game_id}/results/",
       "status": 200,
       "description": "The Hunter is voted out and takes the player he voted for (a Werewolf) with him."
+    },
+    {
+      "name": "http/game/results_minion_no_werewolves",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/results/",
+      "status": 200,
+      "description": "No Werewolf among the players: the Minion saw none, and the table votes out a Villager, so the Minion (Werewolf team) wins."
     },
     {
       "name": "http/game/results_moved_dead_card",

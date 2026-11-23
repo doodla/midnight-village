@@ -1,0 +1,113 @@
+{
+  "game_id": "00000000-0000-4000-a000-000000000027",
+  "lobby_code": "G8JP4W",
+  "phase": "discussion",
+  "current_wave": 0,
+  "deadline": "2024-03-07T23:12:48+00:00",
+  "your_role": {
+    "original_role": "Doppelganger"
+  },
+  "is_host": true,
+  "host_id": 98,
+  "players": [
+    {
+      "player_id": 98,
+      "display_name": "Ana",
+      "token": "lantern",
+      "seat": 0
+    },
+    {
+      "player_id": 99,
+      "display_name": "Ben",
+      "token": "crow",
+      "seat": 1
+    },
+    {
+      "player_id": 100,
+      "display_name": "Cleo",
+      "token": "moth",
+      "seat": 2
+    },
+    {
+      "player_id": 101,
+      "display_name": "Dev",
+      "token": "key",
+      "seat": 3
+    },
+    {
+      "player_id": 102,
+      "display_name": "Esme",
+      "token": "scythe",
+      "seat": 4
+    },
+    {
+      "player_id": 103,
+      "display_name": "Fin",
+      "token": "spindle",
+      "seat": 5
+    },
+    {
+      "player_id": 104,
+      "display_name": "Gus",
+      "token": "hare",
+      "seat": 6
+    }
+  ],
+  "action_prompt": null,
+  "roles_in_game": [
+    {
+      "role": "Mason",
+      "count": 2
+    },
+    {
+      "role": "Tanner",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 3
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Doppelganger",
+      "count": 1
+    }
+  ],
+  "night_results": [
+    {
+      "wave": 1,
+      "action_type": "peek_player",
+      "revealed_info": {
+        "target_name": "Ben",
+        "role": "Insomniac",
+        "copied_role": "Insomniac"
+      }
+    },
+    {
+      "wave": 2,
+      "action_type": "insomniac",
+      "revealed_info": {
+        "current_role": "Doppelganger"
+      }
+    }
+  ],
+  "night_results_seen": 0,
+  "player_id": 98,
+  "my_vote": null,
+  "ready": false,
+  "progress": {
+    "stage": "talk",
+    "done": 0,
+    "needed": 7
+  },
+  "stage": "talk.000000000027",
+  "stage_started_at": "2024-03-07T23:07:48+00:00",
+  "vote_targets": null
+}

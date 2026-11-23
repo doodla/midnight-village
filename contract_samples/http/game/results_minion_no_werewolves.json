@@ -1,0 +1,362 @@
+{
+  "winning_teams": [
+    "werewolf"
+  ],
+  "reason": "No werewolves in play, but a non-Minion player was eliminated. Minion wins for the Werewolf team!",
+  "eliminated_players": [
+    {
+      "player_id": 100,
+      "display_name": "Cleo",
+      "role": "Villager",
+      "elimination_reason": "vote"
+    }
+  ],
+  "players": [
+    {
+      "player_id": 98,
+      "display_name": "Ana",
+      "token": "lantern",
+      "seat": 0,
+      "original_role": "Seer",
+      "final_role": "Seer",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 100
+    },
+    {
+      "player_id": 99,
+      "display_name": "Ben",
+      "token": "crow",
+      "seat": 1,
+      "original_role": "Minion",
+      "final_role": "Minion",
+      "team": "werewolf",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "win",
+      "vote_target_id": 100
+    },
+    {
+      "player_id": 100,
+      "display_name": "Cleo",
+      "token": "moth",
+      "seat": 2,
+      "original_role": "Villager",
+      "final_role": "Villager",
+      "team": "village",
+      "is_eliminated": true,
+      "elimination_reason": "vote",
+      "outcome": "lose",
+      "vote_target_id": 104
+    },
+    {
+      "player_id": 101,
+      "display_name": "Dev",
+      "token": "key",
+      "seat": 3,
+      "original_role": "Villager",
+      "final_role": "Villager",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 100
+    },
+    {
+      "player_id": 102,
+      "display_name": "Esme",
+      "token": "scythe",
+      "seat": 4,
+      "original_role": "Mason",
+      "final_role": "Mason",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 100
+    },
+    {
+      "player_id": 103,
+      "display_name": "Fin",
+      "token": "spindle",
+      "seat": 5,
+      "original_role": "Mason",
+      "final_role": "Mason",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 100
+    },
+    {
+      "player_id": 104,
+      "display_name": "Gus",
+      "token": "hare",
+      "seat": 6,
+      "original_role": "Hunter",
+      "final_role": "Hunter",
+      "team": "village",
+      "is_eliminated": false,
+      "elimination_reason": null,
+      "outcome": "lose",
+      "vote_target_id": 100
+    }
+  ],
+  "center_cards": [
+    "Werewolf",
+    "Werewolf",
+    "Villager"
+  ],
+  "night_actions_log": [
+    {
+      "wave": 2,
+      "result": {
+        "werewolves": []
+      },
+      "targets": {},
+      "player_id": 99,
+      "action_type": "see_team",
+      "role_acting_as": "Minion",
+      "timestamp_order": 0
+    },
+    {
+      "wave": 2,
+      "result": {
+        "masons": [
+          103
+        ]
+      },
+      "targets": {},
+      "player_id": 102,
+      "action_type": "see_team",
+      "role_acting_as": "Mason",
+      "timestamp_order": 1
+    },
+    {
+      "wave": 2,
+      "result": {
+        "masons": [
+          102
+        ]
+      },
+      "targets": {},
+      "player_id": 103,
+      "action_type": "see_team",
+      "role_acting_as": "Mason",
+      "timestamp_order": 2
+    },
+    {
+      "wave": 3,
+      "result": {},
+      "targets": {},
+      "player_id": 98,
+      "action_type": "skip",
+      "role_acting_as": "Seer",
+      "timestamp_order": 0
+    }
+  ],
+  "night_timeline": {
+    "seats": [
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104
+    ],
+    "cards": [
+      {
+        "card_id": "k0",
+        "role": "Seer",
+        "werewolf": false
+      },
+      {
+        "card_id": "k1",
+        "role": "Minion",
+        "werewolf": false
+      },
+      {
+        "card_id": "k2",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k3",
+        "role": "Villager",
+        "werewolf": false
+      },
+      {
+        "card_id": "k4",
+        "role": "Mason",
+        "werewolf": false
+      },
+      {
+        "card_id": "k5",
+        "role": "Mason",
+        "werewolf": false
+      },
+      {
+        "card_id": "k6",
+        "role": "Hunter",
+        "werewolf": false
+      },
+      {
+        "card_id": "k7",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k8",
+        "role": "Werewolf",
+        "werewolf": true
+      },
+      {
+        "card_id": "k9",
+        "role": "Villager",
+        "werewolf": false
+      }
+    ],
+    "dealt": {
+      "players": {
+        "98": "k0",
+        "99": "k1",
+        "100": "k2",
+        "101": "k3",
+        "102": "k4",
+        "103": "k5",
+        "104": "k6"
+      },
+      "center": [
+        "k7",
+        "k8",
+        "k9"
+      ]
+    },
+    "steps": [
+      {
+        "step": 1,
+        "window": 2,
+        "order_group": 2,
+        "role": "Minion",
+        "actors": [
+          99
+        ],
+        "doppelganger_actors": [],
+        "action": "see_team",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "98": "k0",
+            "99": "k1",
+            "100": "k2",
+            "101": "k3",
+            "102": "k4",
+            "103": "k5",
+            "104": "k6"
+          },
+          "center": [
+            "k7",
+            "k8",
+            "k9"
+          ]
+        }
+      },
+      {
+        "step": 2,
+        "window": 2,
+        "order_group": 2,
+        "role": "Mason",
+        "actors": [
+          102,
+          103
+        ],
+        "doppelganger_actors": [],
+        "action": "see_team",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [
+          102,
+          103
+        ],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "98": "k0",
+            "99": "k1",
+            "100": "k2",
+            "101": "k3",
+            "102": "k4",
+            "103": "k5",
+            "104": "k6"
+          },
+          "center": [
+            "k7",
+            "k8",
+            "k9"
+          ]
+        }
+      },
+      {
+        "step": 3,
+        "window": 2,
+        "order_group": 3,
+        "role": "Seer",
+        "actors": [
+          98
+        ],
+        "doppelganger_actors": [],
+        "action": "skip",
+        "made_by_server": false,
+        "looked_at": [],
+        "team": [],
+        "copied_role": null,
+        "moves": [],
+        "positions_after": {
+          "players": {
+            "98": "k0",
+            "99": "k1",
+            "100": "k2",
+            "101": "k3",
+            "102": "k4",
+            "103": "k5",
+            "104": "k6"
+          },
+          "center": [
+            "k7",
+            "k8",
+            "k9"
+          ]
+        }
+      }
+    ],
+    "final": {
+      "players": {
+        "98": "k0",
+        "99": "k1",
+        "100": "k2",
+        "101": "k3",
+        "102": "k4",
+        "103": "k5",
+        "104": "k6"
+      },
+      "center": [
+        "k7",
+        "k8",
+        "k9"
+      ]
+    },
+    "center_moved": [
+      false,
+      false,
+      false
+    ]
+  }
+}
