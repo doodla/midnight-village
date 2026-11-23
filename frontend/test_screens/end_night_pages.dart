@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/features/game/presentation/end/end_night.dart';
 
@@ -18,7 +17,7 @@ EndNight nightOf(WidgetTester tester) =>
     tester.widget<EndNightScope>(find.byType(EndNightScope)).notifier!;
 
 /// The board on [results], What happened tapped, played to step [step] (0 is
-/// the first) and stopped [at] that step's motion (1: done); with [back], the
+/// the deal) and stopped [at] that step's motion (1: done); with [back], the
 /// scrap tapped again afterwards and the dawn come back.
 Future<void> pumpEndNight(
   WidgetTester tester,
@@ -29,7 +28,7 @@ Future<void> pumpEndNight(
   bool back = false,
 }) async {
   await pumpEndBoard(tester, results, textScale: textScale);
-  await tester.tap(find.text(EndCopy.whatHappened).first);
+  await tester.tap(find.textContaining('happened').first);
   // A clock started counts from the next frame.
   await tester.pump();
   final night = nightOf(tester);
@@ -41,7 +40,7 @@ Future<void> pumpEndNight(
   }
   if (back) {
     await tester.pump(night.clock.duration);
-    await tester.tap(find.text(EndCopy.backToResult).first);
+    await tester.tap(find.textContaining('result').first);
     await tester.pump(Motion.scene);
     await tester.pump(Motion.scene);
     return;
@@ -52,27 +51,38 @@ Future<void> pumpEndNight(
   if (at >= 1) await tester.pump(Motion.scene);
 }
 
-/// The pages: (name, results, step, at, text scale, back).
+/// A night where nobody acted: the Hunter's game (its Werewolves met and
+/// nobody else woke) with its steps taken out, so the replay is the deal
+/// alone. Off the contract: no recorded night is empty.
+Map<String, dynamic> nobodyActs() => offContractResults(
+  'results_hunter_chain',
+  offContract: true,
+  edit: (r) => (r['night_timeline'] as Map<String, dynamic>)['steps'] = [],
+);
+
+/// The pages: (name, results, step, at, text scale, back). Step 0 is the
+/// deal.
 final _nights =
     <(String, Map<String, dynamic> Function(), int, double, double, bool)>[
-      ('game-1-dealt', () => recordedResults('results'), 0, 0.4, 1, false),
-      ('game-2-team', () => recordedResults('results'), 0, 1, 1, false),
-      ('game-3-look', () => recordedResults('results'), 1, 1, 1, false),
-      ('game-4-take', () => recordedResults('results'), 2, 1, 1, false),
+      ('game-0-dealing', () => recordedResults('results'), 0, 0.5, 1, false),
+      ('game-1-dealt', () => recordedResults('results'), 0, 1, 1, false),
+      ('game-2-team', () => recordedResults('results'), 1, 1, 1, false),
+      ('game-3-look', () => recordedResults('results'), 2, 1, 1, false),
+      ('game-4-take', () => recordedResults('results'), 3, 1, 1, false),
       (
         'game-5-swap-moving',
         () => recordedResults('results'),
-        3,
+        4,
         0.72,
         1,
         false,
       ),
-      ('game-6-last', () => recordedResults('results'), 3, 1, 1, false),
-      ('game-7-back', () => recordedResults('results'), 3, 1, 1, true),
+      ('game-6-last', () => recordedResults('results'), 4, 1, 1, false),
+      ('game-7-back', () => recordedResults('results'), 4, 1, 1, true),
       (
         'dop-1-copy',
         () => recordedResults('results_doppelganger'),
-        0,
+        1,
         1,
         1,
         false,
@@ -80,7 +90,7 @@ final _nights =
       (
         'dop-2-copied-look',
         () => recordedResults('results_doppelganger'),
-        1,
+        2,
         1,
         1,
         false,
@@ -88,13 +98,21 @@ final _nights =
       (
         'dop-3-lone-werewolf',
         () => recordedResults('results_doppelganger'),
-        2,
+        3,
         1,
         1,
         false,
       ),
       (
-        'dop-6-drunk',
+        'dop-4-minion',
+        () => recordedResults('results_doppelganger'),
+        4,
+        1,
+        1,
+        false,
+      ),
+      (
+        'dop-5-masons',
         () => recordedResults('results_doppelganger'),
         5,
         1,
@@ -102,16 +120,51 @@ final _nights =
         false,
       ),
       (
-        'dop-7-insomniac',
+        'dop-6-drunk',
         () => recordedResults('results_doppelganger'),
         6,
         1,
         1,
         false,
       ),
-      ('ten-mid-step', endTen, 3, 0.7, 1, false),
-      ('ten-drunk', endTen, 5, 1, 1, false),
-      ('text-1.6', () => recordedResults('results'), 3, 1, 1.6, false),
+      (
+        'dop-7-insomniac',
+        () => recordedResults('results_doppelganger'),
+        7,
+        1,
+        1,
+        false,
+      ),
+      ('ten-dealt', endTen, 0, 1, 1, false),
+      ('ten-mid-step', endTen, 4, 0.7, 1, false),
+      ('ten-drunk', endTen, 6, 1, 1, false),
+      ('text-1.6', () => recordedResults('results'), 4, 1, 1.6, false),
+      (
+        'eight-1.6-dealt',
+        () => recordedResults('results_doppelganger'),
+        0,
+        1,
+        1.6,
+        false,
+      ),
+      (
+        'eight-1.6-minion',
+        () => recordedResults('results_doppelganger'),
+        4,
+        1,
+        1.6,
+        false,
+      ),
+      (
+        'eight-1.6-drunk',
+        () => recordedResults('results_doppelganger'),
+        6,
+        1,
+        1.6,
+        false,
+      ),
+      ('nobody-dealt', nobodyActs, 0, 1, 1, false),
+      ('nobody-back', nobodyActs, 0, 1, 1, true),
     ];
 
 final endNightEntries = <ScreenEntry>[

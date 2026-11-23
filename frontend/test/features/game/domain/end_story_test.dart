@@ -27,6 +27,15 @@ Map<String, int> idsOf(String sample) => {
 
 StoryThread thread(CardPlace from, CardPlace to) => (from: from, to: to);
 
+/// A line leads with the role that acted (or the team).
+final _leadsWithRole = RegExp(
+  '^(Werewolves|Masons|Lone Werewolf|Werewolf|Mason|Minion|Seer|Robber|'
+  'Troublemaker|Drunk|Insomniac|Doppelganger) ',
+);
+
+/// "Left", "Right" or "Middle" alone: a middle card named by its side.
+final _bareSide = RegExp(r'\b(Left|Right|Middle)\b');
+
 void main() {
   final samples = [
     for (final info in ContractSamples.index)
@@ -65,11 +74,23 @@ void main() {
         expect(story.steps, hasLength(did.length));
         for (final (i, step) in story.steps.indexed) {
           expect(step.number, i + 1);
-          expect(step.line, isNotEmpty);
-          expect(step.line, isNot(contains(':')), reason: 'no role prefix');
-          // Red only for the Werewolf team's own acts.
-          final role = did.elementAt(i).role;
-          expect(step.werewolf, role.team == TeamId.werewolf);
+          // The line leads with the role that acted, and never names a
+          // middle card by a bare side.
+          expect(step.line, matches(_leadsWithRole), reason: step.line);
+          expect(step.line, isNot(matches(_bareSide)), reason: step.line);
+          // Red only for the Werewolf team's own acts: read from the
+          // recording's own words, not the app's team table.
+          final timeline =
+              ContractSamples.map('http/game/$name')['night_timeline'] as Map;
+          final acted = [
+            for (final raw in (timeline['steps'] as List).cast<Map>())
+              if (raw['action'] != 'skip') raw['role'] as String,
+          ];
+          expect(
+            step.werewolf,
+            const {'Werewolf', 'Minion'}.contains(acted[i]),
+            reason: '$name ${step.line}',
+          );
           // A step only moves what its threads join.
           final before = story.before(i);
           for (final MapEntry(:key, :value) in step.after.players.entries) {
@@ -91,10 +112,10 @@ void main() {
     expect(
       [for (final s in story.steps) s.line],
       [
-        'Cleo, Esme see each other.',
-        "Ana sees Cleo's card.",
-        "Ben takes Dev's card.",
-        'Dev swaps Ana and Ben.',
+        'Werewolves Cleo and Esme meet.',
+        'Seer Ana sees Cleo: Werewolf.',
+        "Robber Ben takes Dev's card.",
+        'Troublemaker Dev swaps Ana and Ben.',
       ],
     );
     expect(story.steps.map((s) => s.kind), [
@@ -127,13 +148,13 @@ void main() {
     expect(
       [for (final s in story.steps) s.line],
       [
-        'Ana copies Ben.',
-        'Ana sees Left, Right.',
-        'Cleo sees Middle.',
-        'Dev sees Cleo.',
-        'Esme, Fin see each other.',
-        'Gus takes Left.',
-        'Hana sees own card.',
+        'Doppelganger Ana copies Ben: now a Seer.',
+        'Doppelganger Ana peeks at two middle cards.',
+        'Lone Werewolf Cleo peeks at a middle card.',
+        'Minion Dev sees the Werewolves.',
+        'Masons Esme and Fin meet.',
+        'Drunk Gus swaps with a middle card.',
+        'Insomniac Hana wakes: still Insomniac.',
       ],
       reason: "Ben's Seer did nothing: no step",
     );
@@ -183,18 +204,18 @@ void main() {
     final [copy, wolves, ..._] = story.steps;
     expect(copy.after.players[id['Ana']]!.face, RoleId.werewolf);
     expect(copy.werewolf, isFalse, reason: 'the copy is the Doppelganger’s');
-    expect(wolves.line, 'Ana, Cleo see each other.');
+    expect(wolves.line, 'Werewolves Ana and Cleo meet.');
     expect(wolves.werewolf, isTrue);
     // The Drunk the server moved (he chose nothing): still his step.
     final drunk = story.steps.firstWhere((s) => s.kind == StoryKind.take);
-    expect(drunk.line, 'Gus takes Right.');
+    expect(drunk.line, 'Drunk Gus swaps with a middle card.');
   });
 
   test('a dead card that moved: Ben robs the Werewolf he hangs with', () {
     final story = storyOf('results_moved_dead_card');
     final id = idsOf('results_moved_dead_card');
     final robbery = story.steps.last;
-    expect(robbery.line, "Ben takes Cleo's card.");
+    expect(robbery.line, "Robber Ben takes Cleo's card.");
     expect(robbery.after.players[id['Ben']]!.face, RoleId.werewolf);
     expect(robbery.after.players[id['Cleo']]!.face, RoleId.robber);
   });
@@ -203,13 +224,13 @@ void main() {
     final story = storyOf('results_tie');
     expect(
       [for (final s in story.steps) s.line],
-      ['Cleo, Esme see each other.'],
+      ['Werewolves Cleo and Esme meet.'],
     );
   });
 
   test('a lone Werewolf who woke alone: no thread, her own card', () {
     final story = storyOf('results_three_players');
-    expect(story.steps.first.line, 'Ana wakes alone.');
+    expect(story.steps.first.line, 'Werewolf Ana is alone.');
     expect(story.steps.first.threads, isEmpty);
     expect(story.steps.first.places, hasLength(1));
   });

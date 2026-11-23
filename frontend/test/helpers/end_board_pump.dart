@@ -19,6 +19,9 @@ Future<void> pumpEndBoardOn(
   bool reveal = false,
   bool reduceMotion = false,
   VoidCallback? onPlayAgain,
+  VoidCallback? onEditDeck,
+  bool stepTaught = false,
+  VoidCallback? onStepTaught,
 }) async {
   final outcome = GameOutcome.fromJson(results);
   await tester.pumpWidget(
@@ -38,11 +41,13 @@ Future<void> pumpEndBoardOn(
         isHost: host,
         hostName: host ? null : outcome.seats.first.name,
         onWhatHappened: () {},
-        onEditDeck: () {},
+        onEditDeck: onEditDeck ?? () {},
         onPlayAgain: onPlayAgain ?? () {},
         onLeave: () {},
         scrollController: controller,
         reveal: reveal,
+        stepTaught: stepTaught,
+        onStepTaught: onStepTaught,
       ),
     ),
   );

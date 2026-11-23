@@ -12,8 +12,8 @@ import '../../../../design_system/primitives/paper_scrap.dart';
 import '../../../../design_system/primitives/sliced_art.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
+import '../../domain/end_night_view.dart';
 import '../../domain/end_reveal.dart';
-import '../../domain/night_timeline.dart';
 import 'end_cards.dart';
 import 'end_night.dart';
 import 'end_reveal.dart';
@@ -89,17 +89,17 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
     super.dispose();
   }
 
-  /// A step of the night shown: on a board that scrolls, its cards are
-  /// brought into view as it plays (above the caption on the rail), the
-  /// middle's at the board's foot.
+  /// A step of the night shown: on a board that scrolls, every card it is
+  /// about is brought whole into view, under the eave and above the foot's
+  /// lip, moving the board as little as it can; the deal brings the board
+  /// to the top with "you" in view. Back at the result, the board stands
+  /// where it stood by day, exactly.
   void _stepped() {
     final night = _night;
-    final step = night?.current;
     final shown = night?.step;
     if (shown == _shown) return;
     final c = _controller;
     final scrolled = widget.plan.scrolls && c.hasClients;
-    // The board goes back to where it stood by day, exactly.
     if (_shown == null && scrolled) _dayOffset = c.offset;
     _shown = shown;
     if (shown == null) {
@@ -107,27 +107,15 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
       _dayOffset = null;
       return;
     }
-    if (step == null || !scrolled) return;
-    final plan = widget.plan;
+    if (!scrolled) return;
     final position = c.position;
-    var top = double.infinity, bottom = 0.0;
-    // The players' cards: a twine to the middle runs down off the board
-    // from wherever its card is.
-    for (final place in step.places.whereType<PlayerPlace>()) {
-      final r = plan
-          .card(place.playerId)
-          .reach
-          .shift(const Offset(_side, EndMetrics.roof));
-      top = top < r.top ? top : r.top;
-      bottom = bottom > r.bottom ? bottom : r.bottom;
-    }
-    final view = position.viewportDimension - nightCaptionRoom;
-    var to = position.pixels;
-    if (bottom > to + view) to = bottom - view;
-    if (top - Space.md < to) to = top - Space.md;
-    to = to.clamp(position.minScrollExtent, position.maxScrollExtent);
+    final to = nightViewOf(
+      widget.plan,
+      nightPlayersOf(widget.plan, night!),
+      deal: night.opening,
+    ).scroll.clamp(position.minScrollExtent, position.maxScrollExtent);
     if (to == position.pixels) return;
-    if (night!.cut) {
+    if (night.cut) {
       c.jumpTo(to);
     } else {
       unawaited(c.animateTo(to, duration: Motion.settle, curve: Motion.curve));
@@ -197,7 +185,10 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
                 physics: const ClampingScrollPhysics(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [still(content), const _NightRoom()],
+                  children: [
+                    still(content),
+                    _NightRoom(plan: plan),
+                  ],
                 ),
               )
             : content,
@@ -215,17 +206,7 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
         if (v < 0) night.next();
         if (v > 0) night.back();
       },
-      child: Stack(
-        children: [
-          Positioned.fill(child: window),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: EndMetrics.lip + Space.sm,
-            child: Center(child: NightCaption(width: plan.boardWidth)),
-          ),
-        ],
-      ),
+      child: window,
     );
   }
 
@@ -311,13 +292,15 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
   }
 }
 
-/// At night, room under a board that scrolls: its lowest cards can be brought
-/// up above the caption on the rail. Nothing by day.
+/// At night, room under a board that scrolls: its lowest card can stand
+/// whole above the foot's lip. Nothing by day.
 class _NightRoom extends StatelessWidget {
-  const _NightRoom();
+  const _NightRoom({required this.plan});
+
+  final EndBoardPlan plan;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: EndNightScope.maybeOf(context)?.on ?? false ? nightCaptionRoom : 0,
+    height: EndNightScope.maybeOf(context)?.on ?? false ? nightRoomOf(plan) : 0,
   );
 }

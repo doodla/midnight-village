@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../design_system/copy/copy.dart';
 import '../../../design_system/models/role.dart';
 import 'game_outcome.dart';
 import 'night_timeline.dart';
-import 'outcome_view.dart';
 
 // What happened, replayed on the end board (docs/specs/frontend/end-board.md,
 // section 8): the night's steps as the board plays them, from the results'
@@ -82,8 +82,8 @@ class StoryStep {
   /// The Werewolf team's act: its twine is red. Every other twine is bone.
   final bool werewolf;
 
-  /// The words on the slip: the timeline's row without its "{role}:" (the
-  /// card shows the role).
+  /// The step's line in the banner ([StoryCopy.line]): the role that
+  /// acted, who, and what came of it.
   final String line;
 
   /// Every card's face once the step is done.
@@ -129,7 +129,7 @@ class EndStory {
 EndStory? endStoryOf(GameOutcome outcome) {
   final timeline = outcome.timeline;
   if (timeline == null) return null;
-  final lines = {for (final l in nightLinesOf(outcome)) l.number: l.text};
+  final names = {for (final s in outcome.seats) s.id: s.name};
   // The Doppelganger's card shows what it copied, from its copy on.
   final copies = <String, RoleId>{};
   StoryFaces faces(CardPositions at) {
@@ -167,7 +167,7 @@ EndStory? endStoryOf(GameOutcome outcome) {
         actors: step.actors,
         threads: _threadsOf(step),
         werewolf: step.role.team == TeamId.werewolf,
-        line: lines[step.step] ?? '',
+        line: _lineOf(step, timeline, (id) => names[id] ?? ''),
         after: faces(step.positionsAfter),
       ),
     );
@@ -215,5 +215,109 @@ List<StoryThread> _threadsOf(TimelineStep step) {
       return from.length < 2 ? const [] : [(from: from[0], to: from[1])];
     case TimelineAction.lookOwn || TimelineAction.skip:
       return const [];
+  }
+}
+
+/// The banner's line for [step], from [StoryCopy.line]: the role that acted
+/// ("Doppelganger" for a Doppelganger's follow-up), its name, and what came
+/// of it, read off the cards of [timeline].
+String _lineOf(
+  TimelineStep step,
+  NightTimeline timeline,
+  String Function(int id) name,
+) {
+  final actor = step.actors.isEmpty ? null : step.actors.first;
+  final followUp =
+      step.role != RoleId.doppelganger &&
+      step.doppelgangerActors.isNotEmpty &&
+      step.doppelgangerActors.length == step.actors.length;
+  final role = followUp
+      ? RoleId.doppelganger.displayName
+      : step.role.displayName;
+  String roleOf(String card) => timeline.cards[card]!.role.displayName;
+  final players = [
+    for (final l in step.lookedAt)
+      if (l.place case PlayerPlace(:final playerId)) (playerId, l.cardId),
+  ];
+  String line(
+    StoryAct act, {
+    String? as,
+    List<String> names = const [],
+    String other = '',
+    String third = '',
+    String seen = '',
+    bool same = false,
+  }) => StoryCopy.line(
+    act,
+    role: as ?? role,
+    name: actor == null ? '' : name(actor),
+    names: names,
+    other: other,
+    third: third,
+    seen: seen,
+    same: same,
+  );
+
+  switch (step.action) {
+    case TimelineAction.copy:
+      final copied = players.firstOrNull;
+      return line(
+        StoryAct.copies,
+        other: copied == null ? '' : name(copied.$1),
+        seen:
+            step.copiedRole?.displayName ??
+            (copied == null ? '' : roleOf(copied.$2)),
+      );
+    case TimelineAction.seeTeam:
+      final team = step.team.map(name).toList();
+      if (step.role == RoleId.minion) return line(StoryAct.minion, names: team);
+      if (team.length < 2) return line(StoryAct.alone);
+      return line(
+        step.role == RoleId.mason ? StoryAct.masons : StoryAct.werewolves,
+        names: team,
+      );
+    case TimelineAction.peekPlayer:
+      final seen = players.firstOrNull;
+      return line(
+        StoryAct.seesPlayer,
+        other: seen == null ? '' : name(seen.$1),
+        seen: seen == null ? '' : roleOf(seen.$2),
+      );
+    case TimelineAction.peekCenter:
+      if (step.lookedAt.length >= 2) return line(StoryAct.seesMiddle);
+      return line(
+        StoryAct.peeksMiddle,
+        as: followUp ? null : StoryCopy.loneWerewolf,
+      );
+    case TimelineAction.swapWithPlayer:
+      final other = step.moves
+          .map((m) => m.from)
+          .whereType<PlayerPlace>()
+          .where((p) => !step.actors.contains(p.playerId))
+          .firstOrNull;
+      return line(
+        StoryAct.takes,
+        other: other == null ? '' : name(other.playerId),
+      );
+    case TimelineAction.swapOthers:
+      final from = [
+        for (final m in step.moves)
+          if (m.from case PlayerPlace(:final playerId)) name(playerId),
+      ];
+      return line(
+        StoryAct.swaps,
+        other: from.firstOrNull ?? '',
+        third: from.length < 2 ? '' : from[1],
+      );
+    case TimelineAction.swapWithCenter:
+      return line(StoryAct.swapsMiddle);
+    case TimelineAction.lookOwn || TimelineAction.skip:
+      final own = step.lookedAt.firstOrNull?.cardId;
+      final dealt = actor == null ? null : timeline.dealt.players[actor];
+      return line(
+        StoryAct.wakes,
+        same: own == dealt,
+        seen: own == null ? '' : roleOf(own),
+      );
   }
 }

@@ -16,20 +16,18 @@ import 'package:midnight_village/features/game/domain/end_story.dart';
 import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
 import 'package:midnight_village/features/game/presentation/end/end_night.dart';
 
-import '../../../../test_screens/end_board_pages.dart' show endTen;
-import '../../../../test_screens/reading_floor.dart';
 import '../../../helpers/end_board_pump.dart';
 import '../../../helpers/outcome_samples.dart';
-import '../../../helpers/truncated_text.dart';
 
 // What happened, on the board (docs/specs/frontend/end-board.md, section 8):
 // the scrap starts the night and becomes the way back; every card turns to
 // the deal where it lies; a tap plays the next step (or finishes the one
-// playing), a swipe left too and a swipe right goes back; the words of each
-// step are on the rail and read out; the settled board comes back pixel for
+// playing), a swipe left too and a swipe right goes back; the line of each
+// step is in the banner and read out; the settled board comes back pixel for
 // pixel; nothing vibrates; the paper that holds still is not painted again;
-// ten players scroll each step's cards into view; and at every step, phone
-// and text size, no word is cut and nothing is drawn below the reading floor.
+// the same results fetched again change nothing; the foot's controls work
+// at night; the first time, a cue that the board goes on. Every card of
+// every step in view: end_night_sweep_test.dart.
 
 late List<String> _buzzes;
 
@@ -89,7 +87,18 @@ Future<void> _done(WidgetTester tester) async {
   await tester.pump(Motion.scene);
 }
 
-/// A tap on the board, clear of the foot and the caption.
+/// The banner's words, as one line.
+String _banner(WidgetTester tester) => tester
+    .widgetList<Text>(
+      find.descendant(
+        of: find.byType(BannerSlice),
+        matching: find.byType(Text),
+      ),
+    )
+    .map((t) => t.data)
+    .join(' ');
+
+/// A tap on the board, clear of the foot.
 Future<void> _tapBoard(WidgetTester tester) async {
   await tester.tapAt(const Offset(180, 300));
   await tester.pump();
@@ -136,22 +145,24 @@ Future<void> _loadPictures(WidgetTester tester) async {
 
 void main() {
   testWidgets('the scrap starts the night: the cards turn to the deal where '
-      'they lie, the first step plays, the scrap leads back', (tester) async {
+      'they lie, the banner says so, the scrap leads back', (tester) async {
     final night = await _open(tester, recordedResults('results'));
     final story = night.story!;
+    // Where each card lies on the board (the board may scroll).
+    Offset board() => tester.getTopLeft(find.byType(BoardFrame));
     final settled = {
       for (final e in find.byType(BoardCard).evaluate())
         if ((e.widget as BoardCard).name case final name?)
-          name: tester.getRect(find.byWidget(e.widget)),
+          name: tester.getRect(find.byWidget(e.widget)).shift(-board()),
     };
+    final day = _banner(tester);
     await _tapScrap(tester, EndCopy.whatHappened);
     await _done(tester);
     expect(night.step, 0);
+    expect(_banner(tester), StoryCopy.dealt);
     expect(find.text(EndCopy.backToResult), findsOneWidget);
     expect(find.text(EndCopy.whatHappened), findsNothing);
-    expect(find.text(story.steps.first.line), findsOneWidget);
-    // Every card where it lay, showing the card dealt to that player (the
-    // first step moves nothing).
+    // Every card where it lay, showing the card dealt to that player.
     final outcome = outcomeOf(recordedResults('results'));
     for (final s in outcome.seats) {
       final card = _nightCard(s.name);
@@ -159,13 +170,23 @@ void main() {
           .widgetList<BoardCard>(card)
           .where((c) => c.role == story.dealt.players[s.id]!.face);
       expect(shown, isNotEmpty, reason: s.name);
-      final at = tester.getRect(card.first), was = settled[s.name]!;
+      final at = tester.getRect(card.first).shift(-board());
+      final was = settled[s.name]!;
       expect((at.topLeft - was.topLeft).distance, lessThan(0.01));
       expect((at.size - was.size as Offset).distance, lessThan(0.01));
     }
     // The marks of the result are hidden: ribbons, tags.
     expect(find.byType(DeathRibbon).hitTestable(), findsNothing);
     expect(find.byType(VoteTag).hitTestable(), findsNothing);
+    // Each step's line in its turn, then the result's again.
+    for (final step in story.steps) {
+      await _tapBoard(tester);
+      await _done(tester);
+      expect(_banner(tester), step.line);
+    }
+    await _tapBoard(tester);
+    await _done(tester);
+    expect(_banner(tester), day);
   });
 
   testWidgets('a tap plays the next step; a tap while one plays finishes it; '
@@ -200,12 +221,12 @@ void main() {
     final before = await _picture(tester);
     await _tapScrap(tester, EndCopy.whatHappened);
     await _loadPictures(tester);
-    for (var i = 1; i < night.story!.steps.length; i++) {
+    for (var i = 0; i < night.story!.steps.length; i++) {
       await _done(tester);
       await _tapBoard(tester);
     }
     await _done(tester);
-    expect(night.step, night.story!.steps.length - 1);
+    expect(night.step, night.story!.steps.length);
     await _tapBoard(tester);
     expect(night.on, isFalse);
     await _done(tester);
@@ -222,18 +243,19 @@ void main() {
     expect(_buzzes, isEmpty);
   });
 
-  testWidgets('each step\'s words are read out as it comes, and are a screen '
+  testWidgets('each step\'s line is read out as it comes, and is a screen '
       'reader\'s way on', (tester) async {
     final handle = tester.ensureSemantics();
     final night = await _open(tester, recordedResults('results_doppelganger'));
     await _tapScrap(tester, EndCopy.whatHappened);
     await _done(tester);
-    for (final step in night.story!.steps) {
-      final node = tester.getSemantics(find.bySemanticsLabel(step.line).last);
-      expect(node.flagsCollection.isLiveRegion, isTrue, reason: step.line);
+    final lines = [StoryCopy.dealt, ...night.story!.steps.map((s) => s.line)];
+    for (final line in lines) {
+      final node = tester.getSemantics(find.bySemanticsLabel(line).last);
+      expect(node.flagsCollection.isLiveRegion, isTrue, reason: line);
       expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
-      if (step != night.story!.steps.last) {
-        tester.semantics.tap(find.semantics.byLabel(step.line).first);
+      if (line != lines.last) {
+        tester.semantics.tap(find.semantics.byLabel(line).first);
         await _done(tester);
       }
     }
@@ -304,95 +326,110 @@ void main() {
     expect(again, isEmpty, reason: 'repainted during a step');
   });
 
-  testWidgets('ten players: each step\'s cards are in view above the caption '
-      'when it is done', (tester) async {
-    final results = endTen();
-    final outcome = outcomeOf(results);
-    final names = {for (final s in outcome.seats) s.id: s.name};
-    final night = await _open(tester, results, screen: const Size(360, 780));
-    await _tapScrap(tester, EndCopy.whatHappened);
-    final window = tester.getRect(find.byType(EndBoardWindow));
-    for (final (i, step) in night.story!.steps.indexed) {
-      if (i > 0) await _tapBoard(tester);
-      await _done(tester);
-      // The step's cards, when they fit the window together; the first
-      // always.
-      final rects = [
-        for (final id in step.actors)
-          tester.getRect(_nightCard(names[id]).first),
-      ];
-      final span = rects.fold(rects.first, (a, b) => a.expandToInclude(b));
-      final together = span.height <= window.height - nightCaptionRoom;
-      for (final id in together ? step.actors : step.actors.take(1)) {
-        final card = _nightCard(names[id]);
-        expect(card, findsWidgets, reason: '${step.line} ${night.step}');
-        final r = tester.getRect(card.first);
-        expect(r.top, greaterThanOrEqualTo(window.top), reason: step.line);
-        expect(
-          r.bottom,
-          lessThanOrEqualTo(window.bottom - nightCaptionRoom + 1),
-          reason: step.line,
-        );
-      }
-    }
-  });
-
   testWidgets('the Doppelganger\'s card shows the deal, then the role it '
       'copied, saying Doppelganger', (tester) async {
     final night = await _open(tester, recordedResults('results_doppelganger'));
     await _tapScrap(tester, EndCopy.whatHappened);
-    await tester.pump(Motion.scene * 0.4);
     BoardCard ana() => tester
         .widgetList<BoardCard>(_nightCards)
         .lastWhere((c) => c.name == 'Ana');
+    await _done(tester);
+    expect(ana().role, RoleId.doppelganger);
+    await _tapBoard(tester);
     await _done(tester);
     expect(night.current!.kind, StoryKind.copy);
     expect(ana().role, RoleId.seer);
     expect(ana().strip, RoleId.doppelganger.displayName);
   });
 
-  group('at every step, phone and text size: no word cut, nothing below the '
-      'reading floor', () {
-    for (final (name, results) in [
-      ('results', () => recordedResults('results')),
-      ('doppelganger', () => recordedResults('results_doppelganger')),
-      ('three', () => recordedResults('results_three_players')),
-      ('ten', endTen),
-    ]) {
-      for (final size in const [
-        Size(360, 640),
-        Size(360, 780),
-        Size(390, 844),
-      ]) {
-        for (final scale in const [1.0, 1.3, 1.6]) {
-          testWidgets('$name at ${size.width.toInt()}x${size.height.toInt()} '
-              'text x$scale', (tester) async {
-            final night = await _open(
-              tester,
-              results(),
-              screen: size,
-              scale: scale,
-            );
-            await _tapScrap(tester, EndCopy.whatHappened);
-            for (final (i, step) in night.story!.steps.indexed) {
-              if (i > 0) night.next();
-              await tester.pump();
-              await _done(tester);
-              expect(tester.takeException(), isNull, reason: step.line);
-              expect(truncatedText(tester), isEmpty, reason: step.line);
-              expect(readingFloorBreaches(tester), isEmpty, reason: step.line);
-              // The caption is whole on the screen.
-              final caption = tester.getRect(find.byType(NightCaption));
-              expect(
-                (Offset.zero & size).contains(caption.topLeft) &&
-                    caption.right <= size.width + 0.5,
-                isTrue,
-                reason: '${step.line} $caption',
-              );
-            }
-          });
-        }
-      }
+  testWidgets('the same results fetched again change nothing: the night '
+      'stays at its step', (tester) async {
+    final night = await _open(tester, recordedResults('results'));
+    await _tapScrap(tester, EndCopy.whatHappened);
+    await _done(tester);
+    await _tapBoard(tester);
+    await _done(tester);
+    await _tapBoard(tester);
+    await _done(tester);
+    expect(night.step, 2);
+    // A new object from the same body, as a refetch brings.
+    await pumpEndBoardOn(tester, recordedResults('results'));
+    await _done(tester);
+    expect(night.on, isTrue);
+    expect(night.step, 2);
+  });
+
+  testWidgets('at night "Play again" and "Edit deck" take a real touch', (
+    tester,
+  ) async {
+    var played = 0, edited = 0;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpEndBoardOn(
+      tester,
+      recordedResults('results'),
+      onPlayAgain: () => played++,
+      onEditDeck: () => edited++,
+    );
+    await _tapScrap(tester, EndCopy.whatHappened);
+    await _done(tester);
+    await _tapBoard(tester);
+    for (final label in [EndCopy.playAgain, EndCopy.editDeck]) {
+      final at = tester.getCenter(find.text(label).first);
+      final finger = await tester.startGesture(at);
+      await tester.pump(const Duration(milliseconds: 80));
+      await finger.up();
+      await tester.pump();
     }
+    expect(played, 1);
+    expect(edited, 1);
+  });
+
+  testWidgets('the first time, "Go on" until the first tap, and never again '
+      'once taught', (tester) async {
+    var taught = 0;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpEndBoardOn(
+      tester,
+      recordedResults('results'),
+      onStepTaught: () => taught++,
+    );
+    expect(find.text(StoryCopy.goOn), findsNothing, reason: 'not by day');
+    await _tapScrap(tester, EndCopy.whatHappened);
+    await _done(tester);
+    expect(find.text(StoryCopy.goOn), findsOneWidget);
+    await _tapBoard(tester);
+    expect(find.text(StoryCopy.goOn), findsNothing);
+    await _tapBoard(tester);
+    await _tapBoard(tester);
+    expect(taught, 1);
+    // Taught on this device: never shown.
+    await tester.pumpWidget(const SizedBox());
+    await pumpEndBoardOn(
+      tester,
+      recordedResults('results_five'),
+      stepTaught: true,
+    );
+    await _tapScrap(tester, EndCopy.whatHappened);
+    await _done(tester);
+    expect(find.text(StoryCopy.goOn), findsNothing);
+  });
+
+  testWidgets('the moon rises between the sky plate and the roofs', (
+    tester,
+  ) async {
+    await _open(tester, recordedResults('results'));
+    await _tapScrap(tester, EndCopy.whatHappened);
+    await _done(tester);
+    expect(
+      find.descendant(
+        of: find.byType(LayeredArt),
+        matching: find.byType(NightMoon),
+      ),
+      findsOneWidget,
+    );
   });
 }

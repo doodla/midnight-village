@@ -1,16 +1,16 @@
 import 'dart:async';
-import 'dart:math' as math;
-import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/widgets.dart';
 
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/art_picture.dart';
-import '../../../../design_system/primitives/paper_scrap.dart';
+import '../../../../design_system/primitives/paper_piece.dart';
+import '../../../../design_system/skin/dress_style.dart';
+import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/skin.dart';
-import '../../domain/end_board_metrics.dart';
 import '../../domain/end_story.dart';
+import '../../domain/night_timeline.dart';
 import 'end_reveal.dart';
 
 export 'end_night_board.dart';
@@ -23,10 +23,12 @@ export 'end_night_board.dart';
 // was, and the night is a layer of its own over it.
 
 /// The night of What happened: off (the settled board), or at one step of
-/// [story], with the clock of that step's motion. A player steps through at
-/// their own pace: [next] (a tap, a swipe) finishes the motion playing, else
-/// plays the next step, and after the last goes back to the result; [back]
-/// shows the step before. Nothing advances by itself.
+/// [story], with the clock of that step's motion. Step 0 is the deal (every
+/// card turns to the face it was dealt); step i is the story's i-th. A
+/// player steps through at their own pace: [next] (a tap, a swipe) finishes
+/// the motion playing, else plays the next step, and after the last goes
+/// back to the result; [back] shows the step before. Nothing advances by
+/// itself.
 class EndNight extends ChangeNotifier {
   EndNight({required TickerProvider vsync})
     : clock = AnimationController(vsync: vsync);
@@ -42,56 +44,81 @@ class EndNight extends ChangeNotifier {
   /// Every change is a cut (reduce motion, a screen reader).
   bool cut = false;
 
+  /// The first time only: the cue on the board's lower edge that the board
+  /// goes on, until the first tap ([taught] is then told, once).
+  bool cue = false;
+  VoidCallback? taught;
+
+  void _learned() {
+    if (!cue) return;
+    cue = false;
+    taught?.call();
+  }
+
   int? _step;
 
-  /// The step shown; null when the night is off.
+  /// The step shown (0: the deal); null when the night is off.
   int? get step => _step;
   bool get on => _step != null;
 
-  /// The step shown played straight after the cards turned to the deal.
-  bool get opening => _opening;
-  var _opening = false;
+  /// The deal: the cards turning from the result to the faces dealt.
+  bool get opening => _step == 0;
 
+  /// The story's step shown; null at the deal and by day.
   StoryStep? get current {
     final s = story, i = _step;
-    if (s == null || i == null || i >= s.steps.length) return null;
-    return s.steps[i];
+    if (s == null || i == null || i == 0 || i > s.steps.length) return null;
+    return s.steps[i - 1];
   }
 
+  /// The step's line, for the banner: the deal's, or the step's.
+  String get line => current?.line ?? StoryCopy.dealt;
+
   /// The faces before the step shown, and after it.
-  StoryFaces get before =>
-      story!.steps.isEmpty ? story!.dealt : story!.before(_step ?? 0);
+  StoryFaces get before {
+    final i = _step ?? 0;
+    return i <= 1 ? story!.dealt : story!.before(i - 1);
+  }
+
   StoryFaces get after => current?.after ?? story!.dealt;
 
-  /// The night falls: the cards turn to the deal and the first step plays.
+  /// Where each card the night shows is drawn, by its place (a player's
+  /// card on the board, a middle card in the foot): what the thread to a
+  /// middle card is tied between, and what the tests find.
+  GlobalKey placeKey(CardPlace place) =>
+      _keys.putIfAbsent(place, GlobalKey.new);
+  final _keys = <CardPlace, GlobalKey>{};
+
+  /// Every place given a key so far.
+  Iterable<CardPlace> get placed => _keys.keys;
+
+  /// The night falls: the cards turn to the deal.
   void open() {
     if (story == null) return;
     _step = 0;
-    _opening = true;
     _play();
     notifyListeners();
   }
 
   void next() {
     if (!on) return;
+    _learned();
     if (clock.isAnimating) {
       clock.value = 1;
       return;
     }
-    final last = math.max(0, story!.steps.length - 1);
-    if (_step! >= last) return close();
+    if (_step! >= story!.steps.length) return close();
     _step = _step! + 1;
-    _opening = false;
     _play();
     notifyListeners();
   }
 
-  /// The step before, shown done; before the first, the result.
+  /// The step before, shown done; before the deal, the result.
   void back() {
     if (!on) return;
+    _learned();
     if (_step == 0) return close();
     _step = _step! - 1;
-    _opening = false;
     clock.value = 1;
     notifyListeners();
   }
@@ -100,15 +127,12 @@ class EndNight extends ChangeNotifier {
   void close() {
     if (!on) return;
     _step = null;
-    _opening = false;
     clock.value = 0;
     notifyListeners();
   }
 
   void _play() {
-    clock.duration = _opening
-        ? Motion.scene + Motion.settle
-        : Motion.settle + Motion.quick;
+    clock.duration = opening ? Motion.scene : Motion.settle + Motion.quick;
     if (cut) {
       clock.value = 1;
     } else {
@@ -119,17 +143,14 @@ class EndNight extends ChangeNotifier {
   double _span(double from, double to) =>
       ((clock.value - from) / (to - from)).clamp(0.0, 1.0);
 
-  /// How far every card has turned from the result to the deal (opening).
-  double dealTurn() => _opening ? _span(0, 0.4) : 1;
+  /// How far every card has turned from the result to the deal.
+  double dealTurn() => opening ? _span(0, 1) : 1;
 
   /// How much of the step's twine is drawn.
-  double drawn() => _opening ? _span(0.4, 0.8) : _span(0, 0.6);
+  double drawn() => _span(0, 0.6);
 
   /// How far the cards the step moved have turned to their new faces.
-  double moveTurn() => _opening ? _span(0.65, 1) : _span(0.45, 1);
-
-  /// How far the step's slips have landed.
-  double landed() => _opening ? _span(0.4, 0.75) : _span(0, 0.55);
+  double moveTurn() => _span(0.45, 1);
 
   @override
   void dispose() {
@@ -178,16 +199,40 @@ class NightHides extends StatelessWidget {
   }
 }
 
-/// The moon's place in the sky: up at the left, where the lantern is not.
-const _moonLeft = Space.xl;
-const _moonTop = Space.sm;
-const _moonWidth = 40.0;
-
-/// The sky at night, over the dawn: the night's ground laid over it and the
-/// moon up. It comes and goes over a scene's length (a cut with reduce
-/// motion), and is nothing at all by day.
+/// The sky at night, over the dawn: a veil of the night's ground over all
+/// of it (the moon, under the hills and the roofs, is in the sky's own
+/// layers: [NightMoon]). It comes and goes over a scene's length (a cut
+/// with reduce motion), and is nothing at all by day.
 class NightSky extends StatelessWidget {
   const NightSky({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final night = EndNightScope.maybeOf(context);
+    final mood = context.skin.mood;
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: AnimatedOpacity(
+          opacity: night?.on ?? false ? 1 : 0,
+          duration: _sceneOf(context, night),
+          child: ColoredBox(
+            color: mood.nightBase.withValues(alpha: mood.veilFromAlpha),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Duration _sceneOf(BuildContext context, EndNight? night) =>
+    night?.cut ?? true ? Duration.zero : Motion.within(context, Motion.scene);
+
+/// The moon at night, between the sky plate and the hills and roofs (the
+/// dawn sky's slot): the night's ground laid over the plate and the moon up
+/// at the left, where the lantern is not, at the skin's size. Nothing by
+/// day.
+class NightMoon extends StatelessWidget {
+  const NightMoon({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -198,14 +243,12 @@ class NightSky extends StatelessWidget {
     final moon = scene.layers.whereType<SceneLayer>().firstWhere(
       (l) => l.file == 'moon',
     );
-    final on = night?.on ?? false;
+    final width = skin.parts.nightMoonWidth;
     return IgnorePointer(
       child: ExcludeSemantics(
         child: AnimatedOpacity(
-          opacity: on ? 1 : 0,
-          duration: night?.cut ?? true
-              ? Duration.zero
-              : Motion.within(context, Motion.scene),
+          opacity: night?.on ?? false ? 1 : 0,
+          duration: _sceneOf(context, night),
           child: Stack(
             children: [
               Positioned.fill(
@@ -214,10 +257,10 @@ class NightSky extends StatelessWidget {
                 ),
               ),
               Positioned(
-                left: _moonLeft,
-                top: _moonTop,
-                width: _moonWidth,
-                height: _moonWidth * moon.size.height / moon.size.width,
+                left: skin.parts.nightMoonAt.dx,
+                top: skin.parts.nightMoonAt.dy,
+                width: width,
+                height: width * moon.size.height / moon.size.width,
                 child: ArtPicture(
                   skin.art.layer(LayeredSceneId.nightVillage, moon),
                 ),
@@ -230,54 +273,39 @@ class NightSky extends StatelessWidget {
   }
 }
 
-/// The step's words on one slip pinned to the board's bottom rail, always in
-/// the same place, landing as the step plays; read out as each step comes
-/// (a live region), and a screen reader's way on to the next step.
-class NightCaption extends StatelessWidget {
-  const NightCaption({super.key, required this.width});
-
-  /// The board's width: the slip wraps inside it.
-  final double width;
+/// The first time only, while the night plays: "Go on" on a small scrap of
+/// bone paper on the board's lower edge (the foot's lip), until the first
+/// tap. Its middle is where it is put.
+class NightCue extends StatelessWidget {
+  const NightCue({super.key});
 
   @override
   Widget build(BuildContext context) {
     final night = EndNightScope.maybeOf(context);
-    final step = night?.current;
-    if (night == null || step == null) return const SizedBox.shrink();
-    final slip = PaperSlip(
-      label: step.line,
-      id: step.number,
-      maxLines: 3,
-      maxWidth: width - 2 * Space.lg,
-    );
-    return Semantics(
-      liveRegion: true,
-      button: true,
-      label: step.line,
-      onTap: night.next,
-      excludeSemantics: true,
-      child: revealPaint(
-        night.driver,
-        opacity: () => math.min(1, night.landed() * 3),
-        transform: (size) => about(
-          size.center(Offset.zero),
-          // The landing's overshoot stops at its own size: its words are never
-          // drawn smaller.
-          scaled(
-            math.max(
-              1.0,
-              lerpDouble(_slipFrom, 1, Motion.land.transform(night.landed()))!,
+    if (night == null || !night.on || !night.cue) {
+      return const SizedBox.shrink();
+    }
+    return IgnorePointer(
+      child: FractionalTranslation(
+        translation: const Offset(0, -0.5),
+        child: PaperPiece(
+          part: PaperPart.scrap,
+          id: StoryCopy.goOn,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.sm,
+              vertical: Space.xxs,
+            ),
+            child: Text(
+              StoryCopy.goOn,
+              maxLines: 1,
+              style: context.skin.typography.name.copyWith(
+                color: PaperPiece.inkOf(context, PaperPart.scrap),
+              ),
             ),
           ),
         ),
-        child: slip,
       ),
     );
   }
 }
-
-const _slipFrom = 1.3;
-
-/// How much of the board's foot the caption keeps: what a step brings into
-/// view stays above it.
-const nightCaptionRoom = EndMetrics.lip + PaperScrap.paperHeight + Space.md;

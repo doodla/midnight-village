@@ -542,16 +542,24 @@ final screens = <String, Screen>{
         button(EndCopy.editDeck),
         button(EndCopy.playAgain),
       ],
-      // What happened, mid-night: the banner stays, one step's slip, the
-      // scrap that leads back.
-      'what happened, a step': [
-        text(EndCopy.hanged),
-        headline(EndCopy.youWinVillage),
-        text(TimelineCopy.troublemaker),
+      // What happened: the step's line in the banner, the cue the first
+      // time, the scrap that leads back.
+      'what happened, the deal': [
+        headline(StoryCopy.dealt),
+        text(StoryCopy.goOn),
         button(EndCopy.backToResult),
         button(EndCopy.editDeck),
         button(EndCopy.playAgain),
       ],
+      for (final line in _storyLines)
+        'what happened, $line': [
+          headline(line),
+          text(StoryCopy.who),
+          text(StoryCopy.loneWerewolf),
+          button(EndCopy.backToResult),
+          button(EndCopy.editDeck),
+          button(EndCopy.playAgain),
+        ],
       'what happened, two lines': [button(EndCopy.backToResultTwoLines)],
       'one hanged, two hanged': [
         text(EndCopy.hanged),
@@ -562,6 +570,24 @@ final screens = <String, Screen>{
     },
   ),
 };
+
+const _storyLines = [
+  StoryCopy.werewolves,
+  StoryCopy.masons,
+  StoryCopy.alone,
+  StoryCopy.peeksMiddle,
+  StoryCopy.minion,
+  StoryCopy.minionNone,
+  StoryCopy.seesPlayer,
+  StoryCopy.seesMiddle,
+  StoryCopy.takes,
+  StoryCopy.swaps,
+  StoryCopy.swapsMiddle,
+  StoryCopy.still,
+  StoryCopy.now,
+  StoryCopy.copiesA,
+  StoryCopy.copiesAn,
+];
 
 const _endYouLines = [
   EndCopy.youWinVillage,

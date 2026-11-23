@@ -95,14 +95,15 @@ void main() {
     await tester.tap(scrap(EndCopy.whatHappened).first);
     await tester.pump();
     final night = nightOf(tester);
-    for (var i = 0; i < night.story!.steps.length; i++) {
+    // The deal, then each step; a tap after the last is the result.
+    for (var i = 0; i <= night.story!.steps.length; i++) {
       if (i > 0) {
         await tester.tapAt(Offset(_width / 2, 330));
         await tester.pump();
       }
       await film(night.clock.duration! + _read);
     }
-    await tester.tap(scrap(EndCopy.backToResult).first);
+    await tester.tapAt(Offset(_width / 2, 330));
     await tester.pump();
     await film(Motion.scene + const Duration(milliseconds: 900));
   });

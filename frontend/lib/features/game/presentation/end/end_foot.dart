@@ -13,6 +13,7 @@ import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
 import '../../domain/end_story.dart';
+import '../../domain/night_timeline.dart';
 
 import 'end_night.dart';
 import 'end_reveal.dart';
@@ -90,6 +91,14 @@ class EndFootBand extends StatelessWidget {
               foot.host ? _hostRow(context) : _guestRow(context),
             ],
           ),
+        ),
+        // The first time the night plays, the cue that it goes on: on the
+        // board's lower edge, over the lip.
+        const Positioned(
+          left: 0,
+          right: 0,
+          top: -EndMetrics.lip / 2,
+          child: Center(child: NightCue()),
         ),
       ],
     );
@@ -354,7 +363,6 @@ class _MiddleCards extends StatelessWidget {
     double strip,
   ) {
     final before = night.before.centre, after = night.after.centre;
-    final numbers = nightNumbersOf(night.story!, night.step!, roles.length);
     Widget turned(int i) {
       final size = sizes[i];
       final box = Offset.zero & size;
@@ -368,22 +376,6 @@ class _MiddleCards extends StatelessWidget {
               back: face(before[i]),
               face: face(after[i]),
             );
-      // The step's number, on the middle card it looked at or took.
-      if (numbers[i] case final n?) {
-        card = Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(child: card),
-            Positioned(
-              right: -Space.xxs,
-              top: Space.xs - nightNumberSize.height,
-              width: nightNumberSize.width,
-              height: nightNumberSize.height,
-              child: ExcludeSemantics(child: NightNumber('$n')),
-            ),
-          ],
-        );
-      }
       if (night.opening) {
         final role = roles[i];
         card = RevealTurn(
@@ -411,7 +403,11 @@ class _MiddleCards extends StatelessWidget {
         runSpacing: Space.xs,
         children: [
           for (var i = 0; i < roles.length; i++)
-            SizedBox.fromSize(size: sizes[i], child: turned(i)),
+            SizedBox.fromSize(
+              key: night.placeKey(CenterPlace(i)),
+              size: sizes[i],
+              child: turned(i),
+            ),
         ],
       ),
     );

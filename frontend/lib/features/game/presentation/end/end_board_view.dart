@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/feel/haptics.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/furled_scroll.dart';
@@ -71,6 +73,8 @@ class EndBoardView extends StatefulWidget {
     this.playAgainBusy = false,
     this.scrollController,
     this.reveal = false,
+    this.stepTaught = false,
+    this.onStepTaught,
   });
 
   final GameOutcome outcome;
@@ -88,6 +92,11 @@ class EndBoardView extends StatefulWidget {
   final ScrollController? scrollController;
   final bool reveal;
 
+  /// This device has stepped through What happened before: no cue that the
+  /// board goes on ([onStepTaught] is told the first time, to keep it).
+  final bool stepTaught;
+  final VoidCallback? onStepTaught;
+
   @override
   State<EndBoardView> createState() => _EndBoardViewState();
 }
@@ -96,7 +105,14 @@ class _EndBoardViewState extends State<EndBoardView>
     with TickerProviderStateMixin {
   late final _clock = AnimationController(vsync: this);
   late final _driver = EndRevealDriver(_clock);
-  late final _night = EndNight(vsync: this)..story = endStoryOf(widget.outcome);
+  late final _night = EndNight(vsync: this)
+    ..story = endStoryOf(widget.outcome)
+    ..cue = !widget.stepTaught
+    ..taught = () => widget.onStepTaught?.call();
+
+  /// Where the board stands as it scrolls: the thread to a middle card,
+  /// drawn over the board and the foot, follows it.
+  final _scrolled = ValueNotifier<double>(0);
   AnimationController? _fade;
 
   /// The reveal is over (or never was): the board is drawn settled.
@@ -119,7 +135,8 @@ class _EndBoardViewState extends State<EndBoardView>
   @override
   void didUpdateWidget(EndBoardView old) {
     super.didUpdateWidget(old);
-    if (!identical(old.outcome, widget.outcome)) {
+    // By value: the same results fetched again change nothing.
+    if (old.outcome != widget.outcome) {
       _night
         ..close()
         ..story = endStoryOf(widget.outcome);
@@ -148,6 +165,7 @@ class _EndBoardViewState extends State<EndBoardView>
   void dispose() {
     _clock.dispose();
     _night.dispose();
+    _scrolled.dispose();
     _fade?.dispose();
     super.dispose();
   }
@@ -199,7 +217,7 @@ class _EndBoardViewState extends State<EndBoardView>
     unawaited(_clock.forward());
   }
 
-  (Object, BannerFit, double)? _fit;
+  (Object, double, double)? _fit;
   (Object, EndBoardPlan)? _plan;
 
   @override
@@ -266,25 +284,41 @@ class _EndBoardViewState extends State<EndBoardView>
       direction,
       type.screenTitle,
     );
-    final bannerHeight = _fit?.$1 == fitKey
-        ? _fit!.$3
+    double heightOf(List<String> forms, int minLines) => BannerSlice.heightOf(
+      BannerSlice.fit(
+        forms: forms,
+        minLines: minLines,
+        room: screen.width - 2 * BannerSlice.margin,
+        style: type.screenTitle,
+        direction: direction,
+        scale: scale,
+      ),
+      type.screenTitle,
+      direction,
+    );
+    // The banner keeps the room its tallest words need, the result's or a
+    // line of the night's, so the board never moves when the words change.
+    final (bannerHeight, bannerRoom) = _fit?.$1 == fitKey
+        ? (_fit!.$2, _fit!.$3)
         : () {
-            final fit = BannerSlice.fit(
-              forms: banner.forms,
-              minLines: 2,
-              room: screen.width - 2 * BannerSlice.margin,
-              style: type.screenTitle,
-              direction: direction,
-              scale: scale,
-            );
-            final h = BannerSlice.heightOf(fit, type.screenTitle, direction);
-            _fit = (fitKey, fit, h);
-            return h;
+            final h = heightOf(banner.forms, 2);
+            final story = _night.story;
+            final room = [
+              h,
+              if (story != null)
+                for (final line in [
+                  StoryCopy.dealt,
+                  ...story.steps.map((s) => s.line),
+                ])
+                  heightOf([line], 1),
+            ].reduce(math.max);
+            _fit = (fitKey, h, room);
+            return (h, room);
           }();
     final bannerTop = EndMetrics.bannerTopFor(screen.height);
-    final boardTop = EndMetrics.boardTopFor(screen.height, bannerHeight);
+    final boardTop = EndMetrics.boardTopFor(screen.height, bannerRoom);
     final windowTop = boardTop - EndMetrics.roof;
-    return Stack(
+    final page = Stack(
       children: [
         Positioned(
           left: 0,
@@ -344,10 +378,12 @@ class _EndBoardViewState extends State<EndBoardView>
           top: bannerTop,
           child: _unrolled(
             context,
-            BannerSlice.sentences(
-              forms: banner.forms,
-              minLines: 2,
-              red: banner.red,
+            _NightBanner(
+              day: BannerSlice.sentences(
+                forms: banner.forms,
+                minLines: 2,
+                red: banner.red,
+              ),
             ),
             width: screen.width,
             height: bannerHeight,
@@ -355,7 +391,16 @@ class _EndBoardViewState extends State<EndBoardView>
             restDrop: windowTop - bannerTop - FurledScroll.thickness,
           ),
         ),
+        // A step's thread to a middle card, over the board and the foot.
+        Positioned.fill(child: NightMiddleTwines(scrolled: _scrolled)),
       ],
+    );
+    return NotificationListener<ScrollUpdateNotification>(
+      onNotification: (n) {
+        _scrolled.value = n.metrics.pixels;
+        return false;
+      },
+      child: page,
     );
   }
 
@@ -471,7 +516,7 @@ class _DawnSky extends StatelessWidget {
     slots: {
       'sun': (context, geometry, slot, arrival) {
         final parts = context.skin.parts;
-        return IgnorePointer(
+        final dusk = IgnorePointer(
           child: Align(
             alignment: Alignment.topCenter,
             child: SizedBox(
@@ -490,7 +535,37 @@ class _DawnSky extends StatelessWidget {
             ),
           ),
         );
+        // At night the moon is up behind the hills and the roofs.
+        return Stack(
+          children: [
+            Positioned.fill(child: dusk),
+            const Positioned.fill(child: NightMoon()),
+          ],
+        );
       },
     },
   );
+}
+
+/// The banner: the result by day ([day]); while the night plays, the step's
+/// line, read out as each step comes and a screen reader's way on. Bone at
+/// night: red is the result's (the Werewolf team won).
+class _NightBanner extends StatelessWidget {
+  const _NightBanner({required this.day});
+
+  final Widget day;
+
+  @override
+  Widget build(BuildContext context) {
+    final night = EndNightScope.maybeOf(context);
+    if (night == null || !night.on) return day;
+    return Semantics(
+      liveRegion: true,
+      button: true,
+      label: night.line,
+      onTap: night.next,
+      excludeSemantics: true,
+      child: BannerSlice.sentences(forms: [night.line]),
+    );
+  }
 }
