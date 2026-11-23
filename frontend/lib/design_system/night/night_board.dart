@@ -9,6 +9,7 @@ import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../layout/space.dart';
 import '../primitives/candle_gauge.dart';
+import '../primitives/mood.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
@@ -548,7 +549,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
               // (`tapExtra`), so a tap is a thumb's height on a small card.
               padding: padding.copyWith(bottom: 0),
               decoration: BoxDecoration(
-                color: context.ground.panel,
+                color: context.ground.panel.withValues(alpha: Mood.panelShow),
                 borderRadius: BorderRadius.circular(skin.shape.radius),
               ),
               child: Column(

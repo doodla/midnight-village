@@ -31,11 +31,66 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 5. **Usability never pays.** Tap targets, contrast, reading floor (14 px body, 12 px labels), taps to act and
    whole names stay the same or get better. A name is never cut, also in the middle of a motion.
 6. **Paper, not glass.** Things lift, sink, drop in and turn like cut paper with a shadow. Short
-   moves, one idea at a time, no bounce beyond a small settle, no recolours or filters. Shadows are
-   hard; the one soft thing is the faint bone glow of a card picked on the night board
+   moves, one idea at a time, no bounce beyond a small settle, no recolours or filters. See
+   section 1a for the material: shadows are the two-layer paper shadow (never a blur), the one
+   soft thing is the faint bone glow of a card picked on the night board
    (`GroundElevation.glow`, night only).
 7. **Teach a gesture once, by doing it** (the `hold`, `night_choose` and `vote_lock` cues). Then
    never again.
+
+## 1a. Material, light and placement (the night polish)
+
+Static: nothing here moves, so reduced motion is unaffected. All of it is in the design system,
+so every screen has it; no screen asks.
+
+**Paper is a material.** Tokens in `skin/elevation.dart`, `skin/skins/shadow_paper.dart`.
+
+| Token | Value | What it does |
+|---|---|---|
+| `PaperShadow` | a tight CONTACT shadow (alpha .55, 0.5 px + 0.2 x the drop down) and a soft CAST of 4 stacked copies (spread 1.6 x the drop, fall 0.9 x the drop, alpha .085 each) | Every cast shadow of a card, row, chip, button or sheet. The cast is stepped flat copies, not a blur: no blur, no saveLayer, nothing per frame. Light falls from above; a press scales the drop |
+| `HardShadow(offset, ink)` | a DROP: how high the paper lies, in the ink it casts (night `#07091A`, day `#2A1D2B`, paper `#3B2E22`) | Becomes the paper shadow. `Elevation.drop` heights: badge 2, card 4, lying 5, raised 6, selected 8 (day) or 10 (night), slab and hero 12 to 14 |
+| `HardShadow.edge` | a hard copy in the paper's own colour | The thickness of paper: a stack of sheets (`slab`, `heroSlab`), the plaque's backing |
+| `SkinShape.radius` | 5 for every cut of paper (`radiusSmall`, `radiusTiny` are the same) | One corner |
+| `PaperGrain` | a 96 px tile of speckle and fibre, drawn once from a fixed seed, tiled at alpha .5 over a paper fill | `cutPaper` puts it on every paper surface (a `BoxDecoration.image`; the image is there on the first frame, so no golden or screen ever shows a bare paper) |
+
+**Parts.** The primary button is a PLAQUE: amber paper on a darker amber backing (`HardShadow.edge`
+3 px) with the paper shadow, a cut line set in 3 px and a pin at each end; still the only amber
+control. The paper secondary button is a PINNED SCRAP: raised paper, a pin on its top edge, a
+seeded tilt, and it sinks into its shadow under a finger as the plaque does. The quiet button and
+the outlined secondary are as they were. Touch targets are as they were (48 and up).
+
+**One mark for picked and done.** `PaperMark` (`primitives/paper_mark.dart`): a drop of wax in
+the ground's `mark` colour (bone on night, ink on day and paper; never amber), its edge uneven, a
+ring stamped in it and a brush tick across it, in `onMark`. A picked vote row and a picked night
+card wear it on the upper corner (`PaperMarkCorner`, 22 px, hanging 8 px over the edge, no touch);
+a button that is done (`done`, "Ready ✓") wears it before its word. Picking is still lift plus the
+selection outline; the mark is what says "this one".
+
+**Light and ground per phase: `Mood`** (`primitives/mood.dart`), the layer under every
+`ScreenFrame` (the screen's `mood:` overrides what its ground gives: the results take dawn). One
+picture painted once (a repaint boundary: nothing per frame), three banks of cut-paper roofs along
+the foot (seeded, far to near, so the village continues behind the rows and cards), a light and
+a vignette:
+
+| Mood | Ground | Light | Vignette |
+|---|---|---|---|
+| night | `#14172F` and the dark roofs | a cool moon pool, `rgba(220,226,255,.10)` fading by 60%, upper right | `rgba(3,4,12,.62)` from 50%, an ellipse of 0.9 W by 0.7 H |
+| dawn | the night's | a warm lantern pooling low, `rgba(255,200,130,.14)`, the roofs dark against it | the night's at 90% |
+| day | a pale rose sky running to a golden foot (`#D9D4EA` to `#ECD5C2` to `#F2C98C`), warm haze roofs (as light as the ground allows) | a low sun, `rgba(255,226,168,.85)` fading by 55%, low and to the right | `rgba(122,100,136,.14)` |
+
+Contrast is held on every pixel of each mood (`mood_test.dart`: the lightest pixel under light
+words, the darkest under dark ones, 7:1 for the ground's text and quiet text, 4.5:1 for faint),
+and on the real screens by the page tests. That is why the moon pool is a tenth, the quiet text
+on night is `#BDC3E1`, and no window is lit in the roofs: a glow behind a word breaks it. The day
+ground is a warm paper light (`#ECD5C2`), not the lilac field. The night board's strip of centre
+cards is a translucent panel (`Mood.panelShow`), so the roofs show through it.
+
+**A little life in placement.** `Tilt.seededCard(id)` (at most 1.5 degrees either way: the role
+cards of the deck) and `Tilt.seededRow(id)` (at most 0.6: player rows, preset chips, tags, paper
+scraps), from the item's own id by djb2 (`SeededTilt.unit`), so it is the same on every build,
+phone and platform; nothing random. Only the paint turns (`Transform.rotate`): layout, hit
+targets and text measures are unchanged. None on text fields, the timer or the night board's cards
+(which keep their scatter tilts).
 
 ## 2. Motion tokens
 
@@ -274,7 +329,7 @@ One body for every place the app waits (`Waiting`), laid in the frame of the scr
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Press, amber button | The shadow collapses to 20% and the paper sinks by its offset; back on release | `press` | Cut | exists |
+| Press, amber button (the plaque) | The paper shadow collapses to 20% and the plaque sinks by its drop; back on release | `press` | Cut | exists |
 | Press, outlined button | A hairline fill while down. It does not sink yet; make it sink like the amber one, which already does (#28's pass 8 is to bring every other pressable to that feel) | `press` | Fill only | pass 8 |
 | Press, quiet word | Dims to 40% while down | `press` | Same | exists |
 | Press, any other tappable (chips, pace tiles, deck cards, panels, quiet words) | Today nothing until the tap ends (quiet words only dim). Dip 2 px the frame it lands | `press` | Colour only | pass 8 |

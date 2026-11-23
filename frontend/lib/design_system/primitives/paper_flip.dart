@@ -57,6 +57,9 @@ class PaperFlip extends StatefulWidget {
   /// How much further its shadow falls at the edge, beyond the lift.
   static const drop = Space.xs;
 
+  /// How dark the shadow block is while the card is off the table.
+  static const shadowAlpha = 0.55;
+
   /// How far a finger presses the back down (a share of its size).
   static const dip = 0.02;
 
@@ -226,7 +229,9 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
                         ),
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: shadow.color,
+                            color: shadow.color.withValues(
+                              alpha: PaperFlip.shadowAlpha,
+                            ),
                             borderRadius: radius,
                           ),
                         ),

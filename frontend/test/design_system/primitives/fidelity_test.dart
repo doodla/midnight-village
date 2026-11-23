@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
@@ -51,26 +52,28 @@ void main() {
       (ButtonSize.regular, 48.0, 5.0), // S02, S03, S06 to S10
       (ButtonSize.compact, 48.0, 4.0), // S03b
     ]) {
-      testWidgets('${size.name}: $height tall, a $shadow,$shadow shadow', (
-        tester,
-      ) async {
-        await _pump(
-          tester,
-          Center(
-            child: PrimaryButton(label: 'Go', onPressed: () {}, size: size),
-          ),
-        );
-        final button = find.byType(PrimaryButton);
-        expect(tester.getSize(button).height, height);
-        expect(
-          _decoration(tester, button).boxShadow!.single.offset,
-          Offset(shadow, shadow),
-        );
-        expect(
-          tester.widget<Text>(find.text('Go')).style!.fontSize,
-          size.label(_skin.typography).fontSize,
-        );
-      });
+      testWidgets(
+        '${size.name}: $height tall, a ${3 * shadow / 5} px backing',
+        (tester) async {
+          await _pump(
+            tester,
+            Center(
+              child: PrimaryButton(label: 'Go', onPressed: () {}, size: size),
+            ),
+          );
+          final button = find.byType(PrimaryButton);
+          expect(tester.getSize(button).height, height);
+          // The plaque's backing (hard) lies under its paper shadow: a drop
+          // of the size's share of 8, a backing of its share of 3.
+          final shadows = _decoration(tester, button).boxShadow!;
+          expect(shadows.last.offset.dy, closeTo(3 * shadow / 5, 1e-9));
+          expect(shadows.last.blurRadius, 0);
+          expect(
+            tester.widget<Text>(find.text('Go')).style!.fontSize,
+            size.label(_skin.typography).fontSize,
+          );
+        },
+      );
     }
 
     testWidgets('a secondary button is 48 tall, in a sheet too', (
@@ -168,7 +171,7 @@ void main() {
   });
 
   group('face-down cards', () {
-    testWidgets('lie with a vertical shadow (0, 4), not a diagonal one', (
+    testWidgets('lie with a vertical paper shadow, not a diagonal one', (
       tester,
     ) async {
       await _pump(tester, const Center(child: FaceDownCard()));
@@ -182,11 +185,12 @@ void main() {
           )
           .firstWhere((c) => c.decoration is BoxDecoration);
       final shadows = (card.decoration! as BoxDecoration).boxShadow!;
-      expect(shadows.last.offset, const Offset(0, 4));
-      expect(shadows.last.blurRadius, 0, reason: 'the shadow stays hard');
+      expect(shadows.last.offset.dx, 0, reason: 'light falls from above');
+      expect(shadows.last.offset.dy, greaterThan(0));
+      expect(shadows.last.blurRadius, 0, reason: 'no blur per card');
       // The picked card's light is in the list, unlit, so it fades with the
       // pick (face_down_feel_test.dart).
-      expect(shadows.length, 2);
+      expect(shadows.length, 2 + PaperShadow.castSteps);
       expect(shadows.first.color.a, 0);
       expect(shadows.first.blurRadius, 0, reason: 'nothing soft to paint');
     });

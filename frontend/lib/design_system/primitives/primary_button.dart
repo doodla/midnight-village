@@ -6,6 +6,7 @@ import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
+import 'paper_mark.dart';
 import 'fit_line.dart';
 import 'secondary_button.dart' show BusyMark;
 
@@ -178,6 +179,9 @@ class PrimaryButton extends StatefulWidget {
   /// every phone (a device's fallback font would draw its own).
   static const checkMark = ' ✓';
 
+  /// The done mark's size, of the label's.
+  static const markScale = 1.4;
+
   final String label;
   final VoidCallback? onPressed;
   final VoidCallback? onLockedTap;
@@ -259,10 +263,10 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final label = widget.label;
     Widget words(String text) =>
         FitWords(text, textAlign: TextAlign.center, maxLines: 2, style: style);
-    final check = Icon(
-      Icons.check,
-      color: style.color,
-      size: MediaQuery.textScalerOf(context).scale(style.fontSize!),
+    final check = PaperMark(
+      size:
+          MediaQuery.textScalerOf(context).scale(style.fontSize!) *
+          PrimaryButton.markScale,
     );
     final bare = label.endsWith(PrimaryButton.checkMark)
         ? label.substring(0, label.length - PrimaryButton.checkMark.length)
@@ -386,6 +390,14 @@ class _PrimaryButtonState extends State<PrimaryButton> {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // The plaque: a cut line set in from its edge, and a pin at
+                // each end (ink on the amber, nothing the eye reads as a word).
+                if (filled)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: _PlaqueTrim(ink: ground.onAccent, radius: radius),
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: Space.xl,
@@ -416,6 +428,46 @@ class _PrimaryButtonState extends State<PrimaryButton> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The plaque's trim: an inset line and a pin at each end.
+class _PlaqueTrim extends StatelessWidget {
+  const _PlaqueTrim({required this.ink, required this.radius});
+
+  final Color ink;
+  final BorderRadius radius;
+
+  static const _inset = 3.0;
+  static const _pin = 5.0;
+  static const _pinIn = 11.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pin = DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: ink.withValues(alpha: 0.55),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.all(_inset),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          border: Border.all(color: ink.withValues(alpha: 0.28)),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: _pinIn - _inset - _pin / 2),
+            SizedBox.square(dimension: _pin, child: pin),
+            const Spacer(),
+            SizedBox.square(dimension: _pin, child: pin),
+            const SizedBox(width: _pinIn - _inset - _pin / 2),
+          ],
         ),
       ),
     );

@@ -10,6 +10,7 @@ import '../skin/skin_tilt.dart';
 import '../teach/hold_cue.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
+import 'paper_mark.dart';
 import 'fit_line.dart';
 import 'player_token.dart';
 
@@ -231,6 +232,8 @@ class _FaceDownCardState extends State<FaceDownCard> {
           : _back(context, width, duration, dip),
     );
     if (angle != 0) card = Transform.rotate(angle: angle, child: card);
+    // A pick wears the mark on its corner.
+    card = PaperMarkCorner(shown: selected, child: card);
 
     final token = FaceDownCard.ownerTokenFor(width);
     Widget lit(Widget child) => AnimatedOpacity(

@@ -16,25 +16,31 @@ import '../skin_type.dart';
 const _indigo = Color(0xFF14172F); // night ground; ink on paper
 const _indigoWell = Color(0xFF1D2145); // the night timer's panel (S05)
 const _deepShadow = Color(0xFF07091A);
-const _dawnGrey = Color(0xFFCFCBD6); // day ground
+const _dawnGrey = Color(0xFFECD5C2); // day ground: warm paper light (mood: day)
 const _bone = Color(0xFFE9E2D0); // paper; text on night
 const _boneInset = Color(0xFFDCD4BF); // a box set into paper (S03b)
 const _paperEdge = Color(0xFFBFB69F);
 const _amber = Color(0xFFE3A13A); // the one warm accent
 const _boneGlow = Color(0x80E9E2D0); // bone at 50%: a picked card's light
 const _blood = Color(0xFF80241E); // 7.4:1 under bone words
-const _darkBlood = Color(0xFF5C0F0C); // the primary button's shadow at night
+const _amberBacking = Color(0xFFAB731F); // the plaque's darker paper under it
+// What paper casts, by the ground it lies on (the mood recipe: a warm dark ink
+// by day and on paper, the night's own deep indigo at night).
+const _dayCast = Color(0xFF2A1D2B);
+const _paperCast = Color(0xFF3B2E22);
 const _bloodLine = Color(0xFFC2413A); // thin red lines on night
 const _bloodText = Color(0xFFF29D93); // red words on night (S11), 7.4:1
-const _moonQuiet = Color(0xFFAAB0CF); // quiet text on night
-const _moonFaint = Color(0xFF9EA4C8); // roles not in the deck (S03), 7.2:1
+const _moonQuiet = Color(
+  0xFFBDC3E1,
+); // quiet text on night (7:1 on the mood's moon pool)
+const _moonFaint = Color(0xFFB0B6D9); // roles not in the deck (S03)
 const _nightHairline = Color(0xFF2C3160);
 const _dayShadow = Color(0xFF8F8A99); // rows' shadows, idle rings on day
-const _dayQuiet = Color(0xFF36344B); // 7.5:1 on the day ground
+const _dayQuiet = Color(0xFF2E2C42); // 7:1 on the day mood's darkest roofs
 const _paperQuiet = Color(0xFF3F3B54); // 8.3:1 on paper, 7.2 inset
 // Not in a mock: faint text on day. The mocks' #5a5670 fails AA on the day
 // grey (4.4:1), so this is the nearest darker grey that passes (5.0:1).
-const _dayFaint = Color(0xFF524E66);
+const _dayFaint = Color(0xFF45415A);
 
 const _night = Ground(
   ground: _indigo,
@@ -61,22 +67,24 @@ const _night = Ground(
   disabled: _nightHairline,
   onDisabled: _moonFaint,
   elevation: GroundElevation(
-    card: Elevation([HardShadow(Offset(3, 3), _deepShadow)]),
-    lying: Elevation([HardShadow(Offset(0, 4), _deepShadow)]),
-    raised: Elevation([HardShadow(Offset(4, 4), _deepShadow)]),
+    card: Elevation([HardShadow(Offset(0, 4), _deepShadow)]),
+    lying: Elevation([HardShadow(Offset(0, 5), _deepShadow)]),
+    raised: Elevation([HardShadow(Offset(0, 6), _deepShadow)]),
     slab: Elevation([
-      HardShadow(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 10), _deepShadow),
+      HardShadow.edge(Offset(0, 5), _paperEdge),
+      HardShadow(Offset(0, 12), _deepShadow),
     ]),
-    // The mock's amber layer is left out: amber is the primary button's
-    // alone (first-time play spec, copy rule 10).
     heroSlab: Elevation([
-      HardShadow(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 11), _deepShadow),
+      HardShadow.edge(Offset(0, 5), _paperEdge),
+      HardShadow(Offset(0, 14), _deepShadow),
     ]),
-    primary: Elevation([HardShadow(Offset(5, 5), _darkBlood)]),
+    // The plaque: amber paper on a darker paper backing, and what it casts.
+    primary: Elevation([
+      HardShadow.edge(Offset(0, 3), _amberBacking),
+      HardShadow(Offset(0, 8), _deepShadow),
+    ]),
     // A picked card at night lifts off the table (S06).
-    selected: Elevation([HardShadow(Offset(0, 8), _deepShadow)]),
+    selected: Elevation([HardShadow(Offset(0, 10), _deepShadow)]),
     badge: Elevation([HardShadow(Offset(0, 2), _deepShadow)]),
     glow: _boneGlow,
   ),
@@ -111,20 +119,23 @@ const _day = Ground(
   disabled: _dayShadow,
   onDisabled: _dayQuiet,
   elevation: GroundElevation(
-    card: Elevation([HardShadow(Offset(3, 3), _dayShadow)]),
-    lying: Elevation([HardShadow(Offset(0, 4), _dayShadow)]),
-    raised: Elevation([HardShadow(Offset(4, 4), _dayShadow)]),
+    card: Elevation([HardShadow(Offset(0, 4), _dayCast)]),
+    lying: Elevation([HardShadow(Offset(0, 5), _dayCast)]),
+    raised: Elevation([HardShadow(Offset(0, 6), _dayCast)]),
     slab: Elevation([
-      HardShadow(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 10), _dayShadow),
+      HardShadow.edge(Offset(0, 5), _paperEdge),
+      HardShadow(Offset(0, 12), _dayCast),
     ]),
     heroSlab: Elevation([
-      HardShadow(Offset(0, 5), _paperEdge),
-      HardShadow(Offset(0, 10), _blood),
+      HardShadow.edge(Offset(0, 5), _paperEdge),
+      HardShadow(Offset(0, 14), _dayCast),
     ]),
-    primary: Elevation([HardShadow(Offset(5, 5), _blood)]),
-    selected: Elevation([HardShadow(Offset(4, 4), _indigo)]),
-    badge: Elevation([HardShadow(Offset(0, 2), _dayShadow)]),
+    primary: Elevation([
+      HardShadow.edge(Offset(0, 3), _amberBacking),
+      HardShadow(Offset(0, 8), _dayCast),
+    ]),
+    selected: Elevation([HardShadow(Offset(0, 8), _dayCast)]),
+    badge: Elevation([HardShadow(Offset(0, 2), _dayCast)]),
   ),
 );
 
@@ -154,16 +165,18 @@ const _paper = Ground(
   disabled: _paperEdge,
   onDisabled: _paperQuiet,
   elevation: GroundElevation(
-    card: Elevation([HardShadow(Offset(3, 3), _paperEdge)]),
-    lying: Elevation([HardShadow(Offset(0, 4), _paperEdge)]),
-    raised: Elevation([HardShadow(Offset(4, 4), _paperEdge)]),
-    slab: Elevation([HardShadow(Offset(0, 5), _paperEdge)]),
+    card: Elevation([HardShadow(Offset(0, 4), _paperCast)]),
+    lying: Elevation([HardShadow(Offset(0, 5), _paperCast)]),
+    raised: Elevation([HardShadow(Offset(0, 6), _paperCast)]),
+    slab: Elevation([HardShadow(Offset(0, 5), _paperCast)]),
     // The portrait in the role sheet (S03b).
-    heroSlab: Elevation([HardShadow(Offset(5, 5), _blood)]),
-    // The mock's sheet button (S03b) is the compact size: 4,4.
-    primary: Elevation([HardShadow(Offset(5, 5), _blood)]),
-    selected: Elevation([HardShadow(Offset(4, 4), _indigo)]),
-    badge: Elevation([HardShadow(Offset(0, 2), _paperEdge)]),
+    heroSlab: Elevation([HardShadow(Offset(0, 9), _paperCast)]),
+    primary: Elevation([
+      HardShadow.edge(Offset(0, 3), _amberBacking),
+      HardShadow(Offset(0, 7), _paperCast),
+    ]),
+    selected: Elevation([HardShadow(Offset(0, 8), _paperCast)]),
+    badge: Elevation([HardShadow(Offset(0, 2), _paperCast)]),
   ),
 );
 
@@ -442,9 +455,9 @@ final shadowPaper = Skin(
   paper: _paper,
   typography: _type,
   shape: const SkinShape(
-    radius: 6,
-    radiusSmall: 4,
-    radiusTiny: 3,
+    radius: 5, // one corner: every cut of paper
+    radiusSmall: 5,
+    radiusTiny: 5,
     sheetRadius: 14,
     rowLeadRoundness: 1,
     tokenRoundness: 1,
@@ -469,6 +482,8 @@ final shadowPaper = Skin(
     scatter: [-4 * SkinTilt.degree, 1 * SkinTilt.degree, 5 * SkinTilt.degree],
     thumb: -4 * SkinTilt.degree, // S08
     hero: -3 * SkinTilt.degree, // S11
+    seededCard: 1.5 * SkinTilt.degree, // set down by hand, from the id
+    seededRow: 0.6 * SkinTilt.degree,
   ),
   art: shadowPaperArt,
   scrim: _deepShadow.withValues(alpha: 0.72),

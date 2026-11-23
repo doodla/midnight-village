@@ -12,6 +12,7 @@ import '../skin/skin.dart';
 import '../skin/system_bars.dart';
 import 'art_picture.dart';
 import 'layered_art.dart';
+import 'mood.dart';
 import 'scene_arrival.dart';
 
 /// How a picture sits across the top of a screen, from the mocks. All three
@@ -84,6 +85,7 @@ class ScreenFrame extends StatelessWidget {
     this.fitsHeight = false,
     this.minBodyHeight,
     this.backdrop,
+    this.mood,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -150,6 +152,10 @@ class ScreenFrame extends StatelessWidget {
   /// Drawn on the ground behind everything, never taking a touch (the
   /// scanner's faint village, `FaintArt`).
   final Widget? backdrop;
+
+  /// The light the screen stands in (`Mood`): the ground's own (night, or
+  /// the day) unless the screen says otherwise (the results' dawn).
+  final MoodKind? mood;
 
   @override
   Widget build(BuildContext context) {
@@ -282,6 +288,12 @@ class ScreenFrame extends StatelessWidget {
     );
   }
 
+  static MoodKind? _moodOf(GroundKind ground) => switch (ground) {
+    GroundKind.night => MoodKind.night,
+    GroundKind.day => MoodKind.day,
+    GroundKind.paper => null,
+  };
+
   Widget _scaffold(Ground colors, Widget main) {
     return Scaffold(
       backgroundColor: colors.ground,
@@ -290,6 +302,8 @@ class ScreenFrame extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // The paper ground (a sheet, a test page) has no light of its own.
+            if (mood ?? _moodOf(ground) case final kind?) Mood(kind: kind),
             if (backdrop case final backdrop?)
               Center(
                 child: ConstrainedBox(

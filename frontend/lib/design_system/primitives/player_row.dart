@@ -4,7 +4,9 @@ import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
+import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
+import 'paper_mark.dart';
 import 'fit_line.dart';
 import 'player_token.dart';
 import 'you_tag.dart';
@@ -147,107 +149,120 @@ class PlayerRow extends StatelessWidget {
         ? size.nameStyle(skin.typography)
         : size.nameStyle(skin.typography).copyWith(fontSize: scoped);
 
+    // Set down by hand: the paper turned a hair, the same every build (from
+    // its own name and token); the words stay level.
     final row = AnimatedContainer(
       duration: Motion.quick,
       curve: Motion.curve,
       constraints: BoxConstraints(minHeight: size.height),
       transform: Matrix4.translationValues(0, picked ? -Space.xs : 0, 0),
-      padding: EdgeInsets.fromLTRB(
-        Space.sm,
-        Space.xxs,
-        size.endPadding,
-        Space.xxs,
-      ),
-      decoration: cutPaper(
-        context,
-        fill: ground.paper,
-        radius: radius,
-        elevation: picked ? ground.elevation.selected : ground.elevation.card,
-      ),
-      foregroundDecoration: picked
-          ? ringDecoration(
-              color: ground.selection,
-              width: skin.shape.selectedRing,
-              radius: radius,
-            )
-          : own
-          ? BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(color: ink, width: skin.shape.selectedRing),
-            )
-          : null,
-      child: _RowInk(
-        ink: ink,
-        child: Row(
-          spacing: size.gap,
-          children: [
-            PlayerToken(token, size: size.token, ringColor: ink, away: away),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // A long name wraps between words, then is set smaller;
-                  // never cut short.
-                  // "You" beside the name where both fit, under it where
-                  // not, so a long name keeps its room and a short one its
-                  // size.
-                  if (own)
-                    Wrap(
-                      spacing: Space.sm,
-                      runSpacing: Space.xxs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
+      child: TiltedPaper(
+        angle: skin.tilt.angle(Tilt.seededRow('${token?.name}:$name')),
+        duration: Motion.quick,
+        decoration: cutPaper(
+          context,
+          fill: ground.paper,
+          radius: radius,
+          elevation: picked ? ground.elevation.selected : ground.elevation.card,
+        ),
+        foregroundDecoration: picked
+            ? ringDecoration(
+                color: ground.selection,
+                width: skin.shape.selectedRing,
+                radius: radius,
+              )
+            : own
+            ? BoxDecoration(
+                borderRadius: radius,
+                border: Border.all(color: ink, width: skin.shape.selectedRing),
+              )
+            : null,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            Space.sm,
+            Space.xxs,
+            size.endPadding,
+            Space.xxs,
+          ),
+          child: _RowInk(
+            ink: ink,
+            child: Row(
+              spacing: size.gap,
+              children: [
+                PlayerToken(
+                  token,
+                  size: size.token,
+                  ringColor: ink,
+                  away: away,
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // A long name wraps between words, then is set smaller;
+                      // never cut short.
+                      // "You" beside the name where both fit, under it where
+                      // not, so a long name keeps its room and a short one its
+                      // size.
+                      if (own)
+                        Wrap(
+                          spacing: Space.sm,
+                          runSpacing: Space.xxs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            FitWords(
+                              name,
+                              maxLines: 2,
+                              style: nameStyle.copyWith(color: ink),
+                            ),
+                            YouTag(ink: ink),
+                          ],
+                        )
+                      // "Practice" always on the name's line, so every row of
+                      // a list is laid out alike.
+                      else if (practice)
+                        Row(
+                          spacing: Space.sm,
+                          children: [
+                            Flexible(
+                              child: FitWords(
+                                name,
+                                maxLines: 2,
+                                style: nameStyle.copyWith(color: ink),
+                              ),
+                            ),
+                            PracticeTag(ink: ink),
+                          ],
+                        )
+                      else
                         FitWords(
                           name,
                           maxLines: 2,
                           style: nameStyle.copyWith(color: ink),
                         ),
-                        YouTag(ink: ink),
-                      ],
-                    )
-                  // "Practice" always on the name's line, so every row of
-                  // a list is laid out alike.
-                  else if (practice)
-                    Row(
-                      spacing: Space.sm,
-                      children: [
-                        Flexible(
-                          child: FitWords(
-                            name,
-                            maxLines: 2,
-                            style: nameStyle.copyWith(color: ink),
+                      // Names wrap between words, never inside one.
+                      if (detail case final detail?)
+                        FitWords(
+                          detail,
+                          style: skin.typography.body.copyWith(
+                            color: skin.paper.quietText,
                           ),
                         ),
-                        PracticeTag(ink: ink),
-                      ],
-                    )
-                  else
-                    FitWords(
-                      name,
-                      maxLines: 2,
-                      style: nameStyle.copyWith(color: ink),
-                    ),
-                  // Names wrap between words, never inside one.
-                  if (detail case final detail?)
-                    FitWords(
-                      detail,
-                      style: skin.typography.body.copyWith(
-                        color: skin.paper.quietText,
-                      ),
-                    ),
-                ],
-              ),
+                    ],
+                  ),
+                ),
+                ?trailing,
+              ],
             ),
-            ?trailing,
-          ],
+          ),
         ),
       ),
     );
     final shown = AnimatedOpacity(
       duration: Motion.quick,
       opacity: dimmed ? skin.dimmed : 1,
-      child: row,
+      child: PaperMarkCorner(shown: picked, child: row),
     );
     // Once locked (dimmed) a row cannot be picked: it reads as switched off.
     if (dimmed) return Semantics(enabled: false, child: shown);

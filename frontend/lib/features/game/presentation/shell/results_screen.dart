@@ -11,6 +11,7 @@ import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
+import '../../../../design_system/primitives/mood.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/pending.dart';
 import '../../../../design_system/primitives/player_token.dart';
@@ -258,6 +259,7 @@ class _ResultsViewState extends State<ResultsView>
       onTap: _finish,
       child: ScreenFrame(
         ground: GroundKind.night,
+        mood: MoodKind.dawn,
         topSlot: Band(
           tone: _winners.werewolvesWon ? BandTone.danger : BandTone.night,
           child: _Winner(winners: _winners, you: you),

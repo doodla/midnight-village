@@ -3,14 +3,67 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
-/// One layer of a cut-paper shadow: a hard copy of the shape, offset, never
-/// blurred. There is deliberately no blur or spread here.
+/// One layer of what a piece of paper casts. A plain layer is a DROP: how far
+/// the paper lies above what is under it, in the ink it casts, drawn as the
+/// two-layer paper shadow ([PaperShadow]). An [edge] layer is the thickness
+/// of the paper itself (a stack of sheets, a button's backing): a hard copy of
+/// the shape, offset, in the paper's own colour.
 @immutable
 class HardShadow {
-  const HardShadow(this.offset, this.color);
+  const HardShadow(this.offset, this.color) : edge = false;
+
+  /// The edge of the paper: hard, never soft.
+  const HardShadow.edge(this.offset, this.color) : edge = true;
 
   final Offset offset;
   final Color color;
+  final bool edge;
+
+  HardShadow withOffset(Offset offset) =>
+      edge ? HardShadow.edge(offset, color) : HardShadow(offset, color);
+}
+
+/// The paper shadow, the one token every cast shadow goes through: a tight
+/// CONTACT shadow where the paper meets what it lies on, and a soft CAST
+/// shadow beyond it. The reach comes from the drop (the layer's larger
+/// offset); light falls from above, so both go down. The cast is a few
+/// stacked flat copies of the shape (each wider and fainter than the one
+/// above), so it reads as soft with no blur, no layer and no cost per frame
+/// (a blur per list item was ruled out); a press scales the drop and so
+/// shrinks both.
+abstract final class PaperShadow {
+  /// The contact shadow: its alpha, and how much of the drop it takes.
+  static const contactAlpha = 0.55;
+  static const contactReach = 0.2;
+
+  /// The cast: the steps, how far it spreads (of the drop), how far down it
+  /// falls (of the drop) and the alpha of each step (they add up near 0.3
+  /// next to the paper).
+  static const castSteps = 4;
+  static const castSpread = 1.6;
+  static const castFall = 0.9;
+  static const castAlpha = 0.085;
+
+  /// The shadows of a drop of [offset] cast in [ink], outermost first (the
+  /// order a [BoxDecoration] paints them: the last is on top).
+  static List<BoxShadow> of(Offset offset, Color ink) {
+    final drop = math.max(offset.dy, offset.dx.abs());
+    if (drop <= 0) return const [];
+    final lean = offset.dx / drop;
+    double alpha(double a) => ink.a * a;
+    return [
+      for (var i = castSteps; i >= 1; i--)
+        BoxShadow(
+          color: ink.withValues(alpha: alpha(castAlpha)),
+          offset: Offset(lean * drop * 0.5, drop * castFall),
+          spreadRadius: drop * castSpread * i / castSteps - 0.5,
+        ),
+      BoxShadow(
+        color: ink.withValues(alpha: alpha(contactAlpha)),
+        offset: Offset(lean * 0.5, 0.5 + drop * contactReach),
+      ),
+    ];
+  }
 }
 
 /// A stack of [HardShadow]s, listed top layer first (as CSS lists them), so
@@ -24,23 +77,27 @@ class Elevation {
   final List<HardShadow> layers;
 
   /// For a [BoxDecoration]: Flutter paints shadows in list order, the last on
-  /// top, so the layers go in reversed.
+  /// top, so the layers go in reversed. A drop is the paper shadow, an edge a
+  /// hard offset copy.
   List<BoxShadow> get boxShadows => [
     for (final layer in layers.reversed)
-      BoxShadow(color: layer.color, offset: layer.offset),
+      if (layer.edge)
+        BoxShadow(color: layer.color, offset: layer.offset)
+      else
+        ...PaperShadow.of(layer.offset, layer.color),
   ];
 
   /// The same stack with the shape pressed down: each layer keeps [keep] of
   /// its offset. Move the shape itself by [travel] so the shadow's far edge
   /// stays where it was.
   Elevation pressed(double keep) => Elevation([
-    for (final layer in layers) HardShadow(layer.offset * keep, layer.color),
+    for (final layer in layers) layer.withOffset(layer.offset * keep),
   ]);
 
   /// The same stack with every offset times [factor]: a bigger or smaller
   /// copy of the same thing (a large button, a small card).
   Elevation scaled(double factor) => Elevation([
-    for (final layer in layers) HardShadow(layer.offset * factor, layer.color),
+    for (final layer in layers) layer.withOffset(layer.offset * factor),
   ]);
 
   /// The same stack with the shape sunk by [by] under a finger: every layer
@@ -48,9 +105,8 @@ class Elevation {
   /// moved down by [by] leaves its shadow where it was.
   Elevation lowered(double by) => Elevation([
     for (final layer in layers)
-      HardShadow(
+      layer.withOffset(
         Offset(layer.offset.dx, math.max(0, layer.offset.dy - by)),
-        layer.color,
       ),
   ]);
 

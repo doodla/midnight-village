@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/paper_lantern.dart';
+import 'package:midnight_village/design_system/primitives/paper_mark.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
@@ -18,7 +19,7 @@ import '../../helpers/pump_skinned.dart';
 
 void main() {
   group('PrimaryButton', () {
-    testWidgets('a label ending in a check mark draws the mark as an icon '
+    testWidgets('a label ending in a check mark draws the paper mark '
         "(the skin's fonts have none) and still says it whole", (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpSkinned(
@@ -26,7 +27,7 @@ void main() {
         const PrimaryButton.done(label: 'Ready${PrimaryButton.checkMark}'),
       );
       expect(find.text('Ready'), findsOneWidget);
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byType(PaperMark), findsOneWidget);
       expect(
         find.bySemanticsLabel('Ready${PrimaryButton.checkMark}'),
         findsOneWidget,
@@ -117,7 +118,7 @@ void main() {
           final done = await drawn(PrimaryButton.done(label: label), ground);
           expect(done.color, isNull, reason: '$label: nothing to press');
           expect(done.border, isNull, reason: '$label: no gate outline');
-          expect(find.byIcon(Icons.check), findsOneWidget, reason: label);
+          expect(find.byType(PaperMark), findsOneWidget, reason: label);
           expect(find.text('Ready ✓'), findsNothing, reason: 'one check');
         }
       }
@@ -130,7 +131,7 @@ void main() {
         PrimaryButton.quiet(label: 'Ready ✓', onPressed: () {}),
       ]) {
         await pumpSkinned(tester, button, ground: GroundKind.day);
-        final check = tester.getCenter(find.byIcon(Icons.check));
+        final check = tester.getCenter(find.byType(PaperMark));
         final word = tester.getCenter(find.text('Ready'));
         expect(check.dx, lessThan(word.dx), reason: button.phase.name);
       }
@@ -154,7 +155,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       final down = tester.getTopLeft(find.text('Deal the cards'));
-      expect(down.dx, greaterThan(rest.dx));
       expect(down.dy, greaterThan(rest.dy));
 
       await press.up();

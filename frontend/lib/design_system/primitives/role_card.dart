@@ -144,6 +144,11 @@ class RoleCard extends StatelessWidget {
       duration: Motion.quick,
       opacity: lit ? 1 : skin.dimmed,
       child: Container(
+        // A card lying on the table casts its paper shadow while it is in.
+        decoration: BoxDecoration(
+          borderRadius: corners,
+          boxShadow: lit ? context.ground.elevation.card.boxShadows : null,
+        ),
         foregroundDecoration: ringDecoration(
           color: ringColor,
           width: ringWidth,
@@ -193,25 +198,30 @@ class RoleCard extends StatelessWidget {
   Widget _small(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final portrait = AspectRatio(
-      aspectRatio: _gridAspect,
-      child: Stack(
-        clipBehavior: Clip.none,
-        fit: StackFit.expand,
-        children: [
-          _portrait(
-            context,
-            radius: skin.shape.radius,
-            ringColor: lit ? ground.selection : ground.hairline,
-            ringWidth: lit ? skin.shape.selectedRing : skin.shape.ring,
-          ),
-          if (lit && count > 1)
-            Positioned(
-              right: -5,
-              top: -7,
-              child: CountBadge(count, size: BadgeSize.large),
+    // Set down by hand: the card turned a little, the same every build, from
+    // its role; its name stays level.
+    final portrait = Transform.rotate(
+      angle: skin.tilt.angle(Tilt.seededCard(role.name)),
+      child: AspectRatio(
+        aspectRatio: _gridAspect,
+        child: Stack(
+          clipBehavior: Clip.none,
+          fit: StackFit.expand,
+          children: [
+            _portrait(
+              context,
+              radius: skin.shape.radius,
+              ringColor: lit ? ground.selection : ground.hairline,
+              ringWidth: lit ? skin.shape.selectedRing : skin.shape.ring,
             ),
-        ],
+            if (lit && count > 1)
+              Positioned(
+                right: -5,
+                top: -7,
+                child: CountBadge(count, size: BadgeSize.large),
+              ),
+          ],
+        ),
       ),
     );
     // In a cell of fixed height (a grid) the portrait gives way to the name.

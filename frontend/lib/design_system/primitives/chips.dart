@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
+import '../skin/skin_tilt.dart';
+import 'cut_paper.dart';
 import 'fit_line.dart';
 
 /// One of a few presets to choose from ("Simple", "Classic", "Chaos"; the
@@ -41,11 +43,11 @@ class PresetChip extends StatelessWidget {
             onTap: onTap,
             borderRadius: radius,
             highlightColor: Colors.transparent,
-            child: AnimatedContainer(
+            // Set down by hand: the chip's outline turned a hair, the same
+            // every build; the word stays level.
+            child: TiltedPaper(
+              angle: skin.tilt.angle(Tilt.seededRow(label)),
               duration: Motion.quick,
-              curve: Motion.curve,
-              constraints: const BoxConstraints(minHeight: height),
-              padding: const EdgeInsets.symmetric(horizontal: Space.mdPlus),
               decoration: BoxDecoration(
                 borderRadius: radius,
                 border: Border.all(
@@ -53,13 +55,17 @@ class PresetChip extends StatelessWidget {
                   width: selected ? skin.shape.selectedRing : skin.shape.stroke,
                 ),
               ),
-              child: Center(
-                widthFactor: 1,
-                heightFactor: 1,
-                child: FitWords(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: skin.typography.action.copyWith(color: ground.text),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: height),
+                padding: const EdgeInsets.symmetric(horizontal: Space.mdPlus),
+                child: Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: FitWords(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: skin.typography.action.copyWith(color: ground.text),
+                  ),
                 ),
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/skin/elevation.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
@@ -46,6 +47,14 @@ AnimatedContainer _mover(WidgetTester tester, String label) => tester
 double _dy(WidgetTester tester, String label) =>
     _mover(tester, label).transform!.getTranslation().y;
 
+/// How high the card lies: read from its cast (the paper shadow's fall).
+double _drop(WidgetTester tester, String label) =>
+    _shadows(
+      tester,
+      label,
+    ).firstWhere((s) => s.spreadRadius > 0 && s.blurRadius == 0).offset.dy /
+    PaperShadow.castFall;
+
 List<BoxShadow> _shadows(WidgetTester tester, String label) =>
     (_back(tester, label).decoration! as BoxDecoration).boxShadow!;
 
@@ -72,7 +81,7 @@ void main() {
       await board.pump(tester);
       final name = _seat(board);
       expect(_dy(tester, name), 0);
-      final lying = _shadows(tester, name).last.offset.dy;
+      final lying = _drop(tester, name);
 
       final finger = await tester.startGesture(tester.getCenter(card(name)));
       await tester.pump();
@@ -83,7 +92,7 @@ void main() {
         Motion.press,
         reason: 'the dip is a press',
       );
-      expect(_shadows(tester, name).last.offset.dy, lying - FaceDownCard.dip);
+      expect(_drop(tester, name), closeTo(lying - FaceDownCard.dip, 1e-9));
       await tester.pump(Motion.press);
 
       await finger.up();
@@ -151,7 +160,7 @@ void main() {
       // the lying shadow, the hairline ring.
       expect(_shadows(tester, name).first.color.a, 0);
       expect(_shadows(tester, name).first.blurRadius, 0);
-      final lying = _shadows(tester, name).last.offset.dy;
+      final lying = _drop(tester, name);
       final hairline = _ringWidth(tester, name);
 
       await tapCard(tester, name);
@@ -159,13 +168,13 @@ void main() {
       expect(_dy(tester, name), -FaceDownCard.lift);
       expect(_mover(tester, name).duration, Motion.quick);
       final shadows = _shadows(tester, name);
-      expect(shadows, hasLength(2));
+      expect(shadows, hasLength(2 + PaperShadow.castSteps));
       final glow = shadows.first;
       expect(glow.color, _night.elevation.glow);
       expect(glow.blurRadius, FaceDownCard.glowBlur);
       expect(glow.color.a, greaterThan(0.3), reason: 'the glow is seen');
-      expect(shadows.last.offset, const Offset(0, 8), reason: 'a deeper one');
-      expect(shadows.last.offset.dy, greaterThan(lying));
+      expect(_drop(tester, name), 10, reason: 'a deeper one');
+      expect(_drop(tester, name), greaterThan(lying));
       expect(shadows.last.blurRadius, 0, reason: 'the shadow stays paper');
       expect(_ringWidth(tester, name), greaterThan(hairline));
       expect(
@@ -331,7 +340,7 @@ void main() {
       expect(shell(tester).duration, Motion.quick);
       expect((shell(tester).decoration! as BoxDecoration).color, _night.accent);
       expect(
-        shell(tester).transform!.getTranslation().x,
+        shell(tester).transform!.getTranslation().y,
         greaterThan(0),
         reason: 'it starts down in the slot',
       );
@@ -353,7 +362,7 @@ void main() {
       final t = shell(tester).transform;
       expect(t == null || t.getTranslation().x == 0, isTrue);
       final shadows = (shell(tester).decoration! as BoxDecoration).boxShadow!;
-      expect(shadows.single.offset, const Offset(5, 5));
+      expect(shadows.last.offset, const Offset(0, 3), reason: 'the backing');
     });
 
     testWidgets('taking the pick back returns it to the slot; a button that '
@@ -371,7 +380,15 @@ void main() {
       final button = tester.getRect(find.byType(PrimaryButton));
       final frame = await FramePixels.of(tester);
       final inside = frame.at(button.left + 10, button.center.dy + 8);
-      expect(inside & 0xFFFFFF, _night.ground.toARGB32() & 0xFFFFFF);
+      // The ground there is the mood's (a vignette of the night), so it is
+      // read beside the button, in the same light.
+      final beside = frame.at(button.left - 8, button.center.dy + 8);
+      for (final shift in [0, 8, 16]) {
+        expect(
+          ((inside >> shift) & 0xFF) - ((beside >> shift) & 0xFF),
+          inInclusiveRange(-6, 6),
+        );
+      }
       await tester.pumpAndSettle();
       expect((shell(tester).decoration! as BoxDecoration).color, isNull);
     });

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
+import '../skin/skin_tilt.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
 import 'paper_lantern.dart';
@@ -85,6 +86,8 @@ class SecondaryButton extends StatefulWidget {
 class _SecondaryButtonState extends State<SecondaryButton> {
   var _pressed = false;
 
+  static const _pinSize = 7.0;
+
   VoidCallback? get _onTap => widget.onPressed ?? widget.onLockedTap;
 
   @override
@@ -127,7 +130,11 @@ class _SecondaryButtonState extends State<SecondaryButton> {
           .copyWith(color: enabled ? ground.text : ground.faintText);
     }
 
-    return Semantics(
+    // A pinned scrap sinks into its shadow under a finger, as the plaque does.
+    final sunk = paper && enabled && _pressed
+        ? ground.elevation.raised.travel(skin.shape.pressKeep)
+        : Offset.zero;
+    final scrap = Semantics(
       button: true,
       enabled: enabled,
       label: widget.label,
@@ -140,51 +147,90 @@ class _SecondaryButtonState extends State<SecondaryButton> {
       child: AnimatedContainer(
         duration: Motion.press,
         curve: Motion.curve,
+        transform: Matrix4.translationValues(sunk.dx, sunk.dy, 0),
         constraints: BoxConstraints(
           minHeight: widget.size.secondaryHeight,
           minWidth: widget.size.minWidth,
         ),
-        decoration: decoration,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: busy ? null : _onTap,
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            highlightColor: Colors.transparent,
-            borderRadius: radius,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.lg,
-                    vertical: Space.sm,
-                  ),
-                  child: Center(
-                    heightFactor: 1,
-                    widthFactor: 1,
-                    child: FitWords(
-                      widget.label,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      style: style,
+        decoration: paper ? null : decoration,
+        child: _scrapPaper(
+          paper: paper,
+          decoration: decoration,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: busy ? null : _onTap,
+              onHighlightChanged: (value) => setState(() => _pressed = value),
+              highlightColor: Colors.transparent,
+              borderRadius: radius,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  // The pin that holds a scrap to the table.
+                  if (paper)
+                    Positioned(
+                      top: -_pinSize / 2,
+                      left: Space.lg,
+                      child: IgnorePointer(
+                        child: SizedBox.square(
+                          dimension: _pinSize,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: skin.paper.text.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.lg,
+                      vertical: Space.sm,
+                    ),
+                    child: Center(
+                      heightFactor: 1,
+                      widthFactor: 1,
+                      child: FitWords(
+                        widget.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: style,
+                      ),
                     ),
                   ),
-                ),
-                // Busy: the lantern burns in the button's own end padding,
-                // so the words stay where they are.
-                if (busy)
-                  PositionedDirectional(
-                    end: Space.smPlus,
-                    child: BusyMark(size: Space.xl, color: style.color),
-                  ),
-              ],
+                  // Busy: the lantern burns in the button's own end padding,
+                  // so the words stay where they are.
+                  if (busy)
+                    PositionedDirectional(
+                      end: Space.smPlus,
+                      child: BusyMark(size: Space.xl, color: style.color),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+    return scrap;
   }
+
+  /// A scrap's paper is set down a hair off square (the same every build,
+  /// from its label), its words level; the outlined button has no paper.
+  Widget _scrapPaper({
+    required bool paper,
+    required Decoration decoration,
+    required Widget child,
+  }) => paper
+      ? TiltedPaper(
+          angle: context.skin.tilt.angle(Tilt.seededRow(widget.label)),
+          duration: Motion.press,
+          decoration: decoration,
+          child: child,
+        )
+      : child;
 }
 
 /// The mark beside a button's words while its tap is on its way: a small

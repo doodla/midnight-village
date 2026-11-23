@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,6 +8,7 @@ import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/system_bars.dart';
+import 'paper_grain.dart';
 import 'screen_frame.dart';
 
 /// Opens [builder]'s [SheetScaffold] from the bottom over the scrim, on the
@@ -91,42 +94,74 @@ class SheetScaffold extends StatelessWidget {
   }
 
   Widget _sheet(BuildContext context, BorderRadius top, MediaQueryData media) {
-    return Container(
-      padding: const EdgeInsets.only(top: Space.xs),
-      decoration: BoxDecoration(
-        color: context.ground.selection,
-        borderRadius: top,
-      ),
+    // The top edge is torn, not cut: a sheet of paper pulled from a pad.
+    return ClipPath(
+      clipper: const TornTop(),
       child: Container(
+        padding: const EdgeInsets.only(top: Space.xs),
         decoration: BoxDecoration(
-          color: context.ground.paper,
+          color: context.ground.selection,
           borderRadius: top,
         ),
-        padding: EdgeInsets.fromLTRB(
-          Space.gutter,
-          Space.lgPlus,
-          Space.gutter,
-          Space.screenBottom +
-              media.viewPadding.bottom +
-              media.viewInsets.bottom,
-        ),
-        child: GroundScope(
-          ground: GroundKind.paper,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // A sheet taller than the screen (large text, a small phone)
-              // scrolls its body; the actions stay in reach.
-              Flexible(child: SingleChildScrollView(child: child)),
-              if (actions.isNotEmpty) ...[
-                const SizedBox(height: Space.lg),
-                Row(spacing: Space.smPlus, children: actions),
+        child: Container(
+          decoration: BoxDecoration(
+            color: context.ground.paper,
+            image: PaperGrain.image,
+            borderRadius: top,
+          ),
+          padding: EdgeInsets.fromLTRB(
+            Space.gutter,
+            Space.lgPlus,
+            Space.gutter,
+            Space.screenBottom +
+                media.viewPadding.bottom +
+                media.viewInsets.bottom,
+          ),
+          child: GroundScope(
+            ground: GroundKind.paper,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // A sheet taller than the screen (large text, a small phone)
+                // scrolls its body; the actions stay in reach.
+                Flexible(child: SingleChildScrollView(child: child)),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: Space.lg),
+                  Row(spacing: Space.smPlus, children: actions),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// The torn top edge of a sheet: a seeded line that wanders a few pixels, so
+/// every sheet is torn the same way on every phone. Cut once per size; a
+/// sheet is one piece of paper, never one per list item.
+class TornTop extends CustomClipper<Path> {
+  const TornTop();
+
+  /// The tear: its step along the edge and how far it wanders.
+  static const step = 9.0;
+  static const wander = 3.0;
+
+  @override
+  Path getClip(Size size) {
+    final random = math.Random(5);
+    final path = Path()..moveTo(0, wander);
+    for (var x = step; x < size.width + step; x += step) {
+      path.lineTo(math.min(x, size.width), random.nextDouble() * wander);
+    }
+    return path
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(TornTop old) => false;
 }
