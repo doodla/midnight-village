@@ -264,6 +264,14 @@ vote-pictures folder="build/vote_pictures" width="360":
       --dart-define=VOTE_PICTURES_DIR={{folder}} \
       --dart-define=VOTE_PICTURES_WIDTH={{width}}
 
+# The dressed-up pass in pictures: every paper part in both dresses, and the
+# table, your card and the night board in paper dress (a PNG each at 360 and
+# 390) into <folder>. Usage: just paper-dress [folder]
+paper-dress folder="build/paper_dress":
+    flutter test test_screens/paper_dress_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=PAPER_DRESS_DIR={{folder}}
+
 # The count in pictures (one death, a tie, nobody: at the end and one death as it
 # goes in four frames; ten players with long names at several widths and text
 # sizes) into <folder>. Usage: just count-pictures [folder] [width]

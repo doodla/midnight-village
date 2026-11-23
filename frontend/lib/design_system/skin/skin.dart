@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'art_set.dart';
+import 'dress.dart';
 import 'ground.dart';
 import 'ground_scope.dart';
+import 'mood_palette.dart';
+import 'paper_parts.dart';
 import 'skin_shape.dart';
 import 'skin_tilt.dart';
 import 'skin_type.dart';
@@ -26,6 +29,10 @@ class Skin extends ThemeExtension<Skin> {
     required this.art,
     required this.scrim,
     required this.dimmed,
+    this.mood = MoodPalette.standard,
+    this.parts = PaperParts.standard,
+    this.dress = Dress.plain,
+    this.dressedUp,
   });
 
   final Ground night;
@@ -44,6 +51,20 @@ class Skin extends ThemeExtension<Skin> {
   /// deck, a dropped member's token, the vote rows once locked).
   final double dimmed;
 
+  /// The colours and lengths of the mood of light behind a dressed screen.
+  final MoodPalette mood;
+
+  /// The sizes, angles and edges of the paper parts of a dressed screen.
+  final PaperParts parts;
+
+  /// The dress this skin is drawn in ([Dress.plain] for the skin itself,
+  /// [Dress.paper] for [dressedUp]).
+  final Dress dress;
+
+  /// This skin dressed up (paper, torn, lit): what `context.skin` gives under
+  /// a [DressScope] of [Dress.paper]. Null: the skin has no such dress.
+  final Skin? dressedUp;
+
   Ground ground(GroundKind kind) => switch (kind) {
     GroundKind.night => night,
     GroundKind.day => day,
@@ -61,6 +82,7 @@ class Skin extends ThemeExtension<Skin> {
     ArtSet? art,
     Color? scrim,
     double? dimmed,
+    MoodPalette? mood,
   }) => Skin(
     night: night ?? this.night,
     day: day ?? this.day,
@@ -71,6 +93,10 @@ class Skin extends ThemeExtension<Skin> {
     art: art ?? this.art,
     scrim: scrim ?? this.scrim,
     dimmed: dimmed ?? this.dimmed,
+    mood: mood ?? this.mood,
+    parts: parts,
+    dress: dress,
+    dressedUp: dressedUp,
   );
 
   /// Skins are swapped whole, never blended: until a theme animation ends the
@@ -82,7 +108,8 @@ class Skin extends ThemeExtension<Skin> {
 }
 
 extension SkinContext on BuildContext {
-  /// The active skin, from the theme.
+  /// The active skin, from the theme: dressed up where a screen asked for it
+  /// ([DressScope]), as it is today everywhere else.
   Skin get skin {
     final skin = Theme.of(this).extension<Skin>();
     if (skin == null) {
@@ -91,7 +118,7 @@ extension SkinContext on BuildContext {
         '(lib/design_system/skin/skin_theme.dart).',
       );
     }
-    return skin;
+    return DressScope.of(this).isPaper ? (skin.dressedUp ?? skin) : skin;
   }
 
   /// The colours and shadows of the ground this widget is on (see

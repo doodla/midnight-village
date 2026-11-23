@@ -1,11 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/system_bars.dart';
+import 'paper_grain.dart';
 import 'screen_frame.dart';
 
 /// Opens [builder]'s [SheetScaffold] from the bottom over the scrim, on the
@@ -15,17 +19,22 @@ import 'screen_frame.dart';
 /// navigation) reaches the page as a touch until the system claims it and
 /// cancels it: a sheet that could be dragged was swept shut by that touch,
 /// and the Back after it then did the screen's Back too (03 went to 02; 02
-/// asked to leave again).
+/// asked to leave again). A sheet is dressed as the screen it is opened from
+/// is ([DressScope]).
 Future<T?> showSkinSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
 }) {
   final ground = GroundScope.of(context);
+  final dress = context.dress;
   return showModalBottomSheet<T>(
     context: context,
-    builder: (sheetContext) => GroundScope(
-      ground: ground,
-      child: Builder(builder: builder),
+    builder: (sheetContext) => DressScope(
+      dress: dress,
+      child: GroundScope(
+        ground: ground,
+        child: Builder(builder: builder),
+      ),
     ),
     isScrollControlled: true,
     // One back gesture, one thing: its touch never moves the sheet.
@@ -48,13 +57,17 @@ Future<T?> showSkinDialog<T>(
   bool barrierDismissible = true,
 }) {
   final ground = GroundScope.of(context);
+  final dress = context.dress;
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierColor: context.skin.scrim,
-    builder: (dialogContext) => GroundScope(
-      ground: ground,
-      child: Builder(builder: builder),
+    builder: (dialogContext) => DressScope(
+      dress: dress,
+      child: GroundScope(
+        ground: ground,
+        child: Builder(builder: builder),
+      ),
     ),
   );
 }
@@ -91,7 +104,8 @@ class SheetScaffold extends StatelessWidget {
   }
 
   Widget _sheet(BuildContext context, BorderRadius top, MediaQueryData media) {
-    return Container(
+    final dressed = context.dress.isPaper;
+    final sheet = Container(
       padding: const EdgeInsets.only(top: Space.xs),
       decoration: BoxDecoration(
         color: context.ground.selection,
@@ -100,6 +114,7 @@ class SheetScaffold extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: context.ground.paper,
+          image: dressed ? PaperGrain.image : null,
           borderRadius: top,
         ),
         padding: EdgeInsets.fromLTRB(
@@ -128,5 +143,35 @@ class SheetScaffold extends StatelessWidget {
         ),
       ),
     );
+    // Dressed up the top edge is torn, not cut: a sheet of paper pulled from
+    // a pad.
+    return dressed ? ClipPath(clipper: const TornTop(), child: sheet) : sheet;
   }
+}
+
+/// The torn top edge of a sheet: a seeded line that wanders a few pixels, so
+/// every sheet is torn the same way on every phone. Cut once per size; a
+/// sheet is one piece of paper, never one per list item.
+class TornTop extends CustomClipper<Path> {
+  const TornTop();
+
+  /// The tear: its step along the edge and how far it wanders.
+  static const step = 9.0;
+  static const wander = 3.0;
+
+  @override
+  Path getClip(Size size) {
+    final random = math.Random(5);
+    final path = Path()..moveTo(0, wander);
+    for (var x = step; x < size.width + step; x += step) {
+      path.lineTo(math.min(x, size.width), random.nextDouble() * wander);
+    }
+    return path
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(TornTop old) => false;
 }

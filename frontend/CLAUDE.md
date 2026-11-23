@@ -25,6 +25,7 @@ just night-frames      # the night board's pick and candle, a frame per 17 ms
 just vote-frames       # the vote's finger, pick and lock (the seal landing), a frame per 17 ms
 just vote-pictures     # the locked vote, the lock in four frames, the vote at several table sizes
 just count-pictures    # the count: one death, a tie, nobody, the moment in four frames, ten with long names
+just paper-dress       # the dressed-up pass: every paper part in both dresses, and the table, your card and the night board in paper dress
 just card-frames       # your card turning over (finger, hold, turn, release), a frame per 17 ms
 just playtest-pack     # the cold-read pack: five first-game journeys to build/playtest/
 just test-harness      # boots its own backend on a free port, runs the e2e harness (not in `just test`)
@@ -92,6 +93,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
   for anything that says something true; no uppercase micro-labels; one amber fill per screen; a selection is lift plus outline, never amber.
+- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks `ScreenFrame(dress: Dress.paper)`; shared parts read `context.dress`/`context.skin` and draw the paper, torn edges, pins, banners, plaque and mood only there; sizes, angles and colours are the skin's (`skin.parts`, `skin.mood`), never a number in a screen (`lib/design_system/README.md`, "The dress").
 - **Values from the skin**: build screens from `lib/design_system/primitives/`, read
   `context.skin`, `context.ground`, `Space`, `Motion`; no literals (a text size, weight or face is a
   type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in

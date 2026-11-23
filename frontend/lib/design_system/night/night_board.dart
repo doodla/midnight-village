@@ -12,11 +12,14 @@ import '../primitives/candle_gauge.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/notice.dart';
+import '../primitives/paper_banner.dart';
 import '../primitives/paper_card.dart';
 import '../primitives/primary_button.dart';
 import '../primitives/screen_frame.dart';
+import '../primitives/text_backing.dart';
 import '../skin/art_set.dart' show LayeredSceneId;
 import '../primitives/world_timer.dart';
+import '../skin/dress.dart';
 import '../skin/ground.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
@@ -70,7 +73,14 @@ class NightBoard extends ConsumerStatefulWidget {
     required this.secondsLeft,
     this.share,
     required this.onChoose,
+    this.dress,
   });
+
+  /// How the screen is dressed (`ScreenFrame.dress`; null: as the screen
+  /// above it): plain is the look the game has today; paper puts the title and
+  /// the seconds on a banner and the mood's own village behind the board
+  /// instead of a strip of it.
+  final Dress? dress;
 
   final List<NightSeat> seats;
 
@@ -276,8 +286,14 @@ class _NightBoardState extends ConsumerState<NightBoard> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: widget.dress ?? context.dress,
+    child: Builder(builder: _screen),
+  );
+
+  Widget _screen(BuildContext context) {
     final skin = context.skin;
+    final dressed = context.dress.isPaper;
     final type = skin.typography;
     final names = [for (final seat in widget.seats) seat.name];
     final captions = [for (var i = 0; i < 3; i++) centerName(i)];
@@ -305,10 +321,11 @@ class _NightBoardState extends ConsumerState<NightBoard> {
           child: ScreenFrame(
             ground: GroundKind.night,
             fitsHeight: true,
-            topScene: LayeredSceneId.nightVillage,
-            topSceneFrom: NightBoard.villageFrom,
-            topArtExtra: _stripExtra(context),
-            topArtLayout: TopArtLayout.strip,
+            // Dressed up the village is the mood behind the whole screen.
+            topScene: dressed ? null : LayeredSceneId.nightVillage,
+            topSceneFrom: dressed ? null : NightBoard.villageFrom,
+            topArtExtra: dressed ? 0 : _stripExtra(context),
+            topArtLayout: dressed ? TopArtLayout.scene : TopArtLayout.strip,
             body: MediaQuery.withClampedTextScaling(
               maxScaleFactor: NightBoard.labelScale,
               child: Column(
@@ -404,34 +421,39 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     // The seconds take at most this share of the header (a narrow phone with
     // minutes on the clock sets them smaller): the title keeps its room.
     return LayoutBuilder(
-      builder: (context, header) => Row(
-        spacing: Space.md,
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: room,
-              child: Semantics(
-                header: true,
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: FitWords(
-                    widget.prompt.kind.title,
-                    maxLines: NightBoard.titleLines,
-                    noWidow: true,
-                    style: title,
+      builder: (context, header) => PaperBanner(
+        id: #night,
+        bleed: Space.md,
+        padding: const EdgeInsets.symmetric(vertical: Space.xxs),
+        child: (context) => Row(
+          spacing: Space.md,
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: room,
+                child: Semantics(
+                  header: true,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: FitWords(
+                      widget.prompt.kind.title,
+                      maxLines: NightBoard.titleLines,
+                      noWidow: true,
+                      style: title,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          WorldTimer.candleCompact(
-            secondsLeft: widget.secondsLeft,
-            share: widget.share,
-            candleHeight: timerLine,
-            lineHeight: room,
-            maxNumberWidth: header.maxWidth * NightBoard.timerShare,
-          ),
-        ],
+            WorldTimer.candleCompact(
+              secondsLeft: widget.secondsLeft,
+              share: widget.share,
+              candleHeight: timerLine,
+              lineHeight: room,
+              maxNumberWidth: header.maxWidth * NightBoard.timerShare,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -497,11 +519,15 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   /// A label on the board: a caption line in full ink, like the captions
   /// under the cards.
-  Widget _label(String text) => FitWords(
-    text,
-    textAlign: TextAlign.center,
-    maxLines: 1,
-    style: context.skin.typography.caption.copyWith(color: context.ground.text),
+  Widget _label(String text) => TextBacking(
+    child: FitWords(
+      text,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      style: context.skin.typography.caption.copyWith(
+        color: context.ground.text,
+      ),
+    ),
   );
 
   /// The Seer's thin rule with "or" on it, between her seats and the table's
@@ -548,7 +574,13 @@ class _NightBoardState extends ConsumerState<NightBoard> {
               // (`tapExtra`), so a tap is a thumb's height on a small card.
               padding: padding.copyWith(bottom: 0),
               decoration: BoxDecoration(
-                color: context.ground.panel,
+                // Dressed up the village shows through the strip of centre
+                // cards.
+                color: context.dress.isPaper
+                    ? context.ground.panel.withValues(
+                        alpha: skin.mood.panelShow,
+                      )
+                    : context.ground.panel,
                 borderRadius: BorderRadius.circular(skin.shape.radius),
               ),
               child: Column(

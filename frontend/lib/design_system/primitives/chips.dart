@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
+import '../skin/skin_tilt.dart';
+import 'tilted_paper.dart';
 import 'fit_line.dart';
 
 /// One of a few presets to choose from ("Simple", "Classic", "Chaos"; the
@@ -41,19 +44,16 @@ class PresetChip extends StatelessWidget {
             onTap: onTap,
             borderRadius: radius,
             highlightColor: Colors.transparent,
-            child: AnimatedContainer(
-              duration: Motion.quick,
-              curve: Motion.curve,
-              constraints: const BoxConstraints(minHeight: height),
-              padding: const EdgeInsets.symmetric(horizontal: Space.mdPlus),
-              decoration: BoxDecoration(
+            child: _outlined(
+              context,
+              BoxDecoration(
                 borderRadius: radius,
                 border: Border.all(
                   color: selected ? ground.selection : ground.hairline,
                   width: selected ? skin.shape.selectedRing : skin.shape.stroke,
                 ),
               ),
-              child: Center(
+              Center(
                 widthFactor: 1,
                 heightFactor: 1,
                 child: FitWords(
@@ -66,6 +66,32 @@ class PresetChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// The chip's outline round [words]: set down by hand on a dressed screen
+  /// (the outline turned a hair, the same every build, the word level).
+  Widget _outlined(BuildContext context, BoxDecoration outline, Widget words) {
+    const padding = EdgeInsets.symmetric(horizontal: Space.mdPlus);
+    if (context.dress.isPaper) {
+      return TiltedPaper(
+        angle: context.skin.tilt.angle(Tilt.seededRow(label)),
+        duration: Motion.quick,
+        decoration: outline,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: height),
+          padding: padding,
+          child: words,
+        ),
+      );
+    }
+    return AnimatedContainer(
+      duration: Motion.quick,
+      curve: Motion.curve,
+      constraints: const BoxConstraints(minHeight: height),
+      padding: padding,
+      decoration: outline,
+      child: words,
     );
   }
 }

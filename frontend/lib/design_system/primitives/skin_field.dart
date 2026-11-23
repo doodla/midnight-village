@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
-import 'cut_paper.dart';
+import 'deckled_paper.dart';
 import 'fit_line.dart';
 
 /// A text field in the skin (S01):
@@ -110,10 +110,10 @@ class SkinField extends StatelessWidget {
         ),
         alignment: Alignment.centerLeft,
         decoration: _paper
-            ? cutPaper(
+            ? deckledPaper(
                 context,
                 fill: ground.paper,
-                radius: radius,
+                id: (semanticLabel, #field),
                 elevation: ground.elevation.raised,
               )
             : BoxDecoration(

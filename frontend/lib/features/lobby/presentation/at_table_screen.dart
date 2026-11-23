@@ -12,7 +12,9 @@ import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/models/role.dart';
 import '../../../design_system/primitives/chips.dart';
+import '../../../design_system/primitives/fanned.dart';
 import '../../../design_system/primitives/fit_line.dart';
+import '../../../design_system/primitives/mood.dart';
 import '../../../design_system/primitives/notice.dart';
 import '../../../design_system/primitives/panels.dart';
 import '../../../design_system/primitives/paper_card.dart';
@@ -24,6 +26,7 @@ import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../design_system/primitives/text_action.dart';
+import '../../../design_system/skin/dress.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
@@ -254,7 +257,12 @@ class AtTableView extends StatelessWidget {
     this.onDeal,
     this.onLeave,
     this.onGoHome,
+    this.dress,
   });
+
+  /// How the screen is dressed (`ScreenFrame.dress`; null: as the screen
+  /// above it).
+  final Dress? dress;
 
   final LobbyState lobby;
   final int viewerId;
@@ -280,7 +288,12 @@ class AtTableView extends StatelessWidget {
   bool get _host => lobby.hostId == viewerId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: dress ?? context.dress,
+    child: Builder(builder: _view),
+  );
+
+  Widget _view(BuildContext context) {
     final skin = context.skin;
     final host = _host;
     final refused = lobby.dealRefused;
@@ -306,7 +319,11 @@ class AtTableView extends StatelessWidget {
       },
       child: ScreenFrame(
         ground: GroundKind.night,
-        topArt: roomy ? skin.art.table : null,
+        // Dressed up the village is the mood behind the whole screen, a
+        // lantern lighting the table.
+        mood: MoodKind.lantern,
+        moodLight: const Alignment(0, -0.1),
+        topArt: roomy && !context.dress.isPaper ? skin.art.table : null,
         topArtLayout: TopArtLayout.banner,
         body: Builder(
           builder: (context) => Column(
@@ -644,6 +661,8 @@ class _JoinCard extends StatelessWidget {
     final link = this.link;
     final share = onShare;
     return PaperCard(
+      pinned: true,
+      id: #join,
       lift: PaperLift.slab,
       padding: const EdgeInsets.symmetric(
         horizontal: Space.md,
@@ -864,17 +883,23 @@ class _DeckStrip extends StatelessWidget {
             Row(
               spacing: gap,
               children: [
-                for (final MapEntry(key: role, value: count) in entries.sublist(
-                  i,
-                  math.min(i + perLine, entries.length),
-                ))
+                for (final (k, MapEntry(key: role, value: count))
+                    in entries
+                        .sublist(i, math.min(i + perLine, entries.length))
+                        .indexed)
                   Flexible(
-                    child: RoleCard(
-                      role: role,
-                      size: RoleCardSize.thumbSmall,
-                      count: count,
-                      onTap: () => onRead(role),
-                      onLongPress: () => onRead(role),
+                    // Dressed up the cards are a fan (paint only: the tap
+                    // targets are the row's cells).
+                    child: Fanned(
+                      index: k,
+                      count: math.min(perLine, entries.length - i),
+                      child: RoleCard(
+                        role: role,
+                        size: RoleCardSize.thumbSmall,
+                        count: count,
+                        onTap: () => onRead(role),
+                        onLongPress: () => onRead(role),
+                      ),
                     ),
                   ),
               ],

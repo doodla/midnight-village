@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
 import 'fit_line.dart';
+import 'paper_mark.dart';
+import 'plaque.dart';
 import 'secondary_button.dart' show BusyMark;
 
 /// The mocks' button sizes, shrunk with the type (the owner's type choice of
@@ -259,11 +262,11 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     final label = widget.label;
     Widget words(String text) =>
         FitWords(text, textAlign: TextAlign.center, maxLines: 2, style: style);
-    final check = Icon(
-      Icons.check,
-      color: style.color,
-      size: MediaQuery.textScalerOf(context).scale(style.fontSize!),
-    );
+    final scaled = MediaQuery.textScalerOf(context).scale(style.fontSize!);
+    // Dressed up the done mark is the paper's own (wax and a brush tick).
+    final check = context.dress.isPaper
+        ? PaperMark(size: scaled * context.skin.parts.markScale)
+        : Icon(Icons.check, color: style.color, size: scaled);
     final bare = label.endsWith(PrimaryButton.checkMark)
         ? label.substring(0, label.length - PrimaryButton.checkMark.length)
         : label;
@@ -307,6 +310,9 @@ class _PrimaryButtonState extends State<PrimaryButton> {
     };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;
+    // Dressed up the amber is a plaque (deckled paper on a backing, tilted):
+    // its paper is drawn by [Plaque], not by the button's own container.
+    final plaque = filled && context.dress.isPaper;
     final decoration = filled
         ? cutPaper(
             context,
@@ -350,7 +356,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           down ? rest.travel(keep).dy : 0,
           0,
         ),
-        decoration: decoration,
+        decoration: plaque ? null : decoration,
         foregroundDecoration: widget.phase == ButtonPhase.locked && widget.slot
             // The slot's cut edge: a hard dark lip along its top, the paper
             // above it casting into the recess.
@@ -374,52 +380,82 @@ class _PrimaryButtonState extends State<PrimaryButton> {
                 ),
               )
             : null,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: _onTap,
-            onHighlightChanged: (value) => setState(() {
-              _pressed = value;
-              if (value && !_rising) _duration = Motion.press;
-            }),
-            highlightColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            borderRadius: radius,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.xl,
-                    vertical: Space.sm,
-                  ),
-                  child: Center(
-                    heightFactor: 1,
-                    widthFactor: 1,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: Space.md,
-                      children: [
-                        if (widget.icon case final icon?)
-                          Icon(icon, color: ink, size: style.fontSize),
-                        Flexible(child: _label(style.copyWith(color: ink))),
-                      ],
+        child: _paper(
+          plaque: plaque,
+          fill: ground.accent,
+          ink: ground.onAccent,
+          elevation: down ? rest.pressed(keep) : rest,
+          side: edge != null && skin.shape.edgeWidth == 0
+              ? BorderSide(color: edge, width: skin.shape.stroke)
+              : null,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: _onTap,
+              onHighlightChanged: (value) => setState(() {
+                _pressed = value;
+                if (value && !_rising) _duration = Motion.press;
+              }),
+              highlightColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              borderRadius: radius,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.xl,
+                      vertical: Space.sm,
+                    ),
+                    child: Center(
+                      heightFactor: 1,
+                      widthFactor: 1,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: Space.md,
+                        children: [
+                          if (widget.icon case final icon?)
+                            Icon(icon, color: ink, size: style.fontSize),
+                          Flexible(child: _label(style.copyWith(color: ink))),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                // Busy: the mark turns in the button's own end padding, so
-                // the label keeps its place and its line (it never wraps
-                // for the mark).
-                if (widget.busy)
-                  PositionedDirectional(
-                    end: Space.sm,
-                    child: BusyMark(size: Space.xl, color: ink),
-                  ),
-              ],
+                  // Busy: the mark turns in the button's own end padding, so
+                  // the label keeps its place and its line (it never wraps
+                  // for the mark).
+                  if (widget.busy)
+                    PositionedDirectional(
+                      end: Space.sm,
+                      child: BusyMark(size: Space.xl, color: ink),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
+  /// The plaque's paper (dressed up: the same every build, from the label),
+  /// round the button's [child]; plain, the child as it is.
+  Widget _paper({
+    required bool plaque,
+    required Color fill,
+    required Color ink,
+    required Elevation elevation,
+    required BorderSide? side,
+    required Widget child,
+  }) => !plaque
+      ? child
+      : Plaque(
+          id: widget.label,
+          fill: fill,
+          ink: ink,
+          elevation: elevation,
+          duration: Motion.within(context, _duration),
+          side: side,
+          child: child,
+        );
 }

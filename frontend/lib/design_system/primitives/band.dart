@@ -8,8 +8,12 @@ import '../skin/ground.dart';
 import '../skin/art_set.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
+import '../skin/dress.dart';
+import '../skin/paper_parts.dart';
+import 'deckle.dart';
 import 'fit_line.dart';
 import 'layered_art.dart';
+import 'paper_banner.dart';
 import 'world_timer.dart';
 
 /// What a [Band] is painted in.
@@ -311,6 +315,7 @@ class TimerBand extends StatelessWidget {
 
   Widget _sky(BuildContext context, String? number) {
     final skin = context.skin;
+    final dressed = context.dress.isPaper;
     final ground = context.ground;
     final top = MediaQuery.paddingOf(context).top;
     return Column(
@@ -318,61 +323,75 @@ class TimerBand extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         ExcludeSemantics(
-          child: SizedBox(
-            height: skyFor(MediaQuery.sizeOf(context).height) + top,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // The night's ground is the sky's window until the day's
-                // layers cover it. The dawn brings the roofs up into it from
-                // below, the sun climbing from behind the hills, the text
-                // under it not moving at all.
-                ColoredBox(color: skin.night.ground),
-                LayeredArt(
-                  LayeredSceneId.dawnGallows,
-                  slots: {
-                    'sun': (context, geometry, slot, arrival) => _Sun(
-                      geometry: geometry,
-                      slot: slot,
-                      arrival: arrival,
-                      elapsed: elapsed?.clamp(0, 1).toDouble(),
-                      showSun: showSun,
-                      art: skin.art.layer(
-                        LayeredSceneId.dawnGallows,
-                        slot.sprite!,
+          // Dressed up, the sky is a sheet of paper torn off at its foot, over
+          // the day; plain, it fades into the ground.
+          child: _tornFoot(
+            context,
+            SizedBox(
+              height: skyFor(MediaQuery.sizeOf(context).height) + top,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // The night's ground is the sky's window until the day's
+                  // layers cover it. The dawn brings the roofs up into it from
+                  // below, the sun climbing from behind the hills, the text
+                  // under it not moving at all.
+                  ColoredBox(color: skin.night.ground),
+                  LayeredArt(
+                    LayeredSceneId.dawnGallows,
+                    slots: {
+                      'sun': (context, geometry, slot, arrival) => _Sun(
+                        geometry: geometry,
+                        slot: slot,
+                        arrival: arrival,
+                        elapsed: elapsed?.clamp(0, 1).toDouble(),
+                        showSun: showSun,
+                        art: skin.art.layer(
+                          LayeredSceneId.dawnGallows,
+                          slot.sprite!,
+                        ),
+                        line: ground.text,
+                        lineWidth: skin.shape.ring,
                       ),
-                      line: ground.text,
-                      lineWidth: skin.shape.ring,
-                    ),
-                  },
-                ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      // The mock's fade: the last 70 of 250.
-                      stops: const [0.72, 1],
-                      colors: [
-                        ground.ground.withValues(alpha: 0),
-                        ground.ground,
-                      ],
-                    ),
+                    },
                   ),
-                ),
-              ],
+                  if (!dressed)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          // The mock's fade: the last 70 of 250.
+                          stops: const [0.72, 1],
+                          colors: [
+                            ground.ground.withValues(alpha: 0),
+                            ground.ground,
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
         Transform.translate(
-          offset: const Offset(0, -Space.sm),
+          offset: Offset(0, dressed ? -Space.xl : -Space.sm),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
-            child: _heading(
-              context,
-              number,
-              skin.typography.timer,
-              ground.text,
+            padding: EdgeInsets.symmetric(
+              horizontal: dressed ? Space.md : Space.gutter,
+            ),
+            // Dressed up, the number is on a banner of torn paper.
+            child: PaperBanner(
+              id: #talk,
+              child: (context) => _heading(
+                context,
+                number,
+                dressed
+                    ? skin.typography.timer.copyWith(color: context.ground.text)
+                    : skin.typography.timer,
+                context.ground.text,
+              ),
             ),
           ),
         ),
@@ -380,9 +399,16 @@ class TimerBand extends StatelessWidget {
     );
   }
 
+  /// The sky's window: dressed up, its foot torn off along a seeded ragged
+  /// line, so the day's ground shows under a paper edge, not a hard straight
+  /// one.
+  Widget _tornFoot(BuildContext context, Widget sky) => !context.dress.isPaper
+      ? sky
+      : ClipPath(clipper: _TornFoot(context.skin.parts), child: sky);
+
   Widget _bar(BuildContext context, String? number) {
     final skin = context.skin;
-    final night = skin.night;
+    final dressed = context.dress.isPaper;
     final top = MediaQuery.paddingOf(context).top;
     final lit = remaining;
     return GroundScope(
@@ -395,33 +421,65 @@ class TimerBand extends StatelessWidget {
           spacing: Space.md,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(
-                Space.gutter,
-                Space.xl + 2 + top,
-                Space.gutter,
-                0,
-              ),
-              child: _heading(
-                context,
-                number,
-                skin.typography.timerVote,
-                night.text,
-              ),
-            ),
-            SizedBox(
-              height: barHeight,
-              child: ColoredBox(
-                color: night.hairline,
-                child: FractionallySizedBox(
-                  alignment: AlignmentDirectional.centerStart,
-                  widthFactor: number == null || lit == null
-                      ? 0
-                      : lit.clamp(0, 1).toDouble(),
-                  child: ColoredBox(color: night.dangerLine),
+              padding: dressed
+                  ? EdgeInsets.fromLTRB(Space.md, Space.lg + top, Space.md, 0)
+                  : EdgeInsets.fromLTRB(
+                      Space.gutter,
+                      Space.xl + 2 + top,
+                      Space.gutter,
+                      0,
+                    ),
+              child: PaperBanner(
+                id: #vote,
+                child: (context) => _heading(
+                  context,
+                  number,
+                  dressed
+                      ? skin.typography.timerVote.copyWith(
+                          color: context.ground.text,
+                        )
+                      : skin.typography.timerVote,
+                  context.ground.text,
                 ),
               ),
             ),
+            _strip(context, number, lit),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// The time left: a bar of the ground lit along its length (dressed up, a
+  /// strip of torn paper, set in from the margin).
+  Widget _strip(BuildContext context, String? number, double? lit) {
+    final night = context.skin.night;
+    final fill = FractionallySizedBox(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: number == null || lit == null
+          ? 0
+          : lit.clamp(0, 1).toDouble(),
+      child: ColoredBox(color: night.dangerLine),
+    );
+    if (!context.dress.isPaper) {
+      return SizedBox(
+        height: barHeight,
+        child: ColoredBox(color: night.hairline, child: fill),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+      child: SizedBox(
+        height: barHeight,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: night.ground,
+            shape: DeckleBorder(
+              seed: deckleSeed(#bar),
+              depth: context.skin.parts.barDepth,
+            ),
+          ),
+          child: fill,
         ),
       ),
     );
@@ -631,4 +689,22 @@ class ClockFigure extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The sky's window: its foot torn off along a seeded ragged line.
+class _TornFoot extends CustomClipper<Path> {
+  const _TornFoot(this.parts);
+
+  final PaperParts parts;
+
+  @override
+  Path getClip(Size size) => DeckleBorder(
+    seed: deckleSeed(#sky),
+    depth: parts.skyDepth,
+    step: parts.skyStep,
+    torn: true,
+  ).getOuterPath(Offset.zero & size);
+
+  @override
+  bool shouldReclip(_TornFoot old) => old.parts != parts;
 }

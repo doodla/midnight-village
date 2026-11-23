@@ -1,7 +1,11 @@
+import 'paper_light.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
+import '../skin/skin_tilt.dart';
+import 'tilted_paper.dart';
 import 'fit_line.dart';
 
 /// What a [TagChip] is printed in.
@@ -44,23 +48,36 @@ class TagChip extends StatelessWidget {
       TagTone.danger => (ground.danger, ground.onDanger),
       TagTone.ground => (ground.ground, ground.text),
     };
-    return Container(
-      padding: small
-          ? const EdgeInsets.symmetric(horizontal: Space.smPlus, vertical: 5)
-          : const EdgeInsets.symmetric(
-              horizontal: Space.smPlus,
-              vertical: Space.xs,
-            ),
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
+    final padding = small
+        ? const EdgeInsets.symmetric(horizontal: Space.smPlus, vertical: 5)
+        : const EdgeInsets.symmetric(
+            horizontal: Space.smPlus,
+            vertical: Space.xs,
+          );
+    final words = FitWords(
+      text,
+      style: (small ? skin.typography.badge : skin.typography.tag).copyWith(
+        color: ink,
       ),
-      child: FitWords(
-        text,
-        style: (small ? skin.typography.badge : skin.typography.tag).copyWith(
-          color: ink,
+    );
+    final radius = BorderRadius.circular(skin.shape.radiusTiny);
+    // Dressed up: a slip set down by hand (turned a hair, casting its shadow),
+    // its word level.
+    if (context.dress.isPaper) {
+      return TiltedPaper(
+        angle: skin.tilt.angle(Tilt.seededRow(text)),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: radius,
+          boxShadow: ground.elevation.badge.litBy(context),
         ),
-      ),
+        child: Padding(padding: padding, child: words),
+      );
+    }
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(color: fill, borderRadius: radius),
+      child: words,
     );
   }
 }

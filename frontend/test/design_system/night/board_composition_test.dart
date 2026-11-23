@@ -13,9 +13,13 @@ import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
+import 'package:midnight_village/design_system/primitives/mood.dart';
+import 'package:midnight_village/design_system/primitives/paper_banner.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/primitives/layered_art.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
+import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
@@ -106,6 +110,14 @@ double _luminance(int pixel) {
 }
 
 void main() {
+  // The board is held to the same composition plain (today's look) and
+  // dressed up: the same checks, the same numbers.
+  for (final dress in const [null, Dress.paper]) {
+    group(dress == null ? 'plain' : 'paper dress', () => _checks(dress));
+  }
+}
+
+void _checks(Dress? dress) {
   for (final phone in _phones) {
     for (final scale in const [1.0, 2.0]) {
       testWidgets('no dead band on a ${phone.width.round()} x '
@@ -124,6 +136,7 @@ void main() {
           await _pump(
             tester,
             BoardPage(
+              dress: dress,
               viewer: Viewer.drunk,
               table: (_) => _table(seats),
               textScale: scale,
@@ -194,7 +207,11 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await _pump(
         tester,
-        BoardPage(viewer: Viewer.drunk, table: (_) => _table(seats)),
+        BoardPage(
+          dress: dress,
+          viewer: Viewer.drunk,
+          table: (_) => _table(seats),
+        ),
       );
       final seat = find
           .byWidgetPredicate(
@@ -238,6 +255,7 @@ void main() {
       await _pump(
         tester,
         BoardPage(
+          dress: dress,
           viewer: viewer,
           table: (me) => tableOf(
             me,
@@ -270,7 +288,7 @@ void main() {
     addTearDown(tester.view.reset);
     await _pump(
       tester,
-      BoardPage(viewer: Viewer.drunk, table: (_) => _table(10)),
+      BoardPage(dress: dress, viewer: Viewer.drunk, table: (_) => _table(10)),
     );
     double height() => tester.getSize(find.byType(PrimaryButton)).height;
     double narrowest() => [
@@ -288,7 +306,13 @@ void main() {
   });
 
   group('the village behind the title', () {
-    testWidgets('is the night village, cropped to a strip, on every board', (
+    // The strip of village is the plain look's; a dressed screen has the mood.
+    void plainOnly(String name, Future<void> Function(WidgetTester) body) {
+      if (dress == null) testWidgets(name, body);
+    }
+
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('is the night village, cropped to a strip, on every board', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(390, 844);
@@ -296,7 +320,7 @@ void main() {
       addTearDown(tester.view.reset);
       for (final viewer in [Viewer.seer, Viewer.villager]) {
         await tester.pumpWidget(const SizedBox());
-        await _pump(tester, BoardPage(viewer: viewer));
+        await _pump(tester, BoardPage(dress: dress, viewer: viewer));
         final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
         expect(frame.topScene, LayeredSceneId.nightVillage);
         expect(frame.topSceneFrom, NightBoard.villageFrom);
@@ -304,7 +328,8 @@ void main() {
       }
     });
 
-    testWidgets('at a table of three on a tall phone the strip takes some of '
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('at a table of three on a tall phone the strip takes some of '
         'the air; at any other table or a short phone it does not, and the '
         'cards stay where they are', (tester) async {
       Future<(double, Rect)> board(Size phone, int seats) async {
@@ -313,7 +338,11 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await _pump(
           tester,
-          BoardPage(viewer: Viewer.drunk, table: (_) => _table(seats)),
+          BoardPage(
+            dress: dress,
+            viewer: Viewer.drunk,
+            table: (_) => _table(seats),
+          ),
         );
         final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
         return (frame.topArtExtra, tester.getRect(find.byType(PaperCard)));
@@ -345,6 +374,7 @@ void main() {
             await _pump(
               tester,
               BoardPage(
+                dress: dress,
                 viewer: Viewer.drunk,
                 secondsLeft: seconds,
                 share: share,
@@ -388,6 +418,7 @@ void main() {
             await _pump(
               tester,
               BoardPage(
+                dress: dress,
                 viewer: Viewer.drunk,
                 table: (_) => _table(seats),
                 textScale: scale,
@@ -437,7 +468,7 @@ void main() {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await _pump(tester, BoardPage(viewer: Viewer.seer));
+      await _pump(tester, BoardPage(dress: dress, viewer: Viewer.seer));
       final type = skinsUnderTest.values.first.typography;
       final header = tester.getRect(
         find
@@ -469,7 +500,8 @@ void main() {
       );
     });
 
-    test('starts below the moon whatever the status bar adds', () {
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('starts below the moon whatever the status bar adds', (_) async {
       final scene = skinsUnderTest.values.first.art.layeredScene(
         LayeredSceneId.nightVillage,
       );
@@ -494,13 +526,14 @@ void main() {
       }
     });
 
-    testWidgets('keeps the title at 7:1 or more over the picture', (
+    // The strip is the plain look's: a dressed screen has the mood.
+    plainOnly('keeps the title at 7:1 or more over the picture', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await _pump(tester, BoardPage(viewer: Viewer.seer));
+      await _pump(tester, BoardPage(dress: dress, viewer: Viewer.seer));
       await tester.runAsync(
         () => Future.wait([
           for (final element in find.byType(Image).evaluate())
@@ -525,5 +558,69 @@ void main() {
         reason: 'the brightest of the picture behind the title',
       );
     });
+
+    if (dress != null) {
+      testWidgets('the village is the screen\'s own mood behind the board, '
+          'not a strip of its own; the title and the seconds sit on one '
+          'paper banner whose words keep the page margin', (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        for (final viewer in [Viewer.seer, Viewer.villager]) {
+          await tester.pumpWidget(const SizedBox());
+          await _pump(tester, BoardPage(dress: dress, viewer: viewer));
+          final frame = tester.widget<ScreenFrame>(find.byType(ScreenFrame));
+          expect(frame.topScene, isNull, reason: viewer.name);
+          expect(frame.topArt, isNull, reason: viewer.name);
+          expect(find.byType(Mood), findsOneWidget, reason: viewer.name);
+          expect(find.byType(PaperBanner), findsOneWidget, reason: viewer.name);
+          // The words keep the page margin; only the paper reaches past it.
+          final words = tester.getRect(find.byType(WorldTimer));
+          expect(words.right, lessThanOrEqualTo(390 - Space.gutter + 0.5));
+        }
+      });
+
+      testWidgets('the title keeps 7:1 on its banner, whatever is behind it', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await _pump(tester, BoardPage(dress: dress, viewer: Viewer.seer));
+        await tester.runAsync(
+          () => Future.wait([
+            for (final element in find.byType(Image).evaluate())
+              precacheImage((element.widget as Image).image, element),
+          ]),
+        );
+        await tester.pump();
+        final title = tester.getRect(find.text('Look at cards'));
+        final frame = await FramePixels.of(tester);
+        // The darkest and the lightest of what is painted just above and
+        // below the words: the ink must read on both.
+        var lightest = 0.0;
+        for (var x = title.left; x < title.right; x += 3) {
+          for (final y in [title.top - 2, title.bottom + 2]) {
+            lightest = math.max(lightest, _luminance(frame.at(x, y)));
+          }
+        }
+        var darkest = 1.0;
+        for (var x = title.left; x < title.right; x += 3) {
+          for (final y in [title.top - 2, title.bottom + 2]) {
+            darkest = math.min(darkest, _luminance(frame.at(x, y)));
+          }
+        }
+        final ink = _luminance(
+          skinsUnderTest.values.first.dressedUp!.day.text.toARGB32(),
+        );
+        expect(
+          (darkest + 0.05) / (ink + 0.05),
+          greaterThanOrEqualTo(7),
+          reason:
+              'the banner is paper, light behind dark ink (lightest '
+              '$lightest, darkest $darkest)',
+        );
+      });
+    }
   });
 }

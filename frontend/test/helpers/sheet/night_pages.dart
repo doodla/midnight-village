@@ -8,6 +8,7 @@ import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
+import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
@@ -145,7 +146,11 @@ class BoardPage extends StatelessWidget {
     this.fails = false,
     this.secondsLeft = 14,
     this.share,
+    this.dress,
   });
+
+  /// How the board is dressed; null: plain.
+  final Dress? dress;
 
   final Viewer viewer;
   final Map<String, dynamic> Function(Map<String, dynamic> me)? table;
@@ -173,6 +178,7 @@ class BoardPage extends StatelessWidget {
         face: NightReport.fromMe(me).you(prompt),
         secondsLeft: secondsLeft,
         share: share,
+        dress: dress,
         onChoose: (_, _) async =>
             fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
       ),

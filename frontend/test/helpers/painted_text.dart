@@ -18,11 +18,18 @@ class PaintedText {
     required this.large,
     required this.icon,
     required this.disabled,
-  });
+    Color? worst,
+  }) : worst = worst ?? background;
 
   final String text;
   final Color foreground;
   final Color background;
+
+  /// The worst of what is painted round the text: the pixel (leaving out the
+  /// most extreme 5%, the paper's grain) it has the least contrast to. The
+  /// village and the lights of a dressed screen are read through this; the
+  /// commonest colour ([background]) says what the text mostly sits on.
+  final Color worst;
   final bool large;
   final bool icon;
 
@@ -36,6 +43,14 @@ class PaintedText {
   double get minimum => large || icon ? 3 : 4.5;
 
   bool get passes => disabled || ratio >= minimum - 0.005;
+
+  /// [ratio] against the [worst] pixel round it.
+  double get worstRatio => contrast(foreground, worst);
+
+  /// The same floor as [readable], against the worst pixel round the text.
+  bool get readableEverywhere =>
+      passes &&
+      (large || icon || disabled || worstRatio >= readingContrast - 0.005);
 
   /// What a player reads by on a player screen: [readingContrast] for text
   /// below large size; large text and icons as [passes].
@@ -129,6 +144,13 @@ Future<List<PaintedText>> readPaintedText(WidgetTester tester) async {
             alpha,
           )!,
           background: background,
+          worst: _worstAround(
+            pixels,
+            width,
+            height,
+            rect: rect,
+            ink: Color.lerp(background, colour.withValues(alpha: 1), alpha)!,
+          ),
           large: size >= 24 || (bold && size >= 18.66),
           icon: style.fontFamily == 'MaterialIcons',
           disabled: disabled,
@@ -216,6 +238,48 @@ bool _disabled(Element element) {
     return true;
   });
   return disabled;
+}
+
+/// The pixel in the ring round [rect] that [ink] reads worst on, leaving out
+/// the 5% most extreme (the grain of paper, a speck).
+Color? _worstAround(
+  Uint8List rgba,
+  int width,
+  int height, {
+  required Rect rect,
+  required Color ink,
+}) {
+  final outer = rect.inflate(4);
+  final inner = rect.inflate(1);
+  final found = <(double, int)>[];
+  for (
+    var y = outer.top.floor().clamp(0, height);
+    y < outer.bottom.ceil().clamp(0, height);
+    y++
+  ) {
+    for (
+      var x = outer.left.floor().clamp(0, width);
+      x < outer.right.ceil().clamp(0, width);
+      x++
+    ) {
+      if (inner.contains(Offset(x + 0.5, y + 0.5))) continue;
+      final i = (y * width + x) * 4;
+      if (rgba[i + 3] == 0) continue;
+      final c = Color.fromARGB(255, rgba[i], rgba[i + 1], rgba[i + 2]);
+      // The glyphs' own overshoot (and a neighbour's) is not background.
+      if ((rgba[i] - (ink.r * 255).round()).abs() +
+              (rgba[i + 1] - (ink.g * 255).round()).abs() +
+              (rgba[i + 2] - (ink.b * 255).round()).abs() <
+          60) {
+        continue;
+      }
+      found.add((contrast(ink, c), i));
+    }
+  }
+  if (found.isEmpty) return null;
+  found.sort((a, b) => a.$1.compareTo(b.$1));
+  final i = found[(found.length * 0.05).floor()].$2;
+  return Color.fromARGB(255, rgba[i], rgba[i + 1], rgba[i + 2]);
 }
 
 /// The colour painted around [rect]: the most common one in a thin ring just

@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../models/role.dart';
 import '../art_set.dart';
+import '../dress.dart';
 import '../elevation.dart';
 import '../ground.dart';
 import '../skin.dart';
 import '../skin_shape.dart';
 import '../skin_tilt.dart';
 import '../skin_type.dart';
+
+part 'shadow_paper_dress.dart';
 
 // "Shadow paper" (design brief section 2, mocks docs/design/mocks/S*.dc.html).
 // Every value is the mocks' unless its comment says otherwise.
@@ -473,4 +476,5 @@ final shadowPaper = Skin(
   art: shadowPaperArt,
   scrim: _deepShadow.withValues(alpha: 0.72),
   dimmed: 0.4, // S03
+  dressedUp: _shadowPaperDressed,
 );

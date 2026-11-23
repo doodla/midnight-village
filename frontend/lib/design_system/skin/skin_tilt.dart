@@ -14,6 +14,8 @@ class SkinTilt {
     required this.scatter,
     required this.thumb,
     required this.hero,
+    this.seededCard = 0,
+    this.seededRow = 0,
   });
 
   static const none = SkinTilt(
@@ -46,9 +48,17 @@ class SkinTilt {
   /// The one portrait a screen is about (the winner, S11).
   final double hero;
 
+  /// The most a card is turned by its own id ([Tilt.seededCard]), either way.
+  final double seededCard;
+
+  /// The most a row, chip or tag is turned by its own id ([Tilt.seededRow]).
+  final double seededRow;
+
   double angle(Tilt tilt) => switch (tilt) {
     _Named(:final read) => read(this),
     ScatterTilt(:final index) => scatter[index % scatter.length],
+    SeededTilt(:final id, :final card) =>
+      (card ? seededCard : seededRow) * SeededTilt.unit(id),
   };
 }
 
@@ -73,6 +83,40 @@ sealed class Tilt {
 
   /// The [index]th of a row of loosely dropped cards.
   const factory Tilt.scatter(int index) = ScatterTilt;
+
+  /// A card set down by hand: turned by up to the skin's `seededCard`, the
+  /// same every build, from its [id] (a player, a role, a deck's card).
+  const factory Tilt.seededCard(Object id) = SeededTilt.card;
+
+  /// A row, chip or tag set down by hand: up to the skin's `seededRow`.
+  const factory Tilt.seededRow(Object id) = SeededTilt.row;
+}
+
+/// A tilt read from an item's own id, so it never changes between builds, on
+/// any phone, or between two phones of one table.
+final class SeededTilt extends Tilt {
+  const SeededTilt.card(this.id) : card = true, super._();
+  const SeededTilt.row(this.id) : card = false, super._();
+
+  final Object id;
+  final bool card;
+
+  /// [id] as a number from -1 to 1: djb2 over its text's UTF-16 units (the
+  /// same on every platform; nothing secret, no randomness).
+  static double unit(Object id) {
+    var hash = 5381;
+    for (final unit in id.toString().codeUnits) {
+      hash = ((hash << 5) + hash + unit) & 0x7fffffff;
+    }
+    return (hash % 2001) / 1000 - 1;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is SeededTilt && other.id == id && other.card == card;
+
+  @override
+  int get hashCode => Object.hash(id, card);
 }
 
 final class _Named extends Tilt {

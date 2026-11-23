@@ -5,9 +5,15 @@ import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/art_set.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
+import '../skin/skin_tilt.dart';
 import '../skin/skin_type.dart';
 import 'cut_paper.dart';
+import 'deckled_paper.dart';
+import 'paper_mark.dart';
+import 'paper_pin.dart';
+import 'tilted_paper.dart';
 import 'fit_line.dart';
 import 'paper_seal.dart';
 import 'player_token.dart';
@@ -265,7 +271,100 @@ class _PlayerRowState extends State<PlayerRow> {
         ? size.nameStyle(skin.typography)
         : size.nameStyle(skin.typography).copyWith(fontSize: scoped);
 
-    final paper = AnimatedContainer(
+    final content = _RowInk(
+      ink: ink,
+      child: Row(
+        spacing: size.gap,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              PlayerToken(
+                token,
+                size: size.token,
+                ringColor: ink,
+                away: away && !sealed,
+              ),
+              // Stamped inside the portrait's lower right corner (its tilt
+              // and shadow too), so it never hangs below the paper or
+              // reaches the name, which it also grows away from.
+              if (sealed)
+                Positioned(
+                  right: size.token.size * _sealSize * PaperSeal.tiltReach,
+                  bottom:
+                      size.token.size * _sealSize * PaperSeal.tiltReach +
+                      PaperSeal.drop,
+                  child: PaperSeal(
+                    size: size.token.size * _sealSize,
+                    lands: !_openedSealed,
+                  ),
+                ),
+            ],
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // A long name wraps between words, then is set smaller;
+                // never cut short.
+                // "You" beside the name where both fit, under it where
+                // not, so a long name keeps its room and a short one its
+                // size.
+                if (own)
+                  Wrap(
+                    spacing: Space.sm,
+                    runSpacing: Space.xxs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FitWords(
+                        name,
+                        maxLines: 2,
+                        style: nameStyle.copyWith(color: ink),
+                      ),
+                      YouTag(ink: ink),
+                    ],
+                  )
+                // "Practice" always on the name's line, so every row of
+                // a list is laid out alike.
+                else if (practice)
+                  Row(
+                    spacing: Space.sm,
+                    children: [
+                      Flexible(
+                        child: FitWords(
+                          name,
+                          maxLines: 2,
+                          style: nameStyle.copyWith(color: ink),
+                        ),
+                      ),
+                      PracticeTag(ink: ink),
+                    ],
+                  )
+                else
+                  FitWords(
+                    name,
+                    maxLines: 2,
+                    style: nameStyle.copyWith(color: ink),
+                  ),
+                // Names wrap between words, never inside one.
+                if (detail case final detail?)
+                  FitWords(
+                    detail,
+                    style: skin.typography.body.copyWith(
+                      // On red paper the quiet ink is unreadable: the bone.
+                      color: red ? ink : skin.paper.quietText,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+    final dressed = context.dress.isPaper;
+    Widget plainPaper() => AnimatedContainer(
       // The red is cut in, not blended from bone (see [ink]).
       key: ValueKey(red),
       duration: duration,
@@ -297,99 +396,56 @@ class _PlayerRowState extends State<PlayerRow> {
               border: Border.all(color: ink, width: skin.shape.selectedRing),
             )
           : null,
-      child: _RowInk(
-        ink: ink,
-        child: Row(
-          spacing: size.gap,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                PlayerToken(
-                  token,
-                  size: size.token,
-                  ringColor: ink,
-                  away: away && !sealed,
-                ),
-                // Stamped inside the portrait's lower right corner (its tilt
-                // and shadow too), so it never hangs below the paper or
-                // reaches the name, which it also grows away from.
-                if (sealed)
-                  Positioned(
-                    right: size.token.size * _sealSize * PaperSeal.tiltReach,
-                    bottom:
-                        size.token.size * _sealSize * PaperSeal.tiltReach +
-                        PaperSeal.drop,
-                    child: PaperSeal(
-                      size: size.token.size * _sealSize,
-                      lands: !_openedSealed,
-                    ),
-                  ),
-              ],
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // A long name wraps between words, then is set smaller;
-                  // never cut short.
-                  // "You" beside the name where both fit, under it where
-                  // not, so a long name keeps its room and a short one its
-                  // size.
-                  if (own)
-                    Wrap(
-                      spacing: Space.sm,
-                      runSpacing: Space.xxs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        FitWords(
-                          name,
-                          maxLines: 2,
-                          style: nameStyle.copyWith(color: ink),
-                        ),
-                        YouTag(ink: ink),
-                      ],
-                    )
-                  // "Practice" always on the name's line, so every row of
-                  // a list is laid out alike.
-                  else if (practice)
-                    Row(
-                      spacing: Space.sm,
-                      children: [
-                        Flexible(
-                          child: FitWords(
-                            name,
-                            maxLines: 2,
-                            style: nameStyle.copyWith(color: ink),
-                          ),
-                        ),
-                        PracticeTag(ink: ink),
-                      ],
-                    )
-                  else
-                    FitWords(
-                      name,
-                      maxLines: 2,
-                      style: nameStyle.copyWith(color: ink),
-                    ),
-                  // Names wrap between words, never inside one.
-                  if (detail case final detail?)
-                    FitWords(
-                      detail,
-                      style: skin.typography.body.copyWith(
-                        // On red paper the quiet ink is unreadable: the bone.
-                        color: red ? ink : skin.paper.quietText,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            ?trailing,
-          ],
+      child: content,
+    );
+    // Dressed up: torn paper set down a hair off square (the same every build,
+    // from its name and token), pinned to the table; the words stay level.
+    final seed = (token, name);
+    final ringed = widget.condemned
+        ? skin.shape.selectedRing + PlayerRow.condemnedExtra
+        : skin.shape.selectedRing;
+    Widget dressedPaper() => AnimatedContainer(
+      key: ValueKey(red),
+      duration: duration,
+      curve: Motion.curve,
+      transform: Matrix4.translationValues(0, dip - lift, 0),
+      child: TiltedPaper(
+        angle: skin.tilt.angle(Tilt.seededRow('${token?.name}:$name')),
+        duration: duration,
+        decoration: deckledPaper(
+          context,
+          fill: fill,
+          id: seed,
+          elevation: dip > 0 ? base.lowered(dip) : base,
+        ),
+        // The ring follows the torn edge: never a rounded one over it.
+        foregroundDecoration: picked
+            ? deckledRing(
+                context,
+                id: seed,
+                color: ground.selection,
+                width: ringed,
+              )
+            : own
+            ? deckledRing(
+                context,
+                id: seed,
+                color: ink,
+                width: skin.shape.selectedRing,
+              )
+            : null,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            Space.sm,
+            Space.xxs,
+            size.endPadding,
+            Space.xxs,
+          ),
+          child: content,
         ),
       ),
     );
+    final Widget paper = dressed ? dressedPaper() : plainPaper();
     // The height is set here, outside the tween: a row that changes size
     // (the room changed) is the new size at once, never mid-way and over.
     final row = ConstrainedBox(
@@ -399,7 +455,24 @@ class _PlayerRowState extends State<PlayerRow> {
     final shown = AnimatedOpacity(
       duration: Motion.within(context, Motion.quick),
       opacity: dimmed ? skin.dimmed : 1,
-      child: row,
+      child: dressed
+          // Pinned to the table: a flat pin through the top edge, a pick
+          // wearing the paper's mark on its corner.
+          ? PaperMarkCorner(
+              shown: picked,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  row,
+                  Positioned(
+                    top: -skin.parts.pinSize / 3,
+                    left: Space.xl + Space.lg,
+                    child: PaperPin(ink: ink),
+                  ),
+                ],
+              ),
+            )
+          : row,
     );
     // Once locked (dimmed) a row cannot be picked: it reads as switched off.
     // One tree whatever the row can do, so a row that is locked (or dimmed)

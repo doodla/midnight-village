@@ -1,3 +1,4 @@
+import 'paper_light.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../models/role.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import 'art_picture.dart';
@@ -144,6 +146,16 @@ class RoleCard extends StatelessWidget {
       duration: Motion.quick,
       opacity: lit ? 1 : skin.dimmed,
       child: Container(
+        // Dressed up, a card lying on the table casts its paper shadow while
+        // it is in.
+        decoration: context.dress.isPaper
+            ? BoxDecoration(
+                borderRadius: corners,
+                boxShadow: lit
+                    ? context.ground.elevation.card.litBy(context)
+                    : null,
+              )
+            : null,
         foregroundDecoration: ringDecoration(
           color: ringColor,
           width: ringWidth,
@@ -193,25 +205,32 @@ class RoleCard extends StatelessWidget {
   Widget _small(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final portrait = AspectRatio(
-      aspectRatio: _gridAspect,
-      child: Stack(
-        clipBehavior: Clip.none,
-        fit: StackFit.expand,
-        children: [
-          _portrait(
-            context,
-            radius: skin.shape.radius,
-            ringColor: lit ? ground.selection : ground.hairline,
-            ringWidth: lit ? skin.shape.selectedRing : skin.shape.ring,
-          ),
-          if (lit && count > 1)
-            Positioned(
-              right: -5,
-              top: -7,
-              child: CountBadge(count, size: BadgeSize.large),
+    // Set down by hand: the card turned a little, the same every build, from
+    // its role; its name stays level.
+    final angle = skin.tilt.angle(Tilt.seededCard(role.name));
+    Widget turned(Widget card) =>
+        angle == 0 ? card : Transform.rotate(angle: angle, child: card);
+    final portrait = turned(
+      AspectRatio(
+        aspectRatio: _gridAspect,
+        child: Stack(
+          clipBehavior: Clip.none,
+          fit: StackFit.expand,
+          children: [
+            _portrait(
+              context,
+              radius: skin.shape.radius,
+              ringColor: lit ? ground.selection : ground.hairline,
+              ringWidth: lit ? skin.shape.selectedRing : skin.shape.ring,
             ),
-        ],
+            if (lit && count > 1)
+              Positioned(
+                right: -5,
+                top: -7,
+                child: CountBadge(count, size: BadgeSize.large),
+              ),
+          ],
+        ),
       ),
     );
     // In a cell of fixed height (a grid) the portrait gives way to the name.
@@ -265,7 +284,7 @@ class _Minus extends StatelessWidget {
               decoration: BoxDecoration(
                 color: ground.mark,
                 shape: BoxShape.circle,
-                boxShadow: ground.elevation.badge.boxShadows,
+                boxShadow: ground.elevation.badge.litBy(context),
               ),
               child: Icon(
                 Icons.remove,
@@ -372,7 +391,7 @@ class RolePortrait extends StatelessWidget {
         decoration: framed
             ? BoxDecoration(
                 borderRadius: corners,
-                boxShadow: ground.elevation.heroSlab.boxShadows,
+                boxShadow: ground.elevation.heroSlab.litBy(context),
               )
             : null,
         foregroundDecoration: framed

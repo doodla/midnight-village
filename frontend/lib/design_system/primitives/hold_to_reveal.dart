@@ -9,6 +9,7 @@ import '../faces/face_content.dart';
 import '../faces/held_face.dart';
 import '../layout/space.dart';
 import '../skin/ground_scope.dart';
+import '../skin/dress.dart';
 import '../skin/skin.dart';
 import 'paper_flip.dart';
 
@@ -229,7 +230,10 @@ class _HoldToRevealState extends State<HoldToReveal>
 
   @override
   Widget build(BuildContext context) {
-    final skin = Theme.of(context).extension<Skin>();
+    final theme = Theme.of(context).extension<Skin>();
+    final skin = theme != null && context.dress.isPaper
+        ? theme.dressedUp ?? theme
+        : theme;
     final kind = GroundScope.maybeOf(context);
     final ground = skin != null && kind != null ? skin.ground(kind) : null;
     final focusColor = ground?.selection ?? Theme.of(context).focusColor;
