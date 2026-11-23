@@ -19,6 +19,7 @@ import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../test/helpers/parts_catalogue.dart';
+import 'end_parts_page.dart';
 import '../test/helpers/pump_skinned.dart';
 
 const _dir = String.fromEnvironment(
@@ -106,6 +107,26 @@ Widget _page(MoodKind mood) => ScreenFrame(
 );
 
 void main() {
+  // The end board's parts, on the dawn with the lantern as the one light.
+  testWidgets('the end board parts on the dawn, the lantern their light', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390 * _ratio, 2150 * _ratio);
+    tester.view.devicePixelRatio = _ratio;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: skinTheme(skinsUnderTest.values.first),
+        builder: (context, child) =>
+            GroundScope(ground: GroundKind.night, child: child!),
+        home: endPartsPage(),
+      ),
+    );
+    await _settle(tester);
+    await _save(tester, 'parts-end');
+  });
+
   for (final mood in [MoodKind.night, MoodKind.lantern]) {
     testWidgets('the parts page on the ${mood.name} ground', (tester) async {
       tester.view.physicalSize = const Size(390 * _ratio, _height * _ratio);

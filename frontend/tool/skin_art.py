@@ -101,8 +101,56 @@ def _layers() -> None:
         )
 
 
+# The end board's ornaments (docs/design/art/end/*.png, RGBA masters; PROVENANCE.md
+# there) -> assets/skins/shadow_paper/end/<name>.webp. (master, output name, the
+# width or (width, height) it is stored at, or None for the master's own size). The
+# nine- and three-slice art (banner, frame, roof) keeps its own pixels, because the
+# slices are declared in them (lib/design_system/skin/end_art.dart).
+END = [
+    ("banner", "banner", None),
+    ("banner-red", "banner_red", None),
+    ("frame4", "frame", None),
+    ("roof4", "roof", None),
+    ("post4-l", "post_l", None),
+    ("post4-r", "post_r", None),
+    ("lantern", "lantern", (264, 456)),
+    ("crow4-1", "crow_1", 312),
+    ("crow4-2", "crow_2", 312),
+    ("crow4-3", "crow_3", 312),
+    ("crow4-4", "crow_4", 312),
+    ("crow4-5", "crow_5", 312),
+    ("crow4-6", "crow_6", 312),
+    ("cobbles", "cobbles", 1170),
+    ("marks-1", "seal", (90, 90)),
+    ("marks-4", "ribbon", (153, 193)),
+]
+
+
+def _end() -> None:
+    folder = OUT / "end"
+    folder.mkdir(parents=True, exist_ok=True)
+    for master, name, size in END:
+        im = Image.open(ART / "end" / f"{master}.png").convert("RGBA")
+        if isinstance(size, int):
+            if im.width > size:
+                size = (size, round(im.height * size / im.width))
+            else:
+                size = None
+        if size is not None and im.size != size:
+            im = im.resize(size, Image.LANCZOS)
+        im.save(
+            folder / f"{name}.webp",
+            "WEBP",
+            method=6,
+            quality=LAYER_QUALITY,
+            alpha_quality=100,
+        )
+        print(f"end/{name}.webp  size {im.width}x{im.height}")
+
+
 def main() -> None:
     _layers()
+    _end()
     for src, folder, name, size in _jobs():
         im = Image.open(src).convert("RGB")
         if im.size != size:

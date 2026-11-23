@@ -43,6 +43,7 @@ import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/teach/hold_cue.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
 
+import 'end_parts_catalogue.dart';
 import 'sheet/sheet_data.dart';
 
 /// The states a component is shown in on the parts page.
@@ -491,6 +492,8 @@ final List<PartSample> partsCatalogue = [
       child: Viewfinder(child: ShutteredWindow()),
     ),
   ),
+  // ---- The end board
+  ...endPartsCatalogue,
 ];
 
 Widget _inertTextAction(BuildContext context) =>

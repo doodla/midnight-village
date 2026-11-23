@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart';
 
 import '../models/role.dart';
 import 'card_back.dart';
+import 'end_art.dart';
 import 'werewolf_portrait.dart';
 
 /// The emblems players are known by at the table, one per seat: the people's
@@ -437,6 +438,9 @@ class ArtSet {
   /// One cut of the candle, at its own size in pixels.
   ArtImage candleSprite(CandleCut cut) =>
       ArtImage('$folder/candle/${cut.file}.webp', pixels: cut.size);
+
+  /// The end board's ornaments (`end/`).
+  EndArt get end => EndArt(folder);
 
   ArtImage get candle => scene(Scene.candle);
   ArtImage get table => scene(Scene.table);
