@@ -259,6 +259,25 @@ class _NightBox extends StatefulWidget {
 }
 
 class _NightBoxState extends State<_NightBox> {
+  /// The open sheet's route and the navigator it is on, so the sheet goes
+  /// when the talk does (a sheet is a route: left alone it would outlive the
+  /// screen it was asked from and sit over the vote).
+  Route<void>? _sheet;
+  NavigatorState? _navigator;
+
+  @override
+  void dispose() {
+    final sheet = _sheet;
+    final navigator = _navigator;
+    if (sheet != null && sheet.isActive && navigator != null) {
+      // After this frame: a route cannot be removed while the tree is built.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (sheet.isActive) navigator.removeRoute(sheet);
+      });
+    }
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -273,7 +292,10 @@ class _NightBoxState extends State<_NightBox> {
   /// opening is acknowledged by [TalkScreen] as it shows).
   void _open({bool ack = true}) {
     if (ack) widget.onSeen?.call();
-    unawaited(showMyNight(context, widget.face));
+    _navigator = Navigator.of(context);
+    unawaited(
+      showMyNight(context, widget.face, onRoute: (route) => _sheet = route),
+    );
   }
 
   @override
@@ -296,21 +318,35 @@ class _NightBoxState extends State<_NightBox> {
 /// Opens a face (a player's own night) in the sheet every piece of
 /// information a player asks for opens in: up from the bottom edge, its
 /// paper card, a "Close" button; Back or a tap on the scrim closes it too.
-Future<void> showMyNight(BuildContext context, FaceContent face) =>
-    showSkinSheet<void>(
-      context,
-      builder: (sheet) => SheetScaffold(
-        actions: [
-          const Spacer(),
-          PrimaryButton(
-            label: RoleSheetCopy.close,
-            onPressed: () => Navigator.of(sheet).pop(),
-            size: ButtonSize.compact,
-          ),
-        ],
-        child: HeldFace(content: face, page: 0, announce: true),
-      ),
+///
+/// [onRoute] is given the sheet's route once it is up (to take it away when
+/// the screen under it goes).
+Future<void> showMyNight(
+  BuildContext context,
+  FaceContent face, {
+  ValueChanged<Route<void>>? onRoute,
+}) => showSkinSheet<void>(
+  context,
+  builder: (sheet) {
+    final route = ModalRoute.of(sheet);
+    if (route != null && onRoute != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onRoute(route as Route<void>);
+      });
+    }
+    return SheetScaffold(
+      actions: [
+        const Spacer(),
+        PrimaryButton(
+          label: RoleSheetCopy.close,
+          onPressed: () => Navigator.of(sheet).pop(),
+          size: ButtonSize.compact,
+        ),
+      ],
+      child: HeldFace(content: face, page: 0, announce: true),
     );
+  },
+);
 
 /// My night at the top, its own height; the deck in the rest of the body's
 /// height (never a Flex overflow: on a screen too short even for the box,

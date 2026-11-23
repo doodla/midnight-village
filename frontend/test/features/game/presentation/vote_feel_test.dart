@@ -591,8 +591,10 @@ void main() {
       await _pump(tester, unpicked);
       final last = tester.getRect(_row(sheet.fiveSeats.last.name)).bottom;
       final pips = tester.getTopLeft(find.textContaining('locked')).dy;
-      // The last row ends within one gap of the count under the rows.
-      expect(pips - last, lessThan(Space.xl + Space.lg));
+      // The rows are capped at VoteRows.maxRowHeight, so on a tall phone the
+      // rest of the room is shared above and below them: the last row ends
+      // within two gaps of the count under the rows.
+      expect(pips - last, lessThan(Space.xxl + Space.xl));
       expect(tester.takeException(), isNull);
     });
   });
