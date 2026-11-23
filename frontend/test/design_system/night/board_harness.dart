@@ -7,12 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
+import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/faces/night_report.dart';
 import 'package:midnight_village/design_system/night/choose_prompt.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
@@ -30,6 +32,7 @@ class BoardHarness {
     Future<ChooseAnswer> Function()? answer,
     this.secondsLeft = 14,
     this.share,
+    this.dress = Dress.plain,
   }) : answer = answer ?? (() async => ChooseAnswer.taken) {
     show(me);
   }
@@ -39,12 +42,18 @@ class BoardHarness {
     Viewer viewer, {
     Set<Cue> learned = const {},
     Future<ChooseAnswer> Function()? answer,
-  }) : this(viewer.nightMe, learned: learned, answer: answer);
+    Dress dress = Dress.plain,
+  }) : this(viewer.nightMe, learned: learned, answer: answer, dress: dress);
+
+  /// How the board is dressed: plain, the look the behaviour tests measure;
+  /// the app's own default is paper (`Dress.paper`).
+  final Dress dress;
 
   /// What the phone shows: read from its `/me/`.
   late Map<String, dynamic> me;
   late ChoosePrompt prompt;
   late FaceContent face;
+  late RoleId dealt;
   late List<NightSeat> seats;
   late int selfId;
   final Set<Cue> learned;
@@ -60,6 +69,7 @@ class BoardHarness {
     me = next;
     prompt = ChoosePrompt.fromMe(next);
     face = NightReport.fromMe(next).you(prompt);
+    dealt = NightReport.fromMe(next).dealt;
     seats = NightSeat.seatsOf(next);
     selfId = selfIn(next);
   }
@@ -83,6 +93,8 @@ class BoardHarness {
       selfId: selfId,
       prompt: prompt,
       face: face,
+      dealt: dealt,
+      dress: dress,
       secondsLeft: secondsLeft,
       share: share,
       onChoose: (stage, picks) {

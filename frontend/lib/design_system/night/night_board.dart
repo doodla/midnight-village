@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../layout/space.dart';
+import '../models/role.dart';
 import '../primitives/candle_gauge.dart';
 import '../primitives/face_down_card.dart';
 import '../primitives/fit_line.dart';
@@ -70,6 +71,7 @@ class NightBoard extends ConsumerStatefulWidget {
     required this.selfId,
     required this.prompt,
     required this.face,
+    required this.dealt,
     required this.secondsLeft,
     this.share,
     required this.onChoose,
@@ -92,6 +94,13 @@ class NightBoard extends ConsumerStatefulWidget {
 
   /// What "You" shows while held.
   final FaceContent face;
+
+  /// The role this phone was DEALT (`NightReport.dealt`), which "You" shows
+  /// face up, its portrait and its name (owner, 23 November 2026: a card
+  /// that hides who you are makes no sense here). Never a role the night has
+  /// since changed: this phone has seen exactly this one on 04, and what
+  /// changed is told only on a held [face].
+  final RoleId dealt;
 
   /// The stage's countdown, as the server gives it; null in a window with
   /// no deadline (the candle alone).
@@ -287,7 +296,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
 
   @override
   Widget build(BuildContext context) => DressScope(
-    dress: widget.dress ?? context.dress,
+    dress: widget.dress ?? Dress.paper,
     child: Builder(builder: _screen),
   );
 
@@ -413,10 +422,15 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             NightBoard.titleLines +
         1;
     final room = math.max(titleRoom, timerLine);
+    // On a banner the candle stands inside the slip, a little lower than the
+    // timer's line.
+    final candle = context.dress.isPaper
+        ? timerLine * context.skin.parts.bannerCandle
+        : timerLine;
     if (!_candleWarmed) {
       // The candle's cuts decoded now, for the first frame the board draws.
       _candleWarmed = true;
-      CandleGauge.precache(context, timerLine);
+      CandleGauge.precache(context, candle);
     }
     // The seconds take at most this share of the header (a narrow phone with
     // minutes on the clock sets them smaller): the title keeps its room.
@@ -448,7 +462,7 @@ class _NightBoardState extends ConsumerState<NightBoard> {
             WorldTimer.candleCompact(
               secondsLeft: widget.secondsLeft,
               share: widget.share,
-              candleHeight: timerLine,
+              candleHeight: candle,
               lineHeight: room,
               maxNumberWidth: header.maxWidth * NightBoard.timerShare,
             ),
@@ -702,7 +716,9 @@ class _NightBoardState extends ConsumerState<NightBoard> {
                   ownerName: NightCopy.you,
                   selected: _picks.contains(const SelfPick()),
                   semanticLabel: NightCopy.you,
-                  hold: teaching,
+                  // Said after "You": which card it is.
+                  semanticHint: widget.dealt.displayName,
+                  face: widget.dealt,
                   onTap: pick,
                 ),
               ),

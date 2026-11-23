@@ -26,6 +26,7 @@ import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../helpers/component_sheet.dart';
 import '../../helpers/frame_pixels.dart';
+import '../../helpers/painted_text.dart';
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/night_pages.dart';
 import '../../helpers/sheet/sheet_data.dart';
@@ -580,6 +581,40 @@ void _checks(Dress? dress) {
         }
       });
 
+      testWidgets('the candle stands wholly inside the banner\'s slip: its '
+          'flame, its ledge and its right edge are on the paper, at the '
+          'widths of the phones', (tester) async {
+        addTearDown(tester.view.reset);
+        for (final width in [320.0, 360.0, 390.0]) {
+          tester.view.physicalSize = Size(width, 800);
+          tester.view.devicePixelRatio = 1;
+          for (final viewer in [Viewer.seer, Viewer.villager]) {
+            await tester.pumpWidget(const SizedBox());
+            await _pump(tester, BoardPage(dress: dress, viewer: viewer));
+            final paper = tester.getRect(find.byType(PaperBanner));
+            final candle = tester.getRect(find.byType(CandleGauge));
+            final depth =
+                skinsUnderTest.values.first.dressedUp!.parts.bannerDepth;
+            final reason = '${viewer.name} at $width';
+            expect(
+              candle.top,
+              greaterThanOrEqualTo(paper.top + depth),
+              reason: '$reason: the flame is under the paper\'s top edge',
+            );
+            expect(
+              candle.bottom,
+              lessThanOrEqualTo(paper.bottom - depth),
+              reason: '$reason: the ledge is over the paper\'s lower edge',
+            );
+            expect(
+              candle.right,
+              lessThanOrEqualTo(paper.right),
+              reason: reason,
+            );
+          }
+        }
+      });
+
       testWidgets('the title keeps 7:1 on its banner, whatever is behind it', (
         tester,
       ) async {
@@ -596,29 +631,35 @@ void _checks(Dress? dress) {
         await tester.pump();
         final title = tester.getRect(find.text('Look at cards'));
         final frame = await FramePixels.of(tester);
-        // The darkest and the lightest of what is painted just above and
-        // below the words: the ink must read on both.
+        // What is painted just above and below the words: the title's own
+        // painted colour (not the skin's ink: whatever the title is drawn in)
+        // must read on the lightest and on the darkest of it.
         var lightest = 0.0;
-        for (var x = title.left; x < title.right; x += 3) {
-          for (final y in [title.top - 2, title.bottom + 2]) {
-            lightest = math.max(lightest, _luminance(frame.at(x, y)));
-          }
-        }
         var darkest = 1.0;
         for (var x = title.left; x < title.right; x += 3) {
           for (final y in [title.top - 2, title.bottom + 2]) {
-            darkest = math.min(darkest, _luminance(frame.at(x, y)));
+            final l = _luminance(frame.at(x, y));
+            lightest = math.max(lightest, l);
+            darkest = math.min(darkest, l);
           }
         }
-        final ink = _luminance(
-          skinsUnderTest.values.first.dressedUp!.day.text.toARGB32(),
+        final readings = await readPaintedText(tester);
+        final painted = readings.singleWhere(
+          (r) => r.text == 'Look at cards',
+          orElse: () => fail('the title was not read as painted text'),
+        );
+        final ink = luminance(painted.foreground);
+        expect(
+          ink,
+          lessThan(darkest),
+          reason: 'the title is darker than its banner everywhere',
         );
         expect(
           (darkest + 0.05) / (ink + 0.05),
           greaterThanOrEqualTo(7),
           reason:
-              'the banner is paper, light behind dark ink (lightest '
-              '$lightest, darkest $darkest)',
+              'the banner is paper, light behind the title\'s painted ink '
+              '(lightest $lightest, darkest $darkest)',
         );
       });
     }

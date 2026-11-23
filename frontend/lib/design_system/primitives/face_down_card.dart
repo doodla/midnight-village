@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
+import '../models/role.dart';
 import '../skin/card_back_scope.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
@@ -71,6 +72,7 @@ class FaceDownCard extends StatefulWidget {
     this.dimmed = false,
     this.tapExtra = 0,
     this.hold,
+    this.face,
     this.tilt = Tilt.none,
     this.cardWidth,
     this.nameSize,
@@ -96,6 +98,12 @@ class FaceDownCard extends StatefulWidget {
   /// strip's padding, so a small card is still a thumb's height).
   final double tapExtra;
   final bool? hold;
+
+  /// The role this card shows face up, its portrait and its name (the night
+  /// board's own card, "You": the role this phone was dealt, which it has
+  /// seen). Null: the card's back. A face-up card takes no hold ring, and
+  /// lifts, rings and shadows as a back does.
+  final RoleId? face;
   final Tilt tilt;
   final double? cardWidth;
   final double? nameSize;
@@ -141,6 +149,9 @@ class FaceDownCard extends StatefulWidget {
 
   /// Between a card and its caption.
   static const captionGap = Space.xs;
+
+  /// A face-up card's role name sits this far above the token's top.
+  static const faceNameLift = Space.xxs;
 
   /// The hold ring's share of a card back's width.
   static const holdShare = 0.8;
@@ -256,6 +267,8 @@ class _FaceDownCardState extends State<FaceDownCard> {
                   padding: EdgeInsets.only(bottom: token / 2),
                   child: card,
                 ),
+                if (widget.face case final role?)
+                  _roleName(context, role, width, bottom: token),
                 Positioned(
                   left: 0,
                   right: 0,
@@ -303,6 +316,58 @@ class _FaceDownCardState extends State<FaceDownCard> {
           ),
         ],
       ],
+    );
+  }
+
+  /// A face-up card's role name, on a slip of paper across the card's foot,
+  /// above the owner's token ([bottom] is the token's height). One line at the
+  /// label size (the token's own, whatever the text size), never smaller and
+  /// never cut: the slip is as wide as the word needs, centred on the card and
+  /// reaching past a narrow card's edges (its paper place has room for it).
+  Widget _roleName(
+    BuildContext context,
+    RoleId role,
+    double cardWidth, {
+    required double bottom,
+  }) {
+    final skin = context.skin;
+    final ground = context.ground;
+    final style = skin.typography.caption.copyWith(color: ground.text);
+    const padding = EdgeInsets.symmetric(
+      horizontal: Space.xs,
+      vertical: Space.xxs,
+    );
+    final painter = TextPainter(
+      text: TextSpan(text: role.displayName, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
+    final slip = painter.width.ceilToDouble() + padding.horizontal;
+    painter.dispose();
+    return Positioned(
+      left: (cardWidth - slip) / 2,
+      width: slip,
+      bottom: bottom + FaceDownCard.faceNameLift,
+      child: DecoratedBox(
+        decoration: cutPaper(
+          context,
+          fill: ground.paper,
+          radius: BorderRadius.circular(skin.shape.radiusTiny),
+          elevation: ground.elevation.card,
+        ),
+        child: Padding(
+          padding: padding,
+          child: Text(
+            role.displayName,
+            maxLines: 1,
+            softWrap: false,
+            textAlign: TextAlign.center,
+            textScaler: TextScaler.noScaling,
+            style: style,
+          ),
+        ),
+      ),
     );
   }
 
@@ -374,7 +439,10 @@ class _FaceDownCardState extends State<FaceDownCard> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ArtPicture(context.cardBack),
+            if (widget.face case final role?)
+              ArtPicture(skin.art.role(role))
+            else
+              ArtPicture(context.cardBack),
             // Over the card's eye, clear of the token on its lower edge.
             if (widget.hold case final teaching? when teaching)
               Padding(

@@ -289,7 +289,7 @@ class AtTableView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DressScope(
-    dress: dress ?? context.dress,
+    dress: dress ?? Dress.paper,
     child: Builder(builder: _view),
   );
 
@@ -322,7 +322,7 @@ class AtTableView extends StatelessWidget {
         // Dressed up the village is the mood behind the whole screen, a
         // lantern lighting the table.
         mood: MoodKind.lantern,
-        moodLight: const Alignment(0, -0.1),
+        moodLight: MoodLight.high,
         topArt: roomy && !context.dress.isPaper ? skin.art.table : null,
         topArtLayout: TopArtLayout.banner,
         body: Builder(
@@ -891,6 +891,7 @@ class _DeckStrip extends StatelessWidget {
                     // Dressed up the cards are a fan (paint only: the tap
                     // targets are the row's cells).
                     child: Fanned(
+                      gap: gap,
                       index: k,
                       count: math.min(perLine, entries.length - i),
                       child: RoleCard(

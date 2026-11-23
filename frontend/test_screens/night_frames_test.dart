@@ -203,6 +203,7 @@ class _CandleHost extends StatelessWidget {
       selfId: selfIn(me),
       prompt: prompt,
       face: NightReport.fromMe(me).you(prompt),
+      dealt: NightReport.fromMe(me).dealt,
       secondsLeft: left,
       share: left / 30,
       onChoose: (_, _) async => ChooseAnswer.taken,

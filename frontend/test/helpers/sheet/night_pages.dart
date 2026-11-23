@@ -176,9 +176,10 @@ class BoardPage extends StatelessWidget {
         selfId: selfIn(me),
         prompt: prompt,
         face: NightReport.fromMe(me).you(prompt),
+        dealt: NightReport.fromMe(me).dealt,
         secondsLeft: secondsLeft,
         share: share,
-        dress: dress,
+        dress: dress ?? Dress.plain,
         onChoose: (_, _) async =>
             fails ? ChooseAnswer.notSent : ChooseAnswer.taken,
       ),

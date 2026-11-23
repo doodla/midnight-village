@@ -66,7 +66,7 @@ class TablePage extends StatelessWidget {
     final lobby = _table();
     final viewer = lobby.players[guest ? 1 : 0].id;
     return AtTableView(
-      dress: dress,
+      dress: dress ?? Dress.plain,
       lobby: lobby,
       viewerId: viewer,
       link: _link(lobby),

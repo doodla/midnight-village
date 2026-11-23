@@ -112,7 +112,7 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
 
   @override
   Widget build(BuildContext context) => DressScope(
-    dress: widget.dress ?? context.dress,
+    dress: widget.dress ?? Dress.paper,
     child: Builder(builder: _screen),
   );
 

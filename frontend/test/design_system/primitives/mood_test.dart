@@ -227,4 +227,79 @@ void main() {
       );
     });
   });
+
+  group('what it keeps: nothing leaks, nothing is made twice', () {
+    Future<void> arrived(WidgetTester tester, int composedBefore) async {
+      for (var i = 0; i < 1000 && Mood.composed == composedBefore; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 5)),
+        );
+        await tester.pump();
+      }
+    }
+
+    testWidgets('a rebuild while the village is still loading asks for it '
+        'once: one composition, one kept picture', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      for (var i = 0; i < 4; i++) {
+        // A new Mood every time, as a parent rebuilding gives it.
+        await tester.pumpWidget(
+          _app(
+            Opacity(
+              opacity: 1 - i / 10,
+              child: const Mood(kind: MoodKind.night),
+            ),
+          ),
+        );
+      }
+      await arrived(tester, 0);
+      await tester.pump();
+      expect(Mood.composed, 1);
+      expect(Mood.cachedPictures, 1);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(Mood.composed, 1, reason: 'nothing composes again');
+    });
+
+    testWidgets('a screen that closes while the village loads composes and '
+        'keeps nothing when its layers arrive', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      // Layers not yet decoded (the cache holds none from an earlier test).
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      await tester.pumpWidget(_app(const Mood(kind: MoodKind.night)));
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 800)),
+      );
+      await tester.pump();
+      expect(Mood.composed, 0);
+      expect(Mood.cachedPictures, 0);
+    });
+
+    testWidgets('a window dragged through many widths keeps at most '
+        '${Mood.kept} pictures', (tester) async {
+      addTearDown(tester.view.reset);
+      tester.view.devicePixelRatio = 1;
+      for (var width = 320.0; width <= 420; width += 7) {
+        tester.view.physicalSize = Size(width, 800);
+        await tester.pumpWidget(
+          _app(const Mood(kind: MoodKind.lantern, scene: false)),
+        );
+        expect(
+          Mood.cachedPictures,
+          lessThanOrEqualTo(Mood.kept),
+          reason: 'at $width wide',
+        );
+      }
+      expect(Mood.composed, greaterThan(Mood.kept));
+    });
+  });
 }

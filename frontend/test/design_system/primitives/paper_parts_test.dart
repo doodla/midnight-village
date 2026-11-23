@@ -377,6 +377,74 @@ void main() {
       }
     });
 
+    testWidgets('no pixel of a fanned card is over a neighbour\'s slot, so a '
+        'tap on what is seen is a tap on that card', (tester) async {
+      for (final (count, width, gap) in [
+        (3, 90.0, 8.0),
+        (5, 52.0, 8.0),
+        (7, 30.0, 8.0),
+        (6, 120.0, 4.0),
+      ]) {
+        await tester.pumpWidget(const SizedBox());
+        await _pump(
+          tester,
+          Row(
+            spacing: gap,
+            children: [
+              for (var i = 0; i < count; i++)
+                SizedBox(
+                  width: width,
+                  height: width * 4 / 3,
+                  child: Fanned(
+                    index: i,
+                    count: count,
+                    gap: gap,
+                    child: const ColoredBox(color: Colors.white),
+                  ),
+                ),
+            ],
+          ),
+          dress: Dress.paper,
+        );
+        for (var i = 0; i < count; i++) {
+          final box = tester.renderObject<RenderBox>(
+            find.descendant(
+              of: find.byType(Fanned).at(i),
+              matching: find.byType(ColoredBox),
+            ),
+          );
+          final slot = tester.getRect(find.byType(Fanned).at(i));
+          final corners = [
+            for (final p in [
+              Offset.zero,
+              Offset(box.size.width, 0),
+              Offset(0, box.size.height),
+              box.size.bottomRight(Offset.zero),
+            ])
+              box.localToGlobal(p),
+          ];
+          for (final corner in corners) {
+            // Its own side of each neighbour's slot, never past the half of
+            // the gap between them.
+            if (i > 0) {
+              expect(
+                corner.dx,
+                greaterThanOrEqualTo(slot.left - gap / 2 - 0.01),
+                reason: 'card $i of $count (width $width, gap $gap)',
+              );
+            }
+            if (i < count - 1) {
+              expect(
+                corner.dx,
+                lessThanOrEqualTo(slot.right + gap / 2 + 0.01),
+                reason: 'card $i of $count (width $width, gap $gap)',
+              );
+            }
+          }
+        }
+      }
+    });
+
     testWidgets('a Fanned card moves only its paint: its box and its hits are '
         'its slot\'s', (tester) async {
       await _pump(
