@@ -172,6 +172,7 @@ class EndFootBand extends StatelessWidget {
         child: PaperScrap(
           label: EndCopy.editDeck,
           onTap: onEditDeck,
+          sends: true,
           busy: busy == EndAct.editDeck,
         ),
       ),
@@ -204,6 +205,7 @@ class EndFootBand extends StatelessWidget {
           label: EndCopy.leave,
           onTap: onLeave,
           pinned: false,
+          sends: true,
           busy: busy == EndAct.leave,
         ),
         const SizedBox(width: Space.md),

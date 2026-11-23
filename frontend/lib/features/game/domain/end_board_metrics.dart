@@ -133,6 +133,13 @@ abstract final class EndMetrics {
   static const slipHeight = 40.0;
   static const slipRoom = 33.0;
 
+  /// How far round the two cards the Hunter's slip may hang, looking for a
+  /// place that covers nothing.
+  static const slipReach = 40.0;
+
+  /// How far the ribbon is turned on its card (`DeathMark.ribbonTurn`).
+  static const ribbonTurn = 14 * math.pi / 180;
+
   // ---- The board (spec 2 and 3), x from the board's left edge.
   /// The board is the screen's width less this (2 each side).
   static const boardMargin = 4.0;
@@ -180,6 +187,10 @@ abstract final class EndMetrics {
 
   /// A card cut by the lip when the board scrolls: this share of it shows.
   static const cutShows = 0.55;
+
+  /// The least of a card that shows under the eave when the board opens
+  /// scrolled down: enough to read as a card cut, so there is more above.
+  static const cutLeast = 14.0;
 
   /// How tall a screen is, from short (0) to the mocks' (1).
   static double tallness(double screenHeight) =>
@@ -254,13 +265,20 @@ abstract final class EndMetrics {
 /// card above and the rows close up. Then [closest]: the air between rows
 /// down to the least ([EndMetrics.gapLeast], [EndMetrics.hangLeast]).
 class EndFit {
-  const EndFit._({
+  const EndFit._(
+    this.name, {
     required this.besidePick,
     required this.across,
     required this.slide,
     required this.gap,
     required this.hangClear,
   });
+
+  /// The step's name, for a failing test's words.
+  final String name;
+
+  @override
+  String toString() => name;
 
   /// A strand may take the row beside the Hunter's pick.
   final bool besidePick;
@@ -276,6 +294,7 @@ class EndFit {
   final double hangClear;
 
   static const loose = EndFit._(
+    'loose',
     besidePick: false,
     across: EndMetrics.tagsInOneColumn,
     slide: false,
@@ -283,13 +302,19 @@ class EndFit {
     hangClear: EndMetrics.hangClear,
   );
   static const close = EndFit._(
+    'close',
     besidePick: true,
     across: 1,
     slide: true,
     gap: EndMetrics.gap,
     hangClear: EndMetrics.hangClear,
   );
+
+  /// Every step, loosest first.
+  static const levels = [loose, close, closest];
+
   static const closest = EndFit._(
+    'closest',
     besidePick: true,
     across: 1,
     slide: true,

@@ -83,11 +83,12 @@ final endSamples = <String, Map<String, dynamic>>{
   'werewolves_10': widened(recordedResults('results_werewolves_win'), add: 4),
 };
 
-/// The hardest six-player boards to fit, built from the recordings (off the
+/// The hardest six-player boards, built from the recordings (off the
 /// contract: no recorded game has them): the Hunter hanged by five votes,
-/// taking his pick; a tie of three and three; both with long names (as long
-/// as a name can be and still share its row: a longer one takes a row alone,
-/// and with such a name the board may scroll).
+/// taking his pick; a tie of three and three; both with long names. Some
+/// cannot fit one screen at all: they are cases of the rule that a board of
+/// six or fewer that scrolls gave up nothing it could give
+/// (`end_board_rules_test.dart`), not of a fit.
 Map<String, Map<String, dynamic>> endWorstSix() {
   Map<String, dynamic> votes(
     String name,

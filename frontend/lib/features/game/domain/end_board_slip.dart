@@ -48,9 +48,13 @@ Rect placeSlip({
         c.stripHeight,
       );
       if (s.overlaps(strip.inflate(2))) return false;
+      // No card but the two it hangs between.
+      if (c.id != from.id && c.id != to.id && s.overlaps(c.leaned)) {
+        return false;
+      }
       for (final part in [
         c.sealRect,
-        c.ribbonRect,
+        c.ribbonDrawn,
         c.pin,
         ...c.tags.map((t) => t.rect),
       ]) {
@@ -60,9 +64,13 @@ Rect placeSlip({
     return true;
   }
 
+  // Anywhere between the two cards (their boxes and what lies between, a
+  // little round them), nearest the middle first: it stays on their twine.
+  final between = a.expandToInclude(b).inflate(EndMetrics.slipReach);
   final tries = <Offset>[
-    for (var dy = -90.0; dy <= 90; dy += 4)
-      for (var dx = -80.0; dx <= 80; dx += 8) Offset(dx, dy),
+    for (var y = between.top; y <= between.bottom; y += 4)
+      for (var x = between.left; x <= between.right; x += 8)
+        Offset(x, y) - centre,
   ]..sort((p, q) => p.distanceSquared.compareTo(q.distanceSquared));
   // How much of the cards' faces it covers: least wins, then the nearest to
   // the middle between the two (it hangs between them, not on one).
@@ -92,4 +100,50 @@ Rect placeSlip({
     }
   }
   return best ?? Rect.fromCenter(center: centre, width: w, height: h);
+}
+
+/// The hard rule (spec 1 and 2), on a whole board: no card lies on another;
+/// what hangs on a card (its dealt card, ribbon, seal, pin and tags) covers no
+/// other card and no other card's tag, and a tag, seal or ribbon not its own
+/// card's name; the Hunter's slip covers no name, tag, seal or ribbon and no
+/// card but the two it hangs between. A step of `EndFit` that breaks it is
+/// not taken.
+bool coversNothing(EndBoardPlan plan) {
+  final cards = plan.cards;
+  for (final a in cards) {
+    final hung = [
+      a.dealtRect,
+      a.ribbonRect,
+      a.sealRect,
+      a.pin,
+      ...a.tags.map((t) => t.rect),
+    ].nonNulls;
+    for (final t in [a.ribbonRect, a.sealRect, ...a.tags.map((t) => t.rect)]) {
+      if (t != null && t.overlaps(a.nameText)) return false;
+    }
+    for (final b in cards) {
+      if (a.id == b.id) continue;
+      if (a.leaned.overlaps(b.leaned.deflate(1))) return false;
+      if (hung.any((h) => h.overlaps(b.leaned))) return false;
+      for (final t in a.tags) {
+        if (b.tags.any((u) => t.rect.overlaps(u.rect))) return false;
+      }
+    }
+  }
+  for (final pick in plan.picks) {
+    final s = pick.slip;
+    for (final c in cards) {
+      if (s.overlaps(c.nameText)) return false;
+      if (c.tags.any((t) => s.overlaps(t.rect))) return false;
+      for (final part in [c.sealRect, c.ribbonDrawn]) {
+        if (part != null && s.overlaps(part)) return false;
+      }
+      if (c.id != pick.hunterId &&
+          c.id != pick.pickId &&
+          s.overlaps(c.leaned)) {
+        return false;
+      }
+    }
+  }
+  return true;
 }

@@ -82,9 +82,9 @@ The numbers match `png/0-anatomy.png`. Positions are in pt on a 360 x 780 phone.
 | — | The Hunter's pick | why a second card died | bone twine between the two cards (red twine is the Werewolves' alone; the Hunter is the village's), with a slip, "Dev's pick" (16), hung between them where it covers no name, role, tag, seal or ribbon, and as little of either card as it can. One per Hunter the vote took who took someone | the player with `elimination_reason == "hunter_chain"`, and the eliminated Hunter (final role Hunter, or a Doppelganger who copied the Hunter) whose `vote_target_id` is that player |
 | 11 | What happened | replays the night on this board | torn bone scrap as wide as its words, 40 tall, at the foot's left, turned -3°, flat iron pin, 16 Gloock. Touch target 48 tall. Where one line leaves the middle cards no room beside it, its words go on two lines ("What / happened", 48 tall); where two lines do not either, the middle cards take a row of their own above it. While the night plays it reads "The result" (same place, as wide) | shown when `night_timeline` is not null; hidden otherwise |
 | 12 | The middle cards | the three cards nobody held | no name; portrait 44 x 33; role tab 12. Width = role + 12 (at least 52). Face up, level, side by side, right-aligned, 3 apart; past the width they have they wrap to a second row (large text). Never a pile. In the fixed band | `center_cards` (final). At night: `night_timeline.dealt.center` and then each step's `positions_after.center` |
-| 13 | Edit deck | host: back to the table with the deck open | scrap as wide as its words, 40 tall, at the foot's left under What happened, turned 2°. Touch target 48 | host only (`is_host`) |
-| 14 | Play again | host: the one action | amber paper `#e0a03e` with a deckled edge on a darker backing `#4a2a12`, in the type scale's large button label. From Edit deck's right (12 apart) to the foot's right, 50 tall (taller with larger text) | host only. Busy and failed states as on today's 11 (`Pending`: "Not sent." / "Try again") |
-| — | Guest's foot | a guest waits for the host | "Leave": a scrap, touch target 48 (the round's dark `#252849` scrap is not built yet: the build's is bone). "{host} deals next.": plain words beside it, wrapping, not a control and not a slip. No amber | `is_host == false`; `host_id` gives the name, and it shows only while the host is at the table (as today) |
+| 13 | Edit deck | host: back to the table with the deck open | scrap as wide as its words and the busy mark's room at its end (it sends a request), 40 tall, at the foot's left under What happened, turned 2°. Touch target 48. Busy (`Pending`), the mark turns in that room and the words stay in place, whole, in full ink, as on Play again | host only (`is_host`) |
+| 14 | Play again | host: the one action | amber paper `#e0a03e` with a deckled edge on a darker backing `#4a2a12`, in the type scale's large button label. From Edit deck's right (12 apart) to the foot's right, 50 tall (taller with larger text) | host only. Busy and failed states as on today's 11 (`Pending`: "Not sent." / "Try again"). Busy, the mark turns in its own end padding and the words stay |
+| — | Guest's foot | a guest waits for the host | "Leave": a scrap, touch target 48, busy as Edit deck is (the round's dark `#252849` scrap is not built yet: the build's is bone). "{host} deals next.": plain words beside it, wrapping, not a control and not a slip. No amber | `is_host == false`; `host_id` gives the name, and it shows only while the host is at the table (as today) |
 | — | Cobbles | the ground | `cobbles` under the board's foot | — |
 
 Things this screen no longer shows:
@@ -132,13 +132,31 @@ left between the banner and the foot.
      - the bottom band, whose torn cobble lip, with a soft shadow, overlaps the board's foot.
    - The lantern, the pool and the shadows belong to the board and scroll with it. Shadows are computed in board
      coordinates, so nothing is recomputed while scrolling.
-   - The board opens where the hanged are in view (their cards and tags above the lip, or their tops under the
-     eave when they are taller than the window). When that is the top, the first view shows the banner and the
-     winners under the lantern, and the next row is cut by the lip, which says "more below" without words. The
-     round's 1d (ten players at the top, the hanged out of view) is the board scrolled back up.
-   - With 6 at the fixed size the board fits a 360 x 780 phone. From 7 players it scrolls. At 6 it can scroll in a
-     rare case: a strand of four tags or more that cannot take the row (beside the Hunter's pick), or a hanged winner
-     with a strand. A 360 x 640 phone scrolls sooner.
+   - **Six or fewer fit one screen, as far as the hard rule lets them** (the owner's wish: up to six players fit a
+     360 x 780 phone with no scrolling; cards never shrink; bigger tables scroll). A board of six or fewer that would
+     scroll closes up in steps (`EndFit`, `features/game/domain/end_board_metrics.dart`), loosest first:
+     - *loose*: the board as rules 1 to 8 lay it;
+     - *close*: a long strand of tags may take the row beside the Hunter's pick too (the slip hangs between the two
+       cards), strands of two or more hang side by side where they fit, and a hanged card slides along its slot so
+       its ribbon clears the card above;
+     - *closest*: the air between rows down to its least (8 under a card, 6 above what a card holds up).
+     It takes the first step that fits. **The hard rule never bends**: what hangs on a card (tags, the Hunter's slip,
+     a seal, a ribbon) covers no other card and no name (`coversNothing`). A step that would make a piece cover one is
+     not taken; a board that still does not fit stands at the tightest clean step and scrolls. The rule as tested
+     (`end_board_rules.dart`, in the domain tests and in the sweep on the real fonts alike): for six or fewer, IF the
+     board scrolls THEN every step tighter than its own would cover something. Every recorded game of six fits a
+     360 x 780 phone at text size 1 at some step, for every viewer; a three-and-three tie or names too long to share
+     a row may scroll. The Hunter's slip looks for its place anywhere between the two cards (and 40 round them),
+     against the ribbon as drawn (turned).
+   - **Where it opens** (`openingOf`, `features/game/domain/end_board_open.dart`). Opened down the board at all, the
+     eave cuts a card, at least 14 pt of it showing, as the lip cuts one below: it is plain there is more above.
+     Within that, it shows whole above the lip the most of: the hanged with all that hangs on them and your own card;
+     else the hanged with all that hangs on them; else the hanged's cards (their tags go under the lip); else the
+     vote's dead (the Hunter's pick further down). The test states it the same way: whatever some opening that keeps
+     the cut could show, this one shows. When that is the top, the first view shows the banner and the winners
+     under the lantern, and the next row is cut by the lip, which says "more below" without words. The round's 1d
+     (ten players at the top, the hanged out of view) is the board scrolled back up.
+   - From 7 players it scrolls. A 360 x 640 phone, or larger text, scrolls sooner.
    - Why: the owner found round three "too busy" and asked for calm. The one-screen version needs 48 pt portraits,
      winners at only 1.25x and five cramped rows (round four's `1f`). Scrolling keeps every card, name and tag
      exactly as it is at 6 players, and the rule stays the same at every count.

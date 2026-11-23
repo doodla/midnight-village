@@ -1,10 +1,9 @@
 import 'dart:math' as math;
-import 'dart:ui';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/features/game/domain/end_board_metrics.dart';
 
 import '../../../helpers/end_board_plans.dart';
+import '../../../helpers/end_board_rules.dart';
 import '../../../helpers/outcome_samples.dart';
 
 // The end board's layout rules added for its fixing pass
@@ -13,57 +12,18 @@ import '../../../helpers/outcome_samples.dart';
 // a pick for every Hunter.
 
 void main() {
-  group('the board opens on the hanged, and on you when both fit', () {
+  group('the board opens on the hanged, and on you when both fit; opened '
+      'down the board, the eave cuts a card', () {
     for (final (name, plan) in everyEndPlan()) {
-      test(name, () {
-        final top = plan.initialScroll;
-        expect(top, greaterThanOrEqualTo(0));
-        expect(top, lessThanOrEqualTo(plan.boardHeight - plan.viewHeight));
-        if (!plan.scrolls) expect(top, 0);
-        // What the window shows at that scroll, above the foot's lip.
-        final seen = Rect.fromLTRB(
-          0,
-          top,
-          plan.boardWidth,
-          top + plan.viewHeight - EndMetrics.lip,
-        );
-        bool inView(Rect r) =>
-            seen.inflate(0.5).contains(r.topLeft) &&
-            seen.inflate(0.5).contains(r.bottomRight);
-        final hanged = plan.cards.where((c) => c.hanged).toList();
-        for (final c in hanged) {
-          expect(
-            inView(c.leaned),
-            isTrue,
-            reason: '${c.name} (hanged) is not in view: ${c.leaned} in $seen',
-          );
-        }
-        if (!plan.scrolls || hanged.isEmpty) return;
-        final you = plan.cards.firstWhere((c) => c.you);
-        final yours = you.sealRect == null
-            ? you.leaned
-            : you.leaned.expandToInclude(you.sealRect!);
-        final together = [
-          yours,
-          ...hanged.map((c) => c.reach),
-        ].reduce((a, b) => a.expandToInclude(b));
-        if (together.height + 2 * EndMetrics.clear <= seen.height) {
-          expect(inView(yours), isTrue, reason: 'your card is not in view');
-        } else if (top > 0) {
-          // More above: the eave cuts a card, as the lip cuts one below.
-          expect(
-            plan.cards.any(
-              (c) => c.leaned.top < top - 1 && c.leaned.bottom > top + 1,
-            ),
-            isTrue,
-            reason: 'opened down the board with no card cut by the eave',
-          );
-        }
-      });
+      test(name, () => expectOpensByTheRule(plan, name: name));
     }
   });
 
-  group('six players or fewer fit a 360 x 780 phone at text size 1', () {
+  // Six or fewer fit one screen as far as the hard rule lets them: a board
+  // that scrolls stands at the tightest fit step that covers nothing, and
+  // opens by the rule. The hardest six-player boards (a Hunter hanged by five,
+  // a three-and-three tie, long names) are cases of that rule, not of a fit.
+  group('six or fewer that scroll gave up nothing they could give', () {
     final boards = {
       for (final e in endSamples.entries)
         if ((e.value['players'] as List).length <= EndMetrics.fitsUpTo)
@@ -75,31 +35,37 @@ void main() {
         for (final p in results['players'] as List)
           (p as Map)['player_id'] as int,
       ];
-      for (final viewer in [ids.first, ids.last]) {
-        test('$name for $viewer', () {
-          final plan = endPlan(results, viewer: viewer);
-          expect(plan.scrolls, isFalse, reason: 'it scrolls');
-          expect(plan.boardHeight, plan.viewHeight);
-          // Cards never shrink for it.
-          for (final c in plan.cards) {
-            expect(
-              c.portraitWidth,
-              greaterThanOrEqualTo(
-                c.won ? EndMetrics.winnerPortrait : EndMetrics.loserPortrait,
-              ),
-            );
-          }
-          // Nothing hung on a card lies on another card or tag.
-          final tags = plan.cards.expand((c) => c.tags).map((t) => t.rect);
-          for (final c in plan.cards) {
-            for (final t in tags) {
-              expect(t.overlaps(c.leaned.deflate(1)), isFalse);
+      for (final screen in [endPhone, endBig, endShort]) {
+        for (final scale in [1.0, 1.3, 1.6]) {
+          final where =
+              '$name on ${screen.width.toInt()}x${screen.height.toInt()} '
+              'at $scale';
+          test(where, () {
+            for (final viewer in ids) {
+              final plan = endPlan(
+                results,
+                viewer: viewer,
+                screen: screen,
+                scale: scale,
+              );
+              final who = '$where for $viewer';
+              expectGaveUpNothing(plan, name: who);
+              expectOpensByTheRule(plan, name: who);
+              expect(coverFaults(plan), isEmpty, reason: who);
+              // Cards never shrink for it.
+              for (final c in plan.cards) {
+                expect(
+                  c.portraitWidth,
+                  greaterThanOrEqualTo(
+                    c.won
+                        ? EndMetrics.winnerPortrait
+                        : EndMetrics.loserPortrait,
+                  ),
+                );
+              }
             }
-            for (final d in plan.cards.where((d) => d != c)) {
-              expect(c.leaned.overlaps(d.leaned.deflate(1)), isFalse);
-            }
-          }
-        });
+          });
+        }
       }
     }
   });

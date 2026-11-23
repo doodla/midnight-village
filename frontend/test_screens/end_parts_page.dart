@@ -87,7 +87,7 @@ Widget endPartsPage() => ScreenFrame(
               children: [
                 PaperScrap(label: 'What happened', onTap: () {}),
                 PaperScrap(label: 'Back to\nthe result', onTap: () {}),
-                PaperScrap(label: 'Edit deck', onTap: () {}),
+                PaperScrap(label: 'Edit deck', onTap: () {}, sends: true),
                 const PaperSlip(label: 'Dev deals next.'),
               ],
             ),
