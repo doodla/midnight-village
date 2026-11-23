@@ -130,12 +130,25 @@ Future<void> pumpJoinStarting(WidgetTester tester) async {
   await setup.settle(tester);
 }
 
-Future<void> _typeCodeAndJoin(WidgetTester tester, TableSetup setup) async {
+/// [timed]: the picture is of the busy Join, timed from the tap.
+Future<void> _typeCodeAndJoin(
+  WidgetTester tester,
+  TableSetup setup, {
+  bool timed = false,
+}) async {
   await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
   await tester.pump();
   await tester.enterText(find.byType(TextField).last, 'V9YC2J');
   await tester.pump();
-  await pressLikeAFinger(tester, find.text(JoinCopy.join));
+  if (timed) {
+    await plainTap(
+      tester,
+      find.text(JoinCopy.join),
+      why: 'the gallery\'s picture of a busy button is timed from the tap',
+    );
+  } else {
+    await pressLikeAFinger(tester, find.text(JoinCopy.join));
+  }
   await setup.settle(tester);
 }
 
@@ -154,7 +167,7 @@ Future<void> pumpJoinJoining(WidgetTester tester) async {
         ContractSamples.map('http/lobby/joined'),
       ),
   );
-  await _typeCodeAndJoin(tester, setup);
+  await _typeCodeAndJoin(tester, setup, timed: true);
 }
 
 /// A join that got no answer: "Not sent." with "Try again", on 01.

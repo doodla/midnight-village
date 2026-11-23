@@ -190,7 +190,12 @@ enum ComponentPage {
         await tester.pump();
         await pressLikeAFinger(tester, find.byType(PrimaryButton));
       case gates:
-        await pressLikeAFinger(tester, find.byKey(replayedGateKey));
+        await plainTap(
+          tester,
+          find.byKey(replayedGateKey),
+          why:
+              'the gate\'s replay is pictured at its moment, timed from the tap',
+        );
       default:
     }
     await tester.pump();
