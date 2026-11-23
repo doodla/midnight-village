@@ -25,7 +25,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core import timers
-from apps.onuw import services
+from apps.onuw import recovery, services
 from apps.onuw.engine.validation import validate_onuw_settings
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
@@ -448,7 +448,7 @@ class TestHostAndRestart:
 
         assert body["current_wave"] == 0
         (delay, _), *_ = look_timers(night)[before:]
-        assert 10 < delay <= services.RECOVERY_RECONNECT_ALLOWANCE_SECONDS
+        assert 10 < delay <= recovery.RECOVERY_RECONNECT_ALLOWANCE_SECONDS
 
     def test_stuck_rule_does_not_open_night_during_look_stage(self, looking) -> None:
         night = looking
@@ -485,7 +485,7 @@ class TestHostAndRestart:
         before = len(look_timers(night))
 
         with night.committed():
-            services.recover_timers()
+            recovery.recover_timers()
 
         assert night.refresh().current_wave == 0
         assert len(look_timers(night)) == before + 1
@@ -497,7 +497,7 @@ class TestHostAndRestart:
         PlayerRole.objects.filter(game=night.game).update(phase_ready=True)
 
         with night.committed():
-            services.recover_timers()
+            recovery.recover_timers()
 
         assert night.refresh().current_wave == 2
 
@@ -507,7 +507,7 @@ class TestHostAndRestart:
         night = make_night(ROLES, CENTER)
 
         with night.committed():
-            services.recover_timers()
+            recovery.recover_timers()
 
         assert night.refresh().current_wave == 2
 

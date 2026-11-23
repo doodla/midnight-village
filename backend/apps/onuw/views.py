@@ -41,6 +41,7 @@ from .protocol import (
     WrongStageError,
     require_stage,
 )
+from .recovery import ensure_timers, timer_prefixes
 from .serializers import (
     GameMeSerializer,
     GameStartResponseSerializer,
@@ -53,11 +54,9 @@ from .services import (
     advance_wave,
     begin_night,
     end_discussion,
-    ensure_timers,
     reveal_votes,
     set_ready,
     submit_vote,
-    timer_prefixes,
 )
 
 logger = logging.getLogger(__name__)

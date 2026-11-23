@@ -23,7 +23,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
-from apps.onuw import services
+from apps.onuw import recovery, services
 from apps.onuw.models import Phase
 from tests.onuw.stages import staged
 from tests.onuw.test_choose_night import choose
@@ -216,7 +216,7 @@ class TestStageStartedAt:
 
         clock.advance(VOTE + 30)  # the server was down past the deadline
         with night.committed():
-            services._grant_reconnect_allowance(night.refresh())
+            recovery._grant_reconnect_allowance(night.refresh())
 
         later_start, later_deadline = clock_of_every_seat(night)
         assert later_start == started == iso(T0)
