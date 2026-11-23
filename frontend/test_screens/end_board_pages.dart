@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
+
 import '../test/helpers/end_board_pump.dart';
 import '../test/helpers/outcome_samples.dart';
 import 'screen_catalogue.dart';
@@ -22,6 +24,7 @@ Future<void> pumpEndBoard(
   Size? screen,
   bool scrolled = false,
   bool top = false,
+  EndAct? busy,
 }) async {
   if (screen != null) {
     tester.view.physicalSize = screen * tester.view.devicePixelRatio;
@@ -35,6 +38,7 @@ Future<void> pumpEndBoard(
     host: host,
     scale: textScale,
     controller: controller,
+    busy: busy,
   );
   if (controller.hasClients && (scrolled || top)) {
     controller.jumpTo(scrolled ? controller.position.maxScrollExtent : 0);
@@ -91,6 +95,16 @@ final endBoardEntries = <ScreenEntry>[
         recordedResults('results_five'),
         viewer: endGuestSeat,
         host: false,
+      ),
+    ),
+    // Edit deck on its way: busy on its scrap, Play again waiting (the shell's
+    // own pages show Play again, Leave, "Not sent." and a refusal).
+    (
+      '12-end-edit-deck-busy',
+      (t) => pumpEndBoard(
+        t,
+        recordedResults('results_five'),
+        busy: EndAct.editDeck,
       ),
     ),
     (

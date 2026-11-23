@@ -22,7 +22,7 @@ import 'package:midnight_village/design_system/skin/skin_choice.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
 import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/game/presentation/new_build_provider.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
+import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
@@ -302,9 +302,9 @@ void main() {
       waitsForTheGame: true,
     ),
     _Case(
-      'the results (the count, 10)',
+      'the results (the end board)',
       me: recordedMe('me_results'),
-      screen: CountView,
+      screen: EndBoardView,
       waitsForTheGame: true,
       results: recordedResults('results'),
     ),

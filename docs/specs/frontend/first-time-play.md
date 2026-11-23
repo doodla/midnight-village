@@ -21,7 +21,7 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
 4. **Buttons.**
    - A button label is 1 to 3 words: a verb, naming the person or card when there is one. A night button says what will happen with the picks ("See Cleo", "Swap Ana, Ben"), and a pass button is true for its role (rule 11).
    - A disabled button that is waiting for input names what is missing ("Pick a name", "Need 3 players", "Add 2 cards").
-   - A locked main button says what unlocks it (changed 23 November 2026, art director: a locked "Ready" with no live button beside it read as live and did not say why): 04's "Ready" is "Look first" until the card has been looked at, then "Ready". The night board's Choose waits for a whole pick ("Choose a card", "Choose 1 more"). "Done", "Ready to vote" and "See who won" are never locked.
+   - A locked main button says what unlocks it (changed 23 November 2026, art director: a locked "Ready" with no live button beside it read as live and did not say why): 04's "Ready" is "Look first" until the card has been looked at, then "Ready". The night board's Choose waits for a whole pick ("Choose a card", "Choose 1 more"). "Done" and "Ready to vote" are never locked.
    - After the action, the button shows the state in one word and stays disabled: "Chosen", "Locked", "Ready ✓".
 5. **Where rules are stated.** Rules appear only in the role text (cards and 03b) and on the night face of "You". Every other screen states facts only, for example "Nobody got 2 or more votes."
 6. **Gestures are never explained in text.** The only exception is the one-word cue "Hold".
@@ -143,7 +143,7 @@ Shared rules for every phone at night:
 |---|---|---|---|
 | Socket lost | A "One moment" banner | No change, no name. The server waits up to 25 s grace for this phone, whatever its role. | — |
 | Back inside the same window | The same screen. Picks are kept while the app stays open. After a cold start: re-hold "You" (any role). | — | `GET /me` |
-| Back after a close | 07 for any results past `night_results_seen`, then the current phase. In results phase it lands on 10, or on 11 if this phone had already gone on to it (kept on the device). | — | `GET /me` |
+| Back after a close | 07 for any results past `night_results_seen`, then the current phase. In results phase it lands on the end board, settled (the reveal plays only for a phone in the game as the results came). | — | `GET /me` |
 | Missed the close event | 2 s after the local deadline it fetches, then follows the phase | — | `GET /me` |
 
 **How the server reads a `choose`.** It takes the first valid action in tap order. "You" is never a valid target.
@@ -382,53 +382,16 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - The vote's length is the table's "Vote" (03; 2 min unless the host changes it).
 - **Pass:** "Tap a name, then Lock in."
 
-**10 The count**
-- **One thing / loudest:** watch; the dead player's card.
-- **Locked until:** nothing. "See who won" works at once; any other tap finishes the motion (section 8).
-- **Copy:**
-  - Headline: "{name} dies." / "{names} die." / "Nobody dies.", and then "{name}, {hunter}'s pick, dies too." for each player the server says the Hunter took (`hunter_chain`).
-  - When nobody dies: "Nobody got 2 or more votes."
-  - Rows: accused name, count, and the voter names at 16 px. Then "No vote: {names}".
-  - Cards: the player's name and "Now" (`final_role`), plus "Dealt" with an arrow when the dealt card differs; team tag ("Werewolf team" beside the role's name, "Village", "Alone"). With several dead, "Dealt" and "Now" are said on the first card only.
-  - Button: "See who won".
-  - **16 of 16 words.**
-- **Removed:** "Dev was the" (1). "The count", "Accused", "Voted by", the voter tokens (9, 12).
-- **States:**
-  - The dead card comes first, then the rows. The rows land with a 150 ms stagger, then a 1.2 s beat, then the flip (400 ms), on every phone at once; nothing waits on it.
-  - Only the rows of players killed by the vote are outlined; the Hunter's pick is not.
-  - When `final_role` is Doppelganger and the timeline has a `copy` step, the Now card shows the copied role, captioned "Doppelganger".
-  - The Now card uses the same source as the results, so the two screens cannot disagree (1).
-  - The Dealt→Now arrow is how a newcomer learns that cards moved.
-- **Pass:** "See who died, then See who won."
-
-**11 Results**
-- **One thing / loudest:** read who won; the headline and "You won." / "You lost.".
-- **Copy:**
-  - Headline: "The village wins" / "The Werewolves win" / "The Tanner wins" / "The village and the Tanner win" / "The Werewolves and the Tanner win" / "Nobody wins".
-  - Timeline rows: listed separately below.
-  - Final row: "Won" / "Died". Then "Center: {roles}".
-  - Host: amber "Play again", quiet "Edit deck", side by side, or stacked when a label would not fit on one line. Guest: "{host} deals next." (only when the host is at the table) as the message, "Leave" a quiet word beside it, never a button (cold read: a non-reader tapped the only button and left).
-  - **13 of 13 words.**
-- **Removed:** "Cleo held the Robber" (1). The footnote (12). "Change the deck".
-- **States:** after the band, every player's card (dealt → final) with "Won" / "Died", one compact line each, and the center; then the night, open (starting on the first screen at five players and 390 wide): first the red line, each Werewolf card from where it was dealt to where it ended ("Cara → Bob"), headed by the Werewolf's portrait; then the steps, arriving 150 ms apart (instant with reduce motion; a tap finishes them), on a spine that is red where a werewolf card was looked at or moved; a tap on the red line folds the steps. Red is the server's `werewolf` flag on a card, everywhere. (Review of the rebuild, 20 November 2026.) The whole night is reachable: scrolled to its end, its last step is fully above the pinned line, at five and ten players, 390 x 844 and 360 x 640; the steps, their numbers and "Center: {roles}" are in full ink (playtest, 21 November 2026: the story read as small, pale and cut off).
+**10 and 11: the end board** (one screen since 23 November 2026; the count, "See who won" and the results are
+no longer shown)
+- **One thing / loudest:** who was hanged and whether you won, on one notice board; the reveal plays once on a
+  phone that was in the game, and one touch settles it.
+- **Copy, layout, motion and states:** `docs/specs/frontend/end-board.md` (it wins for this screen): the banner's
+  two lines, the cards and vote tags, "What happened" replayed on the board, host "Edit deck" and the amber "Play
+  again", guest "Leave" and "{host} deals next.".
+- **Requests:** as before: Play again, Edit deck (play again, then 03) and Leave are `Pending`: busy on the
+  control tapped, "Not sent." with "Try again" on the foot when no answer came, the server's reason when it refused.
 - **Pass:** host says "Play again"; guest says "Wait or Leave".
-
-**Timeline rows on 11** (prefix "{role}:"; a Doppelganger follow-up uses the prefix "Doppelganger · {copied}:")
-
-| Step | Row (words) |
-|---|---|
-| Copy | "{a} copies {b}." (1) |
-| Werewolves | "{names} see each other." or "{name} wakes alone." (3) |
-| Masons | "{names} see each other." or "{name} wakes alone." (3) |
-| Minion | "{a} sees {names}." or "{a} sees no Werewolf." (2) |
-| Seer, player | "{a} sees {b}'s card." (2) |
-| Seer, center | "{a} sees {pos}, {pos}." (1) |
-| Lone Werewolf | "{a} sees {pos}." (1) |
-| Robber | "{a} takes {b}'s card." (2) |
-| Troublemaker | "{a} swaps {b} and {c}." (2) |
-| Drunk | "{a} takes {pos}." (1) |
-| Insomniac | "{a} sees own card." (3) |
-| Skip | "{a} does nothing." (2) |
 
 ### Banners and errors (6 words maximum each)
 

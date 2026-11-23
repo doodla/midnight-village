@@ -353,7 +353,7 @@ const inventory = <PartEntry>[
     part: PaperPart.scrap,
     plain: 'its words in the ground\'s ink, with the same 48 touch target',
     paper:
-        'a scrap of bone paper pinned to the board (a scrap: the paper 40 tall, the touch target 48, a flat pin through its top left), its words in the name face; a slip is the same paper and says something, no tap',
+        'a scrap of bone paper pinned to the board (a scrap: the paper 40 tall, the touch target 48, a flat pin through its top left), its words in the name face; a scrap that `sends` a request keeps the busy mark\'s room at its paper\'s end, and busy the mark turns there while its words stay put in full ink (the `Pending` form of `PrimaryButton` and `SecondaryButton`; a busy scrap that does not send asserts); a slip is the same paper and says something, no tap',
   ),
   PartEntry(
     'VoteTag',

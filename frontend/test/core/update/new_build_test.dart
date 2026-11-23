@@ -113,13 +113,15 @@ void main() {
     });
 
     test('in a running game ONLY when the app comes back: never on a phase '
-        'change or on the timer', () {
+        'change or on the timer (the end board too: its reveal plays as the '
+        'results arrive)', () {
       for (final place in [
         AppScreen.yourCard,
         AppScreen.nightBoard,
         AppScreen.talk,
         AppScreen.vote,
         AppScreen.count,
+        AppScreen.end,
       ]) {
         expect(may(place, Moment.learned), isFalse, reason: '$place');
         expect(may(place, Moment.screenChanged), isFalse, reason: '$place');
