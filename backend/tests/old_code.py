@@ -9,6 +9,10 @@ migration these statements must keep working: every column a migration adds to a
 table that this code writes needs a database default. These functions stay in the
 OLD shape for good (never add a column to them): the migration test and
 ``test_rollout_safe_schema`` run them against the new schema.
+
+One has an end: ``insert_member`` names ``is_ready``, so it works only up to core
+0011 (0012 drops the column, two pushes after the code stopped naming it).
+``insert_member_without_ready`` is the shape the code wrote from 0011 on.
 """
 
 import uuid

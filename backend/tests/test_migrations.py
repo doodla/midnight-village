@@ -338,6 +338,11 @@ class TestReadyColumnDropped:
         )
         insert_member(lobby.pk, users[2].pk)
         assert ready_flags(lobby.pk) == [False, False, False]
+        with connection.cursor() as cursor:
+            described = connection.introspection.get_table_description(
+                cursor, "core_lobbymember"
+            )
+        assert [c.null_ok for c in described if c.name == "is_ready"] == [False]
 
         again = migrator.apply(DROPPED_AFTER)
         assert "is_ready" not in member_columns()

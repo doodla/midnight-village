@@ -22,9 +22,9 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
   lobby ready flag (endpoint, `player_ready`, `is_ready` in bodies) are deleted; a stored
   `night_protocol` key on an older table is ignored, a lobby PATCH checks only the keys it
   gives and the deal clamps stored timer values the server refuses today. Nothing writes
-  `night_protocol` or the lobby ready flag any more (23 November 2026). The ready column itself is dropped
-  (core migrations 0011 and 0012): never roll back to a build from before 0011, which cannot
-  seat a player.
+  `night_protocol` or the lobby ready flag any more (23 November 2026). The ready column
+  itself is dropped (core migrations 0011 and 0012): never roll back to a build from before
+  0011 (commit e8f50b5, #81), which can neither read nor write the lobby's members.
   Runs on Vercel (durable timers and presence rows).
 - Contract samples recorded from the real server, with drift, privacy and shape guards; the
   protocol-1 samples are gone and the app's tests read every sample.
