@@ -41,7 +41,10 @@ the end-to-end harness.
 - Add, rename or remove a check: change the job and `docs/dev/main-ruleset.json` in the same
   commit (a test fails until they match), then the owner imports the file again.
 
-One heavy piece at a time: every worker shares this one machine. No extra cloud sessions.
+One heavy piece at a time on a machine: every worker of a session shares it. Two sessions run
+the work (23 November 2026): the coordinating one (design and the app) and the codebase health
+one (checks, hooks, setup, docs, the server queue); each has its own machine and its own
+branch, and they talk through the remote `send_message` tool. No other cloud sessions.
 Step back often and look at the whole game, not the last report.
 
 ## Who does what
@@ -98,8 +101,6 @@ two graders, scored against the owner's next play-through. Method and brief:
 
 ## Outside this repository
 
-- Fetch and merge before pushing: the deployment session pushes to the same branch. After
-  pushing anything that changes the server, tell it (its id is in `docs/dev/status.md`).
 - Never open or read https://github.com/mankidev/antialgorithm in this session. A worker may,
   and must not reproduce it in its report.
 

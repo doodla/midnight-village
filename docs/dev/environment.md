@@ -1,14 +1,27 @@
 # Development environment
 
-What a checkout needs before `just check` and `just test` pass. The cloud container has no
-setup script (the proposal was declined), so a fresh container is set up by hand.
+What a checkout needs before `just check` and `just test` pass.
 
-## Tools (once per container)
+## A fresh cloud container: one command
+
+```bash
+tool/bootstrap_container.sh
+```
+
+It installs the tools below, starts Postgres, sets its password and runs `tool/setup_env.sh`
+(about three minutes; safe to run again). Without it a fresh container cannot build or test
+the app, and the commit gate refuses any commit that needs the frontend checks. The cloud
+environment has no setup script of its own yet: the owner can only approve one at a computer
+(asked 22 and 23 November 2026). At every session start `.claude/hooks/session-start.sh`
+starts Postgres if it is installed and down.
+
+## Tools (what the command installs)
 
 - `just`: `uv tool install rust-just`.
 - Flutter **3.38.10**, unpacked to `/opt/flutter` and linked into `/usr/local/bin`.
-- Postgres 16 with user and password `postgres`/`postgres`. After a container restart it is
-  down: `service postgresql start`.
+- Postgres 16 with user and password `postgres`/`postgres` (the image has Postgres; the
+  password is set by the command). After a container restart it is down: the session-start
+  hook starts it, or `service postgresql start`.
 - `java` only to run the TLA+ models (`docs/dev/models/`; TLC is not in the repository).
 
 ## Each checkout or worktree

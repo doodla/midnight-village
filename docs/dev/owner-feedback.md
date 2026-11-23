@@ -98,11 +98,11 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
 
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
-  (same files), as small pull requests: back, then loading, then speed. Back is built (branch
-  `fix-back-policy`, not merged yet): one policy for the phone's and the browser's Back. Keeping the server
-  warm and moving the database are proposals for the deployment session only.
+  (same files), as small pull requests: back, then loading, then speed. Back is merged (#49 and #52):
+  one policy for the phone's and the browser's Back. Keeping the server
+  warm and moving the database are proposals for the owner (they change the owner's accounts).
 
-- Loading, failing and busy states (issue 10), built on branch `worktree-agent-accfac18dd0dae241`, not yet merged: every
+- Loading, failing and busy states (issue 10), merged (#56): every
   player request goes through one door and the tapped control shows busy until the next screen is up;
   one waiting body (three paper lanterns, "Still on its way." after 5 s, "One moment" with
   "Try again") in the frame of every screen that waits; a picture for every loading and error state
@@ -131,7 +131,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   longer says "Not sent." Practice-players proposal: `docs/specs/onuw/solo-play-proposal.md`.
   Still weak: "Play with 3" shows as soon as three are here.
 - Android and web first impression (icon, name, launch screen): pull request 6, merged
-  (06d0468). The deployment session was asked for a fresh Android install file.
+  (06d0468). The Android install file is now built by the "Android App Download" workflow on every merge.
 
 ## Relayed by the coordinating session, 22 November 2026 (not heard directly; confirm with the owner)
 
