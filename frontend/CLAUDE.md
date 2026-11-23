@@ -102,9 +102,20 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   through the one `Outbox`; a choose is never sent twice for a turn; after any taken choose
   the phone re-reads `/me/` and trusts `chosen` and `chooses_left`. A phone with nothing to
   choose sends no choose at all; its board has no button.
-- **Every request a player's tap makes goes through `playerRequest`** (`core/requests/player_request.dart`), and the control that was tapped shows it: `Pending` (`design_system/primitives/pending.dart`) is busy in the frame of the tap, cannot be sent twice, stays busy until the screen it leads to is up (`settle`), and settles to done or to its own words with its own "Try again" (the very same request). The door is a compile-time rule: every write (the services' write methods, `AuthenticatedClient`'s post, patch and delete, the guest account) takes a `Door`, and only `playerRequest((door) => ...)` makes one, so a write outside it does not build; a door is shut when its request is done (a kept token throws in development and tests, is logged in release). `player_request_test.dart` scans for a bare `ref.read(p.future)` of a provider nobody holds (use `whileHeld`: a read that is dropped when the screen changes failed requests that had worked). A control that waits for the next screen is freed when that read fails (`readAnswered`), and says "One moment" with "Try again". A failure is the control's: never global state that can show up later on another screen. Nothing here waits.
-- **Every place the app waits is `Waiting`** (`design_system/primitives/waiting_sign.dart`) in the frame of the screen it waits for (`OpeningWait`, `lib/features/game/presentation/shell/waits.dart`, `EndWaiting`): never a bare ground. No sign for the first 300 ms (`Motion.signAfter`), then three paper lanterns hung from the header's edge and lit one after another (`PaperLantern`), "Still on its way." after 5 s (`Motion.slowAfter`), and, while a fetch fails, "One moment" with "Try again" alone on one line (never lanterns and a failure together); nothing is held back for it. A failure is one quiet line on the control (`Notice`), never a box; a busy control sinks into its shadow with a small lantern (`BusyMark`) in its own padding, so its words never move.
-- **A screen's main action never sits silently disabled** (owner, 23 November 2026: a dimmed "Deal to 5" and no word of why; widened after the review of the fix). `PrimaryButton` and `SecondaryButton` take no `onPressed` of null: a button that cannot act yet is `.locked(onLockedTap:)` (a tap leads to the fix and is nudged: 01's "Start a table", "Join a table" and "Join" with no name take the cursor to the name field and shake it, `Nudge`) or `.waiting(reason:)` (only while a change of this phone's is on its way), or it says what to do in its own label and does it: the table's button reads "Add 1 card" / "Remove 2 cards" (opens 03), "Need 3 players" / "Need {n} more" (shares the table's link), else "Start the game". The reasons come players first, then the deck, the server's current `need`. A page that can be left into a state where the game cannot start is not left by accident: 03's "Done" is always "Done", but with the wrong number of cards the first "Done" or Back stays, scrolls the count ("14 of 12 · Remove 2 cards") into view and nudges it, and the second leaves (never trapped: the table's code is on 02). `main_button_rule_test.dart` scans `lib/` for a bare disabled main button. A new main button brings its state and its test.
+- **Every request a player's tap makes goes through `playerRequest`**
+  (`core/requests/player_request.dart`), and the tapped control shows it (`Pending`): busy in
+  the frame of the tap, never sent twice, settles to done or to its own "Try again". A write
+  outside it does not build (it needs a `Door`). Nothing here waits. Detail:
+  `docs/app-rules.md`, "Requests".
+- **Every place the app waits is `Waiting`** (`design_system/primitives/waiting_sign.dart`), in
+  the frame of the screen it waits for: never a bare ground, never lanterns and a failure
+  together; a failure is one quiet line on the control (`Notice`), never a box. Detail:
+  `docs/app-rules.md`, "Waits".
+- **A screen's main action never sits silently disabled**: `PrimaryButton` and
+  `SecondaryButton` take no `onPressed` of null. One that cannot act yet is
+  `.locked(onLockedTap:)`, `.waiting(reason:)`, or says what to do in its own label and does
+  it. `main_button_rule_test.dart` scans `lib/` for a bare disabled main button; a new main
+  button brings its state and its test. Detail: `docs/app-rules.md`, "Main buttons".
 - **Every fetch a screen depends on heals**: retried with backoff or polled until its reason
   ends (`core/healing/`). Never leave a screen on a failed fetch.
 - **No waits.** Nothing adds a wait, a minimum time or an assumed timer length: lengths come
@@ -116,7 +127,9 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
   for anything that says something true; no uppercase micro-labels; one amber fill per screen; a selection is lift plus outline, never amber.
-- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks `ScreenFrame(dress: Dress.paper)`; shared parts read `context.dress`/`context.skin` and draw the paper, torn edges, pins, banners, the amber piece and mood only there; a paper component takes its look from the one table `skin/dress_style.dart` (`PaperPiece`), draws NO stroke, outline or border (`paper_components_test.dart` fails one), and is listed in the inventory with both dresses (`skin/dress_inventory.dart`); a screen never builds a raw Material button, chip, divider or border; sizes, angles and colours are the skin's (`skin.parts`, `skin.mood`), never a number in a screen (`lib/design_system/README.md`, "The dress").
+- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks
+  `ScreenFrame(dress: Dress.paper)`; sizes, angles and colours are the skin's, never a number
+  in a screen. Detail: `docs/app-rules.md`, "The dress", and `lib/design_system/README.md`.
 - **Values from the skin**: build screens from `lib/design_system/primitives/`, read
   `context.skin`, `context.ground`, `Space`, `Motion`; no literals (a text size, weight or face is a
   type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
