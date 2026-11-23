@@ -85,6 +85,11 @@ file grow while a piece of work is in the middle of it; a passed date is reporte
 run and never turns into a failure. Tests and generated code are not
 counted. `guardrails/tests/test_file_sizes.py` also fails on a stale line in the list.
 
+`guardrails/tests/test_checkout_whole.py` keeps a fresh checkout working as it stands: every
+shell script parses (`bash -n`), the lint and type tools in recipes and hooks are run as
+`uv run --group lint <tool>` (the version in `uv.lock`, never one from PATH), and
+`tool/ensure_env.sh` writes a missing `backend/.env` and leaves an existing one alone.
+
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the
 default branch, squash merges only, every check above required (up to date with main not
 required, so two sessions do not block each other), no force pushes or deletion, nobody
