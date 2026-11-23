@@ -169,7 +169,9 @@ enum ComponentPage {
         // My night is a sheet: a tap opens it, every page of it at once
         // (the Doppelganger's window 1 page too).
         await tester.tap(find.byType(PeekBox));
-        await tester.pumpAndSettle();
+        // The sheet slides up; the screen under it may have a loop of its own.
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
       case actionPicked:
         await tapAll(who.taps);
       case actionOneMore:
