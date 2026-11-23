@@ -5,7 +5,7 @@ import 'package:flutter/painting.dart';
 /// the ground the text sits on.
 ///
 /// The brief's scale (design brief section 4, "Type scale", as amended by the
-/// first-time play spec): headings 26 to 36, timers 64 to 84 (a compact one
+/// first-time play spec): headings 26 to 36, timers 64 to 84, the talk's square clock 40 (a compact one
 /// 34), counts 28, anything a player reads to act 16 to 24 (body 16 to 17),
 /// and captions under cards and tokens 14. No capitals tracked as labels.
 /// Nothing larger but one hero line per screen, which follows its mock:

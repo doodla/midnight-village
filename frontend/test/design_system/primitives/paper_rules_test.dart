@@ -8,6 +8,7 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/deckle.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/deck_pile.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
 import 'package:midnight_village/design_system/primitives/mood.dart';
@@ -28,6 +29,7 @@ import '../../../test_screens/shell_fixtures.dart';
 import '../../helpers/component_sheet.dart';
 import '../../helpers/parts_catalogue.dart';
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/sheet/day_pages.dart';
 import '../../helpers/sheet/night_pages.dart';
 import '../../helpers/sheet/sheet_data.dart';
 import '../../helpers/sheet/table_pages.dart';
@@ -174,6 +176,16 @@ paperSheets = {
       await t.pump(const Duration(milliseconds: 600));
     },
   ),
+  'talk: a pile\'s sheet': (
+    file: 'features/game/presentation/shell/talk_square.dart',
+    light: MoodKind.night,
+    open: (t) async {
+      await _screen(t, const TalkPage(viewer: Viewer.seer));
+      await _settle(t);
+      await t.longPress(find.byType(DeckPile).first);
+      await t.pump(const Duration(milliseconds: 600));
+    },
+  ),
   'deck page: a card\'s sheet': (
     file: 'features/lobby/presentation/deck_parts.dart',
     light: MoodKind.night,
@@ -188,7 +200,7 @@ paperSheets = {
 
 /// The openers of sheets and dialogs on screens that are plain today (the
 /// owner has not asked for those): they open as the screen is, plain.
-const plainOpeners = {'features/game/presentation/shell/talk_screen.dart'};
+const plainOpeners = <String>{};
 
 /// Every shadow a decorated box on screen casts that is not a blurred glow,
 /// with the screen's lean at that place.

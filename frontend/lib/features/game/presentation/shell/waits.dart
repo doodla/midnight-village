@@ -4,6 +4,9 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
+import '../../../../design_system/primitives/sliced_art.dart';
+import '../../../../design_system/primitives/square_sky.dart';
+import '../../../../design_system/skin/dress.dart';
 import '../../../../design_system/primitives/waiting_sign.dart';
 import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/ground.dart';
@@ -93,19 +96,18 @@ class TalkWait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ScreenFrame(
-    ground: GroundKind.day,
-    topSlot: const TimerBand.sun(
-      secondsLeft: null,
-      elapsed: null,
-      showSun: false,
-      title: TalkCopy.headline,
-    ),
+    ground: GroundKind.night,
+    dress: Dress.paper,
+    bleed: true,
+    topSlot: const SquareSky(secondsLeft: null, title: TalkCopy.headline),
     fitsHeight: true,
     minBodyHeight: TalkView.minBody,
-    // Hung from the band's lower edge.
-    body: Align(
-      alignment: Alignment.topCenter,
-      child: Waiting(failing: failing, onRetry: onRetry, centred: true),
+    // On the board, where the square will be.
+    body: BoardFrame(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Waiting(failing: failing, onRetry: onRetry, centred: true),
+      ),
     ),
   );
 }

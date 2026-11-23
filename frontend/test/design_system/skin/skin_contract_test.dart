@@ -82,7 +82,9 @@ enum _Kind {
   cue(16, 16),
   // Captions, tags, badges: the floor.
   label(12, 12),
-  timer(64, 84);
+  // The talk's clock is 40 (the square, the owner's choice of 23 November
+  // 2026); the vote's and the night's stay as they were.
+  timer(40, 84);
 
   const _Kind(this.min, this.max);
 

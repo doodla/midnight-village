@@ -73,9 +73,15 @@ class HoldToReveal extends StatefulWidget {
     this.onRevealed,
     this.onRevealChanged,
     this.inPlace = false,
+    this.away = false,
   });
 
   final Widget cover;
+
+  /// The face is drawn by the screen, somewhere of its own (08's square: the
+  /// board's area, from its top), while [onRevealChanged] says it is shown;
+  /// this draws nothing but the [cover]. Every other rule here holds.
+  final bool away;
 
   /// The face replaces the cover in its own box instead of being drawn over
   /// the screen.
@@ -262,7 +268,7 @@ class _HoldToRevealState extends State<HoldToReveal>
         },
         child: OverlayPortal(
           controller: _portal,
-          overlayChildBuilder: widget.inPlace ? _nothing : _face,
+          overlayChildBuilder: widget.inPlace || widget.away ? _nothing : _face,
           child: Container(
             // Dressed up the focus is a lift (the paper's shadow deepens), not
             // an outline.

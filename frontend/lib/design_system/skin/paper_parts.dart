@@ -61,6 +61,10 @@ class PaperParts {
     this.sealHang = 12,
     this.boardShade = const Color(0xFF000000),
     this.lanternGlowAlpha = 0.5,
+    this.foldShade = 0.18,
+    this.flapLight = 0.12,
+    this.squareLantern = 0.62,
+    this.squareVeil = 0.8,
     this.winnerPaper = const Color(0xFFF4E8CB),
     this.loserPaper = const Color(0xFFC9C0AA),
     this.nightPaper = const Color(0xFFCFD2E2),
@@ -222,6 +226,18 @@ class PaperParts {
   /// `OneLight.dimFilter`), and the lantern's glow at its centre.
   final Color boardShade;
   final double lanternGlowAlpha;
+
+  /// 08's sealed note: the fold's shade under its flap (toward the paper's
+  /// ink) and the flap a hair lighter (toward the ground's light), as shares.
+  final double foldShade;
+  final double flapLight;
+
+  /// 08's wall lantern, of the end board's lantern's size.
+  final double squareLantern;
+
+  /// 08's sky: how much of the night lies over the dawn's layers, so the
+  /// clock is the loudest thing in it.
+  final double squareVeil;
 
   /// The end board's card papers: a winner lit, a loser dull, the Werewolf
   /// team's red (won, lost) and the cool paper of the replayed night. Ink on

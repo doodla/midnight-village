@@ -320,6 +320,14 @@ end-pictures folder="build/end_pictures":
       --dart-define=ENV=dev \
       --dart-define=END_PICTURES_DIR={{folder}}
 
+# The talk (08, the square) in pictures: six players with none, some and this
+# phone ready, My night held, three and ten players, a short phone, text 1.6 and
+# the host's phone, into <folder>. Usage: just talk-pictures [folder]
+talk-pictures folder="build/talk_pictures":
+    flutter test test_screens/talk_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=TALK_PICTURES_DIR={{folder}}
+
 # The count in pictures (one death, a tie, nobody: at the end and one death as it
 # goes in four frames; ten players with long names at several widths and text
 # sizes) into <folder>. Usage: just count-pictures [folder] [width]

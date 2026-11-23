@@ -20,7 +20,12 @@ enum Cue {
   nightChoose('night_choose'),
 
   /// The nudge across the vote rows; learned by the first successful lock.
-  voteLock('vote_lock');
+  voteLock('vote_lock'),
+
+  /// 08's sealed "My night": until it has been held once (a reveal that
+  /// counts), its seal lifts and settles as the talk opens and after a tap
+  /// too short to open it. Taught by doing it, never in words.
+  myNight('my_night');
 
   const Cue(this.id);
 

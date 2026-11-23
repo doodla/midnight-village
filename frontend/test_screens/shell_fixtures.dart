@@ -5,7 +5,7 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
+import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
@@ -275,7 +275,7 @@ Future<void> pumpTalkSlept(WidgetTester tester) => _shell(
 /// 08 with My night held: the result first (Cleo's card).
 Future<void> pumpTalkHeld(WidgetTester tester) async {
   await pumpTalkPutAway(tester);
-  await holdDown(tester, find.byType(PeekBox));
+  await holdDown(tester, find.byType(SealedNote));
 }
 
 /// The talk's ack of the night's results.
@@ -291,10 +291,10 @@ Future<void> pumpTalkDoppelgangerHeld(WidgetTester tester) async {
     learned: _firstTalk,
   );
   await _putAway(tester, setup);
-  final first = await holdDown(tester, find.byType(PeekBox));
+  final first = await holdDown(tester, find.byType(SealedNote));
   await first.up();
   await tester.pump();
-  await holdDown(tester, find.byType(PeekBox));
+  await holdDown(tester, find.byType(SealedNote));
 }
 
 /// 08 after "Ready to vote", as `/me/` has it: "Ready ✓", one of five
