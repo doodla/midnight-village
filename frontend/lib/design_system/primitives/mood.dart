@@ -15,6 +15,9 @@ import 'layered_art.dart' show SceneGeometry;
 /// sun in a long light, never a flat lilac field.
 enum MoodKind { night, lantern, dawn, day }
 
+/// Where a lantern's or dawn's pool lies (the skin says where: `skin.mood`).
+enum MoodLight { standard, high }
+
 /// The ground and the light of a phase, laid under the play surface of a
 /// screen dressed up (`ScreenFrame(dress: Dress.paper)` does it, so no screen
 /// draws it): a ground, the game's own village (the layered art, at real
@@ -40,7 +43,7 @@ class Mood extends StatefulWidget {
     super.key,
     required this.kind,
     this.scene = true,
-    this.lightAt = const Alignment(0, 0.1),
+    this.light = MoodLight.standard,
   });
 
   final MoodKind kind;
@@ -51,7 +54,7 @@ class Mood extends StatefulWidget {
 
   /// Where the lantern's warm pool lies ([MoodKind.lantern] and
   /// [MoodKind.dawn]).
-  final Alignment lightAt;
+  final MoodLight light;
 
   /// The pixel ratio the picture is made at, at most.
   static const maxRatio = 2.0;
@@ -66,6 +69,11 @@ class Mood extends StatefulWidget {
   static int composed = 0;
   @visibleForTesting
   static int painted = 0;
+
+  /// How many finished pictures are kept (one made without a layer that
+  /// failed to load is never one of them).
+  @visibleForTesting
+  static int get cachedPictures => _cache.length;
 
   /// Forgets every kept picture (a test that changes the art).
   @visibleForTesting
@@ -100,25 +108,45 @@ class Mood extends StatefulWidget {
 }
 
 class _MoodState extends State<Mood> {
-  /// The picture on show: this state's own clone of the cached one.
+  /// The picture on show: this state's own picture, or its own clone of the
+  /// cached one.
   ui.Image? _image;
   _Spec? _shown;
-  _Spec? _loading;
+
+  /// The layers being decoded for a picture not yet made (at most one: a new
+  /// spec cancels it, and so does this state going away).
+  _Load? _load;
 
   @override
   void dispose() {
+    _load?.cancel();
+    _load = null;
     _image?.dispose();
+    _image = null;
     super.dispose();
   }
 
-  void _show(_Spec spec, ui.Image image) {
+  void _show(_Spec spec, ui.Image image, {required bool cached}) {
     _image?.dispose();
-    _image = image.clone();
+    _image = cached ? image.clone() : image;
     _shown = spec;
   }
 
-  /// Composes [spec] from its loaded layers into a picture, keeps it.
-  ui.Image _compose(_Spec spec, List<_Loaded> loaded) {
+  /// Composes [spec] from its loaded layers into a picture. A picture made
+  /// with every layer is kept in the cache (a picture lacking one is not: it
+  /// would stay without its village for the next screen too; the caller owns
+  /// it). Returns the picture and whether it is the cache's.
+  (ui.Image, bool) _compose(_Spec spec, _Load load) {
+    final loaded = [
+      for (final (i, item) in load.plan.indexed)
+        _Loaded(item.layer, item.rect, load.images[i]),
+    ];
+    final cached = Mood._cache[spec];
+    if (cached != null) {
+      // Another screen of the same spec was first: keep its picture.
+      load.release();
+      return (cached, true);
+    }
     Mood.composed++;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder)..scale(spec.ratio);
@@ -127,63 +155,37 @@ class _MoodState extends State<Mood> {
       (spec.size.width * spec.ratio).ceil(),
       (spec.size.height * spec.ratio).ceil(),
     );
+    final complete = !load.failed;
+    load.release();
+    if (!complete) return (image, false);
     Mood._cache[spec] = image;
     while (Mood._cache.length > Mood.kept) {
       Mood._cache.remove(Mood._cache.keys.first)!.dispose();
     }
-    return image;
+    return (image, true);
   }
 
   /// Gets [spec]'s picture: from the cache, composed at once if its layers are
-  /// decoded, or null until they are (then this state shows it).
-  ui.Image? _get(_Spec spec) {
+  /// decoded, or null until they are (then this state shows it). Asking again
+  /// for the spec already loading starts nothing.
+  (ui.Image, bool)? _get(_Spec spec) {
     final cached = Mood._cache.remove(spec);
     if (cached != null) {
       Mood._cache[spec] = cached; // most recent last
-      return cached;
+      return (cached, true);
     }
-    final plan = _layerPlan(spec);
-    final images = List<ui.Image?>.filled(plan.length, null);
-    var pending = plan.length;
-    var asking = true;
-    ui.Image compose() {
-      final loaded = [
-        for (final (i, item) in plan.indexed)
-          _Loaded(item.layer, item.rect, images[i]),
-      ];
-      final image = _compose(spec, loaded);
-      for (final loaded in images) {
-        loaded?.dispose();
-      }
-      return image;
-    }
-
-    void arrived() {
-      pending--;
-      if (pending > 0 || asking || !mounted || _loading != spec) return;
-      final image = compose();
-      setState(() => _show(spec, image));
-    }
-
-    for (final (i, item) in plan.indexed) {
-      final stream = item.provider.resolve(ImageConfiguration.empty);
-      late ImageStreamListener listener;
-      listener = ImageStreamListener(
-        (info, _) {
-          images[i] = info.image.clone();
-          stream.removeListener(listener);
-          arrived();
-        },
-        onError: (_, _) {
-          stream.removeListener(listener);
-          arrived();
-        },
-      );
-      stream.addListener(listener);
-    }
-    asking = false;
-    if (pending <= 0) return compose();
-    _loading = spec;
+    if (_load?.spec == spec) return null;
+    _load?.cancel();
+    _load = null;
+    final load = _Load(spec, _layerPlan(spec), (load) {
+      if (!mounted || _load != load) return;
+      _load = null;
+      final (image, cached) = _compose(spec, load);
+      setState(() => _show(spec, image, cached: cached));
+    });
+    load.start();
+    if (load.done) return _compose(spec, load);
+    _load = load;
     return null;
   }
 
@@ -208,18 +210,17 @@ class _MoodState extends State<Mood> {
             kind: widget.kind,
             size: size,
             ratio: ratio,
-            lightAt: widget.lightAt,
+            lightAt: switch (widget.light) {
+              MoodLight.standard => skin.mood.lanternAt,
+              MoodLight.high => skin.mood.lanternHighAt,
+            },
             scene: widget.scene,
             palette: skin.mood,
             art: skin.art,
           );
           if (_shown != spec) {
-            final image = _get(spec);
-            if (image != null) {
-              _image?.dispose();
-              _image = image.clone();
-              _shown = spec;
-            }
+            final got = _get(spec);
+            if (got != null) _show(spec, got.$1, cached: got.$2);
           }
           final image = _shown == spec ? _image : null;
           return ClipRect(
@@ -328,6 +329,79 @@ class _Plan {
   final SceneLayer layer;
   final Rect rect;
   final ImageProvider provider;
+}
+
+/// The decoding of a picture's layers: it holds a copy of each image until the
+/// picture is composed ([release]) or it is given up ([cancel]), so nothing
+/// it copied is ever left undisposed.
+class _Load {
+  _Load(this.spec, this.plan, this._onDone)
+    : images = List<ui.Image?>.filled(plan.length, null),
+      _pending = plan.length;
+
+  final _Spec spec;
+  final List<_Plan> plan;
+  final List<ui.Image?> images;
+  final void Function(_Load) _onDone;
+  final _listening = <(ImageStream, ImageStreamListener)>[];
+  int _pending;
+  bool _starting = true;
+  bool _cancelled = false;
+
+  /// A layer failed to load: the picture would be without it.
+  bool failed = false;
+
+  bool get done => _pending <= 0;
+
+  void start() {
+    for (final (i, item) in plan.indexed) {
+      final stream = item.provider.resolve(ImageConfiguration.empty);
+      late ImageStreamListener listener;
+      void settle() {
+        stream.removeListener(listener);
+        _pending--;
+        if (_pending <= 0 && !_starting && !_cancelled) _onDone(this);
+      }
+
+      listener = ImageStreamListener(
+        (info, _) {
+          if (_cancelled) {
+            stream.removeListener(listener);
+            return;
+          }
+          images[i] = info.image.clone();
+          settle();
+        },
+        onError: (_, _) {
+          failed = true;
+          if (_cancelled) {
+            stream.removeListener(listener);
+            return;
+          }
+          settle();
+        },
+      );
+      _listening.add((stream, listener));
+      stream.addListener(listener);
+    }
+    _starting = false;
+  }
+
+  /// Gives the copies back (the picture is composed, or never will be).
+  void release() {
+    for (final image in images) {
+      image?.dispose();
+    }
+    images.fillRange(0, images.length, null);
+  }
+
+  void cancel() {
+    _cancelled = true;
+    for (final (stream, listener) in _listening) {
+      stream.removeListener(listener);
+    }
+    release();
+  }
 }
 
 List<_Plan> _layerPlan(_Spec spec) {

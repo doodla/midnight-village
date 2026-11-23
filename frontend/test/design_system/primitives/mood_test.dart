@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -5,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/mood.dart';
+import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/dress.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
@@ -225,6 +228,121 @@ void main() {
         ),
         findsNothing,
       );
+    });
+  });
+
+  group('what it keeps: nothing leaks, nothing is made twice', () {
+    Future<void> arrived(WidgetTester tester, int composedBefore) async {
+      for (var i = 0; i < 1000 && Mood.composed == composedBefore; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 5)),
+        );
+        await tester.pump();
+      }
+    }
+
+    testWidgets('a rebuild while the village is still loading asks for it '
+        'once: one composition, one kept picture', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      for (var i = 0; i < 4; i++) {
+        // A new Mood every time, as a parent rebuilding gives it.
+        await tester.pumpWidget(
+          _app(
+            Opacity(
+              opacity: 1 - i / 10,
+              child: const Mood(kind: MoodKind.night),
+            ),
+          ),
+        );
+      }
+      await arrived(tester, 0);
+      await tester.pump();
+      expect(Mood.composed, 1);
+      expect(Mood.cachedPictures, 1);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(Mood.composed, 1, reason: 'nothing composes again');
+    });
+
+    testWidgets('a screen that closes while the village loads composes and '
+        'keeps nothing when its layers arrive', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      // Layers not yet decoded (the cache holds none from an earlier test).
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      await tester.pumpWidget(_app(const Mood(kind: MoodKind.night)));
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 800)),
+      );
+      await tester.pump();
+      expect(Mood.composed, 0);
+      expect(Mood.cachedPictures, 0);
+    });
+
+    testWidgets('a village layer that fails to load: the picture is shown '
+        'without it and is not kept', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final art = skinsUnderTest.values.first.art;
+      final scene = art.layeredScene(LayeredSceneId.nightVillage);
+      final broken = art.layer(LayeredSceneId.nightVillage, scene.files.first);
+      // The asset channel answers every file but one: that layer is missing.
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMessageHandler('flutter/assets', (message) async {
+        final key = utf8.decode(message!.buffer.asUint8List());
+        if (key == broken.path) return null;
+        // The test run's own assets (the manifest included).
+        final root = Platform.environment['UNIT_TEST_ASSETS'];
+        final file = File(root == null ? key : '$root/$key');
+        return file.existsSync()
+            ? ByteData.sublistView(file.readAsBytesSync())
+            : null;
+      });
+      addTearDown(
+        () => messenger.setMockMessageHandler('flutter/assets', null),
+      );
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      await tester.pumpWidget(
+        _app(const Mood(kind: MoodKind.night, scene: true)),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 800)),
+      );
+      await tester.pump();
+      // Made, without the layer, and shown.
+      expect(Mood.composed, 1);
+      expect(find.byType(RawImage), findsOneWidget);
+      expect(Mood.cachedPictures, 0, reason: 'a picture lacking a layer');
+      tester.takeException();
+    });
+
+    testWidgets('a window dragged through many widths keeps at most '
+        '${Mood.kept} pictures', (tester) async {
+      addTearDown(tester.view.reset);
+      tester.view.devicePixelRatio = 1;
+      for (var width = 320.0; width <= 420; width += 7) {
+        tester.view.physicalSize = Size(width, 800);
+        await tester.pumpWidget(
+          _app(const Mood(kind: MoodKind.lantern, scene: false)),
+        );
+        expect(
+          Mood.cachedPictures,
+          lessThanOrEqualTo(Mood.kept),
+          reason: 'at $width wide',
+        );
+      }
+      expect(Mood.composed, greaterThan(Mood.kept));
     });
   });
 }

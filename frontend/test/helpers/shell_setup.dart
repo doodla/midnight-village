@@ -150,7 +150,8 @@ class ShellSetup {
 
   /// The dress every screen of the app is shown in (`DressScope`): only the
   /// paper-dress pictures (`test_screens/paper_dress_test.dart`) set it; a
-  /// test of the app never does, so it runs what players get (plain).
+  /// test of the app never does, so it runs what players get (the screens the
+  /// owner chose dressed up are dressed by themselves).
   static Dress? pinnedDress;
 
   /// The first `/me/`, held ([pump]'s `holdMe`).

@@ -18,6 +18,7 @@ class PaperParts {
     this.pinnedStep = 8,
     this.bannerAngle = -0.012,
     this.bannerDepth = 4.5,
+    this.bannerCandle = 0.78,
     this.bannerStep = 13,
     this.skyDepth = 9,
     this.skyStep = 16,
@@ -57,6 +58,11 @@ class PaperParts {
   final double pinnedStep;
   final double bannerAngle;
   final double bannerDepth;
+
+  /// How much of the timer's line the night board's candle stands as high as
+  /// on a banner: the whole of it (the flame above, the ledge below) sits
+  /// inside the slip, whose torn edges and turn take a few pixels.
+  final double bannerCandle;
   final double bannerStep;
   final double skyDepth;
   final double skyStep;

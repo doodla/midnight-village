@@ -4,7 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
+import '../models/role.dart';
 import '../skin/card_back_scope.dart';
+import '../skin/werewolf_portrait.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
@@ -13,6 +15,7 @@ import 'art_picture.dart';
 import 'cut_paper.dart';
 import 'paper_mark.dart';
 import 'fit_line.dart';
+import 'hold_to_reveal.dart' show HoldPress;
 import 'player_token.dart';
 import 'text_backing.dart';
 
@@ -71,6 +74,7 @@ class FaceDownCard extends StatefulWidget {
     this.dimmed = false,
     this.tapExtra = 0,
     this.hold,
+    this.face,
     this.tilt = Tilt.none,
     this.cardWidth,
     this.nameSize,
@@ -96,6 +100,12 @@ class FaceDownCard extends StatefulWidget {
   /// strip's padding, so a small card is still a thumb's height).
   final double tapExtra;
   final bool? hold;
+
+  /// The role this card shows face up, its portrait and its name (the night
+  /// board's own card, "You": the role this phone was dealt, which it has
+  /// seen). Null: the card's back. A face-up card takes no hold ring, and
+  /// lifts, rings and shadows as a back does.
+  final RoleId? face;
   final Tilt tilt;
   final double? cardWidth;
   final double? nameSize;
@@ -141,6 +151,12 @@ class FaceDownCard extends StatefulWidget {
 
   /// Between a card and its caption.
   static const captionGap = Space.xs;
+
+  /// A face-up card's role name sits this far above the token's top.
+  static const faceNameLift = Space.xxs;
+
+  /// How far the text size grows a face-up card's role name.
+  static const roleNameScale = 1.6;
 
   /// The hold ring's share of a card back's width.
   static const holdShare = 0.8;
@@ -256,6 +272,10 @@ class _FaceDownCardState extends State<FaceDownCard> {
                   padding: EdgeInsets.only(bottom: token / 2),
                   child: card,
                 ),
+                // Held, the role's own card is shown over it: its slip would
+                // only peek out from under that.
+                if (widget.face case final role? when !HoldPress.of(context))
+                  _roleName(context, role, width, bottom: token),
                 Positioned(
                   left: 0,
                   right: 0,
@@ -303,6 +323,78 @@ class _FaceDownCardState extends State<FaceDownCard> {
           ),
         ],
       ],
+    );
+  }
+
+  /// A face-up card's role name, on a slip of paper across the card's foot,
+  /// above the owner's token ([bottom] is the token's height). One line,
+  /// whole: at the label size with the text size (as far as
+  /// [NightBoard]'s button scale, 1.6), set smaller to fit inside the card
+  /// and never under the reading floor (12 drawn). Only where even that is
+  /// wider than the card (a long name on the smallest card) does the slip
+  /// grow, evenly on both sides, to the word and no further.
+  Widget _roleName(
+    BuildContext context,
+    RoleId role,
+    double cardWidth, {
+    required double bottom,
+  }) {
+    final skin = context.skin;
+    final ground = context.ground;
+    final base = skin.typography.caption.copyWith(color: ground.text);
+    const padding = EdgeInsets.symmetric(
+      horizontal: Space.xxs,
+      vertical: Space.xxs,
+    );
+    final scale = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1.0, FaceDownCard.roleNameScale);
+    var size = base.fontSize! * scale;
+    TextPainter measure(double fontSize) => TextPainter(
+      text: TextSpan(
+        text: role.displayName,
+        style: base.copyWith(fontSize: fontSize),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    var painter = measure(size);
+    final room = cardWidth - padding.horizontal;
+    if (painter.width > room) {
+      final fitted = math.max(
+        size * room / painter.width,
+        ReadingFloor.caption,
+      );
+      painter.dispose();
+      size = math.min(size, fitted);
+      painter = measure(size);
+    }
+    final style = base.copyWith(fontSize: size);
+    final slip = painter.width.ceilToDouble() + padding.horizontal;
+    painter.dispose();
+    return Positioned(
+      left: (cardWidth - slip) / 2,
+      width: slip,
+      bottom: bottom + FaceDownCard.faceNameLift,
+      child: DecoratedBox(
+        decoration: cutPaper(
+          context,
+          fill: ground.paper,
+          radius: BorderRadius.circular(skin.shape.radiusTiny),
+          elevation: ground.elevation.card,
+        ),
+        child: Padding(
+          padding: padding,
+          child: Text(
+            role.displayName,
+            maxLines: 1,
+            softWrap: false,
+            textAlign: TextAlign.center,
+            textScaler: TextScaler.noScaling,
+            style: style,
+          ),
+        ),
+      ),
     );
   }
 
@@ -374,7 +466,10 @@ class _FaceDownCardState extends State<FaceDownCard> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ArtPicture(context.cardBack),
+            if (widget.face case final role?)
+              ArtPicture(context.roleArt(role))
+            else
+              ArtPicture(context.cardBack),
             // Over the card's eye, clear of the token on its lower edge.
             if (widget.hold case final teaching? when teaching)
               Padding(

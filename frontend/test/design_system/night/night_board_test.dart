@@ -450,19 +450,16 @@ void main() {
     expect(lifted(tester), isEmpty);
   });
 
-  testWidgets('the hold is taught once: no ring on "You" after 04 taught it; '
-      'on a device that never held a face, the ring until the first reveal', (
-    tester,
-  ) async {
+  testWidgets('the own card is face up, so it takes no hold ring, taught or '
+      'not; a first hold still counts as the lesson', (tester) async {
     bool pointing() => tester.widget<FaceDownCard>(you).hold ?? false;
     await BoardHarness.of(Viewer.seer, learned: {Cue.hold}).pump(tester);
     expect(pointing(), isFalse);
 
     final fresh = BoardHarness.of(Viewer.seer, learned: const {});
     await fresh.pump(tester);
-    expect(pointing(), isTrue);
+    expect(pointing(), isFalse, reason: 'no ring over the portrait');
     await holdAndLetGo(tester, you);
-    expect(pointing(), isFalse);
     expect(fresh.container.read(learnedCuesProvider), {Cue.hold});
   });
 

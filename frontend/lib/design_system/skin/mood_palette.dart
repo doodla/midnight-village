@@ -19,6 +19,8 @@ class MoodPalette {
     this.veilMidAlpha = 0.74,
     this.lantern = const Color(0xFFFFBE6E),
     this.lanternAlpha = 0.26,
+    this.lanternAt = const Alignment(0, 0.1),
+    this.lanternHighAt = const Alignment(0, -0.1),
     this.daySky = const Color(0xFFD6CCE6),
     this.dayMid = const Color(0xFFF0D2BC),
     this.dayFoot = const Color(0xFFF5C27A),
@@ -58,6 +60,11 @@ class MoodPalette {
   /// The lantern's warm pool on what it lights.
   final Color lantern;
   final double lanternAlpha;
+
+  /// Where the lantern's pool lies on the screen: the usual place, and a
+  /// higher one for a screen whose lit part is nearer the top (the table).
+  final Alignment lanternAt;
+  final Alignment lanternHighAt;
 
   /// Day: a pale sky over a golden foot, a low warm sun, a soft vignette in a
   /// warm plum.
