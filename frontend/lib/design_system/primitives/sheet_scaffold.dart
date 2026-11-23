@@ -105,12 +105,13 @@ class SheetScaffold extends StatelessWidget {
 
   Widget _sheet(BuildContext context, BorderRadius top, MediaQueryData media) {
     final dressed = context.dress.isPaper;
+    // Dressed up the sheet has no lit edge (a strip of the selection's colour
+    // along its top was a line): the torn paper is its edge.
     final sheet = Container(
-      padding: const EdgeInsets.only(top: Space.xs),
-      decoration: BoxDecoration(
-        color: context.ground.selection,
-        borderRadius: top,
-      ),
+      padding: dressed ? EdgeInsets.zero : const EdgeInsets.only(top: Space.xs),
+      decoration: dressed
+          ? null
+          : BoxDecoration(color: context.ground.selection, borderRadius: top),
       child: Container(
         decoration: BoxDecoration(
           color: context.ground.paper,

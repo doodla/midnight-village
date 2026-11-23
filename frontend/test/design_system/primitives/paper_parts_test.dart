@@ -11,7 +11,7 @@ import 'package:midnight_village/design_system/primitives/paper_banner.dart';
 import 'package:midnight_village/design_system/primitives/paper_light.dart';
 import 'package:midnight_village/design_system/primitives/paper_mark.dart';
 import 'package:midnight_village/design_system/primitives/paper_pin.dart';
-import 'package:midnight_village/design_system/primitives/plaque.dart';
+import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
@@ -134,7 +134,7 @@ void main() {
       );
       expect(tester.getSize(find.byType(PaperPin)), Size.zero);
       expect(find.byType(PaperMark), findsNothing);
-      expect(find.byType(Plaque), findsNothing);
+      expect(find.byType(PaperPiece), findsNothing);
       expect(find.byType(DeckleBorder), findsNothing);
       // The banner is its words and nothing round them.
       expect(
@@ -270,14 +270,16 @@ void main() {
       expect(tilt.angle(Tilt.seededRow('x')), tilt.angle(Tilt.seededRow('x')));
     });
 
-    testWidgets('the primary button is a plaque, its words level, and still '
-        'one amber fill', (tester) async {
+    testWidgets('the primary button is amber paper on a backing (one '
+        'PaperPiece), nothing in it but its label', (tester) async {
       await _pump(
         tester,
         const PrimaryButton(label: 'Go', onPressed: _noop),
         dress: Dress.paper,
       );
-      expect(find.byType(Plaque), findsOneWidget);
+      expect(find.byType(PaperPiece), findsOneWidget);
+      // No pin, no inset line: the label is all that is drawn in it.
+      expect(find.byType(PaperPin), findsNothing);
       expect(find.byType(DeckleBorder), findsNothing); // a shape, not a widget
     });
 

@@ -1,11 +1,10 @@
-import 'paper_light.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
-import '../skin/skin_tilt.dart';
-import 'tilted_paper.dart';
+import '../skin/dress_style.dart';
+import 'paper_piece.dart';
 import 'fit_line.dart';
 
 /// What a [TagChip] is printed in.
@@ -61,16 +60,13 @@ class TagChip extends StatelessWidget {
       ),
     );
     final radius = BorderRadius.circular(skin.shape.radiusTiny);
-    // Dressed up: a slip set down by hand (turned a hair, casting its shadow),
-    // its word level.
+    // Dressed up: a cut-paper tag (a [PaperPiece]) set down by hand, its word
+    // level.
     if (context.dress.isPaper) {
-      return TiltedPaper(
-        angle: skin.tilt.angle(Tilt.seededRow(text)),
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: radius,
-          boxShadow: ground.elevation.badge.litBy(context),
-        ),
+      return PaperPiece(
+        part: PaperPart.tag,
+        id: text,
+        fill: fill,
         child: Padding(padding: padding, child: words),
       );
     }

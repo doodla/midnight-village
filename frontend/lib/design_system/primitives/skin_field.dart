@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../layout/space.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/skin.dart';
 import 'deckled_paper.dart';
 import 'fit_line.dart';
+import 'paper_piece.dart';
 
 /// A text field in the skin (S01):
 /// - [SkinField.paper]: a piece of paper raised off the ground, the words in
@@ -101,30 +104,50 @@ class SkinField extends StatelessWidget {
         focusedBorder: InputBorder.none,
       ),
     );
+    final constraints = BoxConstraints(
+      minHeight: _paper ? paperHeight : codeHeight,
+    );
+    // Dressed up the field is a piece of paper (a bone scrap for the name, a
+    // panel for the code), lifted while it has the focus: no outline.
+    final dressed = context.dress.isPaper;
     return Semantics(
       textField: true,
       label: semanticLabel,
-      child: Container(
-        constraints: BoxConstraints(
-          minHeight: _paper ? paperHeight : codeHeight,
-        ),
-        alignment: Alignment.centerLeft,
-        decoration: _paper
-            ? deckledPaper(
-                context,
-                fill: ground.paper,
-                id: (semanticLabel, #field),
-                elevation: ground.elevation.raised,
-              )
-            : BoxDecoration(
-                borderRadius: radius,
-                border: Border.all(
-                  color: ground.outline,
-                  width: skin.shape.stroke,
+      child: dressed
+          ? Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              child: Builder(
+                builder: (context) => ConstrainedBox(
+                  constraints: constraints,
+                  child: PaperPiece(
+                    part: _paper ? PaperPart.scrap : PaperPart.panel,
+                    id: (semanticLabel, #field),
+                    lifted: Focus.of(context).hasFocus,
+                    child: Align(alignment: Alignment.centerLeft, child: field),
+                  ),
                 ),
               ),
-        child: field,
-      ),
+            )
+          : Container(
+              constraints: constraints,
+              alignment: Alignment.centerLeft,
+              decoration: _paper
+                  ? deckledPaper(
+                      context,
+                      fill: ground.paper,
+                      id: (semanticLabel, #field),
+                      elevation: ground.elevation.raised,
+                    )
+                  : BoxDecoration(
+                      borderRadius: radius,
+                      border: Border.all(
+                        color: ground.outline,
+                        width: skin.shape.stroke,
+                      ),
+                    ),
+              child: field,
+            ),
     );
   }
 }

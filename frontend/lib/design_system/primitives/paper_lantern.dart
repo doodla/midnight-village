@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../skin/skin.dart';
+import '../primitives/drawn.dart';
 
 /// A small cut-paper lantern, the village's own light (the one in the door's
 /// window in 01, the candle of the night): a paper body with ribs, a dark
@@ -38,18 +39,21 @@ class PaperLantern extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    return CustomPaint(
-      size: Size(width, heightFor(width, cord)),
-      painter: _LanternPainter(
-        cord: cord,
-        lit: lit.clamp(0, 1),
-        paper: ground.paper,
-        rib: ground.hairline,
-        cap: ground.paperEdge,
-        ink: ground.outline,
-        shadow: ground.shadow,
-        glow: ground.accent,
-        stroke: skin.shape.stroke,
+    return Drawn(
+      DrawnKind.lantern,
+      child: CustomPaint(
+        size: Size(width, heightFor(width, cord)),
+        painter: _LanternPainter(
+          cord: cord,
+          lit: lit.clamp(0, 1),
+          paper: ground.paper,
+          rib: ground.hairline,
+          cap: ground.paperEdge,
+          ink: ground.outline,
+          shadow: ground.shadow,
+          glow: ground.accent,
+          stroke: skin.shape.stroke,
+        ),
       ),
     );
   }
@@ -237,12 +241,15 @@ class _LanternMarkState extends State<LanternMark>
     return ExcludeSemantics(
       child: AnimatedBuilder(
         animation: _breath,
-        builder: (context, _) => CustomPaint(
-          size: Size(widget.size * 0.7, widget.size),
-          painter: _MarkPainter(
-            color: color,
-            flame: 0.35 + 0.65 * _breath.value,
-            stroke: stroke,
+        builder: (context, _) => Drawn(
+          DrawnKind.lantern,
+          child: CustomPaint(
+            size: Size(widget.size * 0.7, widget.size),
+            painter: _MarkPainter(
+              color: color,
+              flame: 0.35 + 0.65 * _breath.value,
+              stroke: stroke,
+            ),
           ),
         ),
       ),

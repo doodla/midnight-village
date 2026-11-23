@@ -40,6 +40,9 @@ import 'seats_line.dart';
 import 'home_numbers.dart';
 import 'lobby_notifier.dart';
 import 'where_am_i_provider.dart';
+import '../../../design_system/primitives/icon_action.dart';
+import '../../../design_system/primitives/rule.dart';
+import '../../../design_system/primitives/scrap_label.dart';
 
 /// 02 Table (first-time play spec, section 3): who is here, and the way to
 /// get the others in.
@@ -679,11 +682,10 @@ class _JoinCard extends StatelessWidget {
           final shareButton = link == null || share == null
               ? null
               // The skin has no art for sharing: the platform's glyph.
-              : IconButton(
+              : IconAction(
                   onPressed: () => share(link),
-                  tooltip: TableCopy.share,
-                  color: ink,
-                  icon: const Icon(Icons.ios_share),
+                  label: TableCopy.share,
+                  icon: Icons.ios_share,
                 );
           final codeOnly = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -733,10 +735,7 @@ class _JoinCard extends StatelessWidget {
               ],
             ),
           );
-          final divider = Container(
-            height: context.skin.shape.stroke,
-            color: context.ground.hairline,
-          );
+          const divider = Rule();
           return LayoutBuilder(
             builder: (context, room) {
               final beside =
@@ -846,11 +845,7 @@ class _SetupPanel extends StatelessWidget {
                         style: type.action.copyWith(color: ink),
                       ),
               ),
-              if (edit != null)
-                Text(
-                  TableCopy.editDeck,
-                  style: type.action.copyWith(color: ink),
-                ),
+              if (edit != null) const ScrapLabel(TableCopy.editDeck),
             ],
           ),
           if (cards.isNotEmpty) _DeckStrip(cards: cards, onRead: read),

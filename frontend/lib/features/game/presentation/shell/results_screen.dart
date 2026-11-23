@@ -31,6 +31,8 @@ import '../../domain/outcome_view.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
 import 'count_screen.dart' show EndWaiting;
+import '../../../../design_system/primitives/panels.dart';
+import '../../../../design_system/primitives/rule.dart';
 
 /// 11 Results (first-time play spec, section 3), wired to the game: the
 /// results body drawn by [ResultsView], for this phone ([GameMe.playerId])
@@ -667,15 +669,10 @@ class _NightHead extends StatelessWidget {
           borderRadius: BorderRadius.circular(skin.shape.radius),
           highlightColor: Colors.transparent,
           splashColor: Colors.transparent,
-          child: Container(
+          child: OutlinePanel(
             padding: const EdgeInsets.all(Space.smPlus),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: paths.isEmpty ? ground.hairline : ground.dangerLine,
-                width: skin.shape.ring,
-              ),
-              borderRadius: BorderRadius.circular(skin.shape.radius),
-            ),
+            color: paths.isEmpty ? ground.hairline : ground.dangerLine,
+            width: skin.shape.ring,
             child: Row(
               spacing: Space.sm,
               children: [
@@ -726,17 +723,11 @@ class _Line extends StatelessWidget {
     final skin = context.skin;
     final type = skin.typography;
     final ground = context.ground;
-    return Container(
+    return SideRule(
       margin: const EdgeInsets.only(left: Space.lg),
       padding: const EdgeInsets.fromLTRB(Space.md, Space.sm, 0, Space.sm),
-      decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(
-            color: line.werewolf ? ground.dangerLine : ground.hairline,
-            width: line.werewolf ? skin.shape.selectedRing : skin.shape.ring,
-          ),
-        ),
-      ),
+      color: line.werewolf ? ground.dangerLine : ground.hairline,
+      width: line.werewolf ? skin.shape.selectedRing : skin.shape.ring,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: Space.smPlus,

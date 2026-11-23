@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
+import '../primitives/drawn.dart';
 
 /// A seal cut from paper: a scalloped disc with a hard shadow under it and a
 /// padlock cut out of it. It is what a locked vote is stamped with (09), on
@@ -100,21 +101,24 @@ class _PaperSealState extends State<PaperSeal>
             ),
           );
         },
-        child: CustomPaint(
-          size: Size.square(widget.size),
-          painter: _SealPainter(
-            paper: ground.paper,
-            shadow:
-                ground.elevation.card.layers.firstOrNull?.color ??
-                ground.shadow,
-            mark: ground.danger,
-          ),
-          child: SizedBox.square(
-            dimension: widget.size,
-            child: Icon(
-              Icons.lock,
-              size: widget.size * 0.5,
-              color: ground.danger,
+        child: Drawn(
+          DrawnKind.mark,
+          child: CustomPaint(
+            size: Size.square(widget.size),
+            painter: _SealPainter(
+              paper: ground.paper,
+              shadow:
+                  ground.elevation.card.layers.firstOrNull?.color ??
+                  ground.shadow,
+              mark: ground.danger,
+            ),
+            child: SizedBox.square(
+              dimension: widget.size,
+              child: Icon(
+                Icons.lock,
+                size: widget.size * 0.5,
+                color: ground.danger,
+              ),
             ),
           ),
         ),

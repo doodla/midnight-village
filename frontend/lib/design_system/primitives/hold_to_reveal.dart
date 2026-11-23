@@ -12,6 +12,7 @@ import '../skin/ground_scope.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
 import 'paper_flip.dart';
+import 'paper_light.dart';
 
 /// How the face came to be shown.
 enum _Shown { held, activated }
@@ -263,7 +264,15 @@ class _HoldToRevealState extends State<HoldToReveal>
           controller: _portal,
           overlayChildBuilder: widget.inPlace ? _nothing : _face,
           child: Container(
-            foregroundDecoration: _focusHighlight
+            // Dressed up the focus is a lift (the paper's shadow deepens), not
+            // an outline.
+            decoration: _focusHighlight && context.dress.isPaper
+                ? BoxDecoration(
+                    borderRadius: radius,
+                    boxShadow: ground?.elevation.selected.litBy(context),
+                  )
+                : null,
+            foregroundDecoration: _focusHighlight && !context.dress.isPaper
                 ? BoxDecoration(
                     borderRadius: radius,
                     border: Border.all(

@@ -111,7 +111,8 @@ class WorldTimer extends StatelessWidget {
         Space.smPlus,
       ),
       decoration: BoxDecoration(color: ground.panel, borderRadius: radius),
-      foregroundDecoration: ringDecoration(
+      foregroundDecoration: frameRing(
+        context,
         color: ground.hairline,
         width: skin.shape.ring,
         radius: radius,

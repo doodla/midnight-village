@@ -455,7 +455,8 @@ class _FaceDownCardState extends State<FaceDownCard> {
               ...(dip > 0 ? base.lowered(dip) : base).litBy(context),
             ],
           ),
-      foregroundDecoration: ringDecoration(
+      foregroundDecoration: frameRing(
+        context,
         color: selected ? ground.selection : ground.hairline,
         width: selected ? skin.shape.selectedRing : skin.shape.ring,
         radius: radius,

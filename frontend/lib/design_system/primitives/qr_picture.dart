@@ -3,6 +3,7 @@ import 'package:qr/qr.dart';
 
 import '../layout/space.dart';
 import '../skin/skin.dart';
+import '../primitives/drawn.dart';
 
 /// A QR code for [data] (02: the link that joins the table), drawn square in
 /// the ink of the ground it sits on, with the quiet zone a reader needs. It
@@ -43,8 +44,11 @@ class QrPicture extends StatelessWidget {
               : side;
           return SizedBox.square(
             dimension: width,
-            child: CustomPaint(
-              painter: _QrPainter(image, ink: context.ground.text),
+            child: Drawn(
+              DrawnKind.qrCode,
+              child: CustomPaint(
+                painter: _QrPainter(image, ink: context.ground.text),
+              ),
             ),
           );
         },

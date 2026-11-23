@@ -12,6 +12,7 @@ import '../skin/skin_tilt.dart';
 import 'art_picture.dart';
 import 'count_badge.dart';
 import 'cut_paper.dart';
+import 'text_backing.dart';
 import 'fit_line.dart';
 
 /// [RoleCard]'s sizes. The thumbnails are at most their mock size and
@@ -156,7 +157,8 @@ class RoleCard extends StatelessWidget {
                     : null,
               )
             : null,
-        foregroundDecoration: ringDecoration(
+        foregroundDecoration: frameRing(
+          context,
           color: ringColor,
           width: ringWidth,
           radius: corners,
@@ -243,10 +245,14 @@ class RoleCard extends StatelessWidget {
           else
             portrait,
           const SizedBox(height: 5),
-          FitLine(
-            role.displayName,
-            style: skin.typography.badge.copyWith(
-              color: lit ? ground.text : ground.faintText,
+          // Dressed up the name may pass over the village or the moon: it
+          // keeps a backing (a plain screen's is nothing).
+          TextBacking(
+            child: FitLine(
+              role.displayName,
+              style: skin.typography.badge.copyWith(
+                color: lit ? ground.text : ground.faintText,
+              ),
             ),
           ),
         ],
@@ -395,7 +401,8 @@ class RolePortrait extends StatelessWidget {
               )
             : null,
         foregroundDecoration: framed
-            ? ringDecoration(
+            ? frameRing(
+                context,
                 color: ground.text,
                 width: skin.shape.ring,
                 radius: corners,

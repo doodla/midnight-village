@@ -21,6 +21,7 @@ import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../design_system/primitives/value_stepper.dart';
 import '../../../design_system/primitives/world_timer.dart';
+import '../../../design_system/skin/dress.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
@@ -29,6 +30,7 @@ import '../domain/role_config.dart';
 import 'lobby_notifier.dart';
 import 'seats_line.dart';
 import 'where_am_i_provider.dart';
+import '../../../design_system/primitives/dots.dart';
 
 /// A deck chip's name on screen.
 String deckChipLabel(DeckChip chip) => DeckCopy.chips[chip.index];
@@ -116,16 +118,19 @@ class _DeckScreenState extends ConsumerState<DeckScreen> {
       // Read until it answers; "One moment" while it cannot be.
       return BackHandler(
         onBack: close,
-        child: ScreenFrame(
-          ground: GroundKind.night,
-          body: Align(
-            alignment: Alignment.topCenter,
-            child: Waiting(
-              failing: read?.hasError ?? false,
-              onRetry: table == null
-                  ? () => ref.invalidate(myTableProvider)
-                  : () => ref.invalidate(lobbyProvider(table.lobbyCode)),
-              centred: true,
+        child: DressScope(
+          dress: DeckView.defaultDress,
+          child: ScreenFrame(
+            ground: GroundKind.night,
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: Waiting(
+                failing: read?.hasError ?? false,
+                onRetry: table == null
+                    ? () => ref.invalidate(myTableProvider)
+                    : () => ref.invalidate(lobbyProvider(table.lobbyCode)),
+                centred: true,
+              ),
             ),
           ),
         ),
@@ -178,7 +183,16 @@ class DeckView extends StatefulWidget {
     this.onPracticeSwitch,
     this.onPractice,
     this.onRetry,
+    this.dress,
   });
+
+  /// How the screen is dressed (null: as the live screen, [defaultDress]).
+  final Dress? dress;
+
+  /// The dress the live screen has: the host steps from the table (paper) to
+  /// here, so it is paper too (the owner, 23 November 2026: "some are paper,
+  /// some are not").
+  static const defaultDress = Dress.paper;
 
   final LobbyState lobby;
   final ValueChanged<int?> onSeats;
@@ -278,64 +292,67 @@ class DeckViewState extends State<DeckView> {
     final seats = table.seats;
     final picked = lobby.pickedCards;
     final need = lobby.cardsNeeded;
-    return ScreenFrame(
-      ground: GroundKind.night,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: Space.lg,
-        children: [
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Semantics(
-              header: true,
-              child: FitLine(DeckCopy.headline, style: type.headline),
+    return DressScope(
+      dress: widget.dress ?? DeckView.defaultDress,
+      child: ScreenFrame(
+        ground: GroundKind.night,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: Space.lg,
+          children: [
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Semantics(
+                header: true,
+                child: FitLine(DeckCopy.headline, style: type.headline),
+              ),
             ),
-          ),
-          _Players(
-            seats: seats,
-            present: _present,
-            range: _seatsRange,
-            // "Any" never quietly drops a deck of the host's own.
-            open: table.autoDeck,
-            onSeats: widget.onSeats,
-            practice: lobby.practiceOn
-                ? (count: lobby.practiceCount, most: lobby.practiceLimit)
-                : null,
-            onPracticeSwitch: widget.onPracticeSwitch,
-            onPractice: widget.onPractice,
-          ),
-          _Chips(
-            labels: DeckCopy.chips,
-            selected: table.autoDeck ? table.deckChip?.index : null,
-            onTap: (i) => widget.onChip(DeckChip.values[i]),
-          ),
-          if (need != null)
-            Nudge(
-              key: _nudge,
-              child: DeckCount(key: _count, picked: picked, need: need),
+            _Players(
+              seats: seats,
+              present: _present,
+              range: _seatsRange,
+              // "Any" never quietly drops a deck of the host's own.
+              open: table.autoDeck,
+              onSeats: widget.onSeats,
+              practice: lobby.practiceOn
+                  ? (count: lobby.practiceCount, most: lobby.practiceLimit)
+                  : null,
+              onPracticeSwitch: widget.onPracticeSwitch,
+              onPractice: widget.onPractice,
             ),
-          _Grid(
-            deck: lobby.tableCards,
-            onAdd: (role) => _change(role, RoleConfig.stepSize(role)),
-            onRemove: (role) => _change(role, -RoleConfig.stepSize(role)),
-            onHold: (role) => unawaited(showRoleSheet(context, role)),
-          ),
-          _Lengths(lobby: lobby, onLength: widget.onLength),
+            _Chips(
+              labels: DeckCopy.chips,
+              selected: table.autoDeck ? table.deckChip?.index : null,
+              onTap: (i) => widget.onChip(DeckChip.values[i]),
+            ),
+            if (need != null)
+              Nudge(
+                key: _nudge,
+                child: DeckCount(key: _count, picked: picked, need: need),
+              ),
+            _Grid(
+              deck: lobby.tableCards,
+              onAdd: (role) => _change(role, RoleConfig.stepSize(role)),
+              onRemove: (role) => _change(role, -RoleConfig.stepSize(role)),
+              onHold: (role) => unawaited(showRoleSheet(context, role)),
+            ),
+            _Lengths(lobby: lobby, onLength: widget.onLength),
+          ],
+        ),
+        actions: [
+          if (lobby.notSent)
+            Notice(
+              message: BannerCopy.notSent,
+              action: BannerCopy.tryAgain,
+              onAction: widget.onRetry,
+            ),
+          // An action, always "Done": a host who only changed a timer leaves
+          // at once. With the wrong number of cards the first tap shows the
+          // count (the page is not left to a table that cannot start by
+          // accident), the second leaves.
+          PrimaryButton(label: DeckCopy.done, onPressed: leave),
         ],
       ),
-      actions: [
-        if (lobby.notSent)
-          Notice(
-            message: BannerCopy.notSent,
-            action: BannerCopy.tryAgain,
-            onAction: widget.onRetry,
-          ),
-        // An action, always "Done": a host who only changed a timer leaves
-        // at once. With the wrong number of cards the first tap shows the
-        // count (the page is not left to a table that cannot start by
-        // accident), the second leaves.
-        PrimaryButton(label: DeckCopy.done, onPressed: leave),
-      ],
     );
   }
 }
@@ -456,17 +473,11 @@ class DeckCount extends StatelessWidget {
     Widget slot(int i) {
       final filled = i < picked;
       final ink = i >= need ? ground.dangerText : ground.text;
-      return Container(
-        width: size.width,
-        height: size.height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(skin.shape.radiusSmall / 2),
-          color: filled ? ink : null,
-          border: Border.all(
-            color: filled ? ink : ground.outline,
-            width: skin.shape.stroke,
-          ),
-        ),
+      return SlotMark(
+        filled: filled,
+        size: size,
+        ink: ink,
+        outline: ground.outline,
       );
     }
 

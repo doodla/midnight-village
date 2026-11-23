@@ -25,11 +25,6 @@ class PaperParts {
     this.barDepth = 2,
     this.plaqueDepth = 3.4,
     this.plaqueStep = 7,
-    this.plaqueInset = 3,
-    this.plaquePin = 5,
-    this.plaquePinIn = 11,
-    this.plaqueLineAlpha = 0.28,
-    this.plaquePinAlpha = 0.55,
     this.markScale = 1.4,
     this.backingBleed = const Offset(8, 5),
     this.backingAlpha = 0.9,
@@ -68,16 +63,9 @@ class PaperParts {
   final double skyStep;
   final double barDepth;
 
-  /// The plaque (the primary button's amber paper): its torn edge, the cut
-  /// line set in from it, the pin at each end and how far in it sits, and how
-  /// strongly the line and the pins show.
+  /// The plaque (the primary button's amber paper): its torn edge.
   final double plaqueDepth;
   final double plaqueStep;
-  final double plaqueInset;
-  final double plaquePin;
-  final double plaquePinIn;
-  final double plaqueLineAlpha;
-  final double plaquePinAlpha;
 
   /// The done mark's size, of the label's.
   final double markScale;

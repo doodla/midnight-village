@@ -6,45 +6,70 @@ import 'package:flutter/material.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/card_back_scope.dart';
+import '../skin/dress.dart';
+import '../skin/dress_style.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import '../skin/skin_tilt.dart';
 import '../teach/hold_cue.dart';
 import 'art_picture.dart';
+import 'cut_paper.dart';
 import 'fit_line.dart';
+import 'paper_piece.dart';
 
 /// A box drawn as an outline on the ground, holding a summary that opens
 /// something (the deck strip at the table, S02: thumbnails and "Edit").
-/// With [onTap] it is a button.
+/// With [onTap] it is a button. Dressed up it is a panel of paper set into
+/// the ground (a [PaperPiece]), never an outline. [color], [width] and
+/// [padding] are the plain outline's own where a screen needs another.
 class OutlinePanel extends StatelessWidget {
   const OutlinePanel({
     super.key,
     required this.child,
     this.onTap,
     this.semanticLabel,
+    this.color,
+    this.width,
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: Space.md,
+      vertical: Space.smPlus,
+    ),
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final String? semanticLabel;
 
+  /// The plain outline's colour and width: the hairline and the skin's stroke
+  /// where null.
+  final Color? color;
+  final double? width;
+  final EdgeInsetsGeometry padding;
+
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
     final radius = BorderRadius.circular(skin.shape.radius);
-    final panel = Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.md,
-        vertical: Space.smPlus,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        border: Border.all(color: ground.hairline, width: skin.shape.stroke),
-      ),
-      child: child,
-    );
+    final dressed = context.dress.isPaper;
+    final Widget panel = dressed
+        ? PaperPiece(
+            part: PaperPart.panel,
+            id: semanticLabel ?? #panel,
+            child: Padding(padding: padding, child: child),
+          )
+        : Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: color ?? ground.hairline,
+                width: width ?? skin.shape.stroke,
+              ),
+            ),
+            child: child,
+          );
     if (onTap == null) return panel;
     return Semantics(
       button: true,
@@ -55,6 +80,8 @@ class OutlinePanel extends StatelessWidget {
           onTap: onTap,
           borderRadius: radius,
           highlightColor: Colors.transparent,
+          focusColor: dressed ? Colors.transparent : null,
+          hoverColor: dressed ? Colors.transparent : null,
           child: panel,
         ),
       ),
@@ -184,13 +211,11 @@ class _PeekCard extends StatelessWidget {
       child: Container(
         width: size.width,
         height: size.height,
-        foregroundDecoration: BoxDecoration(
-          borderRadius: radius,
-          border: Border.all(
-            color: context.ground.mark,
-            width: skin.shape.ring,
-            strokeAlign: BorderSide.strokeAlignOutside,
-          ),
+        foregroundDecoration: frameRing(
+          context,
+          color: context.ground.mark,
+          width: skin.shape.ring,
+          radius: radius,
         ),
         child: Stack(
           fit: StackFit.expand,

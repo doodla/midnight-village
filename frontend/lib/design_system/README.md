@@ -11,6 +11,8 @@ what it describes.
 
 ## The dress: plain, or paper (one switch per screen)
 
+**Every component has a look in both dresses, listed in "Every component, in both dresses" below, and a paper one comes from ONE table (`skin/dress_style.dart`), never from its own code; paper draws no stroke.** The deck set-up page (03) is paper too (`DeckView.defaultDress`), so the host does not step from paper into plain.
+
 A screen is **plain** (the look the game has today, exactly) unless it asks to be **dressed up**:
 `ScreenFrame(dress: Dress.paper)` (`skin/dress.dart`; `dress: null` is as the screen above it, so
 a preview or a test can wrap the app in a `DressScope` and see every screen dressed). The frame
@@ -43,16 +45,14 @@ degrades to the plain one (a `PaperPin` takes no room, `PaperBanner` is its word
   only the PAPER is turned by the skin's seeded angle, `Tilt.seededCard` at most 2.5 degrees,
   `Tilt.seededRow` 1.2; the words stay level), `paper_banner.dart` (`PaperBanner`: torn bone paper
   with two pins; `bleed` lets the paper reach past the words' box), `paper_mark.dart` (`PaperMark`,
-  the one picked/done mark; `PaperMarkCorner` hangs it on a pick), `plaque.dart` (`Plaque`: the
-  primary button's deckled amber on a darker backing, a cut line, two pins; still one amber fill),
-  `fanned.dart` (`Fanned`: one card of a fan, turned and enlarged, paint only: a tap lands on the card's own
+  the one picked/done mark; `PaperMarkCorner` hangs it on a pick), `paper_piece.dart` (`PaperPiece`: the body of every paper component, from the one table `skin/dress_style.dart`; the primary button's amber on its backing is one), `fanned.dart` (`Fanned`: one card of a fan, turned and enlarged, paint only: a tap lands on the card's own
   untransformed slot. So that what is seen is what is tapped, its paper never reaches past its slot by more
   than half the row's `gap` toward a neighbour, nor the row above (`above`) by more than half of it, lift included: the skin's size and turn are taken down just until that holds,
   so no tap can land on the wrong card),
   `text_backing.dart` (`TextBacking`: a solid backing behind words that can sit over the village or a
   light), `lantern_pool.dart` (`LanternPool`), `paper_grain.dart` (`PaperGrain`, a seeded tile made
-  once), and the secondary button's pinned scrap, a picked row's mark and the sheet's torn top inside
-  their own parts.
+  once), and a picked row's mark and the sheet's torn top inside their own parts. The secondary button is a bone
+  scrap (no pin, no outline).
 - **`Mood`** (`primitives/mood.dart`; the palette is `skin.mood`, `MoodPalette`) is painted by a dressed
   `ScreenFrame` under everything: the ground, the game's own village (the layered art, the night
   village or the dawn gallows, at real strength in the top third and falling into shadow below), a
@@ -71,7 +71,77 @@ degrades to the plain one (a `PaperPin` takes no room, `PaperBanner` is its word
   measures the ground and its lights (7:1) and `dressed_contrast_test.dart` the real screens at 360 x 780
   and 390 x 844 with the village on, against the worst pixel round each word.
 - **To see it**: `just paper-dress` renders every part in both dresses (`test_screens/paper_dress_test.dart`)
-  and the table, your card and the night board in paper dress.
+  and the table, your card and the night board in paper dress. `just paper-parts` is the parts page: every inventory component in paper dress in every state
+  (rest, pressed, picked, locked, focused) on the night and lantern grounds (`test_screens/paper_parts_test.dart`,
+  from `test/helpers/parts_catalogue.dart`); `just paper-components` is the table, your card, the night board and
+  the card-details sheet as the live app has them, for before and after.
+
+## Every component, in both dresses (the inventory)
+
+`skin/dress_inventory.dart` is this list; `test/design_system/primitives/paper_components_test.dart`
+holds the code to it: every file in `primitives/` is a row here or says why it is not a component,
+every row has a sample on the parts page (`just paper-parts`), and no row paints a stroke on paper.
+Paper looks come from ONE table, `skin/dress_style.dart` (`PaperPart`, read by `PaperPiece`, the one
+body of every paper component); a component never draws its own fill, edge, shadow or border on a
+paper screen.
+
+**The one language for paper** (decided once, 23 November 2026, after "the paper look is so
+inconsistent"): paper pieces are flat matte paper with a deckled edge and the two-layer paper shadow
+of the screen's one light; NO strokes, outlines, inset lines or borders anywhere on paper (a piece's
+edge is its shape and its shadow); no pin dots on buttons (pins only where something is pinned to a
+board: notices, slips); the primary action is one piece of amber paper on a darker backing with
+nothing drawn in it but its label; secondary actions are bone paper scraps (a lower lift, same
+material); quiet actions are plain serif words with no underline; chips and tags are cut-paper tags;
+picked and done are the `PaperMark` only (no ring); disabled is faded paper that still says why;
+keyboard focus is a lifted shadow (no outline). Drawings that are lines by nature (the QR code's
+modules, the paper mark's tick, tally strokes, lantern cords, the hold ring, the scanner's corners)
+sit in a `Drawn` (`primitives/drawn.dart`), the one allow-list the stroke test knows. The plain dress
+is every component's own code, kept exactly as it was (the owner has not asked for those screens).
+
+| Component | Plain look | Paper look | File (under `lib/design_system/`) |
+| --- | --- | --- | --- |
+| PrimaryButton | amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline | ready: one amber piece on a darker backing, only its label in it; locked, waiting and quiet: a bone scrap (faded when waiting); the waiting "Choose" slot: a darker recess; done: words and the paper mark, no paper | `primitives/primary_button.dart` |
+| SecondaryButton | 2 px outline on the ground, no fill ("paper": a raised paper tile) | a bone scrap, lower lift than the amber; faded when waiting | `primitives/secondary_button.dart` |
+| TextAction | small button type, underlined, no fill | plain serif words in full ink, no underline, no paper; dims when pressed | `primitives/text_action.dart` |
+| IconAction | Material icon button (the table's Share) | a bone scrap square with the glyph | `primitives/icon_action.dart` |
+| GlyphButton | outlined square with a glyph; on = lift and fill | a bone scrap square with the glyph; on = lifted with the paper mark | `primitives/viewfinder.dart` |
+| ValueStepper | two outlined round buttons round the value | two bone paper discs (minus, plus), faded at the end of the range; the value on a ground backing | `primitives/value_stepper.dart` |
+| HoldRing | a ring that fills while the finger stays down, the word "Hold" | the same gauge (a drawing, allowed: `Drawn.holdGauge`) | `teach/hold_cue.dart` |
+| HoldToReveal | a focus outline on the cover | focus lifts the cover (a deeper shadow), no outline | `primitives/hold_to_reveal.dart` |
+| PresetChip | outlined box; the selected one lifts and takes a thicker ring | a cut-paper tag: bone, lifted and wearing the paper mark when selected; a darker scrap when not | `primitives/chips.dart` |
+| TagChip | flat fill in ink (danger for the Werewolf team) | a cut-paper tag in the same colours, with the badge shadow | `primitives/tag_chip.dart` |
+| YouTag | "You" outlined in the row's ink; "Practice" bare words | "You" on a cut-paper tag a shade darker than its row; "Practice" bare words | `primitives/you_tag.dart` |
+| CountBadge | a filled round badge with the number | the same flat disc with the badge shadow (never a ring) | `primitives/count_badge.dart` |
+| SeatDot / SlotMark | filled disc or slip; empty ones outlined | filled paper disc or slip; empty ones a darker paper disc, no outline | `primitives/dots.dart` |
+| ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | the same flat pips and words (no outline in either) | `primitives/progress_pips.dart` |
+| ScrapLabel | words in ink ("Edit") | a small bone scrap with the words | `primitives/scrap_label.dart` |
+| PlayerRow | paper row with a ring when picked or your own | a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are a drawing (`Drawn.tally`) | `primitives/player_row.dart` |
+| PlayerToken | round token art | the same token art | `primitives/player_token.dart` |
+| RoleCard | portrait with a ring (lit or hairline) and a count badge | the portrait as a piece of paper with its shadow, no ring; the count badge on its corner | `primitives/role_card.dart` |
+| Fanned | cards in a row | cards fanned a hair, paint only | `primitives/fanned.dart` |
+| FaceDownCard | card back in a ring, hard shadow; picked = ring, lift, glow | card back as paper with its shadow, no ring; picked = lift, deeper shadow, glow and the paper mark on its corner | `primitives/face_down_card.dart` |
+| PaperCard | cut paper card, hard shadow | deckled paper with the paper shadow; pinned = a pin through each top corner (a notice) | `primitives/paper_card.dart` |
+| HeldFace | the role card: portrait with a hairline frame, a rule above the text | the role card on paper, no frame and no rule | `faces/held_face.dart` |
+| RoleSheetBody | portrait, tags and the role's words on paper | the same on paper, its tags cut-paper tags | `primitives/role_sheet_body.dart` |
+| PeekBox | a strip of night laid on the day with a card in it | the same strip, paper shadow, no edge line | `primitives/panels.dart` |
+| OutlinePanel | 2 px hairline outline round a summary | a panel of paper set into the ground (darker tone), no outline | `primitives/panels.dart` |
+| Notice | one line of words and a quiet action ("Not sent." "Try again") | the same line, its action plain serif words | `primitives/notice.dart` |
+| QrPicture | the code in the ground's ink | the same, on the pinned notice (a drawing, allowed: `Drawn.qrCode`) | `primitives/qr_picture.dart` |
+| SkinField | name: raised paper tile; code: 2 px outline | name: a bone scrap; code: a panel of paper; lifted while it has the focus | `primitives/skin_field.dart` |
+| SheetScaffold | paper sheet with a lit strip along its top | a torn sheet of paper, no lit strip; its buttons are scraps | `primitives/sheet_scaffold.dart` |
+| Rule / SideRule | a hairline, or a line down a block's side | no line: the room it takes | `primitives/rule.dart` |
+| PaperBanner | its words on the ground | torn bone paper with two pins | `primitives/paper_banner.dart` |
+| TextBacking | nothing | a solid backing behind words that sit over the village | `primitives/text_backing.dart` |
+| Band / TimerBand | a band with the clock, the sun or the bar | the same band; the night board's sits on a banner | `primitives/band.dart` |
+| WorldTimer | the seconds beside a candle on a panel with a hairline frame | the same panel with no frame | `primitives/world_timer.dart` |
+| CandleGauge | the paper candle (art) on a ledge with a hairline | the candle on a ledge with no hairline (the candle is art) | `primitives/candle_gauge.dart` |
+| PaperMark | not drawn (a pick is a ring) | wax, a pressed ring and a brush tick: the one mark for picked and done (a drawing, allowed: `Drawn.mark`) | `primitives/paper_mark.dart` |
+| PaperSeal | a scalloped seal with a padlock | the same (a drawing, allowed: `Drawn.mark`) | `primitives/paper_seal.dart` |
+| PaperPin | takes no room | a flat pin: only where something is pinned (a notice, a slip) | `primitives/paper_pin.dart` |
+| Pending / BusyMark | the control sinks with a small lantern in its padding | the same, on the control's own paper | `primitives/pending.dart` |
+| Waiting | three paper lanterns on cords, lit one after another | the same | `primitives/waiting_sign.dart` |
+| PaperLantern | a cut-paper lantern with a warm glow | the same (a drawing, allowed: `Drawn.lantern`) | `primitives/paper_lantern.dart` |
+| Viewfinder / ShutteredWindow | a paper window with four corners; a closed one is outlined | the same window; a closed one is a recess of paper (the corners are a drawing, allowed: `Drawn.scanner`) | `primitives/viewfinder.dart` |
 
 ## First-time play pieces
 

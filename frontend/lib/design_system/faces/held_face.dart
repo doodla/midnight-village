@@ -8,6 +8,7 @@ import '../primitives/art_picture.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/paper_card.dart';
 import '../primitives/tag_chip.dart';
+import '../skin/dress.dart';
 import '../skin/ground.dart';
 import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
@@ -286,11 +287,14 @@ class _PageRow extends StatelessWidget {
     final type = skin.typography;
     return Container(
       padding: const EdgeInsets.only(top: Space.sm),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: ground.hairline, width: skin.shape.ring),
-        ),
-      ),
+      // Dressed up the paper has no rule: the room above the words is it.
+      decoration: context.dress.isPaper
+          ? null
+          : BoxDecoration(
+              border: Border(
+                top: BorderSide(color: ground.hairline, width: skin.shape.ring),
+              ),
+            ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: Space.md,
@@ -379,13 +383,16 @@ class _Portrait extends StatelessWidget {
     final skin = context.skin;
     final radius = BorderRadius.circular(skin.shape.radiusTiny);
     return Container(
-      foregroundDecoration: BoxDecoration(
-        borderRadius: radius,
-        border: Border.all(
-          color: context.ground.hairline,
-          width: skin.shape.ring,
-        ),
-      ),
+      // Dressed up the portrait has no frame (its shadow is its edge).
+      foregroundDecoration: context.dress.isPaper
+          ? null
+          : BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: context.ground.hairline,
+                width: skin.shape.ring,
+              ),
+            ),
       child: ClipRRect(
         borderRadius: radius,
         child: LayoutBuilder(

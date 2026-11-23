@@ -6,6 +6,7 @@ import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../primitives/hold_to_reveal.dart';
 import '../skin/skin.dart';
+import '../primitives/drawn.dart';
 
 /// The press-and-hold cue on a face-down card (the `hold` cue, first-time
 /// play spec, section 2): while [teaching], a plain ring on a veil of the
@@ -132,25 +133,28 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
           ).animate(CurvedAnimation(parent: _breath, curve: Curves.easeInOut)),
           child: SizedBox.square(
             dimension: ring,
-            child: CustomPaint(
-              painter: HoldRingPainter(
-                fill: _fill,
-                veil: night.ground.withValues(alpha: _veil),
-                track: night.text.withValues(alpha: _track),
-                ink: night.text,
-                width: skin.shape.selectedRing,
-              ),
-              child: showWord
-                  ? Center(
-                      child: Text(
-                        CommonCopy.hold,
-                        style: cue.copyWith(
-                          color: night.text,
-                          fontSize: cue.fontSize! * fit,
+            child: Drawn(
+              DrawnKind.holdGauge,
+              child: CustomPaint(
+                painter: HoldRingPainter(
+                  fill: _fill,
+                  veil: night.ground.withValues(alpha: _veil),
+                  track: night.text.withValues(alpha: _track),
+                  ink: night.text,
+                  width: skin.shape.selectedRing,
+                ),
+                child: showWord
+                    ? Center(
+                        child: Text(
+                          CommonCopy.hold,
+                          style: cue.copyWith(
+                            color: night.text,
+                            fontSize: cue.fontSize! * fit,
+                          ),
                         ),
-                      ),
-                    )
-                  : null,
+                      )
+                    : null,
+              ),
             ),
           ),
         );

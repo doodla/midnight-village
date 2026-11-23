@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../skin/dress.dart';
 import '../skin/elevation.dart';
 import '../skin/skin.dart';
+import '../primitives/drawn.dart';
 
 /// The one mark for "picked" and "done": a drop of ink-dark wax pressed on the
 /// paper, its edge a little uneven, a ring stamped in it and a brush tick
@@ -28,12 +29,15 @@ class PaperMark extends StatelessWidget {
     final ground = context.ground;
     return ExcludeSemantics(
       child: RepaintBoundary(
-        child: CustomPaint(
-          size: Size.square(size),
-          painter: _MarkPainter(
-            wax: color ?? ground.mark,
-            tick: onColor ?? ground.onMark,
-            cast: ground.shadow,
+        child: Drawn(
+          DrawnKind.mark,
+          child: CustomPaint(
+            size: Size.square(size),
+            painter: _MarkPainter(
+              wax: color ?? ground.mark,
+              tick: onColor ?? ground.onMark,
+              cast: ground.shadow,
+            ),
           ),
         ),
       ),

@@ -272,6 +272,23 @@ paper-dress folder="build/paper_dress":
       --dart-define=ENV=dev \
       --dart-define=PAPER_DRESS_DIR={{folder}}
 
+# The parts page: every component of the inventory in paper dress, in every
+# state, on the night and lantern grounds (a tall PNG each) into <folder>.
+# Usage: just paper-parts [folder]
+paper-parts folder="build/paper_parts":
+    flutter test test_screens/paper_parts_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=PAPER_PARTS_DIR={{folder}}
+
+# The table (host, guest), your card (back, face), the night board (5 and 10)
+# and the card-details sheet as the live app has them, a PNG each at 2x, into
+# <folder>: run on main and on a branch for before and after.
+# Usage: just paper-components [folder]
+paper-components folder="build/paper_components":
+    flutter test test_screens/paper_components_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=PAPER_COMPONENTS_DIR={{folder}}
+
 # The count in pictures (one death, a tie, nobody: at the end and one death as it
 # goes in four frames; ten players with long names at several widths and text
 # sizes) into <folder>. Usage: just count-pictures [folder] [width]

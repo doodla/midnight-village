@@ -29,6 +29,7 @@ import 'join_flow.dart';
 import 'scan/code_scanner.dart';
 import 'scan/scan_session.dart';
 import 'scan/scan_view.dart';
+import '../../../design_system/primitives/rule.dart';
 
 /// 01 Join (first-time play spec, section 3): a name first, then the way in.
 ///
@@ -623,7 +624,8 @@ class _JoinViewState extends State<JoinView> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         spacing: Space.xs,
                         children: [
-                          if (showStats) const Divider(height: Space.mdPlus),
+                          if (showStats)
+                            const Rule.divider(height: Space.mdPlus),
                           if (onlineLine != null && getApp != null)
                             Row(
                               spacing: Space.sm,

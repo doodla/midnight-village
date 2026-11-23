@@ -18,6 +18,7 @@ import 'fit_line.dart';
 import 'paper_seal.dart';
 import 'player_token.dart';
 import 'you_tag.dart';
+import '../primitives/drawn.dart';
 
 /// [PlayerRow]'s sizes: the mocks' rows, shrunk to the one name size (16,
 /// `type.name`; the owner's type choice of 23 November 2026). A row that is
@@ -401,9 +402,6 @@ class _PlayerRowState extends State<PlayerRow> {
     // Dressed up: torn paper set down a hair off square (the same every build,
     // from its name and token), pinned to the table; the words stay level.
     final seed = (token, name);
-    final ringed = widget.condemned
-        ? skin.shape.selectedRing + PlayerRow.condemnedExtra
-        : skin.shape.selectedRing;
     Widget dressedPaper() => AnimatedContainer(
       key: ValueKey(red),
       duration: duration,
@@ -418,22 +416,9 @@ class _PlayerRowState extends State<PlayerRow> {
           id: seed,
           elevation: dip > 0 ? base.lowered(dip) : base,
         ),
-        // The ring follows the torn edge: never a rounded one over it.
-        foregroundDecoration: picked
-            ? deckledRing(
-                context,
-                id: seed,
-                color: ground.selection,
-                width: ringed,
-              )
-            : own
-            ? deckledRing(
-                context,
-                id: seed,
-                color: ink,
-                width: skin.shape.selectedRing,
-              )
-            : null,
+        // Picked is the paper's mark and the lift, never a ring; the viewer's
+        // own row is told by its "You" tag (a ring along the torn edge was a
+        // border).
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             Space.sm,
@@ -570,11 +555,14 @@ class Tally extends StatelessWidget {
         children: [
           number,
           ExcludeSemantics(
-            child: CustomPaint(
-              size: TallyMarks.sizeOf(count),
-              painter: TallyMarks([
-                for (var k = 0; k < count; k++) struck(k),
-              ], ink),
+            child: Drawn(
+              DrawnKind.tally,
+              child: CustomPaint(
+                size: TallyMarks.sizeOf(count),
+                painter: TallyMarks([
+                  for (var k = 0; k < count; k++) struck(k),
+                ], ink),
+              ),
             ),
           ),
         ],

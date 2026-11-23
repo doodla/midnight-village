@@ -71,7 +71,8 @@ class PlayerToken extends StatelessWidget {
         child: Container(
           width: side,
           height: side,
-          foregroundDecoration: ringDecoration(
+          foregroundDecoration: frameRing(
+            context,
             color: ringColor ?? (away ? ground.idle : ground.text),
             width: skin.shape.ring,
             radius: radius,
