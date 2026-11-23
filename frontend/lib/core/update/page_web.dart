@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:web/web.dart' as web;
+
+import 'worker_renewal.dart';
 
 /// The commit the live site was built from (`/commit.txt`, written by
 /// `tool/vercel_build.sh`), asked of the network itself (`no-store`): the
@@ -24,25 +28,52 @@ Future<String?> fetchLiveBuild() async {
   }
 }
 
-/// Reloads the page so it runs the live build. The service worker and its
-/// cache are let go first: the reload is then a plain visit to the network
-/// (the page, then every file), never the old worker's copy of the old app,
-/// and the page registers the new build's worker as a first visit does
-/// (`web/flutter_bootstrap.js`). The seat is the server's: the app opens at
-/// the same screen (`HomeGate`, `/me/table/`).
-Future<void> reloadPage() async {
-  try {
-    final workers = web.window.navigator.serviceWorker;
-    final registrations = (await workers.getRegistrations().toDart).toDart;
-    for (final registration in registrations) {
-      await registration.unregister().toDart;
-    }
-    final names = (await web.window.caches.keys().toDart).toDart;
-    for (final name in names) {
-      await web.window.caches.delete(name.toDart).toDart;
-    }
-  } catch (_) {
-    // Reload all the same: the loader's own check still updates the worker.
+/// Brings the service worker up to date before the reload (`renewWorker`):
+/// nothing is unregistered and no cache is deleted, so a connection that
+/// drops now leaves the old build running. The generated worker skips
+/// waiting and claims its clients, so the new one serves the reload.
+/// Where the browser has no service worker there is nothing to renew.
+Future<bool> renewServiceWorker() => renewWorker(
+  registration: () async {
+    if (!(web.window.navigator as JSObject).has('serviceWorker')) return null;
+    final registration = await web.window.navigator.serviceWorker
+        .getRegistration()
+        .toDart;
+    return registration == null ? null : _Registration(registration);
+  },
+);
+
+class _Registration implements WorkerRegistration {
+  _Registration(this._registration);
+
+  final web.ServiceWorkerRegistration _registration;
+
+  @override
+  Future<void> update() async {
+    await _registration.update().toDart;
   }
-  web.window.location.reload();
+
+  @override
+  Future<void> untilCurrent() {
+    final coming = _registration.installing ?? _registration.waiting;
+    if (coming == null || coming.state == 'activated') return Future.value();
+    final done = Completer<void>();
+    coming.addEventListener(
+      'statechange',
+      ((web.Event _) {
+        if (done.isCompleted) return;
+        if (coming.state == 'activated') done.complete();
+        if (coming.state == 'redundant') {
+          done.completeError(StateError('the new worker was discarded'));
+        }
+      }).toJS,
+    );
+    return done.future;
+  }
 }
+
+/// Reloads the page so it runs the live build: a plain visit to the network
+/// for the page (the shell is `no-cache`), and the files from the worker that
+/// has just taken over. The seat is the server's: the app opens at the same
+/// screen (`HomeGate`, `/me/table/`).
+Future<void> reloadPage() async => web.window.location.reload();

@@ -226,33 +226,46 @@ app" above); an open one was never updated.
   One tiny request each; resume and smell looks are never closer than 10 s apart.
 - A different live build reloads the page at the next SAFE moment, by the one rule
   `mayReloadNow`: never while a `playerRequest` is out (`playerRequestsOut`), a game tap is
-  queued, in flight or unsent (`Outbox.hasTapsOnTheWay`), a host's change is on its way, or text
-  is typed in a field. Then at once on 01, at a table before the deal (02, 03), on the count and
-  the results (10, 11) and on "You're at another table."; in a running game (04, the night
-  board, 08, 09) at the next phase or stage change or the next resume, whichever comes first.
-  Nothing is shown or said.
-- The reload lets go of the service worker and its caches first (`reloadPage`), so the page and
-  every file come from the network, and the page registers the new worker as a first visit does.
-  The app then opens as it does cold: `/me/table/` and the seat kept on the device
+  queued, in flight or unsent (`Outbox.hasTapsOnTheWay`), a host's change is on its way, a name or
+  code is typed on 01 (`JoinDraft`; it is also kept in the tab's `sessionStorage` and restored
+  after any reload), text is in the focused field, or the camera scanner is open. Then at once on
+  01, at a table before the deal (02, 03), on the results (11) and on "You're at another table.".
+  **In a running game (04, the night board, 08, 09, the count 10) never on a phase change or on
+  the timer** (a player must not enter the night or the vote with a cold reload inside a timed
+  stage): only when the tab becomes visible again after being hidden for more than 5 seconds, and
+  nothing is in flight; otherwise it waits for the results (11) or the table. Nothing is shown or
+  said.
+- Before reloading the page asks its service worker to update (`registration.update()`) and waits
+  for the new worker to take over (the generated worker skips waiting and claims its clients),
+  for at most 10 seconds (`renewWorker`). Nothing is unregistered and no cache is deleted, so a
+  connection that drops at that moment leaves the old app running, never the browser's offline
+  page; if the worker does not take over in time the app leaves everything as it is and tries
+  again at its next look. The reload then fetches the page (`no-cache`) and the files from the new
+  worker. The app then opens as it does cold: `/me/table/` and the seat kept on the device
   (`LastSeat`) put a seated player back on the same screen (tests: `new_build_restore_test.dart`
   for a waiting table, the night, the talk, the vote and the count).
-- No loop: the build reloaded for is kept on the device (`mv.reloaded.v1.<commit>`). If the
-  live build still differs after a reload (a shell the network did not replace), the app does not
-  reload again for that build; only a still newer one reloads it again.
+- No loop: the build reloaded for is kept for THIS TAB (`sessionStorage`, `mv.reloadedFor.v1`;
+  another tab, still on the old build, reloads for it on its own). If the live build still differs
+  after a reload (a shell the network did not replace), the tab does not reload again for that
+  build; only a still newer one reloads it again.
 - `vercel.json` sends `Cache-Control: no-cache` for the page, `flutter_bootstrap.js`,
   `main.dart.js`, `flutter_service_worker.js` and /commit.txt (every path outside
   `/assets/`, `/canvaskit/`, `/icons/`, `/zxing/`), so the shell is revalidated, never kept.
 - **A file removed from the bundle** is still asked for by an app left open on the last release
   (it reloads soon, but not at once, in a game). `tool/release_assets.json` lists the files of the
-  last release (`just record-assets` in `frontend/`, run deliberately when a build goes out);
-  `test/design_system/asset_release_test.dart` fails when a listed file is gone from the bundle
-  unless it is a retired alias that stays as a copy (`ArtSet.retired`) or is in the file's
+  last release (a fallback; `just record-assets` in `frontend/` writes it and REFUSES while a
+  removal is uncovered); `test/design_system/asset_release_test.dart` compares the bundle with the
+  files at the main branch (origin/main) (CI fetches it) and fails when one is gone from the bundle unless it is a retired alias that stays as a copy (`ArtSet.retired`) or is in the file's
   `removedOnPurpose` with a date and a reason.
-- **Checks**: "Web page smoke" (`tool/web_smoke/smoke.cjs`) serves the build with the routing
-  read from `vercel.json` itself: a made-up picture is a 404, `/commit.txt` is the commit built,
+- **Checks**: "Web page smoke" first runs `tool/web_smoke/routes.test.cjs`, which compiles
+  `vercel.json` with Vercel's own `@vercel/routing-utils` (installed in that job only, by
+  `just web-smoke-setup`) and walks its routes; then `tool/web_smoke/smoke.cjs` serves the build
+  through the same walk: a made-up picture is a 404, `/commit.txt` is the commit built,
   `/app` still redirects, app routes still get the page, an old tab reloads itself for the new
   build when resumed, and a shell that stays old is reloaded for once, never in a loop. After a
-  merge, "Deployed Check" also asks the live host for a made-up picture (must be 404).
+  merge, "Deployed Check" also asks the live host for `/commit.txt` (must be the merged commit),
+  a made-up picture (must be 404) and the join link of the table it opened, `/join/<code>` (must
+  be 200 with the app's page: `/` is a file, so only a route proves the rewrite).
 
 **The installed Android app** has no service worker and its pictures ship inside it: it never
 reloads and does not look (`BuildId.mine` is `local` off the web). An old installed app keeps its

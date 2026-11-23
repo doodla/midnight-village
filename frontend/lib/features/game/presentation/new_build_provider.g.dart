@@ -105,6 +105,61 @@ final class LiveBuildFetchProvider
 
 String _$liveBuildFetchHash() => r'3df37d10a33da48cdaae39add7ccc871031729f3';
 
+/// Brings the page's service worker up to date before a reload; false when it
+/// could not. A test says how it goes.
+
+@ProviderFor(workerRenewal)
+const workerRenewalProvider = WorkerRenewalProvider._();
+
+/// Brings the page's service worker up to date before a reload; false when it
+/// could not. A test says how it goes.
+
+final class WorkerRenewalProvider
+    extends
+        $FunctionalProvider<
+          Future<bool> Function(),
+          Future<bool> Function(),
+          Future<bool> Function()
+        >
+    with $Provider<Future<bool> Function()> {
+  /// Brings the page's service worker up to date before a reload; false when it
+  /// could not. A test says how it goes.
+  const WorkerRenewalProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'workerRenewalProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$workerRenewalHash();
+
+  @$internal
+  @override
+  $ProviderElement<Future<bool> Function()> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  Future<bool> Function() create(Ref ref) {
+    return workerRenewal(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Future<bool> Function() value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Future<bool> Function()>(value),
+    );
+  }
+}
+
+String _$workerRenewalHash() => r'0ce5e7db2102a4f314961877cb33f9100f63bc15';
+
 /// Reloads the page. A test counts reloads instead.
 
 @ProviderFor(pageReload)
@@ -157,6 +212,61 @@ final class PageReloadProvider
 
 String _$pageReloadHash() => r'2ecda1181f7f70fc6e25676289d5bd20d2f824d0';
 
+/// The clock `NewBuild` measures how long the tab was away by (the healing
+/// clock; a test moves its own).
+
+@ProviderFor(newBuildClock)
+const newBuildClockProvider = NewBuildClockProvider._();
+
+/// The clock `NewBuild` measures how long the tab was away by (the healing
+/// clock; a test moves its own).
+
+final class NewBuildClockProvider
+    extends
+        $FunctionalProvider<
+          DateTime Function(),
+          DateTime Function(),
+          DateTime Function()
+        >
+    with $Provider<DateTime Function()> {
+  /// The clock `NewBuild` measures how long the tab was away by (the healing
+  /// clock; a test moves its own).
+  const NewBuildClockProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'newBuildClockProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$newBuildClockHash();
+
+  @$internal
+  @override
+  $ProviderElement<DateTime Function()> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DateTime Function() create(Ref ref) {
+    return newBuildClock(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DateTime Function() value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DateTime Function()>(value),
+    );
+  }
+}
+
+String _$newBuildClockHash() => r'43d5584d2c7279349d754f567e71648521f70fb9';
+
 /// The app learning of a newer build and renewing itself at a safe moment
 /// (`NewBuild`, `mayReloadNow`). Null where there is nothing to renew: a
 /// local run, a test, the installed app. Started by `App`.
@@ -207,4 +317,4 @@ final class NewBuildProvider
   }
 }
 
-String _$newBuildHash() => r'3bd1bad9eec84c2084c724e97e8f5acffe438b86';
+String _$newBuildHash() => r'8417ad81ef6a170a74a6e029c5f62355819a13cc';

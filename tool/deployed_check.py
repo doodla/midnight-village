@@ -8,9 +8,14 @@ hand. It uses only public addresses (no Vercel, database or Redis account):
    /api/health/ and the app's /commit.txt both name it);
 2. the server's health answers JSON;
 3. the app's page loads and its bundle names the server it is checked against,
-   and the server lets the app's origin call it (a CORS preflight);
+   the app's `/commit.txt` is the merged commit, a picture that is not there
+   answers 404 (never the app's page), and the server lets the app's origin
+   call it (a CORS preflight);
 4. a real Start and Join through the deployed routing: guest A is made, opens a
    table, guest B joins by its code, both read the table and see two players;
+   while that table is open, the app's own link to it (`/join/<code>`, what every
+   QR code holds) answers 200 with the app's page: `/` is a file, so only a path
+   like this one proves the host's rewrite works;
 5. both leave, always, even when a step failed or its answer was lost: each
    guest asks the server where it sits and leaves that table (the last one out
    deletes it). What stays behind: two guest accounts named `Deploy check A` and
@@ -128,7 +133,29 @@ def check_health(api):
         raise Failed(f"health: the server answered {body!r}, wanted status ok")
 
 
-def check_app(api, app):
+def check_join_link(app, code):
+    """The link a QR code holds, for a table that is open right now, serves the app."""
+    url = f"{app}/join/{code}"
+    status, _, raw = call("GET", url, headers={"Accept": "text/html"})
+    if status != 200 or b"flutter_bootstrap" not in raw:
+        raise Failed(
+            f"the table's link: GET {url} answered {status} and is not the app's page"
+            " (the host's rewrite for app routes is broken: every QR link would fail)"
+        )
+
+
+def check_commit(app, commit):
+    """The app serves the merged commit's build (/commit.txt)."""
+    status, _, raw = call("GET", f"{app}/commit.txt")
+    served = raw.decode("utf-8", "replace").strip()
+    if status != 200 or served != commit:
+        raise Failed(
+            f"the app's build: GET {app}/commit.txt answered {status} {served[:40]!r},"
+            f" wanted the merged commit {commit[:10]}"
+        )
+
+
+def check_app(api, app, commit=None):
     status, headers, raw = call("GET", f"{app}/", headers={"Accept": "text/html"})
     if status != 200 or b"flutter" not in raw.lower():
         raise Failed(f"the app's page: GET {app}/ answered {status} and is not the app")
@@ -146,6 +173,8 @@ def check_app(api, app):
             f"a missing picture: GET {app}/assets/no-such-picture-deployed-check.webp"
             f" answered {status}, wanted 404 (the app's page must not stand in for a file)"
         )
+    if commit:
+        check_commit(app, commit)
     status, headers, _ = call(
         "OPTIONS",
         f"{api}/api/auth/guest/",
@@ -163,8 +192,10 @@ def check_app(api, app):
         )
 
 
-def start_and_join(api, origin=None):
-    """Guest A opens a table, guest B joins by code, both see two players; both always leave."""
+def start_and_join(api, origin=None, on_table=None):
+    """Guest A opens a table, guest B joins by code, both see two players; both always leave.
+
+    `on_table(code)` is called while the table is open (the app's link to it is probed then)."""
     guests = []  # the tokens of the guests made, in order: the host, then the joiner
 
     def guest(name):
@@ -195,6 +226,8 @@ def start_and_join(api, origin=None):
         code = table.get("code")
         if not code:
             raise Failed(f"Start: no table code in {sorted(table)}")
+        if on_table:
+            on_table(code)
         b = guest(GUEST_NAMES[1])
         joined = json_call(
             "Join by code",
@@ -265,8 +298,17 @@ def run(api, app=None, commit=None, wait=900):
         )
     steps.append(("the server's health", lambda: check_health(api)))
     if app:
-        steps.append(("the app and its server", lambda: check_app(api, app)))
-    steps.append(("Start and Join", lambda: start_and_join(api, origin=app)))
+        steps.append(("the app and its server", lambda: check_app(api, app, commit)))
+    steps.append(
+        (
+            "Start and Join",
+            lambda: start_and_join(
+                api,
+                origin=app,
+                on_table=(lambda code: check_join_link(app, code)) if app else None,
+            ),
+        )
+    )
     failures = []
     for name, step in steps:
         try:

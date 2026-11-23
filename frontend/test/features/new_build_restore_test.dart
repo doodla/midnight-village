@@ -12,6 +12,8 @@ import 'package:midnight_village/core/api/auth_interceptor.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/core/storage/device_preferences.dart';
+import 'package:midnight_village/core/storage/tab_storage.dart';
+import 'package:midnight_village/core/storage/tab_storage_provider.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:midnight_village/core/storage/user_storage.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
@@ -110,7 +112,35 @@ class _Page {
   var live = 'old';
   final resumes = StreamController<int>.broadcast();
   var _resumed = 0;
-  void resume() => resumes.add(++_resumed);
+
+  /// The tab's own storage: the reloaded page keeps it (a new page in the
+  /// same tab), which is where the loop guard lives.
+  final storage = MemoryTabStorage();
+
+  /// The clock the away time is measured by; the tab's time away moves it.
+  var clock = sampleClockStart;
+
+  /// The tab goes to the background for a while and comes back: the page's
+  /// visibility, as Flutter reports it, and the app's own resume.
+  Future<void> comeBack(WidgetTester tester) async {
+    final binding = tester.binding;
+    for (final state in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+    ]) {
+      binding.handleAppLifecycleStateChanged(state);
+    }
+    await tester.pump(const Duration(seconds: 10));
+    clock = clock.add(const Duration(seconds: 10));
+    for (final state in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      binding.handleAppLifecycleStateChanged(state);
+    }
+    resumes.add(++_resumed);
+    await tester.pump();
+  }
 }
 
 final _lobbyCode = 'K7QX4M';
@@ -212,9 +242,12 @@ Future<void> _open(
         // The build this app is, and the one the host says is live.
         buildIdProvider.overrideWithValue(mine),
         liveBuildFetchProvider.overrideWithValue(() async => page.live),
+        workerRenewalProvider.overrideWithValue(() async => true),
         pageReloadProvider.overrideWithValue(
           () async => page.reloads.add(page.live),
         ),
+        tabStorageProvider.overrideWithValue(page.storage),
+        newBuildClockProvider.overrideWithValue(() => page.clock),
       ],
       child: const App(),
     ),
@@ -272,7 +305,7 @@ void main() {
       'the results (the count, 10)',
       me: recordedMe('me_results'),
       screen: CountView,
-      waitsForTheGame: false,
+      waitsForTheGame: true,
       results: recordedResults('results'),
     ),
   ];
@@ -310,8 +343,8 @@ void main() {
         if (c.waitsForTheGame) {
           // A game that runs: not now ...
           expect(page.reloads, isEmpty, reason: 'it waits for a moment');
-          // ... but when the app comes back.
-          page.resume();
+          // ... not at a phase change either, but when the app comes back.
+          await page.comeBack(tester);
           await _until(tester, () => page.reloads.isNotEmpty);
         } else {
           await _until(tester, () => page.reloads.isNotEmpty);
@@ -332,7 +365,7 @@ void main() {
           results: c.results,
         );
         await _until(tester, () => c.finder.evaluate().isNotEmpty);
-        page.resume();
+        await page.comeBack(tester);
         await tester.pump(const Duration(seconds: 1));
         expect(page.reloads, ['new']);
         await _close(tester);
@@ -354,7 +387,7 @@ void main() {
       );
       await openOld();
       await _until(tester, () => c.finder.evaluate().isNotEmpty);
-      page.resume();
+      await page.comeBack(tester);
       await _until(tester, () => page.reloads.isNotEmpty);
       await _close(tester);
 
@@ -362,9 +395,9 @@ void main() {
       // seat and is left alone, at every moment there is.
       await openOld();
       await _until(tester, () => c.finder.evaluate().isNotEmpty);
-      page.resume();
+      await page.comeBack(tester);
       await tester.pump(const Duration(minutes: 6));
-      page.resume();
+      await page.comeBack(tester);
       await tester.pump(const Duration(seconds: 1));
       expect(page.reloads, ['new'], reason: 'once, never in a loop');
       expect(c.finder, findsOneWidget);

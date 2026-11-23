@@ -253,7 +253,7 @@ web-smoke *build:
 
 # Installs what `web-smoke` needs where it looks first (CI: the "Web page smoke" job)
 web-smoke-setup:
-    npm install --no-save --prefix tool/web_smoke playwright@1.63.0
+    npm install --no-save --prefix tool/web_smoke playwright@1.63.0 @vercel/routing-utils@6.6.1
     npx --prefix tool/web_smoke playwright install --with-deps chromium
 
 # Build for web (production)

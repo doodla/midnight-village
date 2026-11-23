@@ -9,25 +9,31 @@ enum Moment {
   /// settled, the slow look).
   learned,
 
-  /// The screen changed: the table moved to its next phase, or a screen was
-  /// left for another.
+  /// The screen changed: a screen was left for another (the table moved on
+  /// to its next phase, a game ended). A running game never reloads for this.
   screenChanged,
 
-  /// The tab is visible again (the app came back to the foreground).
+  /// The tab is visible again after it was hidden for longer than
+  /// `NewBuild.awayFor` (the app came back to the foreground): the one
+  /// moment a running game renews itself at.
   resumed,
 }
 
 /// An app left open keeps running the build it was loaded with. This learns
-/// which build is live (`/commit.txt`) and, when it is not [mine], reloads
-/// the page at a safe moment ([safe]); the app then opens as it does cold,
-/// so a seated player lands back in their seat on the same screen.
+/// which build is live (`/commit.txt`) and, when it is not [mine], brings the
+/// page's service worker up to date ([renewWorker]: nothing is let go of) and
+/// reloads the page at a safe moment ([safe]); the app then opens as it does
+/// cold, so a seated player lands back in their seat on the same screen.
+/// When the worker cannot be brought up to date (a failed update, no new
+/// worker within its bound) nothing is changed and the app is left running
+/// as it is; the next look tries again.
 ///
 /// Looks: when the app starts, when it is resumed, when something smells
 /// like a stale build ([smelled]) and on a slow timer, one small request
 /// each, and never more often than [gap] apart except the timer's own
 /// ([every]). Never reloads twice for one live build: the build reloaded for
-/// is kept on the device ([rememberReload]), so a shell that is still the
-/// old one cannot loop.
+/// is kept for this tab ([rememberReload]; another tab is its own), so a
+/// shell that is still the old one cannot loop.
 ///
 /// Nothing here waits for anything the player can feel, shows anything or
 /// says anything.
@@ -35,6 +41,7 @@ class NewBuild {
   NewBuild({
     required this.mine,
     required this.fetchLive,
+    required this.renewWorker,
     required this.reload,
     required this.reloadedFor,
     required this.rememberReload,
@@ -42,6 +49,7 @@ class NewBuild {
     required this.now,
     this.every = const Duration(minutes: 5),
     this.gap = const Duration(seconds: 10),
+    this.awayFor = const Duration(seconds: 5),
   });
 
   /// The build this app is.
@@ -50,10 +58,14 @@ class NewBuild {
   /// The live build's commit, or null when it cannot be read.
   final Future<String?> Function() fetchLive;
 
+  /// Brings the page's service worker up to date (`renewWorker`); false when
+  /// it could not within its bound, with everything left as it was.
+  final Future<bool> Function() renewWorker;
+
   /// Reloads the page.
   final Future<void> Function() reload;
 
-  /// The build this device last reloaded for (none yet: null).
+  /// The build this tab last reloaded for (none yet: null).
   final Future<String?> Function() reloadedFor;
   final Future<void> Function(String build) rememberReload;
 
@@ -69,6 +81,10 @@ class NewBuild {
   /// The shortest time between two looks that are not the slow one.
   final Duration gap;
 
+  /// How long the tab must have been hidden for its coming back to be a
+  /// [Moment.resumed] (a glance away is not one).
+  final Duration awayFor;
+
   Timer? _timer;
   Object? _place;
   var _shown = false;
@@ -77,8 +93,13 @@ class NewBuild {
   var _read = false;
   var _checking = false;
   var _reloading = false;
+
+  /// The worker could not be brought up to date: not tried again until the
+  /// next look (the slow timer, a come-back, a smell), never in a hurry.
+  var _renewFailed = false;
   var _disposed = false;
   DateTime? _lastLook;
+  DateTime? _hiddenAt;
 
   /// Whether a newer build is known and a reload is waiting for its moment.
   bool get waiting => _live != null;
@@ -106,12 +127,21 @@ class NewBuild {
     Timer.run(() => _consider(moment));
   }
 
-  /// The app is visible again.
+  /// The tab was hidden (another tab, the screen off).
+  void hidden() => _hiddenAt ??= now();
+
+  /// The app is visible again. After more than [awayFor] hidden it is a
+  /// [Moment.resumed]; a glance away is not one.
   void resumed() {
+    final since = _hiddenAt;
+    _hiddenAt = null;
+    final away = since != null && now().difference(since) > awayFor;
+    final moment = away ? Moment.resumed : Moment.learned;
+    _renewFailed = false;
     if (_live != null) {
-      _consider(Moment.resumed);
+      _consider(moment);
     } else {
-      unawaited(look(moment: Moment.resumed));
+      unawaited(look(moment: moment));
     }
   }
 
@@ -147,6 +177,7 @@ class NewBuild {
       // old one. Never again for this build.
       if (live == _reloadedFor) return;
       _live = live;
+      _renewFailed = false;
     } catch (_) {
       return;
     } finally {
@@ -157,14 +188,26 @@ class NewBuild {
 
   void _consider(Moment moment) {
     final live = _live;
-    if (_disposed || live == null || _reloading) return;
+    if (_disposed || live == null || _reloading || _renewFailed) return;
     if (!safe(_place, moment)) return;
     _reloading = true;
-    unawaited(_reloadFor(live));
+    unawaited(_reloadFor(live, moment));
   }
 
-  Future<void> _reloadFor(String live) async {
+  Future<void> _reloadFor(String live, Moment moment) async {
     try {
+      // The worker first: if it cannot be brought up to date, leave
+      // everything as it is and try again at the next look.
+      if (!await renewWorker()) {
+        _renewFailed = true;
+        _reloading = false;
+        return;
+      }
+      // The player may have tapped or moved on meanwhile: ask again.
+      if (_disposed || !safe(_place, moment)) {
+        _reloading = false;
+        return;
+      }
       await rememberReload(live);
       await reload();
     } catch (_) {

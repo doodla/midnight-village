@@ -9,10 +9,11 @@ import '../../../core/update/page_stub.dart'
     if (dart.library.js_interop) '../../../core/update/page_web.dart'
     as page;
 import '../../../core/update/stale_smell.dart';
-import '../../../design_system/skin/skin_choice.dart'
-    show devicePreferencesProvider;
+import '../../../core/storage/tab_storage_provider.dart';
 import '../../lobby/domain/lobby_state.dart' show TableCards;
+import '../../lobby/presentation/join_flow.dart' show joinDraftProvider;
 import '../../lobby/presentation/lobby_notifier.dart';
+import '../../lobby/presentation/scan/scan_session.dart';
 import '../../lobby/presentation/where_am_i_provider.dart';
 import '../domain/reload_rule.dart';
 import 'live_game.dart';
@@ -27,12 +28,24 @@ String buildId(Ref ref) => BuildId.mine;
 @Riverpod(keepAlive: true)
 Future<String?> Function() liveBuildFetch(Ref ref) => page.fetchLiveBuild;
 
+/// Brings the page's service worker up to date before a reload; false when it
+/// could not. A test says how it goes.
+@Riverpod(keepAlive: true)
+Future<bool> Function() workerRenewal(Ref ref) => page.renewServiceWorker;
+
 /// Reloads the page. A test counts reloads instead.
 @Riverpod(keepAlive: true)
 Future<void> Function() pageReload(Ref ref) => page.reloadPage;
 
-/// Where this device keeps the build it last reloaded for (`NewBuild`).
-const reloadedForPrefix = 'mv.reloaded.v1.';
+/// The clock `NewBuild` measures how long the tab was away by (the healing
+/// clock; a test moves its own).
+@Riverpod(keepAlive: true)
+DateTime Function() newBuildClock(Ref ref) => ref.watch(clockProvider);
+
+/// Where this TAB keeps the build it last reloaded for (`NewBuild`, the loop
+/// guard): per tab (`TabStorage`), so another tab, still running the old
+/// build, reloads for it on its own.
+const reloadedForKey = 'mv.reloadedFor.v1';
 
 /// The app learning of a newer build and renewing itself at a safe moment
 /// (`NewBuild`, `mayReloadNow`). Null where there is nothing to renew: a
@@ -41,30 +54,39 @@ const reloadedForPrefix = 'mv.reloaded.v1.';
 NewBuild? newBuild(Ref ref) {
   final mine = ref.watch(buildIdProvider);
   if (!BuildId.isReal(mine)) return null;
-  final preferences = ref.read(devicePreferencesProvider);
+  final storage = ref.read(tabStorageProvider);
   final watch = NewBuild(
     mine: mine,
     fetchLive: ref.read(liveBuildFetchProvider),
+    renewWorker: ref.read(workerRenewalProvider),
     reload: ref.read(pageReloadProvider),
-    reloadedFor: () async {
-      final kept = await preferences.readFlags(reloadedForPrefix);
-      return kept.firstOrNull?.substring(reloadedForPrefix.length);
-    },
-    rememberReload: (build) async {
-      await preferences.clearFlags(reloadedForPrefix);
-      await preferences.setFlag('$reloadedForPrefix$build');
-    },
+    reloadedFor: () async => storage.read(reloadedForKey),
+    rememberReload: (build) async => storage.write(reloadedForKey, build),
     safe: (place, moment) => mayReloadNow(
       place: place,
       moment: moment,
       busy: _tapsOnTheWay(ref),
-      halfTyped: textIsBeingTyped(),
+      halfTyped: _halfDone(ref),
     ),
-    now: ref.read(clockProvider),
+    now: ref.read(newBuildClockProvider),
   );
-  ref.listen(appResumesProvider, (_, next) {
-    if (next.hasValue) watch.resumed();
-  });
+  // The tab hidden and coming back (the web reports it as the app's
+  // lifecycle): a running game renews itself only at a come-back after a
+  // while away.
+  final lifecycle = AppLifecycleListener(
+    onStateChange: (state) {
+      switch (state) {
+        case AppLifecycleState.hidden:
+        case AppLifecycleState.paused:
+        case AppLifecycleState.detached:
+          watch.hidden();
+        case AppLifecycleState.resumed:
+          watch.resumed();
+        case AppLifecycleState.inactive:
+          break;
+      }
+    },
+  );
   var out = playerRequestsOut.value;
   void requestsChanged() {
     final was = out;
@@ -75,6 +97,7 @@ NewBuild? newBuild(Ref ref) {
   playerRequestsOut.addListener(requestsChanged);
   final unlisten = StaleSmell.listen(watch.smelled);
   ref.onDispose(() {
+    lifecycle.dispose();
     playerRequestsOut.removeListener(requestsChanged);
     unlisten();
     watch.dispose();
@@ -104,7 +127,17 @@ bool _tapsOnTheWay(Ref ref) {
   return false;
 }
 
-/// Text typed into a field and not sent anywhere: a reload would lose it.
+/// Something typed or open on the first screen that a reload could cost:
+/// a name or a code typed (`JoinDraft`: every field's edit lands there, kept
+/// across a reload as well), text in the focused field, or the camera
+/// scanner open (a reload would close it). A name that is only the account's
+/// own, shown in its field, is not typed.
+bool _halfDone(Ref ref) =>
+    ref.read(joinDraftProvider).isTyped ||
+    ref.read(scanSessionProvider).open ||
+    textIsBeingTyped();
+
+/// Text in the focused field and not sent anywhere: a reload would lose it.
 @visibleForTesting
 bool textIsBeingTyped() {
   final focused = FocusManager.instance.primaryFocus?.context;

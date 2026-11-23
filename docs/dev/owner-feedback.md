@@ -19,7 +19,7 @@ HANDLED by this piece: the set-up page cannot be left with a wrong count (it say
 
 > (Seen in the live app, 23 November 2026: a tab left open showed a blank red box where the Werewolf should be.)
 
-HANDLED: an app left open now notices a newer build (`/commit.txt`) and reloads itself at a safe moment and lands in the same seat on the same screen (nothing shown, nothing said; the rule is in `docs/dev/deploy-vercel.md`, "What an open app does when a new build goes live"); a file that is not there is a real 404 and never the app's page; and a file removed from the bundle without a retired copy fails a test (`asset_release_test.dart`).
+HANDLED: an app left open now notices a newer build (`/commit.txt`) and reloads itself at a safe moment (in a game only when the tab comes back after a while away, never on a phase change) and lands in the same seat on the same screen (nothing shown, nothing said; the rule is in `docs/dev/deploy-vercel.md`, "What an open app does when a new build goes live"); a file that is not there is a real 404 and never the app's page; and a file removed from the bundle without a retired copy fails a test (`asset_release_test.dart`).
 
 > The timers aren't really explained as such but I guess that's a pretty minor thing.
 

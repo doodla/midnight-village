@@ -1,6 +1,7 @@
 // The built web page in a real browser, served as Vercel serves it: the
-// routing is read from frontend/vercel.json itself (redirects, then files,
-// then rewrites, else 404; its headers on top of Vercel's default of
+// routing is frontend/vercel.json compiled by Vercel's own routing-utils and
+// walked in Vercel's order (routes.cjs: redirects, then files, then the
+// rewrite, else 404; its headers on top of Vercel's default of
 // revalidating every file). A first visit loads, a return loads (from
 // Flutter's service worker), and a second build served in the first one's
 // place (a deploy) runs on its first open; a table's link
@@ -26,8 +27,9 @@ const { chromium } = require('playwright');
 // BUILD_COMMIT=<COMMIT_A> (tool/web_smoke/run.sh); the deploys carry their own.
 const COMMIT_A = 'a'.repeat(40);
 const COMMIT_B = 'b'.repeat(40);
-const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, '../../vercel.json'), 'utf8'));
-const whole = (source) => new RegExp(`^${source}$`);
+const { compile, resolve } = require('./routes.cjs');
+// vercel.json as Vercel compiles and walks it (routes.cjs), not read by hand.
+const routes = compile();
 
 const build = path.resolve(process.argv[2] || 'build/web');
 if (!fs.existsSync(path.join(build, 'main.dart.js'))) {
@@ -71,7 +73,6 @@ deploy('B', '2222', COMMIT_B);
 deploy('C', '3333', COMMIT_B, COMMIT_A);
 
 let current = 'A';
-const documents = [];
 const types = {
   '.js': 'text/javascript', '.mjs': 'text/javascript', '.html': 'text/html',
   '.json': 'application/json', '.wasm': 'application/wasm', '.webp': 'image/webp',
@@ -79,30 +80,23 @@ const types = {
 };
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
-  const headers = { 'Cache-Control': 'public, max-age=0, must-revalidate' };
-  for (const rule of vercel.headers || []) {
-    if (whole(rule.source).test(url)) {
-      for (const h of rule.headers) headers[h.key] = h.value;
-    }
-  }
-  const redirect = (vercel.redirects || []).find((r) => whole(r.source).test(url));
-  if (redirect) {
-    res.writeHead(redirect.permanent ? 308 : 307, { Location: redirect.destination });
+  const dir = path.join(root, current);
+  const isFile = (p) => {
+    const file = path.join(dir, p === '/' ? 'index.html' : p);
+    return file.startsWith(dir) && fs.existsSync(file) && fs.statSync(file).isFile();
+  };
+  // Vercel's default is to revalidate every file; the routes add their own headers.
+  const answer = resolve(routes, url, isFile);
+  const headers = { 'Cache-Control': 'public, max-age=0, must-revalidate', ...answer.headers };
+  if (answer.redirect) {
+    res.writeHead(answer.redirect.status, { Location: answer.redirect.location });
     return res.end();
   }
-  const dir = path.join(root, current);
-  let file = path.join(dir, url === '/' ? 'index.html' : url);
-  const real = file.startsWith(dir) && fs.existsSync(file) && fs.statSync(file).isFile();
-  if (!real) {
-    const rewrite = (vercel.rewrites || []).find((r) => whole(r.source).test(url));
-    if (!rewrite) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      return res.end('NOT_FOUND');
-    }
-    file = path.join(dir, rewrite.destination);
+  if (answer.notFound) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    return res.end('NOT_FOUND');
   }
-  // Page loads (the worker's own copy of index.html is not one).
-  if (req.headers['sec-fetch-dest'] === 'document') documents.push(url);
+  const file = path.join(dir, answer.file === '/' ? 'index.html' : answer.file);
   const body = fs.readFileSync(file);
   const etag = `"${crypto.createHash('md5').update(body).digest('hex')}"`;
   headers.ETag = etag;
@@ -126,6 +120,10 @@ async function open(context, url, label) {
   page.on('pageerror', (e) => errors.push(e.message.slice(0, 200)));
   const logs = [];
   page.on('console', (m) => logs.push(m.text().slice(0, 120)));
+  // Page loads of the tab itself (the worker's own network fetch of the page,
+  // which the server sees, is not one: the reload no longer drops the worker).
+  const navigations = { count: 0 };
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations.count++; });
   const started = Date.now();
   await page.goto(url);
   // The launch mark goes on Flutter's first frame (web/flutter_bootstrap.js).
@@ -143,7 +141,7 @@ async function open(context, url, label) {
   if (process.env.WEB_SMOKE_DEBUG) console.log(JSON.stringify(state), logs.join(' | '));
   console.log(`     ${label}: ${painted ? `first frame in ${Date.now() - started} ms` : 'no first frame'}, ` +
     `build ${state.build}, served by the worker: ${state.controlled}`);
-  return { page, painted, errors, ...state };
+  return { page, painted, errors, navigations, ...state };
 }
 
 // The tab comes back to the foreground: what Flutter turns into the app's
@@ -220,7 +218,7 @@ async function liveBuild(page, want, ms = 30000) {
     // 5b. A file that is not there looks missing; commit.txt names the build;
     // /app still redirects and app routes still get the page.
     const status = async (p, init) => (await fetch(`${url}${p}`, { redirect: 'manual', ...init }));
-    const missing = await status('assets/assets/skins/shadow_paper/roles/werewolf.webp');
+    const missing = await status('assets/assets/skins/shadow_paper/roles/no-such-picture.webp');
     check(missing.status === 404, `a made-up picture is a 404, not the page (${missing.status})`);
     const missingFile = await status('somewhere/else.png');
     check(missingFile.status === 404, `any made-up file with an extension is a 404 (${missingFile.status})`);
@@ -246,13 +244,19 @@ async function liveBuild(page, want, ms = 30000) {
       if (!held) await tab.page.waitForTimeout(500);
     }
     check(held && tab.build === 'A', 'a tab on A, its worker registered');
-    const before = documents.length;
+    const before = tab.navigations.count;
     current = 'B';
     // (a resume asks again no sooner than 10 s after the last look)
     await tab.page.waitForTimeout(11000);
     await resume(tab.page);
     check(await liveBuild(tab.page, 'B'), 'an open tab on the old build reloads itself for the new one when resumed');
-    check(documents.length - before === 1, `...with one reload (${documents.length - before} page requests)`);
+    check(tab.navigations.count - before === 1, `...with one reload (${tab.navigations.count - before} page loads)`);
+    // The worker was updated, never let go of (a dropped connection at that
+    // moment would otherwise leave the browser's offline page).
+    check(
+      await tab.page.evaluate(async () => (await navigator.serviceWorker.getRegistration()) != null),
+      'the reload kept the service worker registered',
+    );
     await open1.close();
 
     // 7b. No loop: a deploy whose commit.txt names a new build but whose shell
@@ -262,14 +266,14 @@ async function liveBuild(page, want, ms = 30000) {
     const old = await open(stale, url, 'open on A');
     check(old.build === 'A', 'a fresh tab on A');
     current = 'C';
-    const mark = documents.length;
+    const mark = old.navigations.count;
     await old.page.waitForTimeout(11000);
     await resume(old.page);
     await old.page.waitForTimeout(11000);
     await resume(old.page);
     await old.page.waitForTimeout(3000);
-    const loads = documents.length - mark;
-    check(loads >= 1 && loads <= 2, `a shell that stays old is reloaded for once, never in a loop (${loads} page requests)`);
+    const loads = old.navigations.count - mark;
+    check(loads >= 1 && loads <= 2, `a shell that stays old is reloaded for once, never in a loop (${loads} page loads)`);
     await stale.close();
     current = 'B';
 

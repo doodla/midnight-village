@@ -67,12 +67,20 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
 - **The app renews itself for a new build** (`lib/core/update/`, the rule `mayReloadNow` in
   `features/game/domain/reload_rule.dart`, `docs/dev/deploy-vercel.md`): it knows its commit
   (`BUILD_COMMIT`), reads `/commit.txt`, and reloads at a safe moment through the cold opening, so
-  a seated player lands in their seat. Nothing is shown. A build with no commit (local, tests, the
+  a seated player lands in their seat. In a running game it never reloads on a phase change or the
+  timer, only when the tab comes back after a while away. It updates the service worker and waits
+  for it to take over before reloading; it never deletes the worker or its caches. Nothing is
+  shown. A build with no commit (local, tests, the
   installed app) never looks. A new place that shows a screen or starts a request must not break
   the rule: a screen is an `AppScreen` or one of `HomeGate`'s names, a write goes through
   `playerRequest`.
-- **A file removed or renamed in `assets/`** fails `asset_release_test.dart` until it is an
-  `ArtSet.retired` copy or a dated `removedOnPurpose` line in `tool/release_assets.json`.
+- **A file removed or renamed in `assets/`** fails `asset_release_test.dart` (compared with the
+  bundle at the main branch (origin/main), else `tool/release_assets.json`) until it is an `ArtSet.retired` copy or
+  a dated `removedOnPurpose` line in `tool/release_assets.json`; `just record-assets` refuses
+  while one is uncovered, so regenerating cannot hide a removal.
+- **`vercel.json` is judged as Vercel compiles it**: `tool/web_smoke/routes.test.cjs` (run by
+  `just web-smoke`, which needs `@vercel/routing-utils` from `just web-smoke-setup`), never by
+  reading a `source` as a plain pattern.
 
 ## Server payloads in tests
 

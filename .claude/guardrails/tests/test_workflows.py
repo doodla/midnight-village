@@ -243,21 +243,9 @@ class WorkflowPublishing(unittest.TestCase):
         # The single-page rewrite stays; Vercel answers redirects before rewrites.
         (rewrite,) = cfg["rewrites"]
         self.assertEqual(rewrite["destination"], "/index.html")
-        # ... for the app's routes only: a file that is not there (a picture a newer
-        # build removed) must answer a real 404, never the app's page.
-        import re
-
-        serves_the_app = re.compile("^" + rewrite["source"] + "$")
-        for route in ("/", "/join/ABCD", "/lobby/K7QX4M", "/app/x"):
-            self.assertTrue(serves_the_app.match(route), route)
-        for file in (
-            "/assets/assets/skins/shadow_paper/roles/werewolf.webp",
-            "/assets/anything",
-            "/main.dart.js",
-            "/somewhere/else.png",
-            "/commit.txt",
-        ):
-            self.assertFalse(serves_the_app.match(file), file)
+        # Which paths it takes (app routes only; a removed picture is a 404) is
+        # judged on what Vercel compiles from the file: frontend/tool/web_smoke/
+        # routes.test.cjs, run by "Web page smoke".
 
 
 class WorkflowAfterMerge(unittest.TestCase):
