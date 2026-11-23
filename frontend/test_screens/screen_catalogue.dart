@@ -114,7 +114,7 @@ final screenCatalogue = <ScreenEntry>[
     '-code': pumpJoinCode,
     '-link': pumpJoinLink,
     '-link-named': pumpJoinLinkNamed,
-    '-link-elsewhere': pumpJoinLinkElsewhere,
+    '-link-elsewhere': const _NoMain(_elsewhere, pumpJoinLinkElsewhere),
     '-closed': pumpJoinClosed,
     '-keyboard': pumpJoinKeyboard,
     '-android-web': pumpJoinAndroidWeb,
@@ -358,6 +358,10 @@ typedef _Pump = Future<void> Function(WidgetTester tester);
 const _opening = 'the opening reads the saved account: it waits';
 const _onItsWay = 'the tap is on its way: its button is busy';
 const _waits = 'the screen waits for what it shows (a Waiting sign)';
+const _elsewhere =
+    'seated at another table: Join is not offered (never a second seat); the '
+    "one way on is the text link \"Go there\" on the line \"You're at "
+    "another table.\", which is also Back's";
 const _guest = 'a guest waits for the host to deal';
 const _guestAgain = 'a guest waits for the host to deal again';
 const _sheet = 'a sheet the player opened: Close, the scrim or Back close it';

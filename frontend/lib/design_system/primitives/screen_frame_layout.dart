@@ -186,13 +186,14 @@ class _RenderSlotThenRest extends RenderBox
 }
 
 /// [TopArtLayout.fill]: the picture takes the height the [body] leaves of
-/// [minHeight] (at least down to where the scene's body starts, unless the
-/// keyboard is up: then only what the body leaves), and the
-/// body sits at its foot, over the last of the fade: the scene's own overlap
-/// ([TopArtLayout.height] - [TopArtLayout.bodyTop]) and its fade length.
+/// [minHeight], and the body sits at its foot, over the last of the fade:
+/// the scene's own overlap ([TopArtLayout.height] - [TopArtLayout.bodyTop])
+/// and its fade length. The picture is decoration and gives way first, by
+/// rule: a body that needs the room (a short phone, large text, the keyboard
+/// up) pushes it up and off the top, never the body down past the foot; only
+/// the status bar's height is kept, so the body never starts under it.
 class _FillTop extends StatelessWidget {
   const _FillTop({
-    required this.keyboard,
     required this.minHeight,
     required this.art,
     required this.fadeTo,
@@ -200,9 +201,6 @@ class _FillTop extends StatelessWidget {
     required this.body,
   });
 
-  /// The keyboard is up: the form keeps to the room above it, the picture
-  /// giving up its minimum (only what runs on behind the title is kept).
-  final bool keyboard;
   final double minHeight;
   final ArtImage art;
   final Color fadeTo;
@@ -219,7 +217,7 @@ class _FillTop extends StatelessWidget {
       // over is ground between its fade and the body).
       artAspect: art.pixels.height / art.pixels.width,
       minHeight: minHeight,
-      artTop: keyboard ? safeTop : layout.bodyTop + safeTop,
+      artTop: safeTop,
       overlap: layout.height - layout.bodyTop,
       children: [
         LayoutBuilder(

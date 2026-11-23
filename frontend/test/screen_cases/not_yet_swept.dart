@@ -5,17 +5,6 @@
 /// not loosened for it. A to-do that only shrinks: fix a state, take it off.
 /// A new state is never added here (screen_registry_test.dart).
 const notYetSwept = <String, String>{
-  '01-join-closed':
-      'at 360x640 with larger text, Join lies past the end of its scrolling '
-      'area: a finger at it reaches the ground',
-  '01-join-start-not-sent':
-      'at 360x640, Start a table cannot be reached: a finger at its centre '
-      'reaches the ground or a line of text',
-  '01-join-android-web-keyboard':
-      'at 360x640 with the keyboard up, Join cannot be reached: a finger at '
-      'it reaches the ground',
-  '01-join-link-elsewhere':
-      'no main button: the one way on, Go there, is a text link',
   '06-night-board-follow-up':
       "the copied role's card lies over the players' cards and their names "
       'while it asks for a pick',

@@ -110,6 +110,7 @@ class ScreenFrame extends StatelessWidget {
     this.mood,
     this.moodLight = MoodLight.standard,
     this.bleed = false,
+    this.actionsFollow = false,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -197,6 +198,13 @@ class ScreenFrame extends StatelessWidget {
   /// clear of the navigation bar itself.
   final bool bleed;
 
+  /// With [TopArtLayout.fill]: the [actions] are not pinned but follow the
+  /// body inside the scroll, at the foot of the page when it all fits and
+  /// below the body, reached by scrolling, when it does not (01's numbers and
+  /// "Get the app": quiet lines that must never take the room a button
+  /// needs on a short phone or above the keyboard).
+  final bool actionsFollow;
+
   @override
   Widget build(BuildContext context) => DressScope(
     dress: dress ?? DressScope.of(context),
@@ -242,22 +250,46 @@ class ScreenFrame extends StatelessWidget {
         : Space.md;
     final Widget top;
     if (art != null && topArtLayout == TopArtLayout.fill) {
-      // Read here: the Scaffold takes the keyboard out of its body's insets.
-      final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+      final follow = actionsFollow && actions.isNotEmpty;
       return _frame(
         context,
         colors,
         LayoutBuilder(
           builder: (context, box) => _ScrollBody(
             fadeTo: _fade(context, colors),
-            bottom: bottom,
+            bottom: follow
+                ? Space.screenBottom + MediaQuery.paddingOf(context).bottom
+                : bottom,
             child: _FillTop(
-              keyboard: keyboard,
-              minHeight: box.maxHeight - bottom,
+              minHeight:
+                  box.maxHeight -
+                  (follow
+                      ? Space.screenBottom +
+                            MediaQuery.paddingOf(context).bottom
+                      : bottom),
               art: art,
               fadeTo: _fade(context, colors),
               safeTop: safeTop,
-              body: Padding(padding: padded, child: body),
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(padding: padded, child: body),
+                  if (follow)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Space.gutter,
+                        Space.md + Space.xs,
+                        Space.gutter,
+                        0,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: actionGap,
+                        children: actions,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -390,7 +422,8 @@ class ScreenFrame extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(child: main),
-                if (actions.isNotEmpty)
+                if (actions.isNotEmpty &&
+                    !(actionsFollow && topArtLayout == TopArtLayout.fill))
                   SafeArea(
                     top: false,
                     child: Padding(
