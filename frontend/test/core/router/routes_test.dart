@@ -16,6 +16,7 @@ import 'package:midnight_village/features/game/presentation/game_socket.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
 import 'package:midnight_village/features/lobby/data/home_service.dart';
 import 'package:midnight_village/features/lobby/presentation/home_gate.dart';
+import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
 
 import '../../helpers/contract/contract_samples.dart';
 import '../../helpers/fake_wakelock_service.dart';
@@ -151,8 +152,8 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     });
 
-    testWidgets('a game\'s link is home\'s gate: signed in, the table\'s '
-        'shell', (tester) async {
+    testWidgets('a game\'s link is home\'s gate: signed in at no table, '
+        'the gate\'s own 01', (tester) async {
       final router = await pumpRouterApp(
         tester,
         authState: AuthState.authenticated(User(id: 1, displayName: 'Alice')),
@@ -163,7 +164,9 @@ void main() {
 
       expect(location(router), '/game/some-game-id');
       expect(find.byType(HomeGate), findsOneWidget);
-      expect(find.byType(TableShell), findsOneWidget);
+      // `/me/table/` names no table: 01, the gate's own (never the shell's).
+      expect(find.byType(JoinScreen), findsOneWidget);
+      expect(find.byType(TableShell), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
