@@ -18,15 +18,10 @@ import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sheet_scaffold.dart';
 import '../../../../design_system/skin/skin.dart';
 
-/// The square's measures (08): what the board holds and how it is spaced.
+/// How the square is spaced (08). Its sizes are the skin's
+/// (`PaperParts.square*`); what is here is the grid's count and the gaps,
+/// which are the app's spacing.
 abstract final class SquareMetrics {
-  /// The deck's portraits: the widest, with six roles or fewer and with
-  /// more, and the narrowest before the board scrolls.
-  static const widestFew = 84.0;
-  static const widestMany = 64.0;
-  static const narrowest = 40.0;
-  static const step = 2.0;
-
   /// Columns of the deck: three, four past six roles.
   static const fewRoles = 6;
 
@@ -34,18 +29,6 @@ abstract final class SquareMetrics {
   static const pileGap = Space.xl;
   static const rowGap = Space.lg;
   static const tagGap = Space.sm;
-
-  /// The spare height: this share above the deck, this between it and the
-  /// tags (the rest below).
-  static const spareAbove = 0.3;
-  static const spareBetween = 0.4;
-
-  /// The one button's widest, on the cobbles.
-  static const buttonWidest = 264.0;
-
-  /// The least body (board and foot) before the band and body scroll
-  /// together.
-  static const leastBody = 380.0;
 }
 
 /// One pile of the deck in play: the role, how many, and its words.
@@ -66,8 +49,9 @@ List<Pile> pilesOf(Map<RoleId, int> deck) => [
 /// The square at rest, on the board's felt: the deck in play (public: the
 /// game's set-up), then every player as a name tag in seat order, centred,
 /// as many to a row as fit. The deck's portraits are as large as lets both
-/// fit whole in the room; at the narrowest, on a short phone with large
-/// text, the board scrolls (fading at its foot).
+/// fit whole in the room; below the least that still reads as a face the
+/// cards become name-only (the role's words on its team's paper), and only if
+/// those do not fit either does the board scroll (fading at its foot).
 class SquareBoard extends StatelessWidget {
   const SquareBoard({
     super.key,
@@ -92,13 +76,14 @@ class SquareBoard extends StatelessWidget {
   );
 
   Widget _content(BuildContext context, _Plan plan, double width) {
+    final parts = context.skin.parts;
     final spare = plan.spare;
     return SizedBox(
       width: width,
       child: Column(
         children: [
           SizedBox(
-            height: SquareMetrics.tagGap + spare * SquareMetrics.spareAbove,
+            height: SquareMetrics.tagGap + spare * parts.squareSpareAbove,
           ),
           for (final (i, row) in plan.rows.indexed) ...[
             if (i > 0) const SizedBox(height: SquareMetrics.rowGap),
@@ -114,6 +99,7 @@ class SquareBoard extends StatelessWidget {
                     count: pile.count,
                     label: pile.label,
                     portraitWidth: plan.portrait,
+                    nameOnly: plan.nameOnly,
                     stripHeight: plan.strip,
                     onOpen: () => unawaited(openRole(context, pile.role)),
                   ),
@@ -121,7 +107,7 @@ class SquareBoard extends StatelessWidget {
             ),
           ],
           SizedBox(
-            height: SquareMetrics.rowGap + spare * SquareMetrics.spareBetween,
+            height: SquareMetrics.rowGap + spare * parts.squareSpareBetween,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.sm),
@@ -171,6 +157,7 @@ class _Plan {
     required this.gaps,
     required this.portrait,
     required this.strip,
+    required this.nameOnly,
     required this.used,
     required this.spare,
     required this.fits,
@@ -182,6 +169,9 @@ class _Plan {
   final List<List<Pile>> rows;
   final List<double> gaps;
   final double portrait;
+
+  /// The cards are their words alone (the portraits would be too small).
+  final bool nameOnly;
   final double strip;
   final double spare;
   final bool fits;
@@ -209,14 +199,15 @@ class _Plan {
       }
     }
     final tags = tagRows * tagHeight + (tagRows - 1) * SquareMetrics.tagGap;
+    final parts = context.skin.parts;
     // The deck's rows, as even as they go (the first longer).
     final columns = piles.length > SquareMetrics.fewRoles ? 4 : 3;
     final count = math.max(1, (piles.length / columns).ceil());
-    final rows = <List<Pile>>[];
+    final grid = <List<Pile>>[];
     var at = 0;
     for (var r = 0; r < count; r++) {
       final n = piles.length ~/ count + (r < piles.length % count ? 1 : 0);
-      rows.add(piles.sublist(at, at + n));
+      grid.add(piles.sublist(at, at + n));
       at += n;
     }
     final stripLine = (TextPainter(
@@ -235,22 +226,41 @@ class _Plan {
         pile.label: DeckPile.labelWidth(context, pile.label),
     };
     final widest = piles.length > SquareMetrics.fewRoles
-        ? SquareMetrics.widestMany
-        : SquareMetrics.widestFew;
+        ? parts.squarePortraitMany
+        : parts.squarePortraitFew;
+    // Name-only cards are as wide as their words: as many to a row as fit.
+    final packed = <List<Pile>>[];
+    var rowWidth = 0.0;
+    for (final pile in piles) {
+      final card = DeckPile.cardSize(0, labels[pile.label]!, strip);
+      final w = DeckPile.sizeOf(card, pile.count, nameOnly: true).width;
+      if (packed.isNotEmpty && rowWidth + Space.xs + w <= width) {
+        packed.last.add(pile);
+        rowWidth += Space.xs + w;
+      } else {
+        packed.add([pile]);
+        rowWidth = w;
+      }
+    }
     _Plan at_(double portrait, {required bool fits}) {
+      final rows = portrait > 0 ? grid : packed;
       final gaps = <double>[];
       var cardHeight = 0.0;
       for (final row in rows) {
         var content = 0.0;
         for (final pile in row) {
           final card = DeckPile.cardSize(portrait, labels[pile.label]!, strip);
-          final size = DeckPile.sizeOf(card, pile.count);
+          final size = DeckPile.sizeOf(
+            card,
+            pile.count,
+            nameOnly: portrait <= 0,
+          );
           cardHeight = math.max(cardHeight, size.height);
           content += size.width;
         }
         gaps.add(
           row.length < 2
-              ? 0
+              ? SquareMetrics.pileGap
               : math.min(
                   SquareMetrics.pileGap,
                   (width - content) / (row.length - 1),
@@ -266,6 +276,7 @@ class _Plan {
         gaps: gaps,
         portrait: portrait,
         strip: strip,
+        nameOnly: portrait <= 0,
         used: used,
         spare: math.max(0.0, room.height - used),
         fits: fits,
@@ -274,15 +285,19 @@ class _Plan {
 
     for (
       var p = widest;
-      p >= SquareMetrics.narrowest;
-      p -= SquareMetrics.step
+      p >= parts.squarePortraitLeast;
+      p -= parts.squarePortraitStep
     ) {
       final plan = at_(p, fits: true);
       if (plan.used <= room.height && plan.gaps.every((g) => g >= Space.xs)) {
         return plan;
       }
     }
-    return at_(SquareMetrics.narrowest, fits: false);
+    // The portraits would be below what reads as a face: name-only cards,
+    // before the board ever scrolls.
+    final names = at_(0, fits: true);
+    if (names.used <= room.height) return names;
+    return at_(0, fits: false);
   }
 }
 

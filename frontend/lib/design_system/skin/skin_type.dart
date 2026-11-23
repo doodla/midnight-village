@@ -5,8 +5,8 @@ import 'package:flutter/painting.dart';
 /// the ground the text sits on.
 ///
 /// The brief's scale (design brief section 4, "Type scale", as amended by the
-/// first-time play spec): headings 26 to 36, timers 64 to 84, the talk's square clock 40 (a compact one
-/// 34), counts 28, anything a player reads to act 16 to 24 (body 16 to 17),
+/// first-time play spec): headings 26 to 36, timers 64 to 84 (a compact one
+/// 34), the talk's square clock 40, counts 28, anything a player reads to act 16 to 24 (body 16 to 17),
 /// and captions under cards and tokens 14. No capitals tracked as labels.
 /// Nothing larger but one hero line per screen, which follows its mock:
 /// [heroTitle] (Join), [heroCode] (the table code), [heroVerdict] (who dies)
@@ -32,7 +32,7 @@ class SkinType {
     required this.buttonLabelLarge,
     required this.buttonLabel,
     required this.buttonLabelSmall,
-    required this.timer,
+    required this.timerTalk,
     required this.timerVote,
     required this.timerSmall,
     required this.bodyLarge,
@@ -94,8 +94,9 @@ class SkinType {
   final TextStyle buttonLabel;
   final TextStyle buttonLabelSmall;
 
-  /// The talk's large countdown (S08).
-  final TextStyle timer;
+  /// The talk's clock in the square's sky (S08): the scale's one large
+  /// timer, 40 (the owner's choice, 23 November 2026).
+  final TextStyle timerTalk;
 
   /// The vote's countdown in its band (S09).
   final TextStyle timerVote;
@@ -152,7 +153,7 @@ class SkinType {
     'buttonLabelLarge': buttonLabelLarge,
     'buttonLabel': buttonLabel,
     'buttonLabelSmall': buttonLabelSmall,
-    'timer': timer,
+    'timerTalk': timerTalk,
     'timerVote': timerVote,
     'timerSmall': timerSmall,
     'bodyLarge': bodyLarge,

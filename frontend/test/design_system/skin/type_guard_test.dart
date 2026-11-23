@@ -224,7 +224,11 @@ void main() {
     expect(type.body.fontSize, 14);
     expect(type.buttonLabel.fontSize, 15);
     expect(type.caption.fontSize, 12);
-    expect(type.timer.fontSize, 40, reason: 'the square: the owner chose it');
+    expect(
+      type.timerTalk.fontSize,
+      40,
+      reason: 'the square: the owner chose it',
+    );
     expect(type.timerVote.fontSize, 76);
     expect(type.timerSmall.fontSize, 64);
     expect(type.heroRole.fontSize, 46);

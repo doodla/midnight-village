@@ -828,10 +828,8 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('08 with My night up as it opens: Back does nothing (My '
-        'night is on the board, not a sheet: a touch puts it away)', (
-      tester,
-    ) async {
+    testWidgets('08 with My night up as it opens: Back puts it away (it is on '
+        'the board, not a sheet); then nothing', (tester) async {
       final platform = _Platform.listen(tester);
       final s = await _game(tester, 'me_discussion_choose_seer');
       await s.settle(tester);
@@ -839,6 +837,8 @@ void main() {
 
       await _back(tester);
       await s.settle(tester);
+      expect(find.byType(MyNightPanel), findsNothing);
+      expect(find.byType(DeckPile), findsWidgets);
       expect(s.screenOn(tester), AppScreen.talk);
       await _back(tester);
       expect(s.screenOn(tester), AppScreen.talk);
@@ -874,9 +874,8 @@ void main() {
     addTearDown(tester.view.reset);
     final s = await _game(tester, 'me_talk_ready');
     await s.settle(tester);
-    // My night is up on arrival: a touch puts it away.
-    await tester.tapAt(const Offset(4, 400));
-    await _settled(tester);
+    // My night is open on arrival: Back puts it away.
+    await _back(tester);
     final card = find.byType(DeckPile).first;
     await tester.ensureVisible(card);
     await tester.longPress(card);

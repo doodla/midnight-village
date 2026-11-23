@@ -23,6 +23,7 @@ class DeckPile extends StatelessWidget {
     required this.label,
     required this.portraitWidth,
     required this.stripHeight,
+    this.nameOnly = false,
     this.onOpen,
   });
 
@@ -37,6 +38,11 @@ class DeckPile extends StatelessWidget {
 
   /// The strip's height (as tall as its words at the phone's text size).
   final double stripHeight;
+
+  /// No portrait: the card is its words on its team's paper (where the
+  /// portraits would be too small to read). The card is then as tall as its
+  /// strip.
+  final bool nameOnly;
   final VoidCallback? onOpen;
 
   /// How far a copy behind is turned out from the card.
@@ -59,7 +65,9 @@ class DeckPile extends StatelessWidget {
       portraitWidth + 2 * inset,
       labelWidth + 2 * (BoardCard.stripPad + inset),
     ),
-    inset + portraitWidth * 3 / 4 + stripHeight * stripBelow,
+    portraitWidth <= 0
+        ? stripHeight + 2 * inset + BoardCard.stripUp
+        : inset + portraitWidth * 3 / 4 + stripHeight * stripBelow,
   );
 
   /// How far the copies behind reach past the card on each side
@@ -71,11 +79,21 @@ class DeckPile extends StatelessWidget {
 
   /// The whole pile's size: the card, the copies' reach to the sides, and
   /// below it the corner a turned copy (or the card's own tilt) drops by.
-  static Size sizeOf(Size card, int count) {
+  static Size sizeOf(Size card, int count, {bool nameOnly = false}) {
     final (left, right) = reach(card, count);
     final drop = count >= 2 ? card.width / 2 * math.sin(fan) : 0.0;
-    return Size(card.width + left + right, card.height + drop + inset);
+    return Size(
+      card.width + left + right,
+      card.height + drop + inset + rise(card, count, nameOnly: nameOnly),
+    );
   }
+
+  /// How far the copies behind lift above the card's top: a name-only card
+  /// is wide and short, so a copy turned about its foot lifts its outer
+  /// corner by half its width times the fan's sine (a portrait card is tall
+  /// enough that the board's margin above takes it).
+  static double rise(Size card, int count, {required bool nameOnly}) =>
+      nameOnly && count >= 2 ? card.width / 2 * math.sin(fan) : 0.0;
 
   bool get _red => role.team == TeamId.werewolf;
 
@@ -95,29 +113,30 @@ class DeckPile extends StatelessWidget {
         strip: '',
         paper: paper,
         size: card,
-        portraitWidth: portraitWidth,
+        portraitWidth: nameOnly ? 0 : portraitWidth,
         rect: rect,
         stripHeight: stripHeight,
       ),
     );
+    final lift = rise(card, count, nameOnly: nameOnly);
     final pile = SizedBox.fromSize(
-      size: sizeOf(card, count),
+      size: sizeOf(card, count, nameOnly: nameOnly),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           if (context.dress.isPaper && count >= 2)
-            Positioned(left: left, top: 0, child: copy(tilt - fan)),
+            Positioned(left: left, top: lift, child: copy(tilt - fan)),
           if (context.dress.isPaper && count >= 3)
-            Positioned(left: left, top: 0, child: copy(tilt + fan)),
+            Positioned(left: left, top: lift, child: copy(tilt + fan)),
           Positioned(
             left: left,
-            top: 0,
+            top: lift,
             child: BoardCard(
               role: role,
               strip: label,
               paper: paper,
               size: card,
-              portraitWidth: portraitWidth,
+              portraitWidth: nameOnly ? 0 : portraitWidth,
               rect: rect,
               angle: tilt,
               stripHeight: stripHeight,
