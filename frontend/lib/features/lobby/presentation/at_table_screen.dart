@@ -701,16 +701,19 @@ class _JoinCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          // Share beside the words of the link it shares, so
-                          // the code has the column's whole width.
+                          // "Scan to join" has the column's whole width (beside
+                          // Share it left one word alone on a second line);
+                          // Share ends the hairline under it, and the code has
+                          // the width below.
                           children: [
+                            scan,
                             Row(
+                              spacing: Space.xs,
                               children: [
-                                Expanded(child: scan),
+                                Expanded(child: divider),
                                 ?shareButton,
                               ],
                             ),
-                            divider,
                             codeOnly,
                           ],
                         ),

@@ -303,14 +303,14 @@ void main() {
     );
   });
 
-  testWidgets('the corner timer: the number at its scale of 34, alone', (
+  testWidgets('the night timer: the number in the one timer style, alone', (
     tester,
   ) async {
     await _pump(
       tester,
       const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
     );
-    expect(tester.widget<Text>(find.text('14 s')).style!.fontSize, 27);
+    expect(tester.widget<Text>(find.text('14 s')).style!.fontSize, 64);
     expect(
       find.descendant(of: find.byType(WorldTimer), matching: find.byType(Text)),
       findsOneWidget,

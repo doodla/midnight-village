@@ -35,7 +35,6 @@ class SkinType {
     required this.timer,
     required this.timerVote,
     required this.timerSmall,
-    required this.timerCompact,
     required this.bodyLarge,
     required this.bodyStrong,
     required this.lede,
@@ -101,11 +100,8 @@ class SkinType {
   /// The vote's countdown in its band (S09).
   final TextStyle timerVote;
 
-  /// The countdown beside the candle (S05).
+  /// The countdown beside the candle (S05, S06).
   final TextStyle timerSmall;
-
-  /// The countdown in a screen's corner (S06).
-  final TextStyle timerCompact;
 
   /// A paragraph read with care (what a role does, on the role sheet).
   final TextStyle bodyLarge;
@@ -159,7 +155,6 @@ class SkinType {
     'timer': timer,
     'timerVote': timerVote,
     'timerSmall': timerSmall,
-    'timerCompact': timerCompact,
     'bodyLarge': bodyLarge,
     'bodyStrong': bodyStrong,
     'lede': lede,

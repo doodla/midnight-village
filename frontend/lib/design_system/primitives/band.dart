@@ -217,11 +217,11 @@ class TimerBand extends StatelessWidget {
       child: width == null
           ? Align(
               alignment: AlignmentDirectional.centerStart,
-              child: _Figure(number, style: numberStyle),
+              child: ClockFigure(number, style: numberStyle),
             )
           : SizedBox(
               width: width,
-              child: _Figure(number, style: numberStyle),
+              child: ClockFigure(number, style: numberStyle),
             ),
     );
     if (title == null) {
@@ -243,12 +243,12 @@ class TimerBand extends StatelessWidget {
         // narrower "4:54" no longer stacks or unstacks the title, and with
         // it moves the body under the band). The number itself takes its own
         // width.
-        final shapeWidth = _Figure.width(
-          _Figure.shape(number),
+        final shapeWidth = ClockFigure.width(
+          ClockFigure.shape(number),
           numberStyle,
           scaler,
         ).ceilToDouble();
-        final numberWidth = _Figure.width(
+        final numberWidth = ClockFigure.width(
           number,
           numberStyle,
           scaler,
@@ -560,11 +560,24 @@ class _DotsPainter extends CustomPainter {
 /// A clock's figure on one line, set smaller rather than broken: the number
 /// at [style], and its unit ("14 s": the space and what follows) at a fraction
 /// of it, so a hero-size number does not carry a hero-size "s".
-class _Figure extends StatelessWidget {
-  const _Figure(this.text, {required this.style});
+class ClockFigure extends StatelessWidget {
+  const ClockFigure(
+    this.text, {
+    super.key,
+    required this.style,
+    this.alignment = AlignmentDirectional.centerStart,
+    this.textScaler,
+  });
 
   final String text;
   final TextStyle style;
+
+  /// Where the figure sits in a box wider than it.
+  final AlignmentGeometry alignment;
+
+  /// Null: the text's own scale (the night's number keeps its size: it is
+  /// given [TextScaler.noScaling]).
+  final TextScaler? textScaler;
 
   /// The unit's size against the number's.
   static const unitShare = 0.4;
@@ -608,9 +621,10 @@ class _Figure extends StatelessWidget {
   Widget build(BuildContext context) {
     return FittedBox(
       fit: BoxFit.scaleDown,
-      alignment: AlignmentDirectional.centerStart,
+      alignment: alignment,
       child: Text.rich(
         span(text, style),
+        textScaler: textScaler,
         maxLines: 1,
         softWrap: false,
         style: style,

@@ -36,10 +36,7 @@ import '../../helpers/sheet/sheet_data.dart';
 /// between the rows), in logical pixels. More is a dead band. At three
 /// seats there are only two cards to a row, as wide as the phone allows, so
 /// a tall phone keeps some air.
-// At three seats two cards are as wide as the phone allows and the room above
-// them is what the header leaves: 8 more since the title is 24, not 34 (the
-// type choice of 23 November 2026), until the design round uses it.
-double _tolerance(int seats) => seats == 3 ? 80 : 40;
+double _tolerance(int seats) => seats == 3 ? 72 : 40;
 
 /// What the design itself puts in the gap under the title and in the one
 /// above the band (a label line and its gap, the rule's room), at the
@@ -113,7 +110,7 @@ void main() {
     for (final scale in const [1.0, 2.0]) {
       testWidgets('no dead band on a ${phone.width.round()} x '
           '${phone.height.round()} phone, text x$scale: every gap holds what '
-          'the design puts in it and at most 40 px more (80 at three seats), 3 to 10 '
+          'the design puts in it and at most 40 px more (72 at three seats), 3 to 10 '
           'seats', (tester) async {
         tester.view.physicalSize = phone;
         tester.view.devicePixelRatio = 1;
@@ -213,7 +210,11 @@ void main() {
     final three = await seatCard(3);
     final five = await seatCard(5);
     final ten = await seatCard(10);
-    expect(three, BoardLayout.largest);
+    // At the largest, or the column's own width where a phone is narrower.
+    expect(
+      three,
+      inInclusiveRange(BoardLayout.largest - 2, BoardLayout.largest),
+    );
     expect(
       three,
       greaterThan(FaceDownSize.board.mock.width),
@@ -429,26 +430,42 @@ void main() {
       }
     });
 
-    testWidgets('the candle takes no room of the board’s: the header is the '
-        'title’s two lines whatever the candle’s height', (tester) async {
+    testWidgets('the header is the taller of the title’s two lines and the '
+        'timer’s own line, the seconds and the candle level in it', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await _pump(tester, BoardPage(viewer: Viewer.seer));
+      final type = skinsUnderTest.values.first.typography;
       final header = tester.getRect(
         find
             .ancestor(of: find.byType(WorldTimer), matching: find.byType(Row))
             .first,
       );
-      // Two lines, each the taller of the title's (24 x 1.05) and the
-      // seconds' own (27 x 1), and the hair.
-      expect(header.height, closeTo(27 * 2 + 1, 0.6));
-      final unit = tester.getRect(find.byType(WorldTimer));
-      expect(unit.top, closeTo(header.top, 0.5), reason: 'from the first line');
+      // The timer's line (the one timer style, 64 x 1) is taller than two
+      // title lines (24 x 1.05 each, and the hair).
       expect(
-        unit.bottom,
-        greaterThan(header.bottom - 12),
-        reason: 'the candle stands down to the title’s foot or a little below',
+        header.height,
+        closeTo(
+          math.max(
+            type.timerSmall.fontSize! * type.timerSmall.height!,
+            type.screenTitle.fontSize! * type.screenTitle.height! * 2 + 1,
+          ),
+          0.6,
+        ),
+      );
+      final unit = tester.getRect(find.byType(WorldTimer));
+      expect(unit.height, closeTo(header.height, 0.5));
+      expect(
+        unit.right,
+        closeTo(header.right, 0.5),
+        reason: 'inside the margin',
+      );
+      expect(
+        tester.getCenter(find.text('14 s')).dy,
+        closeTo(unit.center.dy, 0.5),
       );
     });
 

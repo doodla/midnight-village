@@ -7,6 +7,7 @@ import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'art_picture.dart';
+import 'band.dart';
 import 'candle_gauge.dart';
 import 'cut_paper.dart';
 
@@ -16,8 +17,9 @@ import 'cut_paper.dart';
 ///
 /// - [WorldTimer.candle]: in its own panel (S05).
 /// - [WorldTimer.candleCompact]: a drawn candle ([CandleGauge]: its flame and
-///   wax shrink with the window, stepping with the number) and the number,
-///   beside the night board's title (S06).
+///   wax shrink with the window, stepping with the number) and the number
+///   in the one timer style (`timerSmall`), beside the night board's title
+///   (S06).
 ///
 /// The mocks' "seconds of night" is cut (first-time play spec, copy rule 9);
 /// under a minute the number keeps its unit ("14 s"), which a bare number did
@@ -33,8 +35,7 @@ class WorldTimer extends StatelessWidget {
        share = null,
        candleHeight = 90,
        lineHeight = null,
-       stacked = false,
-       lift = 0;
+       maxNumberWidth = null;
 
   const WorldTimer.candleCompact({
     super.key,
@@ -42,8 +43,7 @@ class WorldTimer extends StatelessWidget {
     this.share,
     this.candleHeight = 90,
     this.lineHeight,
-    this.lift = 0,
-    this.stacked = false,
+    this.maxNumberWidth,
     this.semanticLabel,
   }) : _compact = true;
 
@@ -58,22 +58,14 @@ class WorldTimer extends StatelessWidget {
   /// The compact candle's height.
   final double candleHeight;
 
-  /// The height of the title's first line beside the compact timer: the
-  /// number sits in it, level with the title, the candle standing from its top.
-  /// Null: the number is centred on the candle.
+  /// The height of the number's room beside the compact candle: the number
+  /// is centred in it. Null: the candle's height.
   final double? lineHeight;
 
-  /// The candle stands under the number (centred in the number's slot, the
-  /// unit as wide as the slot) instead of beside it.
-  final bool stacked;
-
-  /// How far the candle's top (the flame's tip) reaches up into the number's
-  /// line box, under the digits' feet, when it stands under the number.
-  static const stackedOverlap = 5.0;
-
-  /// How far the candle stands above the number's line (the candle's top is
-  /// the unit's top; the number sits [lift] lower).
-  final double lift;
+  /// The most room the number may take: where its slot is wider (a narrow
+  /// phone with minutes on the clock) it is set smaller to fit, so the title
+  /// beside it keeps its room. Null: the slot is the number's own.
+  final double? maxNumberWidth;
 
   /// Read out instead of the number.
   final String? semanticLabel;
@@ -143,68 +135,32 @@ class WorldTimer extends StatelessWidget {
   }
 
   Widget _corner(BuildContext context, String? number, bool bounded) {
-    // The skin's `timerCompact` is the corner number's own size (27 px).
-    final numberStyle = context.skin.typography.timerCompact;
+    // The night's timer is the one timer style (`timerSmall`, the number as
+    // the vote's and the talk's are drawn: the unit at a share of it), at its
+    // own size whatever the text size.
+    final numberStyle = context.skin.typography.timerSmall;
     final candle = CandleGauge(share: share, height: candleHeight);
     if (number == null) return candle;
-    // The number is the unit's own size, whatever the text size (the title
-    // beside it stops growing, and must not give way to the seconds): its slot
-    // is as wide as the widest it can read in its form, its right edge a gap
-    // (the width of its "s") from the candle, so nothing shifts as a ten turns
-    // into a nine and nothing touches the flame or the wax.
+    // The number's slot is as wide as the widest it can read in its form, its
+    // right edge a gap from the candle, so nothing shifts as a ten turns into
+    // a nine and nothing touches the flame or the wax.
     final slot = _slot(numberStyle, number);
     final line = lineHeight ?? candleHeight;
-    final numberBox = SizedBox(
-      width: slot,
-      height: line,
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Text(
-          number,
-          textScaler: TextScaler.noScaling,
-          style: numberStyle,
-        ),
-      ),
-    );
-    if (stacked) {
-      // The number on the title's first line, the candle standing under it on
-      // its ledge, centred under the slot; the unit is as wide as the slot.
-      return SizedBox(
-        width: slot,
-        height: line - stackedOverlap + candleHeight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Painted first: the number lies over the candle's dark nook.
-            Positioned(
-              top: line - stackedOverlap,
-              left: 0,
-              right: 0,
-              child: Center(child: candle),
-            ),
-            Positioned(top: 0, left: 0, child: numberBox),
-          ],
-        ),
-      );
-    }
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: _width('s', numberStyle) + 1,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      spacing: Space.sm,
       children: [
-        Padding(
-          padding: EdgeInsets.only(top: lift),
-          child: SizedBox(
-            width: slot,
-            height: line,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                number,
-                textScaler: TextScaler.noScaling,
-                style: numberStyle,
-              ),
-            ),
+        SizedBox(
+          width: maxNumberWidth == null
+              ? slot
+              : math.min(slot, maxNumberWidth!),
+          height: line,
+          child: ClockFigure(
+            number,
+            style: numberStyle,
+            alignment: Alignment.centerRight,
+            textScaler: TextScaler.noScaling,
           ),
         ),
         candle,
@@ -214,7 +170,7 @@ class WorldTimer extends StatelessWidget {
 
   static double _width(String text, TextStyle style) {
     final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: TextSpan(style: style, children: [ClockFigure.span(text, style)]),
       textDirection: TextDirection.ltr,
       textScaler: TextScaler.noScaling,
     )..layout();

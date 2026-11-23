@@ -205,14 +205,16 @@ Future<void> pumpNightFour(WidgetTester tester) => _shell(
 
 /// 06 at ten, as many as the server seats, with long names (game 8 and one
 /// more seat).
-Future<void> pumpNightTenLong(WidgetTester tester) => _shell(
-  tester,
-  sheet.tableOf(
-    sheet.recordedMe('me_choose_prompt_drunk'),
-    add: 1,
-    rename: sheet.longNames,
-  ),
-);
+Future<void> pumpNightTenLong(WidgetTester tester, {double textScale = 1}) =>
+    _shell(
+      tester,
+      sheet.tableOf(
+        sheet.recordedMe('me_choose_prompt_drunk'),
+        add: 1,
+        rename: sheet.longNames,
+      ),
+      textScale: textScale,
+    );
 
 // ---------------------------------------------------------------------------
 // 08 Talk
@@ -408,15 +410,17 @@ Future<void> pumpVoteRestartLocked(WidgetTester tester) => _shell(
 );
 
 /// 09 at ten with long names.
-Future<void> pumpVoteTenLong(WidgetTester tester) => _shell(
-  tester,
-  sheet.tableOf(
-    sheet.recordedMe('me_voting_unpicked'),
-    add: 5,
-    rename: _tenLongNames,
-  ),
-  learned: Cue.values.toSet(),
-);
+Future<void> pumpVoteTenLong(WidgetTester tester, {double textScale = 1}) =>
+    _shell(
+      tester,
+      sheet.tableOf(
+        sheet.recordedMe('me_voting_unpicked'),
+        add: 5,
+        rename: _tenLongNames,
+      ),
+      learned: Cue.values.toSet(),
+      textScale: textScale,
+    );
 
 /// 09 at a table with two practice players (Quin's phone): Scarecrow and
 /// Teapot tagged "Practice", Pia not.

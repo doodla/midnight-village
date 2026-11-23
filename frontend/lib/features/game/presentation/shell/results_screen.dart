@@ -529,16 +529,12 @@ class _EndRow extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (seat.moved) ...[
-                      // Dealt, then where the card went: both in full
-                      // ink, the arrow at the name's size (cold read: the
-                      // quiet tone and a small arrow were not read).
-                      FitWords(
+                      // Dealt, then where the card went: both as a chip (a
+                      // role is one treatment in a row), the arrow at the
+                      // name's size (cold read: a small arrow was not read).
+                      _CardChip(
                         seat.dealt.displayName,
-                        style: type.body.copyWith(
-                          color: seat.werewolfDealt
-                              ? ground.dangerText
-                              : ground.text,
-                        ),
+                        werewolf: seat.werewolfDealt,
                       ),
                       Icon(
                         Icons.arrow_forward,

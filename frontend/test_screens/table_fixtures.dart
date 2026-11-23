@@ -370,11 +370,13 @@ Future<void> pumpTableHostAlone(WidgetTester tester) => TableSetup.pump(
 );
 
 /// 02, the host's, at nine with long names, the Chaos chip's twelve cards.
-Future<void> pumpTableHostNine(WidgetTester tester) => TableSetup.pump(
-  tester,
-  lobby: v2Lobby('detail_auto_deck_9', rename: longNames),
-  viewer: 'Christopher',
-);
+Future<void> pumpTableHostNine(WidgetTester tester, {double textScale = 1}) =>
+    TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_auto_deck_9', rename: longNames),
+      viewer: 'Christopher',
+      textScale: textScale,
+    );
 
 /// 02, the host's, with her own deck of twelve for nine.
 Future<void> pumpTableHostCustom(WidgetTester tester) async {

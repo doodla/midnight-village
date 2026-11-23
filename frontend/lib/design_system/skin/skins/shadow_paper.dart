@@ -218,8 +218,7 @@ final _type = SkinType(
   buttonLabelSmall: _figtree(15, FontWeight.w700, height: 1.1), // mock 19
   timer: _gloock(84, height: 0.9, em: -0.02), // S08
   timerVote: _gloock(76, height: 0.9, em: -0.02), // S09
-  timerSmall: _gloock(64, height: 1), // S05
-  timerCompact: _gloock(27, height: 1), // S06 (the corner's seconds)
+  timerSmall: _gloock(64, height: 1), // S05, S06
   bodyLarge: _figtree(15, FontWeight.w500, height: 1.35),
   bodyStrong: _figtree(15, FontWeight.w700, height: 1.35),
   lede: _figtree(14, FontWeight.w500, height: 1.3), // S01

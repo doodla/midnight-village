@@ -137,7 +137,7 @@ class BoardLayout {
   /// tall: the cards grow to the height the phone gives them (the mocks'
   /// 96 is where a full table of ten ends up), up to this and no further.
   /// What a phone still has to spare goes between the parts evenly.
-  static const largest = 160.0;
+  static const largest = 168.0;
 
   /// A card grown past the mocks' board card (96) leaves this much air in
   /// each gap (above the seats, between the rows, above the band), so the

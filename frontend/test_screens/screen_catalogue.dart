@@ -108,6 +108,7 @@ final screenCatalogue = <ScreenEntry>[
     '-7-chaos': pumpTableHostChaos,
     '-alone': pumpTableHostAlone,
     '-9-long': pumpTableHostNine,
+    '-9-long-x1.6': (tester) => pumpTableHostNine(tester, textScale: 1.6),
     '-custom': pumpTableHostCustom,
     '-custom-short': pumpTableHostMismatch,
     '-dropped': pumpTableDropped,
@@ -213,6 +214,7 @@ final screenCatalogue = <ScreenEntry>[
     '-4': pumpNightFour,
     '-9': pumpNightNine,
     '-10-long': pumpNightTenLong,
+    '-10-long-x1.6': (tester) => pumpNightTenLong(tester, textScale: 1.6),
     '-x1.3': (tester) => pumpNightBoard(tester, textScale: 1.3),
   }),
   ..._rebuilt('08-talk', '08-talk.png', {
@@ -238,6 +240,7 @@ final screenCatalogue = <ScreenEntry>[
     '-restart-locked': pumpVoteRestartLocked,
     '-3': pumpVoteThree,
     '-10-long': pumpVoteTenLong,
+    '-10-long-x1.6': (tester) => pumpVoteTenLong(tester, textScale: 1.6),
     '-practice': pumpVotePractice,
     '-x1.3': (tester) => pumpVoteOpen(tester, textScale: 1.3),
   }),

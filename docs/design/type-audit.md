@@ -25,7 +25,7 @@ is the shipped value before the choice (a mock's number is never copied: a role 
 | nameSmall | G | 14 | 18 | a name under a card on the night board |
 | buttonLabel (large, regular, small) | F 700 | 15 | 21 / 20 / 19 (G) | primary button words |
 | timer, timerVote, timerSmall | G | **84, 76, 64** | same | the countdowns (unchanged) |
-| timerCompact | G | **27** | 34 x 0.8 by hand | the board's corner seconds (unchanged size, now a role) |
+| timerSmall | G | **64** | 64 | the night's seconds, on the board (S06) as on the candle's panel (S05): the one timer style; the role `timerCompact` (27) is gone |
 | bodyLarge / bodyStrong | F 500 / 700 | 15 | 17 | a role's text, a count read across the table, a lead word |
 | lede, body, action | F | 14 | 16 | ordinary text, secondary buttons, chips |
 | code / cue | F 700 | 15 / 16 | 17 / 20 | the typed code, "Hold" |
@@ -51,7 +51,7 @@ are not buttons). The room the smaller type freed is **not** used yet: a design 
 ## What the audit found outside the roles, and what was done
 
 Six sizes set by hand: Join's 42 (x2), the name field's 20, the lobby name's 18 and the corner seconds'
-27: all are roles now (`heroTitle`, `name`, `timerCompact`). Three weights: `bodyStrong` (the role sheet's
+27: all are roles now (`heroTitle`, `name`). Three weights: `bodyStrong` (the role sheet's
 lead word, the progress count) and `body` (the night's story line on the results). Left on purpose, each
 named in `type_guard_test.dart`: the fits (a role made smaller to fit its room: `FitLine`/`FitWords`, the
 board's one name size, the table's two-up name size, the hold cue word, the timer's unit "s"). Debug only

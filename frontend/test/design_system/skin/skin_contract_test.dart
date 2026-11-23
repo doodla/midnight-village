@@ -77,9 +77,7 @@ enum _Kind {
   cue(16, 16),
   // Captions, tags, badges: the floor.
   label(12, 12),
-  timer(64, 84),
-  // The corner's seconds: as big as they were.
-  cornerTimer(27, 27);
+  timer(64, 84);
 
   const _Kind(this.min, this.max);
 
@@ -109,7 +107,6 @@ const _kinds = {
   'timer': _Kind.timer,
   'timerVote': _Kind.timer,
   'timerSmall': _Kind.timer,
-  'timerCompact': _Kind.cornerTimer,
   'bodyLarge': _Kind.body,
   'bodyStrong': _Kind.body,
   'lede': _Kind.body,

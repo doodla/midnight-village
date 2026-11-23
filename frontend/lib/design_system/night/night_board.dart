@@ -112,16 +112,6 @@ class NightBoard extends ConsumerStatefulWidget {
   /// The button's words grow further, as far as a held face's.
   static const buttonScale = 1.6;
 
-  /// The candle stands under the seconds, this high (its flame's tip under
-  /// the digits' feet, its ledge a little below the title's room, above the
-  /// seats' labels and cards, which start further down).
-  static const candleHeight = 65.0;
-
-  /// The width the title has always given the seconds and the candle (the
-  /// unit it replaced, 85 px, and the title's gap to it): the title is never
-  /// set smaller, nor broken onto more lines, than it was.
-  static const unitReserve = 85.0;
-
   /// The strip of the night village behind the title shows the picture from
   /// this row of pixels down: its roofs and spire, clear of the moon above,
   /// which would sit under the seconds.
@@ -134,6 +124,9 @@ class NightBoard extends ConsumerStatefulWidget {
   static const tallPhone = 700.0;
   static const stripShare = 0.45;
   static const stripMost = 72.0;
+
+  /// The most of the header's width the seconds take.
+  static const timerShare = 0.36;
 
   /// The lines of room a title has, at the full title size.
   static const titleLines = 2;
@@ -382,77 +375,64 @@ class _NightBoardState extends ConsumerState<NightBoard> {
     );
   }
 
-  /// The title in a room two lines high at the full title size, the same
-  /// height on every phone whatever the role (so the board below sits alike):
-  /// the prompt's words wrap between words, and are set smaller only where
-  /// two lines are not enough. Beside it the candle, as high as that room,
-  /// and the seconds level with the title's first line.
+  /// The title in a room two lines high at the full title size (the taller of
+  /// that and the timer's line), the same height on every phone whatever the
+  /// role (so the board below sits alike): the prompt's words wrap between
+  /// words, never leave one word alone on a line, and are set smaller only
+  /// where two lines are not enough. Beside it the timer in the one timer
+  /// style and the candle, as high as the timer's line.
   Widget _header(BuildContext context) {
     final title = context.skin.typography.screenTitle;
-    // At the title's own size, whatever the text scale: the unit sets its
-    // larger digits smaller to keep to it.
-    final timer = context.skin.typography.timerCompact;
-    // The seconds keep their size when the title is set smaller (the type
-    // options): their line is never shorter than their own.
-    final line = math.max(
-      title.fontSize! * title.height!,
-      timer.fontSize! * timer.height!,
-    );
+    // The timer is the one timer style (`timerSmall`, as 05, 08 and 09 draw
+    // it), at its own size whatever the text scale.
+    final timer = context.skin.typography.timerSmall;
+    final timerLine = timer.fontSize! * timer.height!;
     // A pixel over two lines: a wrapped title measures a hair more than its
     // lines times the line height.
-    final room =
-        MediaQuery.textScalerOf(context).scale(line) * NightBoard.titleLines +
+    final titleRoom =
+        MediaQuery.textScalerOf(
+              context,
+            ).scale(title.fontSize! * title.height!) *
+            NightBoard.titleLines +
         1;
-    // The candle and the seconds are the unit's own size, whatever the text
-    // size: the title beside them stops growing at its limit, and must never
-    // be set smaller to make room for them.
-    const candleHeight = NightBoard.candleHeight;
-    // The whole unit's height: the number's line, the candle under it.
-    final unitHeight = line - WorldTimer.stackedOverlap + candleHeight;
+    final room = math.max(titleRoom, timerLine);
     if (!_candleWarmed) {
       // The candle's cuts decoded now, for the first frame the board draws.
       _candleWarmed = true;
-      CandleGauge.precache(context, candleHeight);
+      CandleGauge.precache(context, timerLine);
     }
-    return Row(
-      spacing: Space.md,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: room,
-            child: Semantics(
-              header: true,
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: FitWords(
-                  widget.prompt.kind.title,
-                  maxLines: NightBoard.titleLines,
-                  style: title,
+    // The seconds take at most this share of the header (a narrow phone with
+    // minutes on the clock sets them smaller): the title keeps its room.
+    return LayoutBuilder(
+      builder: (context, header) => Row(
+        spacing: Space.md,
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: room,
+              child: Semantics(
+                header: true,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: FitWords(
+                    widget.prompt.kind.title,
+                    maxLines: NightBoard.titleLines,
+                    noWidow: true,
+                    style: title,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        // The seconds on the title's first line and the candle under them,
-        // standing a little below the title's room: the unit takes the width
-        // the title has always given it ([NightBoard.unitReserve]) and none
-        // of the board's height.
-        SizedBox(
-          width: NightBoard.unitReserve,
-          child: Align(
-            alignment: Alignment.topRight,
-            heightFactor: room / unitHeight,
-            child: WorldTimer.candleCompact(
-              secondsLeft: widget.secondsLeft,
-              share: widget.share,
-              candleHeight: candleHeight,
-              lineHeight: line,
-              stacked: true,
-            ),
+          WorldTimer.candleCompact(
+            secondsLeft: widget.secondsLeft,
+            share: widget.share,
+            candleHeight: timerLine,
+            lineHeight: room,
+            maxNumberWidth: header.maxWidth * NightBoard.timerShare,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
