@@ -6,7 +6,7 @@ import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
+import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
@@ -69,12 +69,12 @@ enum ComponentPage {
   actionNineLarge(mock: '06-night-action.png', viewer: Viewer.drunk),
   actionThree(mock: '06-night-action.png'),
   actionTenLong(mock: '06-night-action.png', viewer: Viewer.drunk),
-  talk(mock: '08-talk.png', day: true),
-  talkHeld(mock: '08-talk.png', day: true),
-  talkRobber(mock: '08-talk.png', day: true, viewer: Viewer.robber),
-  talkLoneWerewolf(mock: '08-talk.png', day: true, viewer: Viewer.loneWerewolf),
-  talkDrunk(mock: '08-talk.png', day: true, viewer: Viewer.drunk),
-  talkDoppelganger(mock: '08-talk.png', day: true, viewer: Viewer.doppelganger),
+  talk(mock: '08-talk.png'),
+  talkHeld(mock: '08-talk.png'),
+  talkRobber(mock: '08-talk.png', viewer: Viewer.robber),
+  talkLoneWerewolf(mock: '08-talk.png', viewer: Viewer.loneWerewolf),
+  talkDrunk(mock: '08-talk.png', viewer: Viewer.drunk),
+  talkDoppelganger(mock: '08-talk.png', viewer: Viewer.doppelganger),
   vote(mock: '09-vote.png', day: true),
   votePicked(mock: '09-vote.png', day: true),
   voteLocked(mock: '09-vote.png', day: true),
@@ -166,12 +166,9 @@ enum ComponentPage {
           talkLoneWerewolf ||
           talkDrunk ||
           talkDoppelganger:
-        // My night is a sheet: a tap opens it, every page of it at once
-        // (the Doppelganger's window 1 page too).
-        await tester.tap(find.byType(PeekBox));
-        // The sheet slides up; the screen under it may have a loop of its own.
-        await tester.pump();
-        await tester.pump(const Duration(seconds: 1));
+        // My night is held: the board shows it, every page of it at once
+        // (the Doppelganger's window 1 page too), while the finger stays.
+        await holdDown(tester, find.byType(SealedNote));
       case actionPicked:
         await tapAll(who.taps);
       case actionOneMore:

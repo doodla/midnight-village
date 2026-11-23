@@ -23,7 +23,17 @@ export 'board_card_back.dart';
 // light's (`OneLight`).
 
 /// Which paper a board card is cut from.
-enum BoardPaper { winner, loser, werewolfWon, werewolfLost, night }
+enum BoardPaper {
+  winner,
+  loser,
+  werewolfWon,
+  werewolfLost,
+  night,
+
+  /// A Werewolf-team card of the deck in play (08): the darker red, so its
+  /// bone words keep 7:1, its portrait in full colour.
+  werewolfDeck,
+}
 
 /// A player's card pinned on the board: the name (when there is one), the
 /// portrait in a 4:3 window showing the whole face with headroom, the role on
@@ -97,13 +107,16 @@ class BoardCard extends StatelessWidget {
       BoardPaper.winner => parts.winnerPaper,
       BoardPaper.loser => parts.loserPaper,
       BoardPaper.werewolfWon => parts.werewolfWonPaper,
-      BoardPaper.werewolfLost => parts.werewolfLostPaper,
+      BoardPaper.werewolfLost ||
+      BoardPaper.werewolfDeck => parts.werewolfLostPaper,
       BoardPaper.night => parts.nightPaper,
     };
   }
 
   bool get _red =>
-      paper == BoardPaper.werewolfWon || paper == BoardPaper.werewolfLost;
+      paper == BoardPaper.werewolfWon ||
+      paper == BoardPaper.werewolfLost ||
+      paper == BoardPaper.werewolfDeck;
 
   @override
   Widget build(BuildContext context) {
@@ -145,6 +158,8 @@ class BoardCard extends StatelessWidget {
       );
     }
     final fill = _fill(context);
+    // No portrait (a name-only card): the words stand on the paper itself.
+    final nameOnly = portraitWidth <= 0;
     final window = SizedBox(
       width: portraitWidth,
       height: portraitWidth * 3 / 4,
@@ -164,13 +179,15 @@ class BoardCard extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: fill,
-            boxShadow: [
-              BoxShadow(
-                color: parts.boardShade.withValues(alpha: 0.35),
-                blurRadius: 2,
-                offset: const Offset(0, -1),
-              ),
-            ],
+            boxShadow: nameOnly
+                ? null
+                : [
+                    BoxShadow(
+                      color: parts.boardShade.withValues(alpha: 0.35),
+                      blurRadius: 2,
+                      offset: const Offset(0, -1),
+                    ),
+                  ],
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: stripPad),
@@ -211,7 +228,7 @@ class BoardCard extends StatelessWidget {
                   )
                 else
                   const SizedBox(height: inset),
-                window,
+                if (!nameOnly) window,
               ],
             ),
             stripBar,

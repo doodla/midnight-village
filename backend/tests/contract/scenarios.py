@@ -1313,6 +1313,7 @@ def _plain_choose_table(run: Recording) -> None:
         ("Ana", "seer"),
         ("Ben", "robber"),
         ("Cleo", "werewolf_lone"),
+        ("Dev", "troublemaker"),
         ("Esme", "villager"),
     ]:
         t.record(

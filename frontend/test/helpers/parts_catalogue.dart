@@ -44,6 +44,7 @@ import 'package:midnight_village/design_system/teach/hold_cue.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
 
 import 'end_parts_catalogue.dart';
+import 'talk_parts_catalogue.dart';
 import 'sheet/sheet_data.dart';
 
 /// The states a component is shown in on the parts page.
@@ -494,6 +495,7 @@ final List<PartSample> partsCatalogue = [
   ),
   // ---- The end board
   ...endPartsCatalogue,
+  ...talkPartsCatalogue,
 ];
 
 Widget _inertTextAction(BuildContext context) =>

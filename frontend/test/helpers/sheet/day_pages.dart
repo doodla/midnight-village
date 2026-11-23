@@ -20,7 +20,6 @@ class TalkPage extends StatefulWidget {
     required this.viewer,
     this.me,
     this.secondsLeft = 252,
-    this.elapsed,
     this.open = false,
   });
 
@@ -33,9 +32,8 @@ class TalkPage extends StatefulWidget {
   /// The phone's `/me/` in the talk: [viewer]'s recorded one when not given.
   final Map<String, dynamic>? me;
 
-  /// The talk's clock: its number, and how far the sun is.
+  /// The talk's clock.
   final int secondsLeft;
-  final double? elapsed;
 
   @override
   State<TalkPage> createState() => _TalkPageState();
@@ -56,7 +54,6 @@ class _TalkPageState extends State<TalkPage> {
       child: TalkView(
         me: _me.withReady(_ready),
         secondsLeft: widget.secondsLeft,
-        elapsed: widget.elapsed,
         onReady: () => setState(() => _ready = !_ready),
         openNight: _open,
       ),

@@ -34,6 +34,10 @@ enum PaperPart {
   /// The screen's one amber action: amber paper on a darker backing.
   primary,
 
+  /// The screen's one action, pressed on (a toggle: 08's "Ready ✓"): navy
+  /// paper where the amber was, laid lower, its words bone.
+  primaryOn,
+
   /// A bone scrap: the secondary action, an icon action, a stepper's glyph.
   scrap,
 
@@ -145,6 +149,14 @@ abstract final class DressStyle {
       paper: PartLook(
         fill: PaperFill.amber,
         raise: PaperRaise.primary,
+        edge: PaperEdge.plaque,
+      ),
+    ),
+    PaperPart.primaryOn: PartDress(
+      plain: '2 px outline on the ground, no fill',
+      paper: PartLook(
+        fill: PaperFill.navy,
+        raise: PaperRaise.card,
         edge: PaperEdge.plaque,
       ),
     ),

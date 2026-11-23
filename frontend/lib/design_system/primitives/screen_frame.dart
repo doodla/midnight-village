@@ -109,6 +109,7 @@ class ScreenFrame extends StatelessWidget {
     this.dress,
     this.mood,
     this.moodLight = MoodLight.standard,
+    this.bleed = false,
   }) : assert(
          topArt == null || topSlot == null,
          'A screen has a top picture or a top band, not both.',
@@ -190,6 +191,12 @@ class ScreenFrame extends StatelessWidget {
   /// Where a lantern's pool lies on the screen ([MoodKind.lantern]).
   final MoodLight moodLight;
 
+  /// The body runs edge to edge under the [topSlot] and down to the screen's
+  /// foot (08's square: the board, and the cobbles under its button): no
+  /// gutters, no gap under the band, no margin at the foot. Such a body keeps
+  /// clear of the navigation bar itself.
+  final bool bleed;
+
   @override
   Widget build(BuildContext context) => DressScope(
     dress: dress ?? DressScope.of(context),
@@ -222,10 +229,15 @@ class ScreenFrame extends StatelessWidget {
     final scene = topScene;
     final slot = topSlot;
 
-    const padded = EdgeInsets.symmetric(horizontal: Space.gutter);
+    final padded = bleed
+        ? EdgeInsets.zero
+        : const EdgeInsets.symmetric(horizontal: Space.gutter);
+    final under = bleed ? 0.0 : Space.lg;
     // With no actions (which keep clear of the navigation bar themselves),
     // the body's end stays above it: the screen runs under the bars.
-    final bottom = actions.isEmpty
+    final bottom = bleed
+        ? 0.0
+        : actions.isEmpty
         ? Space.screenBottom + MediaQuery.paddingOf(context).bottom
         : Space.md;
     final Widget top;
@@ -282,8 +294,8 @@ class ScreenFrame extends StatelessWidget {
         ],
       );
     } else if (slot != null && fitsHeight && minBodyHeight != null) {
-      final under = Padding(
-        padding: padded.copyWith(top: Space.lg),
+      final rest = Padding(
+        padding: padded.copyWith(top: under),
         child: body,
       );
       return _frame(
@@ -297,16 +309,16 @@ class ScreenFrame extends StatelessWidget {
               bottom: 0,
               child: _SlotThenRest(
                 viewport: box.maxHeight,
-                minRest: minBodyHeight! + Space.lg,
-                children: [slot, under],
+                minRest: minBodyHeight! + under,
+                children: [slot, rest],
               ),
             ),
           ),
         ),
       );
     } else if (slot != null) {
-      final under = Padding(
-        padding: padded.copyWith(top: Space.lg),
+      final rest = Padding(
+        padding: padded.copyWith(top: under),
         child: body,
       );
       top = Column(
@@ -315,7 +327,7 @@ class ScreenFrame extends StatelessWidget {
         // under the band.
         children: [
           slot,
-          if (fitsHeight) Expanded(child: under) else under,
+          if (fitsHeight) Expanded(child: rest) else rest,
         ],
       );
     } else {

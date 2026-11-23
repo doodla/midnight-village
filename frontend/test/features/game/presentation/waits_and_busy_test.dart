@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
-import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/waiting_sign.dart';
@@ -261,8 +261,10 @@ void main() {
       }
       expect(find.byType(TalkWait), findsOneWidget);
       expect(find.byType(GameWait), findsNothing);
-      expect(find.byType(TimerBand), findsOneWidget);
-      expect(find.text(TalkCopy.headline), findsOneWidget);
+      expect(
+        tester.widget<SquareSky>(find.byType(SquareSky)).title,
+        TalkCopy.headline,
+      );
       expect(_sign(tester), 0, reason: 'a quick answer shows no sign');
 
       await _wait(tester, Motion.signAfter + Motion.settle);
