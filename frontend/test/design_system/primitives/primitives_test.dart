@@ -34,16 +34,21 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('a tap acts; disabled or busy, it does not', (tester) async {
+    testWidgets('a tap acts; waiting or busy, it does not', (tester) async {
       var taps = 0;
       Future<void> pump({bool enabled = true, bool busy = false}) =>
           pumpSkinned(
             tester,
-            PrimaryButton(
-              label: 'Deal the cards',
-              onPressed: enabled ? () => taps++ : null,
-              busy: busy,
-            ),
+            enabled
+                ? PrimaryButton(
+                    label: 'Deal the cards',
+                    onPressed: () => taps++,
+                    busy: busy,
+                  )
+                : const PrimaryButton.waiting(
+                    label: 'Deal the cards',
+                    reason: 'Not yet',
+                  ),
           );
 
       await pump();
@@ -87,7 +92,7 @@ void main() {
       }
 
       final night = await drawn(
-        PrimaryButton(label: 'Deal to 5', onPressed: () {}),
+        PrimaryButton(label: 'Start game', onPressed: () {}),
         GroundKind.night,
       );
       expect(night.color, skin.night.accent);
@@ -99,7 +104,7 @@ void main() {
       expect(day.color, skin.day.accent);
       expect((day.border! as Border).top.color, skin.day.accentEdge);
       for (final quiet in [
-        const PrimaryButton(label: 'Pick a name', onPressed: null),
+        const PrimaryButton.waiting(label: 'Pick a name', reason: 'Pick first'),
         PrimaryButton.locked(label: 'Ready', onLockedTap: () {}),
         PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {}),
       ]) {
@@ -163,7 +168,10 @@ void main() {
       final semantics = tester.ensureSemantics();
       await pumpSkinned(
         tester,
-        const PrimaryButton(label: 'Lock in Cleo', onPressed: null),
+        const PrimaryButton.waiting(
+          label: 'Lock in Cleo',
+          reason: 'Pick first',
+        ),
       );
       expect(
         tester.getSemantics(find.byType(PrimaryButton)),

@@ -198,7 +198,7 @@ void main() {
     final me = 'GET /onuw/games/${started['game_id']}/me/';
     final from = setup.http.requests.length;
 
-    await _tapText(tester, TableCopy.deal.fill({'n': 5}));
+    await _tapText(tester, TableCopy.start);
     await _until(tester, () {
       final sent = _sent(setup, from);
       return sent.contains(me) && sent.contains('GET /me/table/');

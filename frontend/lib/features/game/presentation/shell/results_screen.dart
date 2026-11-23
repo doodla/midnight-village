@@ -377,21 +377,32 @@ class _HostButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = context.skin.typography;
-    final play = PrimaryButton(
-      label: ResultsCopy.playAgain,
-      // Busy stays a live look (filled, readable); a tap does nothing.
-      onPressed: busy == null || busy == ResultsAct.playAgain
-          ? onPlayAgain
-          : null,
-      busy: busy == ResultsAct.playAgain,
-      size: ButtonSize.large,
-    );
-    final edit = SecondaryButton(
-      label: ResultsCopy.editDeck,
-      onPressed: busy == null ? onEditDeck : null,
-      busy: busy == ResultsAct.editDeck,
-      size: ButtonSize.large,
-    );
+    // Busy stays a live look (filled, readable); a tap does nothing. While
+    // the other one is on its way this one holds its words.
+    final play = busy == null || busy == ResultsAct.playAgain
+        ? PrimaryButton(
+            label: ResultsCopy.playAgain,
+            onPressed: onPlayAgain,
+            busy: busy == ResultsAct.playAgain,
+            size: ButtonSize.large,
+          )
+        : PrimaryButton.waiting(
+            label: ResultsCopy.playAgain,
+            reason: SpokenCopy.working,
+            size: ButtonSize.large,
+          );
+    final edit = busy == null || busy == ResultsAct.editDeck
+        ? SecondaryButton(
+            label: ResultsCopy.editDeck,
+            onPressed: onEditDeck,
+            busy: busy == ResultsAct.editDeck,
+            size: ButtonSize.large,
+          )
+        : SecondaryButton.waiting(
+            label: ResultsCopy.editDeck,
+            reason: SpokenCopy.working,
+            size: ButtonSize.large,
+          );
     return LayoutBuilder(
       builder: (context, room) {
         final half = (room.maxWidth - Space.md) / 2;

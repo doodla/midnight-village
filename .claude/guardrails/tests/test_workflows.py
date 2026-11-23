@@ -233,9 +233,9 @@ class WorkflowPublishing(unittest.TestCase):
             "https://github.com/doodla/midnight-village/releases/download/"
             "android-latest/midnight-village.apk",
         )
-        # The single-page rewrite stays last; Vercel answers redirects before rewrites.
+        # The single-page rewrite stays; Vercel answers redirects before rewrites.
         self.assertEqual(
-            cfg["rewrites"][-1], {"source": "/(.*)", "destination": "/index.html"}
+            cfg["rewrites"], [{"source": "/(.*)", "destination": "/index.html"}]
         )
 
 

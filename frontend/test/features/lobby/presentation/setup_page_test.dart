@@ -8,6 +8,8 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/value_stepper.dart';
+import 'package:midnight_village/features/lobby/presentation/deck_screen.dart'
+    show deckFixWords;
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/server_json.dart';
@@ -129,15 +131,15 @@ class _Table {
   }
 }
 
-const _direction = [
-  'Add',
-  'Remove',
-  'more',
-  'fewer',
-  'missing',
-  'short',
-  'too many',
-];
+/// The count's line as 03 says it: "11 of 11", or with the difference, what to
+/// add or remove ("10 of 11 · Add 1 card").
+String _count(int have, int need) => have == need
+    ? DeckCopy.count.fill({'picked': have, 'need': need})
+    : DeckCopy.countFix.fill({
+        'picked': have,
+        'need': need,
+        'fix': deckFixWords(have - need),
+      });
 
 void main() {
   Future<(TableSetup, _Table)> open(
@@ -174,7 +176,7 @@ void main() {
     final need = deal['need'] as int;
     final have = deal['have'] as int;
     if (table.seats != null) {
-      expect(find.text('$have / $need'), findsOneWidget, reason: step);
+      expect(find.text(_count(have, need)), findsOneWidget, reason: step);
       expect(
         find.text(
           TableCopy.seated.fill({'d': table.present, 'n': table.seats!}),
@@ -183,7 +185,8 @@ void main() {
         reason: step,
       );
     }
-    // One label, always live: the page holds the players and the lengths.
+    // Always live, never dimmed, always "Done" (with the wrong number of
+    // cards the first tap shows the count).
     final done = find.widgetWithText(PrimaryButton, DeckCopy.done);
     expect(done, findsOneWidget, reason: step);
     expect(tester.widget<PrimaryButton>(done).onPressed, isNotNull);
@@ -194,15 +197,12 @@ void main() {
       cards.containsKey('Doppelganger') ? findsOneWidget : findsNothing,
       reason: step,
     );
-    for (final word in _direction) {
-      expect(find.textContaining(word), findsNothing, reason: '$step: $word');
-    }
   }
 
   for (final seats in [3, 5, 8, 10]) {
     for (final present in [1, 2, 5]) {
       testWidgets('set for $seats with $present here: the counter is the '
-          'server\'s at every tap, one label, no direction words; 02 deals '
+          'server\'s at every tap, no direction words; 02 deals '
           'exactly on ok', (tester) async {
         final (setup, table) = await open(tester, present);
         check(tester, table, 'opened');
@@ -294,20 +294,16 @@ void main() {
         // Every tap went to the server, one change each.
         expect(setup.patches.length, greaterThan(need));
 
-        // Back on 02: "Deal to {n}", live exactly when the server says ok.
+        // Back on 02: "Start the game", live exactly when the server says ok.
         await _tap(tester, setup, find.text(DeckCopy.done));
-        final deal = find.widgetWithText(
-          PrimaryButton,
-          TableCopy.deal.fill({'n': table.seats!}),
-        );
-        expect(deal, findsOneWidget);
+        // The one primary button: "Start the game", live, when the server says ok;
+        // else it says what is missing or leads to the fix (never dimmed
+        // under the same words).
+        final deal = tester.widget<PrimaryButton>(find.byType(PrimaryButton));
         expect(
-          tester.widget<PrimaryButton>(deal).onPressed != null,
+          deal.label == TableCopy.start && deal.onPressed != null,
           (table.body()['deal'] as Map)['ok'],
         );
-        for (final word in _direction) {
-          expect(find.textContaining(word), findsNothing);
-        }
         await setup.close(tester);
       });
     }
@@ -315,7 +311,7 @@ void main() {
 
   group('while changes are on their way (the answers held)', () {
     testWidgets('three taps on Players: the number, "3 of N" and the count '
-        'are the new number at once; 02 says "Deal to N"', (tester) async {
+        'are the new number at once; 02 says "Start the game"', (tester) async {
       final (setup, table) = await open(tester, 3);
       await _tap(tester, setup, _players(Icons.add)); // Any to 3, answered
       final held = setup.http.hold(method: 'PATCH', path: '/lobbies/D3GL6S/');
@@ -334,15 +330,16 @@ void main() {
         findsOneWidget,
       );
       // Never the new number beside the old need.
-      expect(find.text('9 / 9'), findsOneWidget);
-      expect(find.text('6 / 6'), findsNothing);
+      expect(find.text(_count(9, 9)), findsOneWidget);
+      expect(find.text(_count(6, 6)), findsNothing);
 
       await _tap(tester, setup, find.text(DeckCopy.done));
+      // Set for 6 with 3 here: it says how many more, never "Start the game".
       expect(
-        find.widgetWithText(PrimaryButton, TableCopy.deal.fill({'n': 6})),
+        find.widgetWithText(PrimaryButton, TableCopy.needMore.fill({'n': 3})),
         findsOneWidget,
       );
-      expect(find.text(TableCopy.deal.fill({'n': 3})), findsNothing);
+      expect(find.text(TableCopy.start), findsNothing);
 
       // Answers from now on: the held one, then the two waiting their turn.
       setup.http.stopHolding(method: 'PATCH', path: '/lobbies/D3GL6S/');

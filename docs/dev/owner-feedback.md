@@ -4,6 +4,51 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 23 November 2026, a play-through with practice players (spoken, verbatim)
+
+Handled by the deck-count piece (set-up page leave rule, the table's primary button, timer
+names): the first "disabled button" item and the timers. Everything else is OPEN.
+
+> Okay I'm finally seeing the game again after getting access to the practice players. There's a distinct lack of animations everywhere, which is okay.
+
+OPEN (said "which is okay"; the polish passes cover motion).
+
+> Also the stepper or card picker allows you to go over the limit so you can essentially go 10 or 8 or 12 or 8. It tells you that, yeah, you're over the limit but it allows you to leave the page. Now you're sitting on the main page with a disabled button that says "Deal to 5", which is not good. Just say "Start the game" or whatever. I guess most people would be confused, like, "What, what do I do?" Rather there should be some sort of nice text or error message or something that says, "Hey you can't go back to the game unless you correct the count."
+
+HANDLED by this piece: the set-up page cannot be left with a wrong count (it says how many too many or too few, and its leave control says so); the table's primary button is never silently disabled and its label is plain. Reviewed and reworked (23 November 2026): 03's "Done" is always "Done" and its count line says what to do ("14 of 12 · Remove 2 cards"), the first "Done" or Back with a wrong count stays and nudges it, the second leaves; 02's one button says "Add 1 card" / "Remove 2 cards", "Need 3 players" / "Need {n} more" (players before deck) or "Start the game"; 01's "Start a table" and "Join a table" with no name take the cursor to the name field and nudge it; `PrimaryButton` and `SecondaryButton` cannot be built disabled without a reason.
+
+> The timers aren't really explained as such but I guess that's a pretty minor thing.
+
+HANDLED by this piece (a one-line caption under each timer's name, set once).
+
+> Okay I've done that and now let's say I'm in the game. The vibration on the card after I press to reveal it, I don't like it so maybe get rid of it. The "My Night" thing seems like it floats: depending on where I tap it, it shows up in a different spot. The card, "What happened?" is kind of dumb. It should be like a pop-up or something.
+
+OPEN: the vibration after the reveal (remove), "My night" floating where it is tapped, "What happened?" as a pop-up.
+
+> I feel like instead of just the texts there, maybe we could have the images for the roles in the game, then results pages. It's just that things are too big, the texts, and you're kind of just trying to figure out what is important to read. The images are nice: "What, I was dealt this card and this is what they are now," but I feel like the name shouldn't be on the right side. The name maybe should be like the header of the card and then I can go to the "See who won" page.
+
+OPEN: role images on the results pages, text too big (the type tokens change), the name as the card's header rather than on the right.
+
+> What was the screen just before this? I feel a little redundant so maybe we merge those two to show a singular results screen.
+
+OPEN: merge the two results screens into one.
+
+> I think, yes, our design is still a bit weak. I'd like to see a few more mocks or a few more designs to see if we can show up all these issues.
+
+OPEN: more mocks and designs.
+
+> Give me your critique as well and let's also figure out which personas' review we need. Maybe not five people or whatever but if we have a good persona who's giving good critique, that would be nice. We can test it.
+
+OPEN: critique and a persona test.
+
+> You could blind test against my feedback to see if there's a persona that kind of gives feedback similar to ours (or at least would catch similar things that I do). Because I feel like this is not a game nearly ready to be Game of the Year, and I think the upcoming changes will help but I don't think they address everything I've mentioned.
+
+OPEN: blind-test personas against this feedback.
+
+Earlier the same day, on text sizes (OPEN, the type tokens):
+
+> I realized why the text sizes still feel off. It's built from the mocks and what I think happened is the mocks have this. I didn't worry about it at the mock stage and they translated directly I guess. I guess that's why it feels still very odd to me that the text sizes are so huge. [...] the text sizes are much smaller, especially around the names.
+
 ## 21 November 2026, from the live lobby (the owner was alone, so stuck there)
 
 - "I need the number of players to be configurable and I need the settings page to be really
@@ -112,6 +157,13 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
   main screen feel a bit too big" (first screen and table; options going to the board).
 - Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
   directly, 22 November). What it can be trusted with: `docs/dev/haiku-trial.md`.
+- 22 Nov, same-address API trial (#66): it BROKE the live web app for about 30 minutes (23:15 to
+  23:49 UTC) and was reverted (#68). Cause: Vercel's rewrite `/api/:path*` does not match a path
+  ending in a slash, and every API path does, so calls got `index.html`. No local check can see
+  Vercel's own forwarding. Not retried: a retry needs (1) `/api/(.*)` -> `.../api/$1`, (2) proof
+  on a Vercel deployment's own address BEFORE it serves players (a slash path and a POST both
+  answer JSON), and (3) the owner's yes. Live baseline to beat: Start 1.41 s fast, 2.78 s slow
+  phone; Join 1.33 s, 2.60 s.
 
 ## 23 November 2026: the type scale (heard directly)
 

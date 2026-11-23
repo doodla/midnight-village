@@ -82,13 +82,12 @@ class ButtonsPage extends StatelessWidget {
         icon: Icons.lock_outline,
         onPressed: () {},
       ),
-      PrimaryButton(
-        label: TableCopy.deal.fill({'n': 5}),
-        onPressed: () {},
-        busy: true,
-      ),
+      PrimaryButton(label: TableCopy.start, onPressed: () {}, busy: true),
       const Note('Waiting; a locked gate; done'),
-      const PrimaryButton(label: TableCopy.needPlayers, onPressed: null),
+      const PrimaryButton.waiting(
+        label: TableCopy.needPlayers,
+        reason: SpokenCopy.working,
+      ),
       PrimaryButton.locked(label: CardCopy.ready, onLockedTap: () {}),
       const PrimaryButton.done(label: CommonCopy.readyDone),
       const Note('Secondary: rest, off, paper'),
@@ -99,7 +98,10 @@ class ButtonsPage extends StatelessWidget {
             child: SecondaryButton(label: TableCopy.share, onPressed: () {}),
           ),
           const Expanded(
-            child: SecondaryButton(label: JoinCopy.joinTable, onPressed: null),
+            child: SecondaryButton.waiting(
+              label: JoinCopy.joinTable,
+              reason: SpokenCopy.working,
+            ),
           ),
           SecondaryButton.paper(label: JoinCopy.join, onPressed: () {}),
         ],

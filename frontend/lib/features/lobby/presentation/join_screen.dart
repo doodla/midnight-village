@@ -11,6 +11,7 @@ import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/primitives/fit_line.dart';
 import '../../../design_system/primitives/notice.dart';
+import '../../../design_system/primitives/nudge.dart';
 import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/screen_frame.dart';
 import '../../../design_system/primitives/secondary_button.dart';
@@ -365,6 +366,77 @@ class _JoinViewState extends State<JoinView> {
     }
   }
 
+  /// The amber "Join". Never silently dimmed (the app's rule for primary
+  /// buttons): while the name or the code is missing a tap leads to the field
+  /// that lacks it, the name first.
+  Widget _joinButton(VoidCallback? go, ButtonSize size, JoinWay? busy) {
+    if (go == null) {
+      // Another request is on its way (Start a table): Join holds its words.
+      if (busy != null) {
+        return PrimaryButton.waiting(
+          label: JoinCopy.join,
+          reason: SpokenCopy.working,
+          size: size,
+        );
+      }
+      return PrimaryButton.locked(
+        label: JoinCopy.join,
+        onLockedTap: _named ? _codeFocus.requestFocus : _needName,
+        size: size,
+      );
+    }
+    return PrimaryButton(
+      label: JoinCopy.join,
+      onPressed: go,
+      busy: busy == JoinWay.join,
+      size: size,
+    );
+  }
+
+  final _nameNudge = GlobalKey<NudgeState>();
+
+  /// A tap on what needs a name before there is one: the cursor goes to the
+  /// name field and it is nudged, so the button never looks dead.
+  void _needName() {
+    _nameFocus.requestFocus();
+    _nameNudge.currentState?.nudge();
+  }
+
+  /// "Join a table" and "Start a table": with no name a tap leads to the name
+  /// field; while another request is on its way it holds its words; [own] is
+  /// the request this one made.
+  Widget _secondary({
+    required String label,
+    required JoinWay? busy,
+    required JoinWay? own,
+    required VoidCallback act,
+  }) {
+    const size = ButtonSize.large;
+    if (!_named) {
+      return SecondaryButton.locked(
+        label: label,
+        onLockedTap: _needName,
+        size: size,
+      );
+    }
+    if (own != null && busy == own) {
+      return SecondaryButton(
+        label: label,
+        busy: true,
+        onPressed: act,
+        size: size,
+      );
+    }
+    if (busy != null) {
+      return SecondaryButton.waiting(
+        label: label,
+        reason: SpokenCopy.working,
+        size: size,
+      );
+    }
+    return SecondaryButton(label: label, onPressed: act, size: size);
+  }
+
   String get _typedName => _name.text.trim();
   bool get _named => _typedName.isNotEmpty;
   bool get _coded => _code.text.length == JoinView.codeLength;
@@ -425,16 +497,19 @@ class _JoinViewState extends State<JoinView> {
                       header: true,
                       child: FitLine(JoinCopy.title, style: type.heroTitle),
                     ),
-                    SkinField.paper(
-                      controller: _name,
-                      focusNode: _nameFocus,
-                      hint: JoinCopy.nameHint,
-                      semanticLabel: JoinCopy.nameHint,
-                      autofocus: widget.name.isEmpty,
-                      maxLength: JoinView.nameLength,
-                      inputFormatters: [_NameFormatter()],
-                      textInputAction: TextInputAction.go,
-                      onSubmitted: (_) => _nameEntered(link),
+                    Nudge(
+                      key: _nameNudge,
+                      child: SkinField.paper(
+                        controller: _name,
+                        focusNode: _nameFocus,
+                        hint: JoinCopy.nameHint,
+                        semanticLabel: JoinCopy.nameHint,
+                        autofocus: widget.name.isEmpty,
+                        maxLength: JoinView.nameLength,
+                        inputFormatters: [_NameFormatter()],
+                        textInputAction: TextInputAction.go,
+                        onSubmitted: (_) => _nameEntered(link),
+                      ),
                     ),
                     if (banner != null)
                       Notice(
@@ -447,12 +522,7 @@ class _JoinViewState extends State<JoinView> {
                     if (link != null && widget.seated)
                       const SizedBox.shrink()
                     else if (link != null)
-                      PrimaryButton(
-                        label: JoinCopy.join,
-                        onPressed: join(link),
-                        busy: busy == JoinWay.join,
-                        size: ButtonSize.large,
-                      )
+                      _joinButton(join(link), ButtonSize.large, busy)
                     else ...[
                       if (_codeOpen)
                         LayoutBuilder(
@@ -477,11 +547,10 @@ class _JoinViewState extends State<JoinView> {
                               // phones show the whole code, and scan is one Back away).
                               if (room.maxWidth >= JoinView.scanBesideCodeFrom)
                                 ?scan,
-                              PrimaryButton(
-                                label: JoinCopy.join,
-                                onPressed: join(_coded ? _code.text : null),
-                                busy: busy == JoinWay.join,
-                                size: ButtonSize.compact,
+                              _joinButton(
+                                join(_coded ? _code.text : null),
+                                ButtonSize.compact,
+                                busy,
                               ),
                             ],
                           ),
@@ -491,24 +560,21 @@ class _JoinViewState extends State<JoinView> {
                           spacing: Space.smPlus,
                           children: [
                             Expanded(
-                              child: SecondaryButton(
+                              child: _secondary(
                                 label: JoinCopy.joinTable,
-                                onPressed: idle && _named
-                                    ? () => _open(true)
-                                    : null,
-                                size: ButtonSize.large,
+                                busy: busy,
+                                own: null,
+                                act: () => _open(true),
                               ),
                             ),
                             ?scan,
                           ],
                         ),
-                      SecondaryButton(
+                      _secondary(
                         label: JoinCopy.startTable,
-                        busy: busy == JoinWay.start,
-                        onPressed: idle && _named
-                            ? () => widget.onStart(_typedName)
-                            : null,
-                        size: ButtonSize.large,
+                        busy: busy,
+                        own: JoinWay.start,
+                        act: () => widget.onStart(_typedName),
                       ),
                     ],
                   ],
