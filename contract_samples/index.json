@@ -474,6 +474,14 @@
       "description": "/me/ in the talk: she copied the Drunk and chose no centre card: the server swapped her."
     },
     {
+      "name": "http/game/me_discussion_choose_doppelganger_hunter",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied the Hunter (nothing more to do at night)."
+    },
+    {
       "name": "http/game/me_discussion_choose_doppelganger_insomniac",
       "kind": "http",
       "method": "GET",
@@ -490,6 +498,14 @@
       "description": "/me/ in the talk: she sent no look; window 1 ended on its timer and she copied nobody."
     },
     {
+      "name": "http/game/me_discussion_choose_doppelganger_mason",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied a Mason and woke with the other Mason."
+    },
+    {
       "name": "http/game/me_discussion_choose_doppelganger_minion",
       "kind": "http",
       "method": "GET",
@@ -504,6 +520,14 @@
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
       "description": "/me/ in the talk: she copied the Robber and robbed a Werewolf."
+    },
+    {
+      "name": "http/game/me_discussion_choose_doppelganger_tanner",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "/me/ in the talk: she copied the Tanner (nothing more to do at night)."
     },
     {
       "name": "http/game/me_discussion_choose_doppelganger_troublemaker",

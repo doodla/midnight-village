@@ -14,8 +14,8 @@ Each game is dealt so that the player recorded is the case named:
 - no Werewolf among the players: the Minion sees none, the Seer lets her
   window run out (no choose at all), the table votes out a Villager;
 - a Doppelganger per copied role (Troublemaker, Robber, Drunk with a chosen
-  centre card and timed out, Werewolf, Insomniac, Villager) and one whose look
-  timed out. Window 1 ends on its fixed timer, as at any timed table.
+  centre card and timed out, Werewolf, Insomniac, Villager, Mason, Hunter,
+  Tanner) and one whose look timed out. Window 1 ends on its fixed timer, as at any timed table.
 """
 
 from __future__ import annotations
@@ -225,6 +225,32 @@ DOPPELGANGER_GAMES: list[tuple[str, list[dict] | None, str, str, str, str]] = [
         "Cleo",
         "",
     ),
+    # The roles with nothing more to do at night: every role she can copy has a
+    # recorded sample (tests/contract/test_sample_coverage.py).
+    (
+        "Mason",
+        None,
+        "mason",
+        "she copied a Mason and woke with the other Mason.",
+        "Cleo",
+        "",
+    ),
+    (
+        "Hunter",
+        None,
+        "hunter",
+        "she copied the Hunter (nothing more to do at night).",
+        "Cleo",
+        "",
+    ),
+    (
+        "Tanner",
+        None,
+        "tanner",
+        "she copied the Tanner (nothing more to do at night).",
+        "Cleo",
+        "",
+    ),
 ]
 
 
@@ -252,7 +278,10 @@ def _doppelganger_game(
         dealt["Dev"] = "Seer"
     if copied == "Werewolf":
         dealt["Cleo"] = "Seer"
-    _deal_table(t, dealt, ["Werewolf", "Villager", "Tanner"])
+    if copied == "Mason":
+        dealt["Gus"] = "Seer"  # two Masons: Ben and Fin
+    center = ["Werewolf", "Villager", "Seer" if copied == "Tanner" else "Tanner"]
+    _deal_table(t, dealt, center)
     t.clock.advance(3)
     if copied:
         _choose(t, "Ana", [_player(t, "Ben")])
