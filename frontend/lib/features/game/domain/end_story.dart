@@ -1,0 +1,219 @@
+import 'package:flutter/foundation.dart';
+
+import '../../../design_system/models/role.dart';
+import 'game_outcome.dart';
+import 'night_timeline.dart';
+import 'outcome_view.dart';
+
+// What happened, replayed on the end board (docs/specs/frontend/end-board.md,
+// section 8): the night's steps as the board plays them, from the results'
+// `night_timeline` alone. Pure: no Flutter, no layout. The board reads it.
+
+/// What a step did, as the board draws it.
+enum StoryKind {
+  /// A team woke and saw each other (the Werewolves, the Masons), or the
+  /// Minion saw the Werewolves; a lone one woke alone.
+  team,
+
+  /// The Doppelganger looked at a card and became it.
+  copy,
+
+  /// Someone looked at a card: a player's, the middle's, their own.
+  look,
+
+  /// Someone took a card for their own: the Robber, the Drunk.
+  take,
+
+  /// Someone swapped two other players' cards: the Troublemaker.
+  swap;
+
+  /// The thread of a look is gapped; of a move, one length.
+  bool get moves => this == take || this == swap;
+}
+
+/// A twine between two places on the board: a player's card or a middle card.
+typedef StoryThread = ({CardPlace from, CardPlace to});
+
+/// What a card shows at a moment of the night: the portrait and the role on
+/// its strip (a Doppelganger's card shows the role it copied, and says
+/// "Doppelganger", from its copy on, as the settled board does).
+typedef StoryFace = ({RoleId face, RoleId strip});
+
+/// Every card's face at one moment: each player's and the middle's.
+@immutable
+class StoryFaces {
+  const StoryFaces(this.players, this.centre);
+
+  /// Player id -> the card in front of them.
+  final Map<int, StoryFace> players;
+
+  /// Left, Middle, Right.
+  final List<StoryFace> centre;
+
+  StoryFace at(CardPlace place) => switch (place) {
+    PlayerPlace(:final playerId) => players[playerId]!,
+    CenterPlace(:final index) => centre[index],
+  };
+}
+
+/// One step of the night as the board plays it.
+@immutable
+class StoryStep {
+  const StoryStep({
+    required this.number,
+    required this.kind,
+    required this.actors,
+    required this.threads,
+    required this.werewolf,
+    required this.line,
+    required this.after,
+  });
+
+  /// 1, 2, ... in the order played (steps that did nothing are not counted).
+  final int number;
+  final StoryKind kind;
+
+  /// Who acted: their cards are where the step happens.
+  final List<int> actors;
+
+  /// The twines it ties.
+  final List<StoryThread> threads;
+
+  /// The Werewolf team's act: its twine is red. Every other twine is bone.
+  final bool werewolf;
+
+  /// The words on the slip: the timeline's row without its "{role}:" (the
+  /// card shows the role).
+  final String line;
+
+  /// Every card's face once the step is done.
+  final StoryFaces after;
+
+  /// Every place the step touches: the actors' cards and both ends of every
+  /// thread, each once, actors first.
+  List<CardPlace> get places {
+    final seen = <CardPlace>[];
+    void add(CardPlace p) {
+      if (!seen.contains(p)) seen.add(p);
+    }
+
+    actors.map(PlayerPlace.new).forEach(add);
+    for (final t in threads) {
+      add(t.from);
+      add(t.to);
+    }
+    return seen;
+  }
+}
+
+/// The night replayed: the cards as dealt, then each step that did something,
+/// in the order of the rules.
+@immutable
+class EndStory {
+  const EndStory({required this.dealt, required this.steps});
+
+  final StoryFaces dealt;
+  final List<StoryStep> steps;
+
+  /// The faces before step [index] plays (the deal before the first).
+  StoryFaces before(int index) => index == 0 ? dealt : steps[index - 1].after;
+
+  /// The faces once the night is over: the board's settled faces.
+  StoryFaces get last => steps.isEmpty ? dealt : steps.last.after;
+}
+
+/// The story of [outcome]'s night; null when the results carry no timeline
+/// (the board has no "What happened" then). A step that did nothing (a role
+/// that chose to do nothing) is left out; roles in the middle and the
+/// Villagers never have a step.
+EndStory? endStoryOf(GameOutcome outcome) {
+  final timeline = outcome.timeline;
+  if (timeline == null) return null;
+  final lines = {for (final l in nightLinesOf(outcome)) l.number: l.text};
+  // The Doppelganger's card shows what it copied, from its copy on.
+  final copies = <String, RoleId>{};
+  StoryFaces faces(CardPositions at) {
+    StoryFace face(String card) {
+      final role = timeline.cards[card]!.role;
+      final copied = copies[card];
+      return copied == null
+          ? (face: role, strip: role)
+          : (face: copied, strip: RoleId.doppelganger);
+    }
+
+    return StoryFaces(
+      {
+        for (final MapEntry(:key, :value) in at.players.entries)
+          key: face(value),
+      },
+      [for (final card in at.center) face(card)],
+    );
+  }
+
+  final dealt = faces(timeline.dealt);
+  final steps = <StoryStep>[];
+  for (final step in timeline.steps) {
+    if (step.action == TimelineAction.skip) continue;
+    if (step.action == TimelineAction.copy && step.copiedRole != null) {
+      for (final actor in step.actors) {
+        final card = timeline.dealt.players[actor];
+        if (card != null) copies[card] = step.copiedRole!;
+      }
+    }
+    steps.add(
+      StoryStep(
+        number: steps.length + 1,
+        kind: _kindOf(step.action),
+        actors: step.actors,
+        threads: _threadsOf(step),
+        werewolf: step.role.team == TeamId.werewolf,
+        line: lines[step.step] ?? '',
+        after: faces(step.positionsAfter),
+      ),
+    );
+  }
+  return EndStory(dealt: dealt, steps: steps);
+}
+
+StoryKind _kindOf(TimelineAction action) => switch (action) {
+  TimelineAction.seeTeam => StoryKind.team,
+  TimelineAction.copy => StoryKind.copy,
+  TimelineAction.peekPlayer ||
+  TimelineAction.peekCenter ||
+  TimelineAction.lookOwn ||
+  TimelineAction.skip => StoryKind.look,
+  TimelineAction.swapWithPlayer ||
+  TimelineAction.swapWithCenter => StoryKind.take,
+  TimelineAction.swapOthers => StoryKind.swap,
+};
+
+/// The twines a step ties: from the one who looked to what they saw; from the
+/// one who took to where they took it from; between the two cards swapped;
+/// along a team that saw each other (the Minion to each Werewolf).
+List<StoryThread> _threadsOf(TimelineStep step) {
+  final actor = step.actors.isEmpty ? null : PlayerPlace(step.actors.first);
+  List<StoryThread> fromActor(Iterable<CardPlace> to) => [
+    if (actor != null)
+      for (final place in to)
+        if (place != actor) (from: actor, to: place),
+  ];
+  switch (step.action) {
+    case TimelineAction.copy ||
+        TimelineAction.peekPlayer ||
+        TimelineAction.peekCenter:
+      return fromActor(step.lookedAt.map((l) => l.place));
+    case TimelineAction.seeTeam:
+      final team = step.team.map(PlayerPlace.new).toList();
+      if (step.role == RoleId.minion) return fromActor(team);
+      return [
+        for (var i = 1; i < team.length; i++) (from: team[i - 1], to: team[i]),
+      ];
+    case TimelineAction.swapWithPlayer || TimelineAction.swapWithCenter:
+      return fromActor(step.moves.map((m) => m.from));
+    case TimelineAction.swapOthers:
+      final from = [for (final m in step.moves) m.from];
+      return from.length < 2 ? const [] : [(from: from[0], to: from[1])];
+    case TimelineAction.lookOwn || TimelineAction.skip:
+      return const [];
+  }
+}

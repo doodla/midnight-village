@@ -89,11 +89,16 @@ class PaperSlip extends StatelessWidget {
     this.id,
     this.pinned = true,
     this.maxWidth,
+    this.maxLines,
   });
 
   final String label;
   final Object? id;
   final bool pinned;
+
+  /// The most lines its words wrap to (null: the lines [label] has): a
+  /// sentence of any length on a slip of [maxWidth].
+  final int? maxLines;
 
   /// The most it is wide: its words wrap between words, then are set smaller,
   /// before they are cut.
@@ -102,7 +107,7 @@ class PaperSlip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final paper = context.dress.isPaper;
-    final words = _Words(label, pinned: pinned && paper);
+    final words = _Words(label, pinned: pinned && paper, maxLines: maxLines);
     final body = paper
         ? PaperPiece(part: PaperPart.scrap, id: id ?? label, child: words)
         : words;
@@ -122,15 +127,17 @@ class PaperSlip extends StatelessWidget {
 /// The words of a scrap or a slip, on its paper: padded, with the pin's room
 /// kept clear on the left when it is pinned.
 class _Words extends StatelessWidget {
-  const _Words(this.label, {required this.pinned});
+  const _Words(this.label, {required this.pinned, this.maxLines});
 
   final String label;
   final bool pinned;
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
     final paper = context.dress.isPaper;
-    final lines = '\n'.allMatches(label).length + 1;
+    final drawn = '\n'.allMatches(label).length + 1;
+    final lines = maxLines ?? drawn;
     final style = context.skin.typography.name.copyWith(
       color: paper
           ? PaperPiece.inkOf(context, PaperPart.scrap)
@@ -139,7 +146,7 @@ class _Words extends StatelessWidget {
     final pin = context.skin.parts.pinSize;
     final body = ConstrainedBox(
       constraints: BoxConstraints(
-        minHeight: lines > 1
+        minHeight: drawn > 1
             ? PaperScrap.paperHeightTwoLines
             : PaperScrap.paperHeight,
       ),

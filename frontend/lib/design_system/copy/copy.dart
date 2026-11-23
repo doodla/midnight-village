@@ -538,6 +538,11 @@ abstract final class EndCopy {
 
   /// The same on two lines, where one line leaves no room for the middle cards.
   static const whatHappenedTwoLines = 'What\nhappened';
+
+  /// While the night is replayed, the same scrap leads back to the result
+  /// (three words at most; on two lines where one leaves no room).
+  static const backToResult = 'See the result';
+  static const backToResultTwoLines = 'See the\nresult';
   static const editDeck = ResultsCopy.editDeck;
   static const playAgain = ResultsCopy.playAgain;
   static const leave = CommonCopy.leave;

@@ -9,6 +9,7 @@ import 'end_banner.dart';
 import 'end_board_cards.dart';
 import 'end_board_metrics.dart';
 import 'end_board_rows.dart';
+import 'end_story.dart';
 import 'game_outcome.dart';
 import 'outcome_view.dart';
 
@@ -48,6 +49,9 @@ EndBoardPlan planEndBoard({
   double roleLine = 14.4,
 }) {
   final seats = endSeatsOf(outcome);
+  // What happened replays the night on these cards, in these seats: each card
+  // is wide enough for every role it shows through the night.
+  final story = endStoryOf(outcome);
   final banner = endBannerOf(outcome, viewerId);
   final deaths = deathsOf(seats);
   final nobody = deaths.nobody;
@@ -98,6 +102,9 @@ EndBoardPlan planEndBoard({
       stripWords: [
         _roleWords(s.copied != null ? RoleId.doppelganger : s.now),
         if (s.moved) _roleWords(s.dealt),
+        if (story != null)
+          for (final faces in [story.dealt, ...story.steps.map((t) => t.after)])
+            if (faces.players[s.seat.id] case final f?) _roleWords(f.strip),
       ],
       tagNames: tagged(s) ? [for (final v in votersOf(s)) v.seat.name] : [],
       dealt: s.moved,

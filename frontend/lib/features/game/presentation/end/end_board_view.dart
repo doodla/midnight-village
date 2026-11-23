@@ -17,12 +17,14 @@ import '../../domain/end_banner.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
 import '../../domain/end_reveal.dart';
+import '../../domain/end_story.dart';
 import '../../domain/game_outcome.dart';
 import '../../domain/outcome_view.dart' show endSeatsOf;
 export 'end_board_window.dart' show EndBoardWindow;
 
 import 'end_board_window.dart';
 import 'end_foot.dart';
+import 'end_night.dart';
 import 'end_reveal.dart';
 
 /// The end of the game, settled: a notice board in the village square at
@@ -48,6 +50,13 @@ import 'end_reveal.dart';
 /// controls work from the first frame); reduce motion or a screen reader gets
 /// the settled board, faded in. Without [reveal] (opened late, a second view)
 /// it is the settled board and nothing moves or vibrates.
+///
+/// "What happened" replays the night on the board itself ([EndNight]): the
+/// sky turns to night, every card turns to the face it was dealt, and each
+/// step of the night plays on a tap (a swipe left; a swipe right goes back),
+/// its twine tied between the cards and its words on a slip on the board's
+/// rail; the scrap becomes the way back, and the settled board comes back
+/// exactly as it was. Nothing vibrates and nothing advances by itself.
 class EndBoardView extends StatefulWidget {
   const EndBoardView({
     super.key,
@@ -87,6 +96,7 @@ class _EndBoardViewState extends State<EndBoardView>
     with TickerProviderStateMixin {
   late final _clock = AnimationController(vsync: this);
   late final _driver = EndRevealDriver(_clock);
+  late final _night = EndNight(vsync: this)..story = endStoryOf(widget.outcome);
   AnimationController? _fade;
 
   /// The reveal is over (or never was): the board is drawn settled.
@@ -107,10 +117,21 @@ class _EndBoardViewState extends State<EndBoardView>
   }
 
   @override
+  void didUpdateWidget(EndBoardView old) {
+    super.didUpdateWidget(old);
+    if (!identical(old.outcome, widget.outcome)) {
+      _night
+        ..close()
+        ..story = endStoryOf(widget.outcome);
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_settled || _clock.isAnimating) return;
     final media = MediaQuery.of(context);
+    _night.cut = media.disableAnimations || media.accessibleNavigation;
+    if (_settled || _clock.isAnimating) return;
     if (media.disableAnimations || media.accessibleNavigation) {
       // The settled board, faded in (no motion of anything on it), and the
       // one knock as it shows.
@@ -126,6 +147,7 @@ class _EndBoardViewState extends State<EndBoardView>
   @override
   void dispose() {
     _clock.dispose();
+    _night.dispose();
     _fade?.dispose();
     super.dispose();
   }
@@ -197,16 +219,33 @@ class _EndBoardViewState extends State<EndBoardView>
       ),
     );
     final fade = _fade;
-    return EndRevealScope(
-      driver: _settled ? null : _driver,
-      child: Listener(
-        // A touch anywhere settles the reveal; it is no button of its own,
-        // and the controls under it take the same touch.
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => _settle(),
-        child: fade == null ? page : FadeTransition(opacity: fade, child: page),
+    return EndNightScope(
+      night: _night,
+      child: EndRevealScope(
+        driver: _settled ? null : _driver,
+        child: Listener(
+          // A touch anywhere settles the reveal; it is no button of its own,
+          // and the controls under it take the same touch.
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => _settle(),
+          child: fade == null
+              ? page
+              : FadeTransition(opacity: fade, child: page),
+        ),
       ),
     );
+  }
+
+  /// "What happened": the reveal (if it plays) settles and the night falls;
+  /// at night the same scrap goes back to the result.
+  void _whatHappened() {
+    _settle();
+    if (_night.on) {
+      _night.close();
+    } else {
+      _night.open();
+      widget.onWhatHappened();
+    }
   }
 
   Widget _page(BuildContext context, BoxConstraints box) {
@@ -252,7 +291,12 @@ class _EndBoardViewState extends State<EndBoardView>
           right: 0,
           top: 0,
           height: boardTop + EndMetrics.roof,
-          child: _still(context, const _DawnSky()),
+          child: Stack(
+            children: [
+              Positioned.fill(child: _still(context, const _DawnSky())),
+              const Positioned.fill(child: NightSky()),
+            ],
+          ),
         ),
         Positioned.fill(
           child: Column(
@@ -279,10 +323,7 @@ class _EndBoardViewState extends State<EndBoardView>
                   centre: outcome.result.centerCards,
                   screenHeight: screen.height,
                   playAgainBusy: widget.playAgainBusy,
-                  onWhatHappened: () {
-                    _settle();
-                    widget.onWhatHappened();
-                  },
+                  onWhatHappened: _whatHappened,
                   onEditDeck: widget.onEditDeck,
                   onPlayAgain: widget.onPlayAgain,
                   onLeave: widget.onLeave,

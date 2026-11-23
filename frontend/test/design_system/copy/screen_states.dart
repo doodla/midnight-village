@@ -542,6 +542,17 @@ final screens = <String, Screen>{
         button(EndCopy.editDeck),
         button(EndCopy.playAgain),
       ],
+      // What happened, mid-night: the banner stays, one step's slip, the
+      // scrap that leads back.
+      'what happened, a step': [
+        text(EndCopy.hanged),
+        headline(EndCopy.youWinVillage),
+        text(TimelineCopy.troublemaker),
+        button(EndCopy.backToResult),
+        button(EndCopy.editDeck),
+        button(EndCopy.playAgain),
+      ],
+      'what happened, two lines': [button(EndCopy.backToResultTwoLines)],
       'one hanged, two hanged': [
         text(EndCopy.hanged),
         text(EndCopy.andThen),
