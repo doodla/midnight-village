@@ -89,6 +89,9 @@ test-harness:
 #   just screens 360         360 wide, into build/screens/w360/
 #   just screens 390 strict  exit non-zero when a screen has findings
 # A screen whose builder throws always fails the run.
+# The catalogue is rendered in four parts side by side (test_screens/screens_run.dart),
+# as many at once as the machine has cores, at most four; SCREENS_JOBS=1 renders one
+# part at a time (a busy machine).
 #
 # Render every screen to PNG next to its mock
 screens width="390" mode="report":
@@ -107,11 +110,24 @@ screens width="390" mode="report":
          echo "$usage" >&2
          exit 2 ;;
     esac
-    flutter test test_screens/screens_test.dart test_screens/screen_gallery_test.dart \
+    out=build/screens
+    [ "{{width}}" = 390 ] || out="build/screens/w{{width}}"
+    # The previous run's pictures go first, so a renamed or removed entry leaves nothing behind.
+    rm -rf "$out/compare"
+    rm -f "$out"/*.png "$out"/summary*.txt
+    cores=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+    jobs="${SCREENS_JOBS:-$(( cores < 4 ? cores : 4 ))}"
+    status=0
+    flutter test test_screens/screens_*of*_test.dart \
+      test_screens/screens_shards_test.dart test_screens/screen_gallery_test.dart \
+      --concurrency="$jobs" \
       --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=SCREENS_WIDTH={{width}} \
-      --dart-define=SCREENS_STRICT=$strict
+      --dart-define=SCREENS_STRICT=$strict || status=$?
+    echo
+    cat "$out"/summary-*of*.txt 2>/dev/null | tee "$out/summary.txt"
+    exit "$status"
 
 # One image of every screen `just screens` rendered (about 240 px wide each, name under it):
 # view this instead of opening screens one by one. Usage: just contact-sheet [folder] [out.png]

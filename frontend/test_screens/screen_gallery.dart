@@ -50,18 +50,6 @@ class ScreenResult {
 String outputDir(int width) =>
     width == 390 ? 'build/screens' : 'build/screens/w$width';
 
-/// Removes the previous run's images for [width], so a renamed or removed
-/// entry leaves nothing behind.
-void clearOutput(int width) {
-  final dir = Directory(outputDir(width));
-  if (!dir.existsSync()) return;
-  for (final file in dir.listSync()) {
-    if (file is File && file.path.endsWith('.png')) file.deleteSync();
-  }
-  final compare = Directory('${dir.path}/compare');
-  if (compare.existsSync()) compare.deleteSync(recursive: true);
-}
-
 /// Builds a screen with [build] at [width] x [screenHeight] and captures it.
 /// Overflows and exceptions reported while it is on screen are collected, not
 /// thrown, so one broken screen does not hide the others; a [build] (or the
@@ -215,12 +203,13 @@ void _writeComparison({
     ..writeAsBytesSync(img.encodePng(canvas));
 }
 
-/// The table printed at the end of a run: one line per entry, its findings
-/// indented under it, then the totals.
+/// The table printed at the end of a run: one line per entry of [entries]
+/// (one part of the catalogue), its findings indented under it, then the totals.
 String summarize(
   Map<String, ScreenResult> results, {
   required int width,
   required bool strict,
+  required List<ScreenEntry> entries,
 }) {
   final out = StringBuffer()
     ..writeln(
@@ -234,7 +223,7 @@ String summarize(
   var withFindings = 0;
   var notBuilt = 0;
   var failed = 0;
-  for (final entry in screenCatalogue) {
+  for (final entry in entries) {
     final id = entry.id.padRight(idWidth);
     final result = results[entry.id];
     if (entry.notBuilt case final why?) {
