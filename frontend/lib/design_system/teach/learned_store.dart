@@ -20,7 +20,11 @@ enum Cue {
   nightChoose('night_choose'),
 
   /// The nudge across the vote rows; learned by the first successful lock.
-  voteLock('vote_lock');
+  voteLock('vote_lock'),
+
+  /// "Go on" on the end board's lower edge as What happened begins; learned
+  /// by the first step played (`EndBoardView.stepTaught`, `onStepTaught`).
+  endStep('end_step');
 
   const Cue(this.id);
 

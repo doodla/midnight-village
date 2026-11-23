@@ -10,7 +10,11 @@ import 'screen_states.dart';
 // every line written in lib/design_system/copy/copy.dart, and every state of
 // every screen (screen_states.dart) as the words visible at once.
 
-const _copyFile = 'lib/design_system/copy/copy.dart';
+/// copy.dart and its parts.
+const _copyFiles = [
+  'lib/design_system/copy/copy.dart',
+  'lib/design_system/copy/end_copy.dart',
+];
 
 /// Every line the screens, banners and screen reader use, as written.
 final _counted = [
@@ -24,7 +28,11 @@ final _counted = [
 ];
 
 void main() {
-  final copy = stringsIn(_copyFile);
+  final read = [for (final f in _copyFiles) stringsIn(f)];
+  final copy = (
+    strings: [for (final r in read) ...r.strings],
+    interpolated: [for (final r in read) ...r.interpolated],
+  );
 
   group('rule 1: how words are counted', () {
     test('a word is a piece with a letter; gaps, role names, digits and '

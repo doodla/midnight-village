@@ -16,6 +16,10 @@ enum DrawnKind {
   /// The scanner's camera frame (the corners round what the camera sees, and
   /// the same corners on 01's scan glyph): a viewfinder is its lines.
   scanner,
+
+  /// The end board's HANGED stamp (`InkStamp`): an impression in ink, its
+  /// double rule and the burst round it lines by nature.
+  inkStamp,
 }
 
 /// Marks [child] as a drawing of [kind]: it paints as it always did, and the
