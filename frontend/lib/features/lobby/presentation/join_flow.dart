@@ -55,11 +55,10 @@ class JoinFlowState {
 
 enum JoinWay { start, join }
 
-/// What 01's form holds, kept outside the screen: while a way in is on its
-/// way `HomeGate` shows 01 itself (the account that is made first would
-/// swap the table's shell away), which builds 01 again, and the typed name
-/// and code and the open code field must not go with the old one. Cleared
-/// once the phone sits at a table (the next 01 is a clean one).
+/// What 01's form holds, kept outside the screen, so a 01 built again (the
+/// page reloaded for a newer build) has the typed name and code and the open
+/// code field. Cleared once the phone sits at a table (the next 01 is a clean
+/// one).
 @immutable
 class JoinDraft {
   const JoinDraft({this.name, this.code = '', this.codeOpen = false});

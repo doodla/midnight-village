@@ -65,7 +65,7 @@ class JoinView extends StatefulWidget {
   final CodeScannerFactory? scanner;
 
   /// The scanner (01b) is open, with the code it read once it has one. Kept
-  /// by the caller: this widget is rebuilt from nothing when a join starts.
+  /// by the caller, which may build 01 again (the page reloaded).
   final bool scanning;
   final String? scanned;
   final VoidCallback? onScanOpen;
@@ -125,7 +125,15 @@ class _JoinViewState extends State<JoinView> {
     _code.addListener(_changed);
   }
 
+  /// What was typed when [_changed] last ran: a controller tells of a moved
+  /// cursor or selection too (a field gaining focus selects), which is no
+  /// edit and must not clear the banner of a refusal.
+  late var _typed = (_name.text, _code.text);
+
   void _changed() {
+    final typed = (_name.text, _code.text);
+    if (typed == _typed) return;
+    _typed = typed;
     widget.onEdited?.call();
     _keep();
     setState(() {});
@@ -147,9 +155,8 @@ class _JoinViewState extends State<JoinView> {
     _codeFocus.dispose();
     _nameFocus.dispose();
     // The scanner belongs to this 01 and the tap that opened it: leaving 01
-    // (to a table, to a link) ends it, unless a join it started is on its way
-    // (the app swaps one 01 for another then, and the scanner stands through
-    // it). Otherwise the camera would start by itself on the next 01.
+    // (to a table, to a link) ends it, unless a join it started is on its way.
+    // Otherwise the camera would start by itself on the next 01.
     if (widget.scanning) {
       final left = widget.onScanLeft;
       Future.microtask(() => left?.call());
@@ -163,7 +170,7 @@ class _JoinViewState extends State<JoinView> {
   void _scanned(String code) {
     if (_named && widget.busy == null && !widget.seated) {
       // The code goes in its field too, so a refused join leaves it there
-      // (no focus taken: a field that gains it would clear the banner).
+      // (no focus taken: the phone's keyboard stays down).
       _scannedIn = true;
       _code.text = code;
       _open(true);

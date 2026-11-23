@@ -19,7 +19,6 @@ import '../../../../design_system/skin/skin.dart';
 import '../../../../design_system/skin/werewolf_portrait.dart';
 import '../../../lobby/presentation/at_table_screen.dart';
 import '../../../lobby/presentation/deck_screen.dart';
-import '../../../lobby/presentation/join_flow.dart';
 import '../../../lobby/presentation/join_screen.dart';
 import '../../../lobby/presentation/where_am_i_provider.dart';
 import '../../domain/game_me.dart' show GamePhase;
@@ -144,14 +143,6 @@ class _TableShellState extends ConsumerState<TableShell>
   @override
   Widget build(BuildContext context) {
     final at = ref.watch(tableScreenProvider);
-    // 01's last failure ("Not sent.", a refusal) belongs to 01: once the
-    // phone is anywhere else, it is gone, so it can never show up later,
-    // after a Leave, as a failure of something that worked.
-    ref.listen(tableScreenProvider.select((a) => a.value?.screen), (_, next) {
-      if (next != null && next != AppScreen.join) {
-        ref.read(joinFlowProvider.notifier).clearBanner();
-      }
-    });
     final shown = at.value;
     switch (shown?.screen) {
       case AppScreen.table || AppScreen.deck:
@@ -252,6 +243,8 @@ class _TableShellState extends ConsumerState<TableShell>
     final end = at(GamePhase.results);
     return switch (shown.screen) {
       // 01 to 03 (features/lobby) read the table and the lobby themselves.
+      // The app's 01 is `HomeGate`'s own (one 01 through a busy way in);
+      // this one is a shell shown on its own.
       AppScreen.join => (key, const JoinScreen()),
       AppScreen.table => (key, const AtTableScreen()),
       AppScreen.deck => (key, const DeckScreen()),
