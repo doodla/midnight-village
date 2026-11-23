@@ -9,10 +9,12 @@ import '../skin/dress_style.dart';
 import '../skin/skin.dart';
 import 'art_picture.dart';
 import 'fit_line.dart';
+import 'paper_light.dart';
 import 'paper_piece.dart';
 
 /// A name tag that hangs on a twine under the card a player voted for: a tag of
-/// bone paper with a punched hole where the twine goes through, the voter's
+/// bone paper, its end cut to a point, with a punched hole where the twine
+/// goes through, the voter's
 /// sigil in a small disc, and their name in the name face (16). It is
 /// [height] tall and as wide as its name needs; where it is given less room
 /// (a card's column) the name is set smaller, down to the label floor, and
@@ -23,6 +25,7 @@ class VoteTag extends StatelessWidget {
     required this.name,
     required this.token,
     this.maxWidth,
+    this.height = defaultHeight,
   });
 
   final String name;
@@ -35,8 +38,16 @@ class VoteTag extends StatelessWidget {
   /// whose name still does not fit there is as wide as that name needs.
   final double? maxWidth;
 
-  /// How tall the tag is.
-  static const height = 28.0;
+  /// How tall the tag is: the board gives it as tall as its name needs at the
+  /// phone's text size, never less than [defaultHeight].
+  final double height;
+  static const defaultHeight = 26.0;
+
+  /// How far the pointed end reaches in.
+  static const point = 8.0;
+
+  /// Where the hole's centre lies from the tag's left: the twine's end.
+  static const holeAt = Space.sm + hole / 2;
 
   /// The sigil's disc.
   static const sigil = 18.0;
@@ -100,7 +111,16 @@ class VoteTag extends StatelessWidget {
       ),
     );
     final body = paper
-        ? PaperPiece(part: PaperPart.scrap, id: name, child: content)
+        ? DecoratedBox(
+            decoration: ShapeDecoration(
+              color: PaperPiece.fillOf(context, PaperPart.scrap),
+              shape: const _TagShape(),
+              shadows: context.ground.elevation.card.boxShadowsLeaning(
+                PaperLight.of(context),
+              ),
+            ),
+            child: content,
+          )
         : content;
     return Semantics(label: name, excludeSemantics: true, child: body);
   }
@@ -118,4 +138,31 @@ class VoteTag extends StatelessWidget {
     painter.dispose();
     return width;
   }
+}
+
+/// A tag's outline: square at the right, its left end cut to a point.
+class _TagShape extends ShapeBorder {
+  const _TagShape();
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      getOuterPath(rect, textDirection: textDirection);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => Path()
+    ..moveTo(rect.left + VoteTag.point, rect.top)
+    ..lineTo(rect.right, rect.top)
+    ..lineTo(rect.right, rect.bottom)
+    ..lineTo(rect.left + VoteTag.point, rect.bottom)
+    ..lineTo(rect.left, rect.center.dy)
+    ..close();
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
+
+  @override
+  ShapeBorder scale(double t) => this;
 }

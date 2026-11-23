@@ -312,6 +312,14 @@ paper-components folder="build/paper_components":
       --dart-define=ENV=dev \
       --dart-define=PAPER_COMPONENTS_DIR={{folder}}
 
+# The end board in pictures, 360 x 780 at 2x like its mocks (every outcome, ten
+# players at the top and at the end), a 360 x 640 phone and text at 1.3 and 1.6,
+# into <folder>. Usage: just end-pictures [folder]
+end-pictures folder="build/end_pictures":
+    flutter test test_screens/end_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=END_PICTURES_DIR={{folder}}
+
 # The count in pictures (one death, a tie, nobody: at the end and one death as it
 # goes in four frames; ten players with long names at several widths and text
 # sizes) into <folder>. Usage: just count-pictures [folder] [width]

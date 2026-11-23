@@ -28,6 +28,21 @@ import 'contract/contract_shape.dart';
 Map<String, dynamic> recordedResults(String name) =>
     _checked(ContractSamples.map('http/game/$name'));
 
+/// The recorded results [name] changed by [edit] into a body no recorded game
+/// has: off the contract, and the caller says so ([offContract] must be true).
+Map<String, dynamic> offContractResults(
+  String name, {
+  required bool offContract,
+  required void Function(Map<String, dynamic> results) edit,
+}) {
+  if (!offContract) {
+    throw ArgumentError('an edited body is off the contract: say so');
+  }
+  final results = recordedResults(name);
+  edit(results);
+  return results;
+}
+
 /// [results] parsed as the app parses it.
 GameOutcome outcomeOf(Map<String, dynamic> results) =>
     GameOutcome.fromJson(_checked(results));
