@@ -2,12 +2,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
-import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
+import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
-import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
 import 'end_of_game.dart';
@@ -171,11 +171,11 @@ class Phone {
     Map<String, String> votes = const {},
   }) async {
     final alice = t.player(holder);
-    // My night is up as the talk opens where the night told this phone
-    // something: put it away (nothing open, nothing to do).
+    // My night is up by itself as the talk opens where the night told this
+    // phone something: a touch puts it away (nothing up, nothing to do).
     await putAwayMyNight();
     expect(button.label, TalkCopy.readyToVote);
-    expect(button.phase, ButtonPhase.quiet);
+    expect(button.phase, ButtonPhase.ready);
     for (final ready in [true, false, true]) {
       await tapButton(
         until: () =>
@@ -290,31 +290,41 @@ class Phone {
     await tester.pump();
   }
 
-  /// The talk opens with My night up, as a sheet, where the night told this
-  /// phone something: [whileOpen] reads it, then its Close puts it away.
-  /// Nothing open: nothing to do.
+  /// My night's story is on the board (held, or up by itself as the talk
+  /// opens).
+  bool get myNightUp => find.byType(NightStoryView).evaluate().isNotEmpty;
+
+  /// What My night says now: the sentence under the picture as it is drawn,
+  /// then the story's own reading (every card, by who held it).
+  List<String> readMyNight() => [
+    for (final t in tester.widgetList<RichText>(find.byType(RichText)))
+      t.text.toPlainText(),
+    tester.widget<NightStoryView>(find.byType(NightStoryView)).story.spoken,
+  ];
+
+  /// The talk opens with My night up by itself where the night told this
+  /// phone something: [whileOpen] reads it, then the first touch anywhere
+  /// puts it away (and is only that). Nothing up: nothing to do.
   Future<void> putAwayMyNight([Future<void> Function()? whileOpen]) async {
-    if (find.byType(HeldFace).evaluate().isEmpty) return;
+    if (!myNightUp) return;
+    await ui.settle();
     await whileOpen?.call();
-    await _closeSheet();
+    await tester.tapAt(tester.getCenter(find.byType(TalkView)));
+    await tester.pump();
+    await ui.settle();
+    expect(myNightUp, isFalse, reason: 'My night is away');
   }
 
-  /// A tap on My night opens the sheet (no hold): [whileOpen] reads it, then
-  /// its Close puts it away.
+  /// A hold on My night's note shows the night on the board while it is
+  /// held: [whileOpen] reads it; letting go puts it away.
   Future<void> openMyNight(Future<void> Function() whileOpen) async {
-    await tester.tap(find.byType(PeekBox));
-    await tester.pump();
+    await holdThen(find.byType(HoldToReveal), () async {
+      await tester.pump();
+      expect(myNightUp, isTrue, reason: 'My night is up while held');
+      await whileOpen();
+    });
     await ui.settle();
-    expect(find.byType(HeldFace), findsOneWidget, reason: 'My night is up');
-    await whileOpen();
-    await _closeSheet();
-  }
-
-  Future<void> _closeSheet() async {
-    await tester.tap(find.text(RoleSheetCopy.close));
-    await tester.pump();
-    await ui.settle();
-    expect(find.byType(HeldFace), findsNothing, reason: 'My night is away');
+    expect(myNightUp, isFalse, reason: 'My night is away once let go');
   }
 
   /// The screen's primary button (it sends a request: a real-zone tap).

@@ -1,7 +1,6 @@
 @Tags(['e2e'])
 library;
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/debug/debug_models.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -173,32 +172,29 @@ Future<void> _play(Phone r, ReferenceGame g, int seat) async {
     );
   }
 
-  // My night says what this player learned, as the game says it: one sheet,
-  // every page stacked (what window 2 told, window 1's page, the dealt card).
-  final read = <String>[];
-  // Open as the talk opens where the night told this player something: read
-  // there too, then put away.
+  // My night says what this player learned, as the game says it: the night's
+  // picture story, shown while the note is held (and up by itself as the talk
+  // opens where the night told this player something: read there too, then a
+  // touch puts it away). Every line is in what the hold shows.
+  final lines = _learned(g, seat);
+  void expectLearned(List<String> read, String when) {
+    for (final line in lines) {
+      expect(
+        read.any((text) => text.contains(line)),
+        isTrue,
+        reason: '${g.name}: $name learned "$line"; My night $when read $read',
+      );
+    }
+  }
+
   await r.putAwayMyNight(() async {
-    read.addAll([
-      for (final text in r.tester.widgetList<RichText>(find.byType(RichText)))
-        text.text.toPlainText(),
-    ]);
+    expectLearned(r.readMyNight(), 'as the talk opened');
     await r.shoot('talk-open');
   });
   await r.openMyNight(() async {
-    read.addAll([
-      for (final text in r.tester.widgetList<RichText>(find.byType(RichText)))
-        text.text.toPlainText(),
-    ]);
+    expectLearned(r.readMyNight(), 'held');
     await r.shoot('talk-my-night');
   });
-  for (final line in _learned(g, seat)) {
-    expect(
-      read.any((text) => text.contains(line)),
-      isTrue,
-      reason: '${g.name}: $name learned "$line"; My night read $read',
-    );
-  }
 
   // The day: the phone votes as in the game, everyone else too.
   final votes = g.votes!;
@@ -281,39 +277,85 @@ Map<String, Object> _wire(LiveTable t, ReferenceGame g, _Pick pick) =>
       _ => throw ArgumentError(pick),
     };
 
-/// The words My night shows for what [seat] learned in the game.
+/// The words My night's story shows for what [seat] did and saw in the
+/// game: its one sentence and the cards it shows face up (never what was done
+/// to the seat).
 List<String> _learned(ReferenceGame g, int seat) {
   final views = g.views[seat] ?? const [];
+  String card(String who, Object role) =>
+      NightStoryCopy.cardUp.fill({'who': who, 'role': '$role'});
+  final dealt = g.dealt[seat];
+  if (dealt == 'Doppelganger') {
+    final copied = g.players[g.choices['doppel_target'] as int];
+    final c = {'copied': copied};
+    final picks = _followUp(g) ?? const <_Pick>[];
+    final sentence = switch (g.copied) {
+      'Seer' when picks.length == 1 && picks.single.$1 != null =>
+        NightStoryCopy.copiedSaw.fill({...c, 'name': picks.single.$1!}),
+      'Seer' when picks.length == 2 => NightStoryCopy.copiedCenter.fill(c),
+      'Robber' when picks.length == 1 && picks.single.$1 != null =>
+        NightStoryCopy.copiedTook.fill({...c, 'name': picks.single.$1!}),
+      'Troublemaker' when picks.length == 2 =>
+        NightStoryCopy.copiedSwapped.fill({
+          ...c,
+          'a': picks[0].$1!,
+          'b': picks[1].$1!,
+        }),
+      'Drunk' when picks.length == 1 && picks.single.$2 != null =>
+        NightStoryCopy.copiedDrunk.fill({
+          ...c,
+          'pos': NightCopy.center[picks.single.$2!].toLowerCase(),
+        }),
+      // Copied, and nothing to do at once: at least what she copied.
+      _ => 'You copied $copied',
+    };
+    return [
+      sentence,
+      for (final view in views)
+        if (view.kind == 'copied') card(copied, view.value as String),
+    ];
+  }
   if (views.isEmpty) {
     // A Seer who kept his card did nothing; anyone else simply slept.
-    return g.dealt[seat] == 'Seer' ? [SawCopy.didNothing] : const [];
+    return dealt == 'Seer' ? [SawCopy.didNothing] : const [];
   }
   return [
     for (final view in views)
       ...switch ((view.kind, view.value)) {
         ('saw_player', [final int i, final String role]) => [
-          SawCopy.seerPlayer.fill({'name': g.players[i], 'role': role}),
+          NightStoryCopy.seerPlayer.fill({'name': g.players[i], 'role': role}),
+          card(g.players[i], role),
         ],
-        ('copied', final String _) => [
-          NightCopy.copied.fill({
-            'name': g.players[g.choices['doppel_target'] as int],
+        ('took', final String role) => [
+          NightStoryCopy.robbed.fill({
+            'name': g.players[g.choices['robber'] as int],
+            'role': role,
           }),
         ],
-        // The Robber's line names whom he robbed too: its tail is enough.
-        ('took', final String role) => [
-          SawCopy.robbed
-              .fill({'name': '', 'role': role})
-              .substring(
-                SawCopy.robbed.fill({'name': '', 'role': role}).indexOf("'s"),
-              ),
-        ],
         ('own_card', final String role) => [
-          SawCopy.newCard.fill({'role': role}),
+          (role == dealt ? NightStoryCopy.still : NightStoryCopy.now).fill({
+            'role': role,
+          }),
         ],
         ('saw_center', final List<dynamic> seen) => [
+          if (dealt == 'Seer') NightStoryCopy.seerCenter,
           for (final [_, role] in seen.cast<List<dynamic>>()) '$role',
         ],
-        ('werewolves', []) => [SawCopy.onlyYou],
+        ('werewolves', []) => [
+          if (dealt == 'Minion')
+            SawCopy.noWerewolves
+          else
+            NightStoryCopy.onlyWerewolf,
+        ],
+        ('werewolves', final List<dynamic> wolves) => [
+          'the Werewolf',
+          for (final i in wolves) g.players[i as int],
+        ],
+        ('masons', []) => [NightStoryCopy.onlyMason],
+        ('masons', final List<dynamic> masons) => [
+          'the Masons.',
+          for (final i in masons) g.players[i as int],
+        ],
         _ => const <String>[],
       },
   ];
