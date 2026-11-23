@@ -815,6 +815,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception as e:  # a broken guard blocks, it never waves a command through
+    except Exception as e:  # noqa: BLE001 (a broken guard blocks and says so, it never waves a command through)
         print(f"BLOCKED: .claude/hooks/git_guard.py failed: {e!r}", file=sys.stderr)
         sys.exit(2)

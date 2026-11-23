@@ -19,6 +19,7 @@ import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/lobby/presentation/join_screen.dart';
+import 'package:midnight_village/features/lobby/presentation/home_gate.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
@@ -165,13 +166,14 @@ Future<void> _until(WidgetTester tester, bool Function() done) async {
   expect(done(), isTrue, reason: 'never happened');
 }
 
-/// The screen the table's shell shows (null outside it: 01 signed out).
+/// The screen the screen table names (null where none is read: 01 signed
+/// out). Its 01 is the gate's own, every other screen the table's shell's.
 AppScreen? _screen(WidgetTester tester) {
-  final shell = find.byType(TableShell);
-  if (shell.evaluate().isEmpty) return null;
-  return ProviderScope.containerOf(
-    tester.element(shell),
-  ).read(tableScreenProvider).value?.screen;
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(HomeGate)),
+  );
+  if (!container.exists(tableScreenProvider)) return null;
+  return container.read(tableScreenProvider).value?.screen;
 }
 
 int _requests(TableSetup setup, String method) =>

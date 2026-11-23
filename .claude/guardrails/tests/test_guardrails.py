@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """Run with: python3 .claude/guardrails/tests/test_guardrails.py"""
 import json
 import os

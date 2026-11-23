@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """The file size check (tool/check_file_sizes.py): a change may not make a source file
 longer than can be read whole, and may not add to one that already is. There is no
 list to keep: the check compares with main.

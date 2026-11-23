@@ -53,6 +53,22 @@ test-guardrails:
     python3 -m unittest discover -s .claude/guardrails/tests
     .claude/hooks/test_gate_routing.sh
 
+# When the change has a migration: the previous build's own tests on a database built by
+# this change's migrations (the live server migrates while the previous build serves).
+# Does nothing without a migration. GitHub runs it in "Backend Checks".
+previous-build-check *args:
+    @tool/previous_build_check.sh {{args}}
+
+# A pull request that edits a guard test says so, and why, in its description
+# (tool/guard_edits.py). Locally it only reminds; on GitHub (PR_BODY set) it fails.
+guard-edits *args:
+    @tool/guard_edits.py {{args}}
+
+# While building: the fast checks and only the tests this change can reach
+# (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
+piece-check *args:
+    @tool/piece_check.py {{args}}
+
 # The whole local suite, on demand (minutes): what the commit gate skips (it only runs
 # the fast checks) and GitHub runs on a pull request, except the browser, release-build
 # and end-to-end jobs. Optionally only some of: backend frontend guardrails
@@ -110,6 +126,7 @@ typecheck:
 # that no source file has grown past what can be read whole (tool/check_file_sizes.py)
 check:
     {{backend_just}} check
+    {{backend_just}} lint-tools
     tool/check_instruction_links.sh
     tool/check_file_sizes.py
 
