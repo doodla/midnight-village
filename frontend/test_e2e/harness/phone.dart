@@ -6,6 +6,7 @@ import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
+import 'package:midnight_village/design_system/primitives/panels.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
@@ -170,6 +171,9 @@ class Phone {
     Map<String, String> votes = const {},
   }) async {
     final alice = t.player(holder);
+    // My night is up as the talk opens where the night told this phone
+    // something: put it away (nothing open, nothing to do).
+    await putAwayMyNight();
     expect(button.label, TalkCopy.readyToVote);
     expect(button.phase, ButtonPhase.quiet);
     for (final ready in [true, false, true]) {
@@ -286,15 +290,31 @@ class Phone {
     await tester.pump();
   }
 
-  /// The talk opens with My night open where the night told this phone
-  /// something: [whileOpen] reads it, then a tap puts it away (a local tap:
-  /// the ack went as it showed). Nothing open: nothing to do.
+  /// The talk opens with My night up, as a sheet, where the night told this
+  /// phone something: [whileOpen] reads it, then its Close puts it away.
+  /// Nothing open: nothing to do.
   Future<void> putAwayMyNight([Future<void> Function()? whileOpen]) async {
-    final open = find.byType(HeldFace);
-    if (open.evaluate().isEmpty) return;
+    if (find.byType(HeldFace).evaluate().isEmpty) return;
     await whileOpen?.call();
-    await tester.tapAt(tester.getRect(open).topCenter + const Offset(0, 24));
+    await _closeSheet();
+  }
+
+  /// A tap on My night opens the sheet (no hold): [whileOpen] reads it, then
+  /// its Close puts it away.
+  Future<void> openMyNight(Future<void> Function() whileOpen) async {
+    await tester.tap(find.byType(PeekBox));
     await tester.pump();
+    await ui.settle();
+    expect(find.byType(HeldFace), findsOneWidget, reason: 'My night is up');
+    await whileOpen();
+    await _closeSheet();
+  }
+
+  Future<void> _closeSheet() async {
+    await tester.tap(find.text(RoleSheetCopy.close));
+    await tester.pump();
+    await ui.settle();
+    expect(find.byType(HeldFace), findsNothing, reason: 'My night is away');
   }
 
   /// The screen's primary button (it sends a request: a real-zone tap).
