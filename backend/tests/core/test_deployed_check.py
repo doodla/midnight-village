@@ -47,7 +47,10 @@ def test_waiting_for_a_commit_that_never_arrives_fails_and_says_what_is_live(
 ):
     with pytest.raises(deployed_check.Failed, match="server: NO deploy arrived"):
         deployed_check.wait_for_commit(live_server.url, None, "f" * 40, seconds=0)
-    assert deployed_check.run(live_server.url, commit="f" * 40, wait=0) != []
+    failures = deployed_check.run(live_server.url, commit="f" * 40, wait=0)
+    # the missing deploy is the one failure: the build that IS serving is still
+    # checked (health, Start and Join), and works
+    assert len(failures) == 1 and "NO deploy arrived" in failures[0]
 
 
 def test_a_missing_deploy_is_told_for_the_server_and_the_app_each_on_its_own():

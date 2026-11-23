@@ -313,8 +313,14 @@ def run(api, app=None, commit=None, wait=900):
             )
         )
     steps.append(("the server's health", lambda: check_health(api)))
+    arrived = {"commit": commit}  # None once the wait has failed
     if app:
-        steps.append(("the app and its server", lambda: check_app(api, app, commit)))
+        steps.append(
+            (
+                "the app and its server",
+                lambda: check_app(api, app, arrived["commit"]),
+            )
+        )
     steps.append(
         (
             "Start and Join",
@@ -334,7 +340,9 @@ def run(api, app=None, commit=None, wait=900):
             print(f"FAIL  {name}: {e}")
             failures.append(f"{name}: {e}")
             if name == "the merged commit is live":
-                break  # the rest would test the previous build
+                # No deploy arrived (Vercel skipped it, or it failed): the rest
+                # checks the builds that ARE serving, which players are on.
+                arrived["commit"] = None
     return failures
 
 
