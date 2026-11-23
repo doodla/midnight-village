@@ -9,9 +9,6 @@ migration these statements must keep working: every column a migration adds to a
 table that this code writes needs a database default. These functions stay in the
 OLD shape for good (never add a column to them): the migration test and
 ``test_rollout_safe_schema`` run them against the new schema.
-
-The read rules at the end are the other direction: how the code before the
-protocol-1 cleanup read a table or game, run on rows the new code writes.
 """
 
 import uuid

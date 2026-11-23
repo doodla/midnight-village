@@ -318,9 +318,7 @@ class TestDefaults:
 
     # ONLY what the app's screens need to start: a look at the cards and the
     # automatic Simple deck. No timer the server already defaults, never the
-    # Doppelganger's window (the table's own setting, or the server's). The night
-    # flag is for the code before the cleanup only (``deal.OLD_CODE_NIGHT_FLAG``):
-    # this code ignores it.
+    # Doppelganger's window (the table's own setting, or the server's).
     EXPECTED = {
         "card_look_seconds": 30,
         "deck": "auto",
