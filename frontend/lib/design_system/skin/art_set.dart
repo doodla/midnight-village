@@ -343,6 +343,16 @@ class ArtSet {
 
   final String folder;
 
+  /// Files of the skin's folder no screen draws any more, kept because a phone
+  /// that still runs an older build asks for them: the web app's service
+  /// worker drops a file the new build does not list the moment the new build
+  /// arrives, while a tab or installed app left open keeps running the old
+  /// code, which asks the server for it and is answered with the app's page
+  /// (a Werewolf with no picture, 23 November 2026). Each is a copy of the
+  /// file that replaced it; one is dropped only once no phone runs a build
+  /// that draws it. Never drawn by this build (`skin_contract_test.dart`).
+  static const retired = {'roles/werewolf.webp': 'roles/werewolf_lunge.webp'};
+
   /// Every role portrait's size in pixels.
   final Size rolePixels;
 

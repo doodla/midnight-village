@@ -821,6 +821,16 @@ Future<void> pumpDeckRole(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// 03b with the Werewolf: the card sheet of a table that is not in a game yet
+/// (the owner's picture, 23 November 2026: the sheet had no portrait).
+Future<void> pumpDeckRoleWerewolf(WidgetTester tester) async {
+  await pumpDeckGrid(tester);
+  await tester.longPress(
+    find.byWidgetPredicate((w) => w is RoleCard && w.role == RoleId.werewolf),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> _openDeck(WidgetTester tester) async {
   final edit = find.text(TableCopy.editDeck);
   await tester.ensureVisible(edit);

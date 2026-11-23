@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:midnight_village/design_system/skin/ground.dart';
+import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 
 import '../test/helpers/component_sheet.dart';
+import '../test/helpers/shell_setup.dart';
 import 'end_fixtures.dart';
 import 'shell_fixtures.dart';
 import 'table_fixtures.dart';
@@ -162,7 +164,19 @@ final screenCatalogue = <ScreenEntry>[
   }),
   ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
     '': pumpDeckRole,
+    // The Werewolf's card sheet with no game (the lunge), as a player sees it
+    // before a table is dealt.
+    '-werewolf-no-game': pumpDeckRoleWerewolf,
   }),
+  // The Werewolf in a game, each of its three portraits (the gallery pins one
+  // for every other picture, so a missing or wrong one would hide behind it).
+  for (final wolf in WerewolfPortrait.values)
+    ..._rebuilt('06-night-board', '06-night-action.png', {
+      '-lone-werewolf-${wolf.name}': (tester) => _withWerewolf(
+        wolf,
+        () => pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
+      ),
+    }),
   // 04 to 11, through the real shell (shell_fixtures.dart, end_fixtures.dart).
   ..._rebuilt('04-your-card', '04-your-card.png', {
     '': pumpYourCard,
@@ -272,6 +286,21 @@ final screenCatalogue = <ScreenEntry>[
   }),
   ...componentSheet,
 ];
+
+/// Runs [build] with every game drawn with the Werewolf portrait [wolf], then
+/// puts the gallery's pin back.
+Future<void> _withWerewolf(
+  WerewolfPortrait wolf,
+  Future<void> Function() build,
+) async {
+  final pinned = ShellSetup.pinnedWerewolf;
+  ShellSetup.pinnedWerewolf = wolf;
+  try {
+    await build();
+  } finally {
+    ShellSetup.pinnedWerewolf = pinned;
+  }
+}
 
 /// A rebuilt screen's states ([states]: suffix to builder), each a player
 /// screen next to [mock].

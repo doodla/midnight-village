@@ -30,8 +30,20 @@ class ArtPicture extends StatelessWidget {
   /// was.
   final double inset;
 
+  /// Test hooks (`test/flutter_test_config.dart`); null in the app. Quietly
+  /// drawing nothing is right for a player on a bad line, but it let a missing
+  /// Werewolf portrait ship with every test green: under test a picture that
+  /// is not in the bundle, or whose bytes do not decode, fails the test that
+  /// shows it.
+  @visibleForTesting
+  static void Function(ArtImage image)? debugBeforeDraw;
+
+  @visibleForTesting
+  static void Function(ArtImage image, Object error)? debugOnError;
+
   @override
   Widget build(BuildContext context) {
+    debugBeforeDraw?.call(image);
     final ratio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
     return LayoutBuilder(
       builder: (context, constraints) => _cropped(
@@ -46,6 +58,7 @@ class ArtPicture extends StatelessWidget {
           // (`LoadOnceBundle`). Nothing is drawn meanwhile, as without this.
           errorBuilder: (context, error, stack) {
             DefaultAssetBundle.of(context).evict(image.path);
+            debugOnError?.call(image, error);
             return const SizedBox.expand();
           },
         ),

@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
+import 'package:midnight_village/design_system/primitives/art_precache.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
@@ -309,6 +312,84 @@ void main() {
           }
         },
       );
+
+      testWidgets('every path a role portrait can be drawn from is a file in '
+          'the bundle, with a game, with none, and for every portrait', (
+        tester,
+      ) async {
+        // Enumerated from the lookups themselves, never a hand list: what
+        // `context.roleArt` returns under every scope there can be, what the
+        // art set returns for every portrait, what the precaches name, and
+        // what every game's id chooses.
+        final art = skin.art;
+        final reached = <String, String>{};
+        void note(ArtImage image, String how) => reached[image.path] = how;
+
+        for (final role in RoleId.values) {
+          for (final wolf in WerewolfPortrait.values) {
+            note(art.role(role, wolf: wolf), 'art.role($role, $wolf)');
+          }
+          note(art.role(role), 'art.role($role) default');
+        }
+        for (final wolf in [null, ...WerewolfPortrait.values]) {
+          late BuildContext inside;
+          Widget probe = Builder(
+            builder: (context) {
+              inside = context;
+              return const SizedBox();
+            },
+          );
+          if (wolf != null) {
+            probe = WerewolfPortraitScope(portrait: wolf, child: probe);
+          }
+          await pumpSkinned(tester, probe, skin: skin);
+          for (final role in RoleId.values) {
+            note(inside.roleArt(role), 'roleArt($role) under $wolf');
+          }
+        }
+        final random = math.Random(1123);
+        for (final id in [
+          null,
+          '',
+          for (var i = 0; i < 200; i++) 'game-${random.nextInt(1 << 30)}',
+        ]) {
+          note(
+            art.role(RoleId.werewolf, wolf: WerewolfPortrait.forGame(id)),
+            'forGame($id)',
+          );
+        }
+        for (final wolf in WerewolfPortrait.values) {
+          for (final (image, _) in secretArt(skin, wolf: wolf)) {
+            if (image.path.contains('/roles/')) note(image, 'secretArt');
+          }
+        }
+        expect(
+          reached.keys.where((p) => p.contains('/roles/werewolf_')),
+          hasLength(WerewolfPortrait.values.length),
+          reason: 'every portrait is reachable, and only those',
+        );
+        for (final MapEntry(key: path, value: how) in reached.entries) {
+          expect(assets, contains(path), reason: '$how: $path');
+          expect(
+            (await rootBundle.load(path)).lengthInBytes,
+            greaterThan(1000),
+            reason: '$how: $path',
+          );
+        }
+        // Nothing but the lookup builds a role path.
+        for (final file in Directory('lib').listSync(recursive: true)) {
+          if (file is! File ||
+              !file.path.endsWith('.dart') ||
+              file.path.endsWith('skin/art_set.dart')) {
+            continue;
+          }
+          expect(
+            file.readAsStringSync().contains(RegExp(r'roles/[^\x27"]*\.webp')),
+            isFalse,
+            reason: '${file.path} builds a role picture path itself',
+          );
+        }
+      });
 
       test('every scene and card back is in the bundle, and no other file is '
           'in scenes/', () {
