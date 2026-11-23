@@ -3,6 +3,7 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/board_pieces.dart';
 import 'package:midnight_village/design_system/primitives/death_mark.dart';
 import 'package:midnight_village/design_system/primitives/end_lantern.dart';
+import 'package:midnight_village/design_system/primitives/furled_scroll.dart';
 import 'package:midnight_village/design_system/primitives/paper_scrap.dart';
 import 'package:midnight_village/design_system/primitives/sliced_art.dart';
 import 'package:midnight_village/design_system/primitives/twine.dart';
@@ -86,6 +87,24 @@ final List<PartSample> endPartsCatalogue = [
     (c) => const Padding(
       padding: EdgeInsets.all(14),
       child: InkStamp(label: 'HANGED'),
+    ),
+  ),
+  PartSample(
+    'BoardCardBack',
+    PartState.rest,
+    (c) => const BoardCardBack(
+      name: 'Maximilian',
+      size: Size(110, 80),
+      portraitWidth: 64,
+      rect: Rect.fromLTWH(0, 0, 110, 80),
+    ),
+  ),
+  PartSample(
+    'FurledScroll',
+    PartState.rest,
+    (c) => const Padding(
+      padding: EdgeInsets.all(8),
+      child: FurledScroll(width: 160),
     ),
   ),
   PartSample(

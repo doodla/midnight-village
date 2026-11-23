@@ -523,6 +523,16 @@ final screens = <String, Screen>{
           button(EndCopy.leave),
         ],
       },
+      // The reveal at the stamp: the word on the hanged card, the banner
+      // just out, the foot live.
+      'reveal, the stamp': [
+        text(EndCopy.hanged),
+        headline(EndCopy.youWinVillage),
+        text(EndCopy.hangedStamp),
+        button(EndCopy.whatHappened),
+        button(EndCopy.editDeck),
+        button(EndCopy.playAgain),
+      ],
       'nobody hanged, count form': [
         text(EndCopy.nobodyHanged),
         text(EndCopy.hangedCount),
@@ -532,6 +542,25 @@ final screens = <String, Screen>{
         button(EndCopy.editDeck),
         button(EndCopy.playAgain),
       ],
+      // What happened: the step's line in the banner, the cue the first
+      // time, the scrap that leads back.
+      'what happened, the deal': [
+        headline(StoryCopy.dealt),
+        text(StoryCopy.goOn),
+        button(EndCopy.backToResult),
+        button(EndCopy.editDeck),
+        button(EndCopy.playAgain),
+      ],
+      for (final line in _storyLines)
+        'what happened, $line': [
+          headline(line),
+          text(StoryCopy.who),
+          text(StoryCopy.loneWerewolf),
+          button(EndCopy.backToResult),
+          button(EndCopy.editDeck),
+          button(EndCopy.playAgain),
+        ],
+      'what happened, two lines': [button(EndCopy.backToResultTwoLines)],
       'one hanged, two hanged': [
         text(EndCopy.hanged),
         text(EndCopy.andThen),
@@ -541,6 +570,24 @@ final screens = <String, Screen>{
     },
   ),
 };
+
+const _storyLines = [
+  StoryCopy.werewolves,
+  StoryCopy.masons,
+  StoryCopy.alone,
+  StoryCopy.peeksMiddle,
+  StoryCopy.minion,
+  StoryCopy.minionNone,
+  StoryCopy.seesPlayer,
+  StoryCopy.seesMiddle,
+  StoryCopy.takes,
+  StoryCopy.swaps,
+  StoryCopy.swapsMiddle,
+  StoryCopy.still,
+  StoryCopy.now,
+  StoryCopy.copiesA,
+  StoryCopy.copiesAn,
+];
 
 const _endYouLines = [
   EndCopy.youWinVillage,

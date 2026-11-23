@@ -12,6 +12,8 @@ import '../../../../design_system/primitives/you_seal.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
+import '../../domain/end_reveal.dart';
+import 'end_reveal.dart';
 
 // The pieces of a card on the settled board, each at the place the plan gave
 // it, in the board's coordinates shifted by [origin] (the board's frame in the
@@ -60,22 +62,41 @@ class StrandTwines extends StatelessWidget {
   final Offset origin;
 
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      for (final c in plan.cards)
-        if (c.pin != null)
-          for (final last in _lastOfEachColumn(c))
-            Positioned.fill(
-              child: LitAt(
-                rect: c.reach,
-                child: Transform.translate(
-                  offset: origin,
-                  child: Twine(route: _route(c, last)),
+  Widget build(BuildContext context) {
+    final driver = EndRevealScope.maybeOf(context);
+    return Stack(
+      children: [
+        for (final c in plan.cards)
+          if (c.pin != null)
+            for (final last in _lastOfEachColumn(c))
+              Positioned.fill(
+                child: _drawn(
+                  driver,
+                  c,
+                  last,
+                  LitAt(
+                    rect: c.reach,
+                    child: Transform.translate(
+                      offset: origin,
+                      child: Twine(route: _route(c, last)),
+                    ),
+                  ),
                 ),
               ),
-            ),
-    ],
-  );
+      ],
+    );
+  }
+
+  /// In the reveal, the twine runs down from the pin as its tags arrive.
+  Widget _drawn(EndRevealDriver? driver, EndCard c, Rect last, Widget twine) {
+    if (driver == null) return twine;
+    return revealDrawnDown(
+      driver,
+      top: origin.dy + c.pin!.top,
+      bottom: origin.dy + last.bottom + EndMetrics.tagGap,
+      child: twine,
+    );
+  }
 
   /// The last tag of each of the strand's columns: a twine runs to each.
   static List<Rect> _lastOfEachColumn(EndCard c) => [
@@ -112,14 +133,18 @@ class HunterTwine extends StatelessWidget {
       for (final c in plan.cards)
         if (c.id != a.id && c.id != b.id) c.leaned,
     ];
-    return Positioned.fill(
-      child: LitAt(
-        rect: pick.slip,
-        child: Transform.translate(
-          offset: origin,
-          child: Twine(route: TwineRoute.between(a.rect, b.rect, avoid: avoid)),
-        ),
+    final twine = LitAt(
+      rect: pick.slip,
+      child: Transform.translate(
+        offset: origin,
+        child: Twine(route: TwineRoute.between(a.rect, b.rect, avoid: avoid)),
       ),
+    );
+    final driver = EndRevealScope.maybeOf(context);
+    return Positioned.fill(
+      child: driver == null
+          ? twine
+          : revealFade(driver, RevealBeat.pick, twine, card: pick.pickId),
     );
   }
 }
@@ -138,11 +163,63 @@ class EndCardView extends StatelessWidget {
   final EndBoardPlan plan;
   final Offset origin;
 
+  /// The card's face, as the settled board shows it.
+  /// [up] is the reveal's twin held up in the middle of the board, in the
+  /// light at [litAt]: its portrait full and bright, as a winner's is, and
+  /// filling a card of [up]'s size (as wide as the card, the art as wide as
+  /// the paper lets it), untilted (the twin turns it).
+  static Widget faceOf(EndCard c, EndBoardPlan plan, {Rect? up, Rect? litAt}) =>
+      up != null
+      ? BoardCard(
+          name: c.name,
+          role: c.face,
+          strip: c.strip.displayName,
+          paper: paperOf(switch (c.look) {
+            EndCardLook.loser => EndCardLook.winner,
+            EndCardLook.werewolfLost => EndCardLook.werewolfWon,
+            final look => look,
+          }),
+          size: up.size,
+          portraitWidth: up.width - 2 * BoardCard.inset,
+          rect: litAt ?? up,
+          raised: true,
+          headerHeight: c.header,
+          stripHeight: c.stripHeight,
+          semantics: spokenCard(c, plan),
+        )
+      : BoardCard(
+          name: c.name,
+          role: c.face,
+          strip: c.strip.displayName,
+          paper: paperOf(c.look),
+          size: c.rect.size,
+          portraitWidth: c.portraitWidth,
+          rect: litAt ?? c.rect,
+          angle: c.angle,
+          raised: c.hanged,
+          headerHeight: c.header,
+          stripHeight: c.stripHeight,
+          semantics: spokenCard(c, plan),
+        );
+
   @override
   Widget build(BuildContext context) {
     final c = card;
     final skin = context.skin;
     final box = c.reach.inflate(2);
+    final driver = EndRevealScope.maybeOf(context);
+    // In the reveal each piece comes in on its beat; settled, as it is.
+    Widget on(RevealBeat beat, Widget piece) =>
+        driver == null ? piece : revealFade(driver, beat, piece, card: null);
+    Widget pinned(Widget ribbon) {
+      if (driver == null) return ribbon;
+      final kind = driver.has(RevealBeat.ribbon, card: c.id)
+          ? RevealBeat.ribbon
+          : RevealBeat.pick;
+      return revealPinned(driver, kind, c.id, ribbon);
+    }
+
+    final face = faceOf(c, plan);
     // The card's own widgets in a box of its reach, placed by the plan.
     Offset local(Rect r) => r.topLeft - box.topLeft;
     return Positioned(
@@ -150,79 +227,84 @@ class EndCardView extends StatelessWidget {
       top: box.top + origin.dy,
       width: box.width,
       height: box.height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          if (c.dealt != null)
-            Positioned(
-              left: local(c.dealtRect!).dx,
-              top: local(c.dealtRect!).dy,
-              width: c.dealtRect!.width,
-              height: c.dealtRect!.height,
-              child: LitAt(
-                rect: c.dealtRect!,
-                child: DealtCard(
-                  role: c.dealt!,
-                  size: c.dealtRect!.size,
-                  rect: c.dealtRect!,
+      child: _grown(
+        driver,
+        box,
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            if (c.dealt != null)
+              Positioned(
+                left: local(c.dealtRect!).dx,
+                top: local(c.dealtRect!).dy,
+                width: c.dealtRect!.width,
+                height: c.dealtRect!.height,
+                child: on(
+                  RevealBeat.grow,
+                  LitAt(
+                    rect: c.dealtRect!,
+                    child: DealtCard(
+                      role: c.dealt!,
+                      size: c.dealtRect!.size,
+                      rect: c.dealtRect!,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          Positioned(
-            left: local(c.rect).dx,
-            top: local(c.rect).dy,
-            width: c.rect.width,
-            height: c.rect.height,
-            child: BoardCard(
-              name: c.name,
-              role: c.face,
-              strip: c.strip.displayName,
-              paper: paperOf(c.look),
-              size: c.rect.size,
-              portraitWidth: c.portraitWidth,
-              rect: c.rect,
-              angle: c.angle,
-              raised: c.hanged,
-              headerHeight: c.header,
-              stripHeight: c.stripHeight,
-              semantics: spokenCard(c, plan),
-            ),
-          ),
-          if (c.ribbonRect != null)
             Positioned(
-              left: local(c.ribbonRect!).dx,
-              top: local(c.ribbonRect!).dy,
-              width: c.ribbonRect!.width,
-              height: c.ribbonRect!.height,
-              child: LitAt(
-                rect: c.ribbonRect!,
-                child: DeathRibbon(width: c.ribbonRect!.width),
-              ),
+              left: local(c.rect).dx,
+              top: local(c.rect).dy,
+              width: c.rect.width,
+              height: c.rect.height,
+              child: driver == null ? face : revealCardTurn(driver, c, face),
             ),
-          if (c.sealRect != null)
-            Positioned(
-              left: local(c.sealRect!).dx,
-              top: local(c.sealRect!).dy,
-              width: c.sealRect!.width,
-              height: c.sealRect!.height,
-              child: LitAt(
-                rect: c.sealRect!,
-                child: YouSeal(token: c.token, size: c.sealRect!.width),
+            if (c.ribbonRect != null)
+              Positioned(
+                left: local(c.ribbonRect!).dx,
+                top: local(c.ribbonRect!).dy,
+                width: c.ribbonRect!.width,
+                height: c.ribbonRect!.height,
+                child: pinned(
+                  LitAt(
+                    rect: c.ribbonRect!,
+                    child: DeathRibbon(width: c.ribbonRect!.width),
+                  ),
+                ),
               ),
-            ),
-          if (c.pin != null)
-            Positioned(
-              left: local(c.pin!).dx,
-              top: local(c.pin!).dy,
-              child: LitAt(
-                rect: c.pin!,
-                child: PaperPin(ink: skin.paper.text, size: EndMetrics.pin),
+            if (c.sealRect != null)
+              Positioned(
+                left: local(c.sealRect!).dx,
+                top: local(c.sealRect!).dy,
+                width: c.sealRect!.width,
+                height: c.sealRect!.height,
+                child: on(
+                  RevealBeat.grow,
+                  LitAt(
+                    rect: c.sealRect!,
+                    child: YouSeal(token: c.token, size: c.sealRect!.width),
+                  ),
+                ),
               ),
-            ),
-        ],
+            if (c.pin != null)
+              Positioned(
+                left: local(c.pin!).dx,
+                top: local(c.pin!).dy,
+                child: on(
+                  RevealBeat.tags,
+                  LitAt(
+                    rect: c.pin!,
+                    child: PaperPin(ink: skin.paper.text, size: EndMetrics.pin),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _grown(EndRevealDriver? driver, Rect box, Widget card) =>
+      driver == null ? card : revealCardBox(driver, this.card, box, card);
 }
 
 /// The tags of a card's strand, one under the other.
@@ -233,24 +315,39 @@ class EndTagsView extends StatelessWidget {
   final Offset origin;
 
   @override
-  Widget build(BuildContext context) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      for (final t in card.tags)
-        Positioned(
-          left: t.rect.left + origin.dx,
-          top: t.rect.top + origin.dy,
-          width: t.rect.width,
-          child: LitAt(
-            rect: t.rect,
-            child: VoteTag(
-              name: t.name,
-              token: t.token,
-              maxWidth: t.rect.width,
-              height: t.rect.height,
+  Widget build(BuildContext context) {
+    final driver = EndRevealScope.maybeOf(context);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        for (final t in card.tags)
+          Positioned(
+            left: t.rect.left + origin.dx,
+            top: t.rect.top + origin.dy,
+            width: t.rect.width,
+            child: _arriving(
+              driver,
+              t,
+              LitAt(
+                rect: t.rect,
+                child: VoteTag(
+                  name: t.name,
+                  token: t.token,
+                  maxWidth: t.rect.width,
+                  height: t.rect.height,
+                ),
+              ),
             ),
           ),
-        ),
-    ],
-  );
+      ],
+    );
+  }
+
+  /// In the reveal, a tag comes down its twine from the pin and lands.
+  Widget _arriving(EndRevealDriver? driver, EndTag t, Widget tag) {
+    final pin = card.pin;
+    if (driver == null || pin == null) return tag;
+    final fall = t.rect.top - pin.center.dy;
+    return revealArriving(driver, fall, tag);
+  }
 }
