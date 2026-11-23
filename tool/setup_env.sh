@@ -23,7 +23,8 @@ if [ ! -f "$env_file" ]; then
       -e 's/^DB_PASSWORD=.*/DB_PASSWORD=postgres/' \
       "$root/backend/.env.example" > "$env_file"
 fi
-# Every checkout has its own database; DJANGO_SETTINGS_MODULE makes the tests
+# The checkout's own development database (each test run builds its own beside
+# it, backend/config/test_database.py); DJANGO_SETTINGS_MODULE makes the tests
 # run under dev settings, so it never belongs here.
 sed -i -e "s/^DB_NAME=.*/DB_NAME=$db/" -e '/^DJANGO_SETTINGS_MODULE=/d' "$env_file"
 

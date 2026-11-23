@@ -36,9 +36,11 @@ one) with that `DB_NAME` and without `DJANGO_SETTINGS_MODULE`, turns on the comm
 worktree of the clone; the same script runs at the start of every Claude session), then runs
 `just install` in `backend/` and `flutter pub get` in `frontend/`.
 
-- **One database per checkout.** Parallel agents each work in their own worktree with their
-  own `DB_NAME` (pytest creates `test_<DB_NAME>`); two checkouts on one name break each
-  other's runs.
+- **Every test run has its own database**: pytest builds `test_<DB_NAME>_<process id>`
+  (`backend/config/test_database.py`), so two runs side by side, in one checkout or in two,
+  never share one. A run that was killed leaves its database behind; the next run drops it.
+  `DB_NAME` itself is only the development database (`just dev`, `just migrate`): give a
+  worktree its own when its migrations differ.
 - **`DJANGO_SETTINGS_MODULE` never goes in `backend/.env`**: it makes the tests run under the
   development settings.
 - **Harness runs go side by side**: `just test-harness` and `just harness-serve` each take
