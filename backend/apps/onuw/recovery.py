@@ -7,9 +7,10 @@ failed send. ``ensure_timers`` puts back what one game should have now (called f
 it for every running game at start-up. Both work out the plan from the game's state
 alone: what should be scheduled, for when.
 
-This module uses the game's rules from ``services.py`` (each such call is written
-``services.<name>``), and opens a night that never started through it; nothing in
-``services.py`` depends on this module (``tests/onuw/test_module_directions.py``).
+This module uses the game's rules from the service's layers (each such call is
+written ``<module>.<name>``), and opens a night that never started through
+``night_flow``; no layer depends on this module
+(``tests/onuw/test_module_directions.py``).
 """
 
 from __future__ import annotations

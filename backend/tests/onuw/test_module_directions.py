@@ -2,8 +2,16 @@
 Which way the game's modules may depend on each other.
 
 The game service is split into parts that can each be read whole, in layers: a part
-imports only the parts below it. An import upwards would be an import cycle waiting to
-happen, and it would mean the parts were not really separate.
+imports only the parts below it. An import upwards would mean the parts were not really
+separate.
+
+What this checks is the DIRECT imports between the layers. Three older modules beside
+them still close a loop when followed through, as they did when the service was one
+file (they load in any order; a review ran every first import): ``choose_night``
+(imported by ``readiness``, imports the night's layers), ``practice`` (imported inside
+one function of ``basics``, imports ``voting``) and ``presence`` (imported by
+``readiness``, imports ``game_presence`` inside a function). Untangling those is
+separate work; do not add a fourth.
 """
 
 import ast
