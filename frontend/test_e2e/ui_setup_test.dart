@@ -8,6 +8,7 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/primitives/value_stepper.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
@@ -26,7 +27,7 @@ import 'harness/ui_harness.dart';
 /// UI runner, the host's phone against a real server: the owner's set-up.
 /// The host sets the table for eight before anyone joins (and, in one run,
 /// builds a deck of their own for eight), the others arrive one by one
-/// through the API while 02 counts them ("3 of 8", "Deal to 8" locked, the
+/// through the API while 02 counts them ("3 of 8", "Start the game" locked, the
 /// cards needed never moving), only seven come, the host taps "Play with 7"
 /// (the automatic deck follows; the own deck, one over, opens 03 with its
 /// count and the host takes one card out), and deals. And the owner's leave: the host alone
@@ -63,7 +64,9 @@ void main() {
           'the table set for eight at the server',
         );
         await ui.pumpUntil(
-          () => run.text('11 / 11') && run.text('1 of 8'),
+          () =>
+              run.text(DeckCopy.count.fill({'picked': 11, 'need': 11})) &&
+              run.text('1 of 8'),
           reason: '03: eleven cards for eight, one of eight here',
         );
         if (own) {
@@ -83,12 +86,15 @@ void main() {
                 (lobby['deal'] as Map)['have'] == 11,
             'a deck of eleven of the host\'s own at the server',
           );
-          await ui.pumpUntil(() => run.text('11 / 11'), reason: 'it fits');
+          await ui.pumpUntil(
+            () => run.text(DeckCopy.count.fill({'picked': 11, 'need': 11})),
+            reason: 'it fits',
+          );
         }
         await run.shoot('set-for-8');
         await run.tap(find.text(DeckCopy.done));
         await ui.pumpUntil(run.shows<AtTableScreen>, reason: 'back at 02');
-        await run.expectDealLocked(8);
+        await run.expectDealLocked(7);
 
         // They arrive one by one; only six of the seven others come.
         for (final (i, guest) in [
@@ -106,7 +112,7 @@ void main() {
           );
           final lobby = await run.lobby();
           expect((lobby['deal'] as Map)['need'], 11, reason: 'never moves');
-          await run.expectDealLocked(8);
+          await run.expectDealLocked(8 - (i + 2));
         }
         await run.shoot('seven-of-8');
 
@@ -118,9 +124,17 @@ void main() {
         );
         if (own) {
           // The own deck was built for eight: "Play with 7" opens 03 with
-          // its count showing (11 / 10), never throwing the deck away.
+          // its count showing ("11 of 10 · Remove 1 card"), never throwing the deck away.
           await ui.pumpUntil(
-            () => run.shows<DeckView>() && run.text('11 / 10'),
+            () =>
+                run.shows<DeckView>() &&
+                run.text(
+                  DeckCopy.countFix.fill({
+                    'picked': 11,
+                    'need': 10,
+                    'fix': DeckCopy.removeCard,
+                  }),
+                ),
             reason: '03, the own deck one over',
           );
           await run.shoot('lowered-own-deck');
@@ -139,19 +153,19 @@ void main() {
             (lobby) => (lobby['deal'] as Map)['ok'] == true,
             'ten cards for seven',
           );
-          await ui.pumpUntil(() => run.text('10 / 10'), reason: '03: fits');
+          await ui.pumpUntil(
+            () => run.text(DeckCopy.count.fill({'picked': 10, 'need': 10})),
+            reason: '03: fits',
+          );
           await run.tap(find.text(DeckCopy.done));
           await ui.pumpUntil(run.shows<AtTableScreen>, reason: '02');
         }
-        final deal = find.widgetWithText(
-          PrimaryButton,
-          TableCopy.deal.fill({'n': 7}),
-        );
+        final deal = find.widgetWithText(PrimaryButton, TableCopy.start);
         await ui.pumpUntil(
           () =>
               deal.evaluate().isNotEmpty &&
               tester.widget<PrimaryButton>(deal).onPressed != null,
-          reason: '"Deal to 7" live',
+          reason: '"Start the game" live',
         );
         await run.shoot('ready');
         await tester.ensureVisible(deal);
@@ -179,7 +193,7 @@ void main() {
     final run = await _Run.start(tester, name);
     try {
       final ui = run.ui;
-      final leave = find.widgetWithText(SecondaryButton, CommonCopy.leave);
+      final leave = find.widgetWithText(TextAction, CommonCopy.leave);
       await tester.ensureVisible(leave);
       await tester.pump();
       await tester.tap(leave);
@@ -325,15 +339,11 @@ class _Run {
     );
   }
 
-  Future<void> expectDealLocked(int n) async {
-    final deal = find.widgetWithText(
-      PrimaryButton,
-      TableCopy.deal.fill({'n': n}),
-    );
-    await ui.pumpUntil(
-      () => deal.evaluate().isNotEmpty,
-      reason: '"Deal to $n"',
-    );
+  /// The button says how many more it waits for, never "Start the game" dimmed.
+  Future<void> expectDealLocked(int missing) async {
+    final label = TableCopy.needMore.fill({'n': missing});
+    final deal = find.widgetWithText(PrimaryButton, label);
+    await ui.pumpUntil(() => deal.evaluate().isNotEmpty, reason: label);
     expect(tester.widget<PrimaryButton>(deal).onPressed, isNull);
   }
 }

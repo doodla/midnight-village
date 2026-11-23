@@ -104,11 +104,16 @@ class LabelledStepper extends StatelessWidget {
     required this.label,
     required this.style,
     required this.stepper,
+    this.caption,
     this.beside,
     this.onLabelLongPress,
   });
 
   final String label;
+
+  /// A few words under the name saying what it is (a timer's), in the
+  /// caption face and full ink.
+  final String? caption;
   final TextStyle style;
   final ValueStepper stepper;
   final bool? beside;
@@ -143,6 +148,21 @@ class LabelledStepper extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
             child: GestureDetector(onLongPress: hold, child: words),
           );
+    final caption = this.caption;
+    final named = caption == null
+        ? name
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              name,
+              FitWords(
+                caption,
+                style: context.skin.typography.caption.copyWith(
+                  color: context.ground.text,
+                ),
+              ),
+            ],
+          );
     return LayoutBuilder(
       builder: (context, room) {
         final beside = this.beside ?? fitsBeside(context, room.maxWidth);
@@ -150,7 +170,7 @@ class LabelledStepper extends StatelessWidget {
           return Row(
             spacing: Space.sm,
             children: [
-              Expanded(child: name),
+              Expanded(child: named),
               stepper,
             ],
           );
@@ -159,7 +179,7 @@ class LabelledStepper extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: Space.xxs,
           children: [
-            name,
+            named,
             Align(alignment: AlignmentDirectional.centerEnd, child: stepper),
           ],
         );

@@ -210,7 +210,11 @@ void main() {
     final three = await seatCard(3);
     final five = await seatCard(5);
     final ten = await seatCard(10);
-    expect(three, BoardLayout.largest);
+    // At the largest, or the column's own width where a phone is narrower.
+    expect(
+      three,
+      inInclusiveRange(BoardLayout.largest - 2, BoardLayout.largest),
+    );
     expect(
       three,
       greaterThan(FaceDownSize.board.mock.width),
@@ -426,25 +430,42 @@ void main() {
       }
     });
 
-    testWidgets('the candle takes no room of the board’s: the header is the '
-        'title’s two lines whatever the candle’s height', (tester) async {
+    testWidgets('the header is the taller of the title’s two lines and the '
+        'timer’s own line, the seconds and the candle level in it', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await _pump(tester, BoardPage(viewer: Viewer.seer));
+      final type = skinsUnderTest.values.first.typography;
       final header = tester.getRect(
         find
             .ancestor(of: find.byType(WorldTimer), matching: find.byType(Row))
             .first,
       );
-      // Two lines of the title at its size (34 x 1.05) and the hair.
-      expect(header.height, closeTo(34 * 1.05 * 2 + 1, 0.6));
-      final unit = tester.getRect(find.byType(WorldTimer));
-      expect(unit.top, closeTo(header.top, 0.5), reason: 'from the first line');
+      // The timer's line (the one timer style, 64 x 1) is taller than two
+      // title lines (24 x 1.05 each, and the hair).
       expect(
-        unit.bottom,
-        greaterThan(header.bottom - 12),
-        reason: 'the candle stands down to the title’s foot or a little below',
+        header.height,
+        closeTo(
+          math.max(
+            type.timerSmall.fontSize! * type.timerSmall.height!,
+            type.screenTitle.fontSize! * type.screenTitle.height! * 2 + 1,
+          ),
+          0.6,
+        ),
+      );
+      final unit = tester.getRect(find.byType(WorldTimer));
+      expect(unit.height, closeTo(header.height, 0.5));
+      expect(
+        unit.right,
+        closeTo(header.right, 0.5),
+        reason: 'inside the margin',
+      );
+      expect(
+        tester.getCenter(find.text('14 s')).dy,
+        closeTo(unit.center.dy, 0.5),
       );
     });
 

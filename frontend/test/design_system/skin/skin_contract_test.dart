@@ -55,21 +55,29 @@ List<Color> _colours(Ground g) => [
   g.onDisabled,
 ];
 
-/// The brief's type scale (design brief section 4, "Type scale", as the
-/// first-time play spec amends it: the reading floor), as a size range for
-/// each kind of text.
+/// The type scale's caps, one per kind of text: the owner's choice of 23
+/// November 2026 ("Tight sizes, but keep the serif names"; the audit is
+/// `docs/design/type-audit.md`). A role may not grow past its kind's max, so
+/// a mock's bigger number is converted at the cap, never copied ("the mock
+/// says 26; the cap says 16"); nor shrink under its min.
 enum _Kind {
-  heading(26, 36),
-  timer(64, 84),
-  compactTimer(34, 34),
-  count(28, 28),
-  body(16, 17),
-  // Names, buttons, the cue's word: read to act, 16 at least.
-  inBetween(16, 24),
-  // Captions under cards and tokens.
-  caption(14, 15),
-  // One hero line per screen, sized as its mock.
-  hero(37, 46);
+  // One hero line per screen, in the display serif.
+  hero(28, 36),
+  // The role's name on your own card, read across the table.
+  heroRole(46, 46),
+  display(28, 28),
+  // A screen's question.
+  question(24, 24),
+  heading(20, 20),
+  // A player's name, wherever it is drawn.
+  name(14, 16),
+  button(15, 15),
+  body(14, 15),
+  // The word in the hold ring.
+  cue(16, 16),
+  // Captions, tags, badges: the floor.
+  label(12, 12),
+  timer(64, 84);
 
   const _Kind(this.min, this.max);
 
@@ -84,31 +92,31 @@ const _kinds = {
   'heroCode': _Kind.hero,
   'heroVerdict': _Kind.hero,
   'heroWinner': _Kind.hero,
-  'heroRole': _Kind.hero,
-  'display': _Kind.heading,
-  'screenTitle': _Kind.heading,
-  'headline': _Kind.heading,
+  'heroRole': _Kind.heroRole,
+  'display': _Kind.display,
+  'screenTitle': _Kind.question,
+  'headline': _Kind.question,
   'title': _Kind.heading,
-  'tally': _Kind.count,
-  'heading': _Kind.inBetween,
-  'name': _Kind.inBetween,
-  'nameSmall': _Kind.inBetween,
-  'buttonLabelLarge': _Kind.inBetween,
-  'buttonLabel': _Kind.inBetween,
-  'buttonLabelSmall': _Kind.inBetween,
+  'tally': _Kind.heading,
+  'heading': _Kind.heading,
+  'name': _Kind.name,
+  'nameSmall': _Kind.name,
+  'buttonLabelLarge': _Kind.button,
+  'buttonLabel': _Kind.button,
+  'buttonLabelSmall': _Kind.button,
   'timer': _Kind.timer,
   'timerVote': _Kind.timer,
   'timerSmall': _Kind.timer,
-  'timerCompact': _Kind.compactTimer,
   'bodyLarge': _Kind.body,
+  'bodyStrong': _Kind.body,
   'lede': _Kind.body,
   'body': _Kind.body,
   'action': _Kind.body,
   'code': _Kind.body,
-  'cue': _Kind.inBetween,
-  'caption': _Kind.caption,
-  'tag': _Kind.caption,
-  'badge': _Kind.caption,
+  'cue': _Kind.cue,
+  'caption': _Kind.label,
+  'tag': _Kind.label,
+  'badge': _Kind.label,
 };
 
 Future<Size> _pixels(String path) async {
@@ -203,14 +211,14 @@ void main() {
         }
       });
 
-      test('every type role is inside the brief\'s scale', () {
+      test('every type role is inside the scale\'s caps', () {
         final outside = [
           for (final MapEntry(key: role, value: style)
               in skin.typography.roles.entries)
             if (_kinds[role] case final kind?)
               if (style.fontSize! < kind.min || style.fontSize! > kind.max)
-                '$role is ${style.fontSize}, a ${kind.name} is '
-                    '${kind.min} to ${kind.max}',
+                '$role is ${style.fontSize}: the cap for a ${kind.name} is '
+                    '${kind.max} (and at least ${kind.min})',
         ];
         expect(outside, isEmpty);
       });

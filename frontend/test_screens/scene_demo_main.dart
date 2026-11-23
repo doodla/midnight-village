@@ -109,7 +109,7 @@ class _Table extends StatelessWidget {
           PaperCard(child: Text(name, style: context.skin.typography.body)),
       ],
     ),
-    actions: [PrimaryButton(label: 'Deal to 5', onPressed: () {})],
+    actions: [PrimaryButton(label: 'Start game', onPressed: () {})],
   );
 }
 

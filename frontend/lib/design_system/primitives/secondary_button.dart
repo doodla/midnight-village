@@ -9,8 +9,12 @@ import 'paper_lantern.dart';
 import 'primary_button.dart';
 
 /// A second, quieter action beside or below the primary one: an outline on
-/// the ground ("Do nothing tonight", "Take out of deck"). [onPressed] null
-/// disables it.
+/// the ground ("Do nothing tonight", "Take out of deck"). Like the primary
+/// button it is never silently disabled: it acts, or it is
+/// [SecondaryButton.locked] (a tap leads to what it lacks, and it is not drawn
+/// dimmed), or [SecondaryButton.waiting] (a change of this phone's is on its
+/// way elsewhere; [reason] says so to a screen reader). There is no `onPressed`
+/// of null.
 ///
 /// [SecondaryButton.paper] is a piece of paper instead, raised off the ground,
 /// labelled in the primary button's face (S01 "Join"): an action beside a
@@ -19,24 +23,54 @@ class SecondaryButton extends StatefulWidget {
   const SecondaryButton({
     super.key,
     required this.label,
-    required this.onPressed,
+    required VoidCallback this.onPressed,
     this.size = ButtonSize.regular,
     this.busy = false,
-  }) : _paper = false;
+  }) : onLockedTap = null,
+       reason = null,
+       _paper = false;
 
   const SecondaryButton.paper({
     super.key,
     required this.label,
-    required this.onPressed,
+    required VoidCallback this.onPressed,
     this.size = ButtonSize.compact,
-  }) : _paper = true,
+  }) : onLockedTap = null,
+       reason = null,
+       _paper = true,
        busy = false;
+
+  /// What it needs is missing: drawn as it is when it acts, and a tap calls
+  /// [onLockedTap] (the field it lacks takes the cursor and a nudge) instead.
+  const SecondaryButton.locked({
+    super.key,
+    required this.label,
+    required VoidCallback this.onLockedTap,
+    this.size = ButtonSize.regular,
+  }) : onPressed = null,
+       reason = null,
+       busy = false,
+       _paper = false;
+
+  /// A change of this phone's is on its way (another button of the screen is
+  /// busy): dimmed, taking no tap, [reason] spoken.
+  const SecondaryButton.waiting({
+    super.key,
+    required this.label,
+    required String this.reason,
+    this.size = ButtonSize.regular,
+  }) : onPressed = null,
+       onLockedTap = null,
+       busy = false,
+       _paper = false;
 
   /// The regular minimum height.
   static const height = 48.0;
 
   final String label;
   final VoidCallback? onPressed;
+  final VoidCallback? onLockedTap;
+  final String? reason;
   final ButtonSize size;
   final bool _paper;
 
@@ -51,12 +85,15 @@ class SecondaryButton extends StatefulWidget {
 class _SecondaryButtonState extends State<SecondaryButton> {
   var _pressed = false;
 
+  VoidCallback? get _onTap => widget.onPressed ?? widget.onLockedTap;
+
   @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
     final busy = widget.busy;
-    final enabled = widget.onPressed != null || busy;
+    final enabled =
+        widget.onPressed != null || widget.onLockedTap != null || busy;
     final radius = BorderRadius.circular(skin.shape.radius);
     final paper = widget._paper;
 
@@ -84,19 +121,21 @@ class _SecondaryButtonState extends State<SecondaryButton> {
           width: skin.shape.stroke,
         ),
       );
-      style = skin.typography.action.copyWith(
-        color: enabled ? ground.text : ground.faintText,
-      );
+      // A button's label is the buttons' one size (15), outlined or paper.
+      style = widget.size
+          .label(skin.typography)
+          .copyWith(color: enabled ? ground.text : ground.faintText);
     }
 
     return Semantics(
       button: true,
       enabled: enabled,
       label: widget.label,
+      hint: widget.reason,
       value: busy ? SpokenCopy.working : null,
       // The words are this node's own, and so is the tap (the ink's tap is
       // left out with its words): a screen reader can press it.
-      onTap: busy ? null : widget.onPressed,
+      onTap: busy ? null : _onTap,
       excludeSemantics: true,
       child: AnimatedContainer(
         duration: Motion.press,
@@ -109,7 +148,7 @@ class _SecondaryButtonState extends State<SecondaryButton> {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
-            onTap: busy ? null : widget.onPressed,
+            onTap: busy ? null : _onTap,
             onHighlightChanged: (value) => setState(() => _pressed = value),
             highlightColor: Colors.transparent,
             borderRadius: radius,

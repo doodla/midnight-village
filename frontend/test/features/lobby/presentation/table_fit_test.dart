@@ -136,7 +136,15 @@ void main() {
       final deal = tester.getRect(find.byType(PrimaryButton).last);
       final limit = deal.top - _fade;
       final leave = find.text(CommonCopy.leave);
-      expect(tester.getRect(leave).bottom, lessThanOrEqualTo(limit));
+      // Leave is a quiet word at the main button's side, in view.
+      expect(
+        tester.getRect(leave).bottom,
+        lessThanOrEqualTo(tester.view.physicalSize.height),
+      );
+      expect(
+        tester.getRect(leave).center.dy,
+        closeTo(deal.center.dy, Space.sm),
+      );
       for (final e in find.byType(RoleCard).evaluate()) {
         expect(
           tester.getRect(find.byWidget(e.widget)).bottom,

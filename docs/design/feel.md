@@ -28,7 +28,7 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
    7, spec sections 3 and 8). Same board, same motion on every phone. Secrets show only while
    held. The one exception is the owner's: your own card's face landing on 04 gives one light
    tap (section 3), the same on every phone whatever the role.
-5. **Usability never pays.** Tap targets, contrast, reading floor (16 and 14 px), taps to act and
+5. **Usability never pays.** Tap targets, contrast, reading floor (14 px body, 12 px labels), taps to act and
    whole names stay the same or get better. A name is never cut, also in the middle of a motion.
 6. **Paper, not glass.** Things lift, sink, drop in and turn like cut paper with a shadow. Short
    moves, one idea at a time, no bounce beyond a small settle, no recolours or filters. Shadows are
@@ -148,12 +148,12 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Host opens the table | QR and code are on the first frame (art is precached) | none | Same | exists |
-| The third player arrives | "Need 3 players" outline becomes the one amber "Deal to {n}": fill and outline change, label cuts | `press` | Cut | exists |
+| The third player arrives | "Need 3 players" outline becomes the one amber "Start the game" (or "Need {n} more", "Add 1 card", "Remove 2 cards"): fill and outline change, label cuts | `press` | Cut | exists |
 | Share | System share sheet; where there is none the link is copied and the screen says so | none | Same | exists |
 | Tap a deck chip | The chip lifts 4 px with the selection outline; the strip's counts follow | `quick` | Cut | exists |
 | A card added or removed in the editor (03) | The count badge ticks and the card lifts or settles, so "Add 2 cards" reads as cards. The editor is #8; polish waits on it | `quick` | Cut | no pass |
 | Guest waits | "{host} deals" large, a quiet underlined "Leave" that dims while pressed | `press` | Same | exists |
-| Host taps "Deal to {n}" | The busy mark on the button in the frame of the tap, taps ignored until the dusk lands (`LobbyNotifier.deal` returns only when `/me/table/` has named the next screen, so 02's own busy covers the gap; Leave is the same, a `Pending` until 01 is named) | none | Same | exists |
+| Host taps "Start game" | The busy mark on the button in the frame of the tap, taps ignored until the dusk lands (`LobbyNotifier.deal` returns only when `/me/table/` has named the next screen, so 02's own busy covers the gap; Leave is the same, a `Pending` until 01 is named) | none | Same | exists |
 
 ### The deal
 
@@ -320,7 +320,7 @@ frontend rules say; the owner sees them before the pass merges.
 5. Night: no vibration, no sound, same layout and motion on every role's phone; faces held above
    the thumb are cut in and out, never faded half-seen.
 6. Vibration: only the three names, only where section 3 allows, always with a visible change.
-7. Usability held: targets (48 px, 44 only where named in the pass), 16 and 14 px floors, contrast,
+7. Usability held: targets (48 px, 44 only where named in the pass), 14 and 12 px floors, contrast,
    taps to act, and every name whole at 10 players and 320 wide.
 8. One look: original Shadow paper art, no recolour or filter; new art shown to the owner.
 9. The row for the moment in section 4 is updated in the same change (status, timings).

@@ -51,10 +51,16 @@ class _VoteChoiceState extends State<_VoteChoice> {
           picked: _picked == name,
           onTap: () => setState(() => _picked = name),
         ),
-      PrimaryButton(
-        label: _picked == null ? 'Pick a player' : 'Lock in $_picked',
-        onPressed: _picked == null ? null : () => widget.onLockIn(_picked!),
-      ),
+      if (_picked case final picked?)
+        PrimaryButton(
+          label: 'Lock in $picked',
+          onPressed: () => widget.onLockIn(picked),
+        )
+      else
+        const PrimaryButton.waiting(
+          label: 'Pick a player',
+          reason: 'Pick a player first',
+        ),
     ],
   );
 }

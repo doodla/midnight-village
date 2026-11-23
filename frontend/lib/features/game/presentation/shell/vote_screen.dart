@@ -204,7 +204,10 @@ class VoteView extends StatelessWidget {
         if (locked)
           const PrimaryButton.done(label: VoteCopy.locked)
         else if (pick == null)
-          const PrimaryButton(label: VoteCopy.pickName, onPressed: null)
+          const PrimaryButton.waiting(
+            label: VoteCopy.pickName,
+            reason: SpokenCopy.pickFirst,
+          )
         else
           // Under the frame's ground (the day's), where a knock is allowed.
           Builder(

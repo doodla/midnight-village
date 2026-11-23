@@ -32,7 +32,7 @@ import '../../game/presentation/live_game.dart' show liveGameProvider;
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
 import 'deck_screen.dart'
-    show DeckCount, deckChipLabel, lengthText, minSeats, showRoleSheet;
+    show deckChipLabel, deckFixWords, lengthText, minSeats, showRoleSheet;
 import 'seats_line.dart';
 import 'home_numbers.dart';
 import 'lobby_notifier.dart';
@@ -46,10 +46,13 @@ import 'where_am_i_provider.dart';
 ///   only where there is no share sheet); then everyone at the table as a
 ///   row each, their own outlined, a dropped phone dimmed with no words.
 /// - Host: the deck as its chip with its cards face up (the server's
-///   `deck_preview`) or the custom deck's cards, with "Edit" (03); "Deal to
-///   {n}", amber, by the server's verdict on dealing ([DealState]); a refused
-///   deal says why; a quiet "Leave" that asks first ("Stay" / "Leave"), so
-///   one stray tap never hands the table away.
+///   `deck_preview`) or the custom deck's cards, with "Edit" (03); "Start
+///   the game", amber, by the server's verdict on dealing ([DealState]), else
+///   what to do and a tap does it: the friends first ("Need 3 players", "Need
+///   {n} more": shares the link), then the deck ("Add 1 card", "Remove 2 cards":
+///   opens 03, and "Edit" is hidden: one way in); a refused deal says why; a
+///   quiet "Leave" under the button that asks first ("Stay" / "Leave"), so one
+///   stray tap never hands the table away.
 /// - Guest: "{host} deals" over the same code, the rows, and a quiet "Leave"
 ///   at the end.
 /// - Back asks first, host or guest, with the host's "Stay" / "Leave".
@@ -365,22 +368,19 @@ class AtTableView extends StatelessWidget {
                   child: SecondaryButton(
                     label: TableCopy.playWith.fill({'n': present}),
                     size: ButtonSize.compact,
-                    onPressed: onPlayWith == null
-                        ? null
-                        : () => onPlayWith!(present),
+                    onPressed: () => onPlayWith?.call(present),
                   ),
                 ),
               // The game as set up, face up for everyone; the host's opens 03.
               _SetupPanel(lobby: lobby, host: host, onEdit: onEditDeck),
-              if (host)
-                Align(
-                  child: SecondaryButton(
+              // A guest has no main button: Leave is a quiet word right under
+              // what there is to see, not alone at the foot of an empty screen.
+              if (!host)
+                Center(
+                  child: TextAction(
                     label: CommonCopy.leave,
-                    size: ButtonSize.compact,
                     busy: leaving,
-                    onPressed: onLeave == null
-                        ? null
-                        : () => unawaited(_confirmLeave(context)),
+                    onPressed: onLeave,
                   ),
                 ),
             ],
@@ -406,18 +406,30 @@ class AtTableView extends StatelessWidget {
               onAction: onRetry,
             )
           // The button already says it when the table's new verdict agrees.
-          else if (host && refused != null && refused != _dealWords())
+          else if (host &&
+              refused != null &&
+              refused != _dealWords() &&
+              DealState.of(lobby) is! DeckDoesNotFit)
             Notice(message: refused)
           else if (copied)
             const Notice(message: BannerCopy.copied),
+          // The host's Leave is a quiet word at the main button's side (it
+          // asks first), so it never floats alone in the empty middle of the
+          // screen.
           if (host)
-            _dealButton()
-          else
-            Center(
-              child: TextAction(
-                label: CommonCopy.leave,
-                busy: leaving,
-                onPressed: onLeave,
+            Builder(
+              builder: (context) => Row(
+                spacing: Space.md,
+                children: [
+                  TextAction(
+                    label: CommonCopy.leave,
+                    busy: leaving,
+                    onPressed: onLeave == null
+                        ? null
+                        : () => unawaited(_confirmLeave(context)),
+                  ),
+                  Expanded(child: _dealButton()),
+                ],
               ),
             ),
         ],
@@ -451,23 +463,47 @@ class AtTableView extends StatelessWidget {
     if ((leave ?? false) && context.mounted) onLeave?.call();
   }
 
-  /// The deal button's words, from the server's verdict ([DealState]).
+  /// The deal button's words, from the server's verdict ([DealState]): a
+  /// button that cannot be taken says what to do, in place.
   String _dealWords() => switch (DealState.of(lobby)) {
-    CanDeal(:final players) => TableCopy.deal.fill({'n': players}),
-    // The same words, locked, until everyone it is set for is here.
-    WaitingFor(:final seats) => TableCopy.deal.fill({'n': seats}),
+    CanDeal() || CanDealSoon() || CannotDeal() => TableCopy.start,
     NeedPlayers() => TableCopy.needPlayers,
-    // The deck shows what is wrong; the button keeps its words.
-    DeckDoesNotFit() => TableCopy.deal.fill({'n': lobby.seatedCount}),
-    CannotDeal() => BannerCopy.cannotDeal,
+    WaitingFor(:final missing) => TableCopy.needMore.fill({'n': missing}),
+    DeckDoesNotFit(:final off) => deckFixWords(off),
   };
 
-  /// "Deal to {n}", amber, only when the server says the deal would go.
-  Widget _dealButton() => PrimaryButton(
-    label: _dealWords(),
-    onPressed: DealState.of(lobby) is CanDeal ? onDeal : null,
-    busy: dealing,
-  );
+  /// "Start the game", amber, only when the server says the deal would go.
+  /// Never silently disabled (the app's rule): it says what to do and a tap
+  /// does it. "Need 3 players" and "Need {n} more" share the table's link (the
+  /// code is above; the places are drawn there); "Add 1 card" and "Remove 2
+  /// cards" are the fix itself, a tap away: they open 03 where the count shows.
+  /// A refusal this phone cannot name leaves it live: the deal's own answer
+  /// says why.
+  Widget _dealButton() {
+    final label = _dealWords();
+    void deal() => onDeal?.call();
+    if (dealing) {
+      return PrimaryButton(label: label, onPressed: deal, busy: true);
+    }
+    final link = this.link;
+    final share = onShare;
+    return switch (DealState.of(lobby)) {
+      CanDeal() || CannotDeal() => PrimaryButton(label: label, onPressed: deal),
+      DeckDoesNotFit() => PrimaryButton(
+        label: label,
+        onPressed: () => onEditDeck?.call(),
+      ),
+      // A change of this phone's on its way: the words wait for its answer.
+      CanDealSoon() => PrimaryButton.waiting(
+        label: label,
+        reason: SpokenCopy.working,
+      ),
+      NeedPlayers() || WaitingFor() =>
+        link != null && share != null
+            ? PrimaryButton.locked(label: label, onLockedTap: () => share(link))
+            : PrimaryButton.waiting(label: label, reason: SpokenCopy.working),
+    };
+  }
 }
 
 /// Everyone at the table, a row each; from [Sizes.twoUpPlayers] on, two to
@@ -515,7 +551,7 @@ class _Rows extends StatelessWidget {
           half - Space.sm - size.token.size - size.gap - size.endPadding;
       // The size every name is set at: the role's own, or smaller where the
       // longest word needs it (a word's width is in step with the size).
-      final own = size.nameSize!;
+      final own = size.nameStyle(context.skin.typography).fontSize!;
       final widest = _widestWord(context, own);
       final fitted = widest > nameRoom ? own * nameRoom / widest * 0.99 : own;
       if (rows.length < Sizes.twoUpPlayers ||
@@ -701,16 +737,19 @@ class _JoinCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          // Share beside the words of the link it shares, so
-                          // the code has the column's whole width.
+                          // "Scan to join" has the column's whole width (beside
+                          // Share it left one word alone on a second line);
+                          // Share ends the hairline under it, and the code has
+                          // the width below.
                           children: [
+                            scan,
                             Row(
+                              spacing: Space.xs,
                               children: [
-                                Expanded(child: scan),
+                                Expanded(child: divider),
                                 ?shareButton,
                               ],
                             ),
-                            divider,
                             codeOnly,
                           ],
                         ),
@@ -740,8 +779,8 @@ class _JoinCard extends StatelessWidget {
 /// The game as set up, the same for everyone at the table: the chip (an
 /// automatic deck) and the talk's length, then every role in the deck face
 /// up with its count, in [deckOrder] (a tap or a hold reads it, 03b). The
-/// host's opens 03 ("Edit"), and shows a deck that does not hold the cards
-/// the deal needs ([DeckCount]; a guest never sees it).
+/// host's opens 03 ("Edit") unless the deck is wrong, when the main button
+/// is the way in.
 class _SetupPanel extends StatelessWidget {
   const _SetupPanel({required this.lobby, required this.host, this.onEdit});
 
@@ -756,10 +795,8 @@ class _SetupPanel extends StatelessWidget {
     final chip = lobby.table.autoDeck ? lobby.table.deckChip : null;
     final talk = lobby.secondsOf(Length.talk);
     final cards = lobby.tableCards;
-    final seats = lobby.table.seats;
-    final need = lobby.cardsNeeded;
-    final picked = lobby.pickedCards;
-    final edit = host ? onEdit : null;
+    // One way in: while the button says what to fix, the button is it.
+    final edit = host && DealState.of(lobby) is! DeckDoesNotFit ? onEdit : null;
     void read(RoleId role) => unawaited(showRoleSheet(context, role));
     return OutlinePanel(
       onTap: edit,
@@ -793,8 +830,6 @@ class _SetupPanel extends StatelessWidget {
                 ),
             ],
           ),
-          if (host && seats != null && need != null && picked != need)
-            DeckCount(picked: picked, need: need, seats: seats),
           if (cards.isNotEmpty) _DeckStrip(cards: cards, onRead: read),
         ],
       ),

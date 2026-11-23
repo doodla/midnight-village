@@ -5,22 +5,23 @@ import '../skin/skin.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
 
-/// The sizes a token is drawn at in the mocks.
+/// The sizes a token is drawn at: the mocks', shrunk with the names (the
+/// owner's type choice of 23 November 2026).
 enum TokenSize {
   /// The owner under a face-down card (S06).
   card(36),
 
   /// A row in the vote's compact fallback (S09).
-  row(38),
+  row(32),
 
   /// A row at the table (S02).
-  lobby(32),
+  lobby(26),
 
   /// A row in the count (S10).
-  count(48),
+  count(34),
 
   /// A row in the vote (S09).
-  vote(52),
+  vote(38),
 
   /// A row in the vote when the room allows more than the mock's rows.
   grand(60),

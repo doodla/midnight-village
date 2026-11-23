@@ -171,6 +171,24 @@ void main() {
       );
     });
 
+    test('the friends come before the deck: alone at an open table with a '
+        'deck of the wrong size, three players are needed', () {
+      final body = ContractSamples.map('http/lobby/detail_custom_deck_short');
+      final players = body['players'] as List;
+      players.removeRange(1, players.length);
+      final lobby = LobbyState.fromJson(body);
+      expect(lobby.deckOff, isNot(0), reason: 'the deck is off');
+      expect(DealState.of(lobby), isA<NeedPlayers>());
+    });
+
+    test('at a table set for a number the places come before the deck', () {
+      final lobby = at('detail_seats_8_four_here');
+      expect(
+        DealState.of(lobby),
+        isA<WaitingFor>().having((w) => w.missing, 'missing', 4),
+      );
+    });
+
     test('alone at a new table: three players needed', () {
       expect(DealState.of(at('created_with_defaults')), isA<NeedPlayers>());
     });

@@ -621,9 +621,8 @@ class _DeadCard extends StatelessWidget {
                     death.plays.displayName,
                     maxLines: 2,
                     textAlign: align,
-                    style: (compact ? type.heading : type.display).copyWith(
-                      color: ground.text,
-                    ),
+                    // The role at the body token: a player's name outranks it.
+                    style: type.body.copyWith(color: ground.text),
                   ),
                   _TeamTag(death.team),
                 ],
