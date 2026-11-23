@@ -16,9 +16,7 @@
 787 frontend/lib/design_system/primitives/face_down_card.dart
 739 frontend/lib/features/lobby/presentation/deck_screen.dart until 2026-11-26
 727 frontend/lib/design_system/primitives/mood.dart until 2026-11-26
-710 frontend/lib/design_system/primitives/band.dart
 709 frontend/lib/features/game/presentation/shell/count_screen.dart until 2026-11-26
-697 frontend/lib/features/lobby/presentation/join_screen.dart
 671 frontend/lib/design_system/primitives/player_row.dart until 2026-11-26
 631 frontend/lib/features/lobby/domain/lobby_state.dart
 614 frontend/lib/features/game/presentation/shell/talk_screen.dart until 2026-11-26
