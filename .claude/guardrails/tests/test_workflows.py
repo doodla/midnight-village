@@ -14,6 +14,12 @@ app's download on pushes to main. It is held to its own rules (WorkflowPublishin
 pull request, never a required check, `contents: write` on its one job only, a paths filter
 (it is not required, so a filter cannot block a merge). It still has to name only real recipes.
 
+AFTER_MERGE (deployed-check.yml) is not part of the wall either: it tests the deployment a
+merge makes, so it can only run after it. Its rules (WorkflowAfterMerge): every push to main
+with no paths filter, never on a pull request, never a required check, no write permission,
+no secret, and it runs tool/deployed_check.py against the same two addresses the Android
+build uses.
+
 No YAML library: the workflows are plain enough to read by indentation.
 Run with: python3 .claude/guardrails/tests/test_workflows.py
 """
@@ -29,7 +35,8 @@ ROOT = Path(__file__).resolve().parents[3]
 PUBLISHING = ["android-download.yml"]
 ALL_WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 # The merge wall's workflows: every pull request runs them, their jobs are the required checks.
-WORKFLOWS = [w for w in ALL_WORKFLOWS if w.name not in PUBLISHING]
+AFTER_MERGE = ["deployed-check.yml"]
+WORKFLOWS = [w for w in ALL_WORKFLOWS if w.name not in PUBLISHING + AFTER_MERGE]
 JUSTFILES = ["justfile", "backend/justfile", "frontend/justfile"]
 
 
@@ -237,6 +244,65 @@ class WorkflowPublishing(unittest.TestCase):
         self.assertEqual(
             cfg["rewrites"], [{"source": "/(.*)", "destination": "/index.html"}]
         )
+
+
+class WorkflowAfterMerge(unittest.TestCase):
+    """The deployed check: runs after every merge, reads public addresses only."""
+
+    def setUp(self):
+        self.path = ROOT / ".github" / "workflows" / AFTER_MERGE[0]
+        self.text = self.path.read_text()
+        self.code = "\n".join(l.split("#", 1)[0] for l in self.text.splitlines())
+
+    def test_exists_and_is_set_apart(self):
+        self.assertIn(self.path, ALL_WORKFLOWS)
+        self.assertNotIn(self.path, WORKFLOWS)
+
+    def test_runs_on_every_push_to_main_and_by_hand_never_on_pull_requests(self):
+        self.assertNotRegex(self.code, r"(?m)^  pull_request(_target)?:")
+        self.assertRegex(self.code, r'(?m)^  push:\s*\n    branches: \["main"\]')
+        self.assertRegex(self.code, r"(?m)^  workflow_dispatch:")
+        # every merge deploys, so every merge is checked: no paths filter
+        self.assertNotRegex(self.code, r"(?m)^\s*paths(-ignore)?:")
+
+    def test_is_not_a_required_check(self):
+        ruleset = json.loads((ROOT / "docs" / "dev" / "main-ruleset.json").read_text())
+        rules = {r["type"]: r.get("parameters", {}) for r in ruleset["rules"]}
+        required = [
+            c["context"]
+            for c in rules["required_status_checks"]["required_status_checks"]
+        ]
+        names = re.findall(r"(?m)^    name:\s*(.+?)\s*$", self.text)
+        self.assertTrue(names)
+        for name in names:
+            self.assertNotIn(name, required)
+
+    def test_writes_nothing_and_holds_no_secret(self):
+        self.assertRegex(self.code, r"(?m)^permissions:\s*\n  contents: read\s*$")
+        self.assertNotIn("write", self.code)
+        self.assertNotIn("secrets.", self.code)
+
+    def test_its_one_job_has_a_name_a_time_limit_and_runs_only_on_main(self):
+        jobs = jobs_of(self.text)
+        self.assertEqual(len(jobs), 1)
+        (job,) = jobs.values()
+        self.assertRegex(job, r"(?m)^    name:\s*\S")
+        self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
+        self.assertRegex(job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$")
+
+    def test_runs_the_script_for_the_merged_commit_against_the_live_addresses(self):
+        self.assertTrue((ROOT / "tool" / "deployed_check.py").is_file())
+        self.assertIn("tool/deployed_check.py", self.code)
+        self.assertIn('--commit "$GITHUB_SHA"', self.code)
+        android = (ROOT / ".github" / "workflows" / PUBLISHING[0]).read_text()
+        for name in ("API_ORIGIN", "PUBLIC_ORIGIN"):
+            (line,) = re.findall(rf"(?m)^  {name}: \S+$", self.code)
+            self.assertIn(line, android)
+
+    def test_the_web_build_says_which_commit_it_is(self):
+        build = (ROOT / "frontend" / "tool" / "vercel_build.sh").read_text()
+        self.assertIn("build/web/commit.txt", build)
+        self.assertIn("VERCEL_GIT_COMMIT_SHA", build)
 
 
 if __name__ == "__main__":

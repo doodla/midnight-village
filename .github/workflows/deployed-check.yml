@@ -1,0 +1,50 @@
+# Deployed check: after every merge to main, proves the live server and the live
+# app work together, from outside (tool/deployed_check.py; docs/dev/deploy-vercel.md,
+# "The check after each merge").
+#
+# It waits until both live addresses serve the merged commit, then does a real
+# Start and Join through the deployed routing. A red run here means players may
+# be looking at a broken game: read the failed step's line in the log.
+#
+# This is NOT a check of the merge wall: it can only run after the merge (the
+# deployment it tests does not exist before), so it never runs on a pull request
+# and is not in docs/dev/main-ruleset.json. It reads public addresses only: no
+# secret, no write permission. guardrails/tests/test_workflows.py holds it to that.
+
+name: Deployed Check
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer merge replaces the build an older run is waiting for: only the newest runs.
+concurrency:
+  group: deployed-check
+  cancel-in-progress: true
+
+env:
+  # The two live addresses (docs/dev/deploy-vercel.md).
+  API_ORIGIN: https://midnight-village-anthelion.vercel.app
+  PUBLIC_ORIGIN: https://midnight-village-app-anthelion.vercel.app
+
+jobs:
+  live-game:
+    name: Live game works after the merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Only main is deployed.
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for the merged commit, then Start and Join on the live game
+        run: >
+          python3 tool/deployed_check.py
+          --api "$API_ORIGIN" --app "$PUBLIC_ORIGIN"
+          --commit "$GITHUB_SHA" --wait 900

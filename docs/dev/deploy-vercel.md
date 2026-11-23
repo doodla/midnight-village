@@ -212,6 +212,48 @@ Friends get the app from one stable address; nobody builds or hands out a file b
 * **Not a check:** it never runs on pull requests and is not in `docs/dev/main-ruleset.json`; it has `contents: write` on its one job only. A failed build does not block anything; the previous file stays. `guardrails/tests/test_workflows.py` holds it to those rules.
 * **Untested until the first run on `main`:** the workflow itself (it cannot run off GitHub); check the Actions tab after the first merge that touches `frontend/`, and that the asset downloads. Anyone with an older APK signed with another key uninstalls once (above).
 
+## The check after each merge
+
+Nobody watches deployments by hand. After every merge to `main` the workflow
+`.github/workflows/deployed-check.yml` ("Deployed Check") runs `tool/deployed_check.py`
+against the two live addresses, from outside, with no account and no secret:
+
+1. **Waits for the merged commit** (up to 15 minutes): the server's `/api/health/` names the
+   commit its build was made from (`commit`, Vercel's `VERCEL_GIT_COMMIT_SHA`) and the app
+   serves `/commit.txt` (written by `frontend/tool/vercel_build.sh`). Until both name the
+   merged commit, the previous build is still live and there is nothing to prove yet.
+2. **Health** answers JSON.
+3. **The app and its server**: the page loads, its bundle names the server origin, and the
+   server lets the app's origin call it (a CORS preflight).
+4. **A real Start and Join**: guest A is made, opens a table, guest B joins by its code, both
+   read the table and see two players. Every answer must be JSON with the expected status.
+5. **Both leave, always**, also when a step failed or its answer was lost: each guest asks the
+   server where it sits and leaves that table; the last one out deletes it.
+
+**What it leaves in the live database**: two guest accounts per run, named `Deploy check A`
+and `Deploy check B`. They open no socket, so they never count in "N at tables". Nothing
+prunes them yet (to do with the server cleanups: guests with those names older than a day).
+
+**When it fails**: the run "Deployed Check" is red on `main` (the Actions tab; GitHub emails
+whoever's merge started the failed run). The log has one line per step, `ok` or `FAIL`
+with what answered. A failure means players may be looking at a broken game: read the line,
+and roll back in Vercel (the owner's account) or revert the merge. A newer merge cancels an
+older run that is still waiting. By hand: "Run workflow" on `main`, or locally
+`python3 tool/deployed_check.py --api <server origin> --app <app origin>`.
+
+**What it proves that "Web page smoke" does not.** "Web page smoke" builds the page and opens
+it in Chrome against no server: it never makes a request through Vercel's own routing. On 22
+November 2026 a routing change (#66) passed every check and broke the live app for about
+half an hour, because API calls got the app's page back. No check that runs before the merge
+can see the deployed routing; this one makes real requests through it, minutes after.
+
+**What it does not prove**: a whole game (the deal, the night, timers through the queue,
+sockets through Redis). Start and Join only.
+
+`backend/tests/core/test_deployed_check.py` runs the same script against a local server on
+every pull request, so a change to the guest, table, join or leave answers that would break
+the check fails before the merge.
+
 ## Deploy-safe changes
 
 The previous code serves while `migrate` runs on every deploy (every deployment of `main` builds and migrates the shared database). Checked by tests and `just check`, not by habit:
