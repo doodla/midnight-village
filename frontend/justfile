@@ -129,6 +129,12 @@ screens width="390" mode="report":
     cat "$out"/summary-*of*.txt 2>/dev/null | tee "$out/summary.txt"
     exit "$status"
 
+# ONE screen state at a real phone's size and full resolution, main beside this change,
+# with the changed pixels marked: judge a screen at the size a player sees it, not on the
+# contact sheet. Usage: just look <state> [width] [height]   (default 412 915)
+look state width="412" height="915":
+    @tool/look.sh {{state}} {{width}} {{height}}
+
 # One image of every screen `just screens` rendered (about 240 px wide each, name under it):
 # view this instead of opening screens one by one. Usage: just contact-sheet [folder] [out.png]
 contact-sheet folder="build/screens" out="build/screens/contact_sheet.png":
