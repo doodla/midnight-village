@@ -21,6 +21,7 @@ import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import '../test/helpers/parts_catalogue.dart';
 import 'end_parts_page.dart';
 import '../test/helpers/pump_skinned.dart';
+import '../test/helpers/real_wait.dart';
 
 const _dir = String.fromEnvironment(
   'PAPER_PARTS_DIR',
@@ -43,9 +44,8 @@ Future<void> _save(WidgetTester tester, String name) async {
 }
 
 Future<void> _settle(WidgetTester tester) async {
-  await tester.runAsync(
-    () => Future<void>.delayed(const Duration(milliseconds: 900)),
-  );
+  // The mood's layers decode on real I/O: wait for the picture, not a time.
+  await untilMoodsArePainted(tester);
   await tester.runAsync(
     () => Future.wait([
       for (final e in find.byType(Image).evaluate())
