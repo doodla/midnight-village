@@ -54,7 +54,9 @@ class LobbyMemberSerializer(serializers.ModelSerializer):
 class LobbySerializer(serializers.ModelSerializer):
     """Serializer for Lobby model."""
 
-    players = LobbyMemberSerializer(many=True, read_only=True)
+    # The members with their accounts in one query (join order: the model's
+    # ordering), not one account read per member.
+    players = serializers.SerializerMethodField()
     # `host` is the EFFECTIVE host (the acting host while the owner is away), so
     # clients that only read `host` keep working.
     host = serializers.SerializerMethodField()
@@ -101,6 +103,11 @@ class LobbySerializer(serializers.ModelSerializer):
         # ``practice`` for a table that uses them; nothing for one that never did.
         data.update(practice.body_extras(instance, data["players"]))
         return without_usernames(data)
+
+    def get_players(self, lobby: Lobby) -> list[dict]:
+        # pyrefly: ignore [missing-attribute]
+        members = lobby.players.select_related("user")
+        return list(LobbyMemberSerializer(members, many=True).data)
 
     def get_host(self, lobby: Lobby) -> dict:
         return UserBriefSerializer(lobby.effective_host).data
