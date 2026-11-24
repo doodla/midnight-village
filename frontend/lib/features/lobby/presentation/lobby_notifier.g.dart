@@ -250,7 +250,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'b868d56660675200c25bc49cbb3a9fafd9421373';
+String _$lobbyNotifierHash() => r'dfc6df03d53249312f6d68efe6671df2029dad91';
 
 /// Manages lobby state for a given lobby code.
 ///
