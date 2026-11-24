@@ -461,9 +461,9 @@ const inventory = <PartEntry>[
     'primitives/vote_slip.dart',
     part: PaperPart.scrap,
     plain:
-        'the vote\'s `PlayerRow` (picked: lift and outline; locked: red with a seal; your own: outlined with "You")',
+        'the vote\'s `PlayerRow` (picked: lift and outline; locked: red with a seal)',
     paper:
-        'a player on the vote\'s board (09): a slip of bone paper laid on the felt, one soft shadow, no pin, the sigil a cut disc and the name in the name face (set smaller, never cut); pressed it sinks, picked it lifts with the navy-wax mark on its corner, locked it is cut in dried-blood red with the wax seal on its sigil (the owner\'s red row; the one red that is not a team\'s), the others lie down and dim; your own is a well of paper sunk into the felt with your wax seal, never a button',
+        'a player on the vote\'s board (09): a slip of bone paper laid on the felt, one soft shadow, no pin, the sigil a cut disc and the name in the name face (set smaller, never cut); pressed it sinks, picked it lifts with the navy-wax mark on its corner, locked it is cut in dried-blood red with the wax seal on its sigil (the owner\'s red row; the one red that is not a team\'s), the others lie down and dim',
   ),
   PartEntry(
     'EndLantern',

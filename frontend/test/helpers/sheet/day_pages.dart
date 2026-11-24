@@ -68,8 +68,8 @@ class _TalkPageState extends State<TalkPage> {
 }
 
 /// 09: pick a name, then lock it in, as the app draws it ([VoteView]) on
-/// Ana's phone of game 7, its `/me/` as the vote opens. Your own slip is in
-/// its seat and never a choice; once locked the pick is red and sealed.
+/// Ana's phone of game 7, its `/me/` as the vote opens. Your own name is never
+/// listed; once locked the pick is red and sealed.
 class VotePage extends ConsumerStatefulWidget {
   const VotePage({super.key, this.me, this.secondsLeft = 72});
 

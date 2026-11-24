@@ -92,7 +92,7 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
 /// 09): the vote's clock in 08's strip of night sky with the wall lantern;
 /// on the board, "Who dies today?" and every player as a slip of paper in
 /// seat order ([VoteRows], [VoteSlip]): those this phone may vote for are
-/// buttons, its own is sunk into the felt with its wax seal, never a choice.
+/// buttons, its own is never listed.
 /// None is picked until a tap; the pick lifts and wears the paper mark, a tap
 /// on another moves it. On the cobbles the one plaque: "Pick a name" in the
 /// kit's locked form while there is no pick (a tap nudges the slips),
@@ -146,15 +146,6 @@ class VoteView extends StatefulWidget {
     return [
       for (final seat in me.seats)
         if (targets.contains(seat.id)) seat,
-    ];
-  }
-
-  /// The board's slips: [votable] and this phone's own player, in seat order.
-  static List<NightSeat> board(GameMe me) {
-    final targets = me.voteTargets ?? const <int>[];
-    return [
-      for (final seat in me.seats)
-        if (targets.contains(seat.id) || seat.id == me.playerId) seat,
     ];
   }
 
@@ -228,8 +219,7 @@ class _VoteViewState extends State<VoteView> {
                           cue: Cue.voteLock,
                           replay: _replay,
                           builder: (context, teaching) => VoteRows(
-                            seats: VoteView.board(me),
-                            you: me.playerId,
+                            seats: VoteView.votable(me),
                             practice: me.practiceIds,
                             pick: pick?.id,
                             locked: locked,

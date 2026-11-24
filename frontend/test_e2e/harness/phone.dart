@@ -7,7 +7,6 @@ import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
-import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 
@@ -200,10 +199,7 @@ class Phone {
     expect(text(accuse), isTrue, reason: 'the rows, at once');
     await ui.settle();
     expect(button.label, VoteCopy.pickName);
-    // Her own slip is on the board, in her seat, and never a choice.
-    final own = find.widgetWithText(VoteSlip, alice.displayName);
-    expect(own, findsOneWidget, reason: 'herself, shown');
-    expect(tester.widget<VoteSlip>(own).you, isTrue, reason: 'not a pick');
+    expect(find.text(alice.displayName), findsNothing, reason: 'not herself');
     await shoot('vote');
 
     final target = t.player(accuse);

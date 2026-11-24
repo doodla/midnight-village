@@ -210,15 +210,12 @@ void main() {
     });
 
     testWidgets('a tap picks: the slip lifts and wears the mark, and a tap '
-        'on another moves the pick; your own is shown and never a choice', (
+        'on another moves the pick; your own name is not listed', (
       tester,
     ) async {
       final picks = <int>[];
       await _pump(tester, unpicked, onPick: picks.add);
-      expect(_rowOf(tester, ana).you, isTrue, reason: 'this phone, shown');
-      await plainTap(tester, _row(ana), why: 'your own slip is no button');
-      await tester.pump(Motion.quick);
-      expect(picks, isEmpty, reason: 'your own slip is not a choice');
+      expect(_row(ana), findsNothing, reason: 'this phone is never listed');
       await pressLikeAFinger(tester, _row(cleo));
       await tester.pump(Motion.quick);
       expect(_rowOf(tester, cleo).picked, isTrue);

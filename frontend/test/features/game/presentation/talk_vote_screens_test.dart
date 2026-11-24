@@ -68,7 +68,7 @@ Future<void> _putAway(WidgetTester tester) async {
 }
 
 /// Locked on [name]: that slip lifted and sealed, not dimmed; every other
-/// slip (this phone's own too) dimmed and not picked.
+/// slip dimmed and not picked.
 void _expectLockedOn(WidgetTester tester, String name) {
   for (final row in tester.widgetList<VoteSlip>(find.byType(VoteSlip))) {
     final mine = row.name == name;
@@ -440,9 +440,8 @@ void main() {
       final sky = tester.widget<SquareSky>(find.byType(SquareSky));
       expect((sky.secondsLeft, sky.clock), (14, SkyClock.vote));
       final rows = tester.widgetList<VoteSlip>(find.byType(VoteSlip));
-      // Every other player, and this phone's own in its seat, never a choice.
-      expect(rows.map((r) => r.name), ['Ana', 'Ben', 'Cleo', 'Dev', 'Esme']);
-      expect(rows.where((r) => r.you).map((r) => r.name), ['Ana']);
+      // Every other player; this phone's own name is never listed.
+      expect(rows.map((r) => r.name), ['Ben', 'Cleo', 'Dev', 'Esme']);
       expect(rows.any((r) => r.picked), isFalse, reason: 'nothing chosen');
       expect(_button(tester), VoteCopy.pickName);
       expect(_phase(tester), ButtonPhase.locked, reason: 'says what unlocks');

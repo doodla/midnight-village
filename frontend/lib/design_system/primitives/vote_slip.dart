@@ -12,7 +12,6 @@ import 'paper_piece.dart';
 import 'paper_seal.dart';
 import 'player_row.dart';
 import 'player_token.dart';
-import 'you_seal.dart';
 import 'you_tag.dart';
 
 /// A player on the vote's board (09): a slip of bone paper laid on the felt
@@ -33,9 +32,6 @@ import 'you_tag.dart';
 ///   team's, and only on a locked vote.
 /// - [dimmed]: once locked, every other slip lies down into the felt (the
 ///   paper solid, its shadow gone) and its sigil and name dim alike.
-/// - [you]: this phone's own player, shown where they sit but never a
-///   choice: a well of paper sunk into the felt (no lift, no shadow), with
-///   their wax seal ([YouSeal]) where the sigil is; not a button.
 /// - [practice]: "Practice" after the name, on its line.
 class VoteSlip extends StatefulWidget {
   const VoteSlip({
@@ -47,7 +43,6 @@ class VoteSlip extends StatefulWidget {
     this.picked = false,
     this.sealed = false,
     this.dimmed = false,
-    this.you = false,
     this.practice = false,
     this.onTap,
   });
@@ -61,7 +56,6 @@ class VoteSlip extends StatefulWidget {
   final bool picked;
   final bool sealed;
   final bool dimmed;
-  final bool you;
   final bool practice;
   final VoidCallback? onTap;
 
@@ -90,7 +84,7 @@ class _VoteSlipState extends State<VoteSlip> {
     if (_down != down && mounted) setState(() => _down = down);
   }
 
-  bool get _tappable => widget.onTap != null && !widget.dimmed && !widget.you;
+  bool get _tappable => widget.onTap != null && !widget.dimmed;
 
   @override
   Widget build(BuildContext context) {
@@ -104,34 +98,31 @@ class _VoteSlipState extends State<VoteSlip> {
         picked: w.picked,
         sealed: w.sealed,
         dimmed: w.dimmed,
-        own: w.you,
-        practice: w.practice && !w.you,
-        onTap: w.you ? null : w.onTap,
+        practice: w.practice,
+        onTap: w.onTap,
       );
     }
     final skin = context.skin;
     final ground = context.ground;
-    final part = w.you ? PaperPart.well : PaperPart.scrap;
+    const part = PaperPart.scrap;
     final ink = w.sealed ? ground.onDanger : PaperPiece.inkOf(context, part);
     final style = w.size.nameStyle(skin.typography).copyWith(color: ink);
     final tokenSize = w.size.token.size;
     final seal = tokenSize * VoteSlip.sealShare;
-    final sigil = w.you
-        ? YouSeal(token: w.token, size: tokenSize)
-        : Stack(
-            clipBehavior: Clip.none,
-            children: [
-              PlayerToken(w.token, size: w.size.token, ringColor: ink),
-              // Stamped inside the sigil's lower right corner, so it never
-              // hangs below the paper or reaches the name.
-              if (w.sealed)
-                Positioned(
-                  right: seal * PaperSeal.tiltReach,
-                  bottom: seal * PaperSeal.tiltReach + PaperSeal.drop,
-                  child: PaperSeal(size: seal, lands: !_openedSealed),
-                ),
-            ],
-          );
+    final sigil = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        PlayerToken(w.token, size: w.size.token, ringColor: ink),
+        // Stamped inside the sigil's lower right corner, so it never hangs
+        // below the paper or reaches the name.
+        if (w.sealed)
+          Positioned(
+            right: seal * PaperSeal.tiltReach,
+            bottom: seal * PaperSeal.tiltReach + PaperSeal.drop,
+            child: PaperSeal(size: seal, lands: !_openedSealed),
+          ),
+      ],
+    );
     final name = FitWords(w.name, maxLines: 2, style: style);
     final content = Padding(
       padding: EdgeInsets.fromLTRB(
@@ -145,7 +136,7 @@ class _VoteSlipState extends State<VoteSlip> {
         children: [
           sigil,
           Expanded(
-            child: w.practice && !w.you
+            child: w.practice
                 ? Row(
                     spacing: Space.sm,
                     children: [
@@ -187,11 +178,7 @@ class _VoteSlipState extends State<VoteSlip> {
     );
     return Semantics(
       label: w.name,
-      value: w.sealed
-          ? VoteCopy.locked
-          : w.you
-          ? NightCopy.you
-          : null,
+      value: w.sealed ? VoteCopy.locked : null,
       button: _tappable ? true : null,
       selected: _tappable || w.sealed ? w.picked || w.sealed : null,
       enabled: w.dimmed ? false : null,

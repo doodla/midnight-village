@@ -4,7 +4,6 @@ import 'package:midnight_village/design_system/primitives/deck_pile.dart';
 import 'package:midnight_village/design_system/primitives/name_tag.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
-import 'package:midnight_village/design_system/primitives/sliced_art.dart';
 import 'package:midnight_village/design_system/primitives/square_foot.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/primitives/story_card.dart';
@@ -70,19 +69,6 @@ final List<PartSample> talkPartsCatalogue = [
       name: 'Cleo',
       picked: true,
       sealed: true,
-    ),
-  ),
-  PartSample(
-    'VoteSlip',
-    PartState.rest,
-    // Your own slip is sunk into the board's felt: shown on it.
-    (c) => const SizedBox(
-      height: 110,
-      child: BoardFrame(
-        child: Center(
-          child: VoteSlip(token: TokenId.moth, name: 'Ana', you: true),
-        ),
-      ),
     ),
   ),
   PartSample(

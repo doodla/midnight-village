@@ -50,10 +50,7 @@ void main() {
       await pump(tester, phone);
       final rows = tester.widgetList<VoteSlip>(find.byType(VoteSlip));
       expect(
-        {
-          for (final r in rows)
-            if (!r.you) r.name: r.practice,
-        },
+        {for (final r in rows) r.name: r.practice},
         {'Pia': false, 'Scarecrow': true, 'Teapot': true},
       );
       expect(find.byType(PracticeTag), findsNWidgets(2));

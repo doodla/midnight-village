@@ -285,7 +285,7 @@ void main() {
         'on screen', (tester) async {
       await pump(tester, const Size(320, 844), 1);
       final plaque = find.byType(PrimaryButton).last;
-      for (final seat in VoteView.board(me)) {
+      for (final seat in VoteView.votable(me)) {
         final slip = find.widgetWithText(VoteSlip, seat.name);
         await tester.ensureVisible(slip);
         await tester.pumpAndSettle();

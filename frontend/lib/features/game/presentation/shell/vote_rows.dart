@@ -13,8 +13,7 @@ import '../../../../design_system/primitives/vote_slip.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../../../design_system/teach/cue_wave.dart';
 
-/// The vote's slips ([VoteSlip]: this phone's own among them, in its seat,
-/// never a choice), sized to the room they are given: [PlayerRowSize.grand]
+/// The vote's slips ([VoteSlip]: every player but this phone's own), sized to the room they are given: [PlayerRowSize.grand]
 /// or [PlayerRowSize.large] with [Space.md] between when every row fits,
 /// else [PlayerRowSize.compact] with [Space.sm], else the compact rows
 /// scrolling ([FadingScroll]). Each row's height is measured from its name at
@@ -34,7 +33,6 @@ class VoteRows extends StatefulWidget {
     required this.nudge,
     required this.onPick,
     this.practice = const {},
-    this.you,
     this.accepts = defaultAccepts,
   });
 
@@ -46,8 +44,6 @@ class VoteRows extends StatefulWidget {
   /// The practice players among [seats], tagged "Practice".
   final Set<int> practice;
 
-  /// This phone's own player among [seats]: shown, not a choice.
-  final int? you;
   final int? pick;
   final bool locked;
   final bool nudge;
@@ -87,7 +83,6 @@ class VoteRows extends StatefulWidget {
     for (final seat in seats) {
       // A practice player's tag sits on the name's line: measured as one
       // more word in the name's face (wider than the tag's own).
-      // (Your own slip carries no tag: your seal is in the sigil's place.)
       final tagged = practice.contains(seat.id);
       measured++;
       final painter = TextPainter(
@@ -226,19 +221,17 @@ class _VoteRowsState extends State<VoteRows> {
       widget.practice,
     );
     final mine = seat.id == pick;
-    final you = seat.id == widget.you;
     final row = VoteSlip(
       token: seat.token,
       name: seat.name,
       size: size,
       stretch: stretch,
       practice: practice.contains(seat.id),
-      you: you,
       picked: mine,
       sealed: locked && mine,
       // Once locked, the others dim; this phone's own pick stays as it is.
       dimmed: locked && !mine,
-      onTap: locked || you
+      onTap: locked
           ? null
           : mine
           // The picked slip stays a button (it reads as selected); a tap on
