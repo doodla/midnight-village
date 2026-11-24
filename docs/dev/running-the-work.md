@@ -5,8 +5,17 @@ does that piece and reports; the rest of this page is not theirs to do.
 
 ## The shape of a piece
 
-1. One builder, in its own worktree with its own `DB_NAME`, gets a brief with the owner's words
-   in it and builds one finished piece. It commits in small steps that each pass the checks.
+1. One builder, in its own worktree with its own `DB_NAME`, gets a brief and builds one
+   finished piece. The brief says `just brief <screen>` and the task: that command prints the
+   spec's section and the owner's words about the screen as they are written, with its
+   states, files, tests and who else is in them, so nothing is paraphrased from memory. It
+   commits in small steps that each pass the checks.
+   A builder hands over with `just handover <file>` and in no other way: it refuses work
+   that is not committed, pushed and mergeable with main, runs the checks the change
+   reaches, draws every screen state it reaches beside main at 412x915 and 360x640, and
+   writes the hand-over file (checks with their results, the changed states, the guard
+   lines, the words that changed, the spec touched or not). The reader starts from that
+   file and its contact sheets, not from the builder's summary.
 2. One fresh reviewer, not given the builder's conclusions, reads the change and looks at the
    pictures. The builder fixes what it found; this session checks the fixes against the list.
    A second review only for a serious finding in the server or the game's rules.

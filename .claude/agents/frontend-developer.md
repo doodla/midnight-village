@@ -16,8 +16,12 @@ README of the part you change (`frontend/lib/design_system/README.md`,
 Work in your own worktree. Test payloads come only from `contract_samples/`. A screen is
 built from the primitives against its mock, one screen at a time; render it with
 `just screens` at 320, 360 and 390 wide, look at every picture yourself, and hand the
-before/after PNG paths to your caller. Keep the README you touched true. Run the tests you
-touch while you work and `just test` before you hand over (`just gate-full` for everything);
+before/after PNG paths to your caller. Keep the README you touched true. Before you start on a
+screen, run `just brief <screen>` (its spec section and the owner's words as written, its
+states, files and tests). Run `just piece-check` while you work. Hand over with
+`just handover <file>` and give your caller that file's path: it is the only way to hand
+over (it refuses uncommitted or unpushed work, runs the checks and draws the pictures;
+`just gate-full` for everything);
 the commit gate only runs `just analyze` and `just format-check`, and GitHub runs the rest on
 the pull request.
 

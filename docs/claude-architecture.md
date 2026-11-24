@@ -114,6 +114,19 @@ not committed: two branches regenerating one file would collide; GitHub attaches
 screens job) and, in `just check`, fails a spec under `docs/specs/frontend/` that names a copy
 class or key in backticks that does not exist (`guardrails/tests/test_copy_page.py`).
 
+**Starting and handing over.** `just brief <screen>` (`tool/brief.py`) prints what a builder
+needs from the sources themselves: the spec's section and the owner's lines about the
+screen word for word, its catalogue states and parked faults, the files that draw it with
+their sizes, its tests, and the remote branches in the same files. `just handover <file>`
+(`tool/handover.py`, `frontend/tool/handover_sheet.py`) is the one way to hand over: it
+refuses work that is not committed, pushed and mergeable with main; runs the fast check's
+plan at both widths plus the harness, each result kept per commit so a second run carries
+on; draws every reached state beside main at 412x915 and 360x640 and puts the changed ones
+on contact sheets; and writes the hand-over file in one fixed shape
+(`guardrails/tests/test_handover.py`, `test_brief.py`). Every recipe of `frontend/` and
+`backend/` also exists at the root, and those folders fall back to the root's
+(`guardrails/tests/test_recipes_everywhere.py`).
+
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
 among them does not pay, the modules all lead to each other), and for the app only the test

@@ -4,6 +4,10 @@
 # Use bash with strict error handling
 set shell := ["bash", "-uc"]
 
+# A recipe that is not here is looked for in the repo root's justfile, so every
+# recipe works from this folder too (`just piece-check`, `just handover`).
+set fallback := true
+
 # Load environment variables from .env file
 set dotenv-load
 
