@@ -109,16 +109,15 @@ gap's and each finding's trace, in
 Left out: the notifier going away, a deal that reached the server though its answer was lost,
 the host role coming back to this phone, the deck rules, how practice asks fold
 (`PracticeAsk.then`, unit tested), a server that answers a value other than the one asked.
-Bound: 3 taps, 1 second-writer event, 1 deal tap, 2 faults.
+Bound: 2 taps in `lobby` (1 in `try` and `converge`; 3 in `heal`, with 1 fault, and in `late`, with no second writer), 1 second-writer event, 1 deal tap, 2 faults.
 
 ## Files
 
 | File | What it is |
 |---|---|
 | `PhoneLobby.tla` | The model; its header names the code it was read from. |
-| `lobby.cfg` | `NeverOlder`, 2 faults. |
+| `lobby.cfg` | Every invariant (R0, R1, R2, R4 and `NeverOlder`) in one exploration, 2 taps, 2 faults (once `rule_a` to `rule_d`: five explorations of the same states). With 3 taps the one exploration had 26 million states and 4 million still queued at 39 minutes, on course past the script's hour on a shared machine, so it has 2 taps: every trace this README names needs at most 2 (a third tap only repeats a trimming or a resend the second already checks). |
 | `late.cfg` | `NeverOlder` with `LATE` and `FIX_ASKED` (the server's half of #16), without the second writer (`MaxJoins = 0`). True by construction under `FIX_ASKED`; the real check comes when the phone sends `asked` (#16 step 2). Not a proof. |
-| `rule_a.cfg`, `rule_b.cfg`, `rule_b2.cfg`, `rule_c.cfg`, `rule_d.cfg` | R0, R1, R1, R2, R4: their rules hold, 2 faults. |
 | `try.cfg` | R3, `TryAgainActs` (liveness), 1 tap, 2 faults. |
 | `heal.cfg` | `Converges` with 1 fault. |
 | `converge.cfg` | `Converges` with 2 faults (once `known_converge`; it holds since a failed read heals), 1 tap so the liveness run ends in minutes. |
@@ -133,17 +132,17 @@ the whole script: TLC 2026.11.19 (`tla2tools.jar` of the tlaplus v1.8.0 release)
 
 | Rule | Says | Run | Result |
 |---|---|---|---|
-| `NeverOlder` | The server never writes a key's older ask over a newer one (lane order; "Try again" never undoes a newer change) | `lobby` | holds (RESULT_lobby) |
-| `NoFlickerBack`, `HostNeverBack` | (R0) No lobby shown takes a host value back, nothing laid over the lobby is older than it, and no older host comes back | `rule_a` | holds (RESULT_rule_a) |
-| `LostFlagged` | (R1) A lost change that "Try again" would still send is said so on the screen | `rule_b` | holds (RESULT_rule_b) |
-| `NoHiddenResend` | (R1) "Try again" never sends a lost value after "Not sent." stopped showing for it | `rule_b2` | holds (RESULT_rule_b2) |
-| `RetryCoversAll`, `DealAsShown` | (R2) "Try again" leaves nothing behind; what is dealt is what the screen showed at the tap, but a key another writer changed where the phone could not show it (`Unseen`: see below) | `rule_c` | holds (RESULT_rule_c) |
-| `GuestQuiet` | (R4) A phone that knows it is not the host (a 403, or the lobby or `host_changed` shown names another) shows no "Not sent." | `rule_d` | holds (RESULT_rule_d) |
-| `TryAgainActs` | (R3) After "Try again" (02's or 03's) a request goes out or "Not sent." goes | `try` | holds (RESULT_try) |
-| `Converges` | The screen ends where the server is or says "Not sent." | `heal` (1 fault) | holds (RESULT_heal) |
-| `NeverOlder` | With `LATE` and `FIX_ASKED`: true by construction (the server drops a change older than the one it stored); the real check comes when the phone sends `asked` (#16 step 2). Not counted as a proof | `late` | holds (RESULT_late) |
+| `NeverOlder` | The server never writes a key's older ask over a newer one (lane order; "Try again" never undoes a newer change) | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `NoFlickerBack`, `HostNeverBack` | (R0) No lobby shown takes a host value back, nothing laid over the lobby is older than it, and no older host comes back | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `LostFlagged` | (R1) A lost change that "Try again" would still send is said so on the screen | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `NoHiddenResend` | (R1) "Try again" never sends a lost value after "Not sent." stopped showing for it | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `RetryCoversAll`, `DealAsShown` | (R2) "Try again" leaves nothing behind; what is dealt is what the screen showed at the tap, but a key another writer changed where the phone could not show it (`Unseen`: see below) | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `GuestQuiet` | (R4) A phone that knows it is not the host (a 403, or the lobby or `host_changed` shown names another) shows no "Not sent." | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `TryAgainActs` | (R3) After "Try again" (02's or 03's) a request goes out or "Not sent." goes | `try` | holds (224,760 distinct states, 1 min) |
+| `Converges` | The screen ends where the server is or says "Not sent." | `heal` (1 fault) | holds (2,489,118 distinct states, 6 min) |
+| `NeverOlder` | With `LATE` and `FIX_ASKED`: true by construction (the server drops a change older than the one it stored); the real check comes when the phone sends `asked` (#16 step 2). Not counted as a proof | `late` | holds (3,977,668 distinct states, 6 min) |
 | `NeverOlder` | With `LATE` alone: a lost request may reach the server after a newer one | `known_late` | KNOWN gap (#16) |
-| `Converges` | With 2 faults (a refusal and a failed read; a socket drop, a new table and a failed read): a failed read heals | `converge` (1 tap) | holds (RESULT_converge) |
+| `Converges` | With 2 faults (a refusal and a failed read; a socket drop, a new table and a failed read): a failed read heals | `converge` (1 tap) | holds (224,760 distinct states, 0 min) |
 
 ## How the review's findings showed in the model
 

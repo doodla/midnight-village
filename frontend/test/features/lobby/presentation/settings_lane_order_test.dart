@@ -41,7 +41,7 @@ import '../../../helpers/mock_websocket.dart';
 // - a deal goes behind the lane: a lost change is sent again first;
 // - the host role moving mid-queue, and the table left with changes queued.
 // And the model's gaps a, b (b2) and c, each on the trace that showed it,
-// now closed (each test names its rule and its run, `rule_*.cfg`), and the
+// now closed (each test names its rule and its run, `lobby.cfg`), and the
 // review's findings 1 to 6 and the second review's (the last groups); every
 // body is numbered by `rev` as the server numbers it.
 //
@@ -508,7 +508,7 @@ void main() {
 
   group('the model\'s gaps a, b, b2 and c, closed '
       '(docs/dev/models/phone/lobby/README.md)', () {
-    test('(a) NoFlickerBack, rule_a.cfg: a read that crosses an answer never '
+    test('(a) NoFlickerBack, lobby.cfg: a read that crosses an answer never '
         'shows the old value', () async {
       final t = await _Lane.open();
       t.holdReads = true;
@@ -530,7 +530,7 @@ void main() {
       expect(t.shown.table.seats, 5);
     });
 
-    test('(a) NoFlickerBack, rule_a.cfg: the socket alone: the first tap\'s '
+    test('(a) NoFlickerBack, lobby.cfg: the socket alone: the first tap\'s '
         'lobby_update after the second tap\'s answer never shows the first '
         'count', () async {
       final t = await _Lane.open();
@@ -557,7 +557,7 @@ void main() {
       expect(t.shown.table.seats, 7);
     });
 
-    test('(b) LostFlagged, rule_b.cfg: a new tap on another key leaves "Not '
+    test('(b) LostFlagged, lobby.cfg: a new tap on another key leaves "Not '
         'sent." while the lost change still waits for Try again', () async {
       final t = await _Lane.open();
       t.holdReads = true;
@@ -577,7 +577,7 @@ void main() {
       expect(t.shown.notSent, isTrue, reason: 'still said, with Try again');
     });
 
-    test('(b2) NoHiddenResend, rule_b2.cfg: Try again sends a lost change '
+    test('(b2) NoHiddenResend, lobby.cfg: Try again sends a lost change '
         'only while "Not sent." showed for it', () async {
       final t = await _Lane.open();
       unawaited(t.notifier.setSeats(5));
@@ -603,7 +603,7 @@ void main() {
     });
 
     test(
-      '(c) RetryCoversAll, DealAsShown, rule_c.cfg: a lost change, then a '
+      '(c) RetryCoversAll, DealAsShown, lobby.cfg: a lost change, then a '
       'deal that did not go: Try again redoes both, the change first',
       () async {
         final t = await _Lane.open();
