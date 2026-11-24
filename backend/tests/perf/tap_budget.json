@@ -1,0 +1,179 @@
+{
+  "about": "What each request, timer and socket opening costs the server at 10 seats (tests/perf/test_tap_query_budget.py). Do not edit: run `just tap-budget` and review the diff.",
+  "requests": {
+    "GET /lobbies/{code}/ [results]": {
+      "queries": 9,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /lobbies/{code}/ [waiting]": {
+      "queries": 8,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [look]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [results]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [talk]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [vote]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [w2]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [waiting]": {
+      "queries": 3,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [look]": {
+      "queries": 8,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [results]": {
+      "queries": 5,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [talk]": {
+      "queries": 8,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [vote]": {
+      "queries": 8,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [w2]": {
+      "queries": 7,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/results/ [results]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "PATCH /lobbies/{code}/ [waiting]": {
+      "queries": 14,
+      "lock_span": 12,
+      "sends": 1,
+      "publishes": 0
+    },
+    "POST /auth/guest/ [none]": {
+      "queries": 2,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "POST /lobbies/ [none] closes": {
+      "queries": 15,
+      "lock_span": 8,
+      "sends": 0,
+      "publishes": 0
+    },
+    "POST /lobbies/{code}/join/ [waiting]": {
+      "queries": 19,
+      "lock_span": 17,
+      "sends": 2,
+      "publishes": 0
+    },
+    "POST /lobbies/{code}/play-again/ [results]": {
+      "queries": 16,
+      "lock_span": 14,
+      "sends": 2,
+      "publishes": 0
+    },
+    "POST /onuw/games/{game_id}/action/ [w2]": {
+      "queries": 17,
+      "lock_span": 8,
+      "sends": 0,
+      "publishes": 1
+    },
+    "POST /onuw/games/{game_id}/ready/ [look]": {
+      "queries": 12,
+      "lock_span": 8,
+      "sends": 1,
+      "publishes": 0
+    },
+    "POST /onuw/games/{game_id}/ready/ [look] closes": {
+      "queries": 34,
+      "lock_span": 21,
+      "sends": 2,
+      "publishes": 1
+    },
+    "POST /onuw/games/{game_id}/ready/ [talk]": {
+      "queries": 12,
+      "lock_span": 8,
+      "sends": 1,
+      "publishes": 0
+    },
+    "POST /onuw/games/{game_id}/ready/ [talk] closes": {
+      "queries": 28,
+      "lock_span": 15,
+      "sends": 3,
+      "publishes": 1
+    },
+    "POST /onuw/games/{game_id}/vote/ [vote]": {
+      "queries": 13,
+      "lock_span": 9,
+      "sends": 1,
+      "publishes": 0
+    },
+    "POST /onuw/games/{game_id}/vote/ [vote] closes": {
+      "queries": 20,
+      "lock_span": 14,
+      "sends": 3,
+      "publishes": 0
+    },
+    "POST /onuw/lobbies/{code}/start/ [waiting] closes": {
+      "queries": 23,
+      "lock_span": 13,
+      "sends": 2,
+      "publishes": 1
+    },
+    "socket opens (game) [look]": {
+      "queries": 37,
+      "lock_span": 15,
+      "sends": 1,
+      "publishes": 1
+    },
+    "timer night_window [w2] closes": {
+      "queries": 34,
+      "lock_span": 24,
+      "sends": 2,
+      "publishes": 1
+    }
+  }
+}

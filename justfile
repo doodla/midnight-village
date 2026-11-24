@@ -420,3 +420,11 @@ test-migrations *args:
 # (frontend) Usage: just end-link-pictures [folder]
 end-link-pictures *args:
     {{frontend_just}} end-link-pictures {{args}}
+
+# (backend) What each request of a game costs the server at 3, 6 and 10 seats (`sql`: the queries)
+server-timing *args:
+    {{backend_just}} server-timing {{args}}
+
+# (backend) Re-record tests/perf/tap_budget.json after a change that adds or removes a query
+tap-budget *args:
+    {{backend_just}} tap-budget {{args}}

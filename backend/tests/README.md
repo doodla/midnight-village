@@ -21,6 +21,21 @@ Every WebSocket send and `timers.schedule` / `cancel` in the night flow goes thr
 
 - **Throttle rates must be configured in test settings.** Guest auth endpoints use DRF throttling. If `DEFAULT_THROTTLE_RATES` is missing from test settings, guest creation tests fail with 429s that look like server errors.
 
+## What a tap costs the server (`tests/perf/`)
+
+`tap_costs.play` plays one whole game the way the app does (a `v2` table, every phone
+reading `/me/` and `/me/table/`, real access tokens, the queue timer backend the live
+server runs, a forced deal where every seat holds a card that wakes) at 3, 6 and 10 seats,
+on the contract recorder (`tests/contract/recorder.py`), and measures every request, timer
+firing and game socket opening: database round trips, row locks and how long the first is
+held, socket messages (each is 4 Redis round trips on the live server before the answer
+leaves) and timer messages (a queue send each). `test_tap_query_budget.py` holds two rules:
+nothing costs more at ten seats than at three (a query per player fails, whatever the
+budget), and at ten seats each kind of request costs exactly what `tap_budget.json` says and
+never more than 40 round trips. A change that adds or removes a query fails until
+`just tap-budget` re-records the file; review its diff as you would a sample's. `just
+server-timing` prints the whole table (`just server-timing sql`: every query at ten seats).
+
 ## Migration tests
 
 `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then back and forward again. Add a case per migration. `tests/test_migration_rules.py` scans every migration file for app imports and the `lock_timeout` first operation. The rules themselves: `docs/dev/deploy-vercel.md`, "Deploy-safe changes".
