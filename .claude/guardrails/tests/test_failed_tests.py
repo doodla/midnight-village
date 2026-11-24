@@ -79,6 +79,20 @@ class Flutter(unittest.TestCase):
         )
         self.assertIn("Bad state: the stand-in is wrong", found[0][2])
 
+    def test_a_long_value_is_said_by_what_differs(self):
+        found = self.read(
+            [
+                self.start(4, "the event"),
+                {
+                    "type": "error",
+                    "testID": 4,
+                    "error": "Expected: {\n  'type': 'host_changed',\n}\n  Actual: {\n  'type': 'host_changed',\n  'rev': 7\n}\n   Which: has different length and has extra map key 'rev'\n",
+                },
+                {"type": "testDone", "testID": 4, "result": "failure"},
+            ]
+        )
+        self.assertIn("Which: has different length and has extra map key 'rev'", found[0][2])
+
     def test_a_green_run_says_nothing(self):
         tool = load()
         self.assertEqual(tool.said([], on_github=True), "")

@@ -162,7 +162,7 @@ changed, strict at 360 and 390 (at 390 only when more than 60 states are reached
 `--both-widths`; `--no-screens` for a change to logic only): `tool/piece_screens.py` walks every catalogue state's widget
 tree (about a minute, reused until the app changes), reads which file declares each widget
 class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
-(`guardrails/tests/test_piece_check.py`). It is never silent: the plan gives each step's rough
+(`guardrails/tests/test_piece_check.py`). A change to what the server sends (a recorded sample) or to the harness itself also runs the end-to-end harness, the one test that reads both sides at once; a red harness run ends with the failed tests' names (`tool/failed_tests.py`). It is never silent: the plan gives each step's rough
 time and the total before anything runs, and a step that prints nothing says it is still
 running every 30 seconds. GitHub still runs everything.
 

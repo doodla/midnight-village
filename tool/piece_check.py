@@ -136,7 +136,9 @@ def distance(start: Path, imports, targets: set[Path], cache: dict) -> int | Non
 # ---- the plan -------------------------------------------------------------------
 
 
-def frontend_tests(changed: list[str], everything: bool = False) -> tuple[list[str], str]:
+def frontend_tests(
+    changed: list[str], everything: bool = False
+) -> tuple[list[str], str]:
     top = ROOT / "frontend"
     mine = [c for c in changed if c.startswith("frontend/")]
     for name in mine:
@@ -195,6 +197,10 @@ def frontend_tests(changed: list[str], everything: bool = False) -> tuple[list[s
     return sorted(n for n, steps in how_far.items() if steps <= nearest + 1), ""
 
 
+# The harness's own tests and runner: a change to them is proved by running them.
+HARNESS_PATHS = ("frontend/test_e2e/", "frontend/tool/run_harness.sh")
+
+
 def plan(
     changed: list[str],
     everything: bool = False,
@@ -214,9 +220,13 @@ def plan(
         # Not selected: the backend's modules all lead to each other, and a test
         # that goes through a URL imports no view. The whole suite in parallel is
         # quick enough, and cannot miss.
-        steps.append(("all backend tests, in parallel", "backend", ["just", "test-fast"]))
+        steps.append(
+            ("all backend tests, in parallel", "backend", ["just", "test-fast"])
+        )
         if any("/migrations/" in c for c in backend):
-            steps.append(("the migration tests", "backend", ["just", "test-migrations"]))
+            steps.append(
+                ("the migration tests", "backend", ["just", "test-migrations"])
+            )
     if frontend or samples:
         if frontend:
             steps.append(("analyze", "frontend", ["just", "analyze"]))
@@ -255,7 +265,11 @@ def plan(
             steps.append(
                 (
                     "the screen states this change can reach, strict"
-                    + (" at 360 and 390" if both_widths else " (one width when it is many)"),
+                    + (
+                        " at 360 and 390"
+                        if both_widths
+                        else " (one width when it is many)"
+                    ),
                     ".",
                     [
                         sys.executable,
@@ -278,6 +292,11 @@ def plan(
             )
     if any(c.startswith(GUARDRAIL_PATHS) or c == "justfile" for c in changed):
         steps.append(("guardrail tests", ".", ["just", "test-guardrails"]))
+    # What the server sends changed (a recorded sample), or the harness itself: the
+    # real app against the real server is the only test that reads both sides at
+    # once, and its own exact comparisons are not reached by any import.
+    if samples or any(c.startswith(HARNESS_PATHS) for c in changed):
+        steps.append(("the end-to-end harness", ".", ["just", "test-harness"]))
     return steps
 
 
@@ -286,6 +305,7 @@ def plan(
 # What a step takes on a builder's machine, in seconds, by the words its name
 # starts with or holds: a guess to plan by, said before anything runs.
 GUESSES = (
+    ("the end-to-end harness", 200),
     ("checks", 25),
     ("all backend tests", 130),
     ("the migration tests", 40),

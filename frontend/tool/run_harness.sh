@@ -106,6 +106,7 @@ cd "$FRONTEND_DIR"
 # supported for integration tests yet"). They run on the host Dart VM under the
 # normal flutter_test binding when invoked by explicit path here.
 flutter test --tags e2e \
+  --file-reporter json:build/harness-report.jsonl \
   --dart-define=ENV=dev \
   --dart-define=HARNESS_PORT="$HARNESS_PORT" \
   test_e2e/api_runner_test.dart \
@@ -126,6 +127,9 @@ elif [[ "$test_exit" -ne 0 ]]; then
   echo "[harness] FAILED (exit $test_exit). Machine-readable failures:"
   echo "[harness]   $SCREENSHOTS_DIR/failures.jsonl"
   echo "[harness]   filmstrips: $SCREENSHOTS_DIR/<scenario>/"
+  # The last thing a red run prints: each failed test's file, name and first
+  # error line (the run's own report; the same list as the other test jobs).
+  "$FRONTEND_DIR/../tool/failed_tests.py" flutter "$FRONTEND_DIR/build/harness-report.jsonl"
 else
   echo "[harness] PASSED. Filmstrips: $SCREENSHOTS_DIR/<scenario>/"
 fi
