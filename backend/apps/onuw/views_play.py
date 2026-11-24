@@ -18,6 +18,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core import asked as ask
+
 from .basics import AlreadyActedError
 from .choose_night import CHOOSE_ERROR_CODES, submit_choose
 from .models import Game, PlayerRole
@@ -280,6 +282,9 @@ class VoteView(APIView):
                 {"detail": "You are not a player in this game."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        asked, asked_refusal = ask.read(body)  # optional: the phone's tap time
+        if asked_refusal is not None:
+            return asked_refusal
 
         try:
             errors = submit_vote(
@@ -288,9 +293,12 @@ class VoteView(APIView):
                 target_player_id,
                 lock=lock,
                 stage=stage,  # type: ignore[misc]
+                asked=asked,
             )
         except WrongStageError:
             return _wrong_stage()
+        except ask.StaleRequestError as stale:
+            return ask.stale_response(stale.newest)
         except AlreadyActedError:
             return refuse(
                 "You have already locked in your vote.",
@@ -344,10 +352,15 @@ class ReadyView(APIView):
         stage, refusal = _stage_of(request)
         if refusal is not None:
             return refusal
+        asked, refusal = ask.read(body)  # optional: the phone's tap time
+        if refusal is not None:
+            return refusal
         try:
-            errors = set_ready(game, request.user.id, ready, stage)  # type: ignore[misc]
+            errors = set_ready(game, request.user.id, ready, stage, asked)  # type: ignore[misc]
         except WrongStageError:
             return _wrong_stage()
+        except ask.StaleRequestError as stale:
+            return ask.stale_response(stale.newest)
         if errors:
             return Response(
                 {

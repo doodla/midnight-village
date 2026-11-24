@@ -129,3 +129,14 @@ the lobby too). `known_converge` (7 states, two faults): a custom deck is tapped
 refuses it, the read after the refusal fails: the refused deck stays on screen, with no word,
 until something else reads (`_send`'s refusal branch shows nothing itself, and `_applyHeld`
 keeps what is shown).
+
+## #16, the server's half (`FIX_ASKED`)
+
+`FIX_ASKED` models what the server does once a change carries the time of its tap (`asked`):
+per key, a change older than the newest it applied for that key is dropped; when every key of
+a change is dropped it answers `409 stale_request`, stores nothing and broadcasts nothing (the
+phone reads again, as after any refusal). `late.cfg` (`LATE` and `FIX_ASKED`, 2 faults) holds
+`NeverOlder` (17,572,777 distinct states); `known_late` (`LATE` alone) still breaks it, and is
+the phone of today, which sends no `asked` yet. When the phone sends it, `known_late` goes and
+`late.cfg` is the run. `runlobby.sh` runs both.
+

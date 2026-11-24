@@ -67,6 +67,14 @@ class Lobby(models.Model):
     )
     max_players = models.PositiveIntegerField(default=10)
     settings = models.JSONField(default=dict, blank=True)
+    # The newest ``asked`` applied per settings key (and ``practice``):
+    # key -> [user_id, asked] (``apps.core.asked``). Never in a response.
+    # pyrefly: ignore [no-matching-overload]  (the stubs lack JSONField db_default)
+    asked = models.JSONField(
+        default=dict,
+        db_default=models.Value({}, output_field=models.JSONField()),
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
