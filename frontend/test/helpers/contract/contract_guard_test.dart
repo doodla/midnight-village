@@ -114,6 +114,13 @@ void main() {
     });
   });
 
+  test('a dictionary may be empty: a deck with every card taken out', () {
+    final lobby = ContractSamples.map('http/lobby/detail_seats_8_four_here');
+    (lobby['settings'] as Map)['roles'] = <String, dynamic>{};
+    lobby['deck_cards'] = <String, dynamic>{};
+    checkHttpBody('GET', '/lobbies/D3GL6S/', 200, lobby);
+  });
+
   group('the check refuses', () {
     Map<String, dynamic> me() =>
         ContractSamples.map('http/game/me_choose_prompt_seer');

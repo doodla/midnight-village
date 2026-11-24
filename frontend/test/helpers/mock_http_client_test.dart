@@ -180,6 +180,24 @@ void main() {
       });
     });
 
+    test('a stand-in that throws while answering fails the test, not only '
+        'the request', () async {
+      final client = MockHttpClient();
+      final broken = StateError('the stand-in is wrong');
+      client.answerEach(
+        method: 'GET',
+        path: '/api/v1/me/',
+        answer: (_) => throw broken,
+      );
+
+      final (thrown, reported) = await _unmocked(
+        () => client.dio.get<dynamic>('/api/v1/me/'),
+      );
+
+      expect((thrown! as DioException).error, broken);
+      expect(reported, [broken]);
+    });
+
     test('records each request with its method, path and body', () async {
       final client = MockHttpClient();
       _register(client, 'POST', '/api/v1/act/', <String, dynamic>{});
