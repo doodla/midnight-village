@@ -163,7 +163,8 @@ class LobbyCreateView(CreateAPIView):
             )
             if errors:
                 return Response(
-                    {"detail": errors, "code": "bad_request"},
+                    # one message, a string, as every refusal's is
+                    {"detail": errors[0], "code": "bad_request"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         self.perform_create(serializer)
@@ -224,7 +225,7 @@ class LobbyDetailView(RetrieveAPIView):
                 )
             if not isinstance(given, dict):
                 return Response(
-                    {"detail": ["Settings must be an object."]},
+                    {"detail": "Settings must be an object.", "code": "bad_request"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -241,7 +242,7 @@ class LobbyDetailView(RetrieveAPIView):
             )
             if errors:
                 return Response(
-                    {"detail": errors},
+                    {"detail": errors[0], "code": "bad_request"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

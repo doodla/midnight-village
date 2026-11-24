@@ -92,6 +92,21 @@ def test_a_vote_refusals_detail_is_one_string(name: str) -> None:
     assert body["code"] == "invalid_target"
 
 
+def test_every_refusals_detail_is_one_string() -> None:
+    """Every recorded answer of 400 and above that has a ``detail`` says it as one
+    string, and a 400 names its ``code``: an app reads one shape, whoever refused."""
+    seen = 0
+    for sample in _samples():
+        body = _payload(sample)
+        if sample.get("status", 200) < 400 or not isinstance(body, dict):
+            continue
+        if "detail" not in body:
+            continue
+        seen += 1
+        assert isinstance(body["detail"], str) and body["detail"], sample["name"]
+    assert seen > 20
+
+
 def _keys(value: Any) -> list[str]:
     if isinstance(value, dict):
         return [*value, *(k for v in value.values() for k in _keys(v))]
