@@ -85,11 +85,29 @@ class WorkflowRecipes(unittest.TestCase):
                     )
 
 
+def needed_parts(text):
+    """{job id of a part: job id of the gate that needs it}, for one workflow."""
+    parts = {}
+    for gate, body in jobs_of(text).items():
+        m = re.search(r"^    needs:\s*\[([^\]]*)\]", body, re.M)
+        if m:
+            for part in (p.strip() for p in m.group(1).split(",")):
+                if part:
+                    parts[part] = gate
+    return parts
+
+
 def job_names():
-    """Every job's check name; a matrix job's `${{ matrix.x }}` is filled in for each value."""
+    """The check name of every job that stands for itself; a matrix job's
+    `${{ matrix.x }}` is filled in for each value. A job another job `needs` is a
+    part of that job: the required check is the one that needs it (`Gates` holds
+    such a job to failing unless every part ran and passed)."""
     names = []
     for wf in WORKFLOWS:
-        for text in jobs_of(wf.read_text()).values():
+        parts = needed_parts(wf.read_text())
+        for job_id, text in jobs_of(wf.read_text()).items():
+            if job_id in parts:
+                continue
             m = re.search(r"^    name:\s*(.+?)\s*$", text, re.M)
             if not m:
                 continue
@@ -123,6 +141,52 @@ class RulesetMatchesWorkflows(unittest.TestCase):
         self.assertEqual(rules["pull_request"]["allowed_merge_methods"], ["squash"])
         self.assertIn("non_fast_forward", rules)
         self.assertIn("deletion", rules)
+
+
+class Gates(unittest.TestCase):
+    """A required check that stands for other jobs passes only when each of them
+    ran and passed. A job whose need failed is SKIPPED unless it says `always()`,
+    and GitHub counts a skipped required check as passed."""
+
+    def gates(self):
+        for wf in WORKFLOWS:
+            jobs = jobs_of(wf.read_text())
+            for part, gate in needed_parts(wf.read_text()).items():
+                yield wf.name, part, gate, jobs
+
+    def test_there_is_a_gate_and_its_parts_exist(self):
+        found = list(self.gates())
+        self.assertTrue(found)
+        for name, part, gate, jobs in found:
+            self.assertIn(part, jobs, f"{name}: {gate} needs {part}, which is not a job")
+
+    def test_a_gate_always_runs_and_passes_only_on_success_of_every_part(self):
+        for name, part, gate, jobs in self.gates():
+            body = "\n".join(l.split("#", 1)[0] for l in jobs[gate].splitlines())
+            self.assertRegex(
+                body, r"(?m)^    if:\s*\$\{\{\s*always\(\)\s*\}\}\s*$", f"{name}: {gate}"
+            )
+            # the parts' combined result is read, and only "success" passes:
+            # "failure", "cancelled" and "skipped" (a part that did not run) do not
+            self.assertIn(f"needs.{part}.result", body, f"{name}: {gate}")
+            self.assertRegex(body, r'\[ "\$\w+" = "success" \]', f"{name}: {gate}")
+            self.assertNotIn("continue-on-error", body)
+            self.assertNotRegex(body, r"\|\|\s*true")
+
+    def test_a_part_cannot_pass_by_being_allowed_to_fail(self):
+        for name, part, gate, jobs in self.gates():
+            self.assertNotIn("continue-on-error", jobs[part], f"{name}: {part}")
+
+    def test_the_widget_tests_parts_cover_the_whole_suite(self):
+        text = (ROOT / ".github" / "workflows" / "flutter-tests.yml").read_text()
+        (total,) = set(re.findall(r"just test-widgets \$\{\{ matrix\.part \}\} (\d+)", text))
+        (listed,) = re.findall(r"part: \[([\d, ]+)\]", jobs_of(text)["widget-tests-part"])
+        self.assertEqual(
+            [int(n) for n in listed.split(",")], list(range(1, int(total) + 1))
+        )
+        recipe = (ROOT / "frontend" / "justfile").read_text()
+        self.assertIn("--total-shards", recipe)
+        self.assertIn("--shard-index", recipe)
 
 
 class WorkflowShape(unittest.TestCase):

@@ -289,8 +289,8 @@ final screenCatalogue = <ScreenEntry>[
     '-10-long': pumpTalkTenLong,
     '-x1.3': const _AtText(1.3, pumpTalkPutAway),
   }),
-  // My night held, every night's picture story (recorded, else edited off
-  // the contract: story_samples.dart).
+  // My night held, every night's picture story (each a recorded talk:
+  // story_samples.dart).
   ..._rebuilt('08-talk', '08-talk.png', {
     for (final night in allNights.keys)
       '-held-$night': (tester) => pumpTalkStory(tester, night),

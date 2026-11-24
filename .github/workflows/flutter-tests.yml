@@ -45,7 +45,8 @@ concurrency:
 
 jobs:
   # ─── Analyze and Format ────────────────────────────────────────────────────
-  # The same two recipes the local commit gate runs for frontend changes.
+  # The same two recipes the local commit gate runs for frontend changes, and the
+  # generated-code check.
   static-checks:
     name: Analyze and Format
     runs-on: ubuntu-latest
@@ -77,6 +78,12 @@ jobs:
 
       - name: Format check
         run: just format-check
+
+      # The committed *.g.dart / *.freezed.dart are what `just gen` makes now
+      # (about 50 s, so GitHub and `just gate-full` only, not the commit gate).
+      # Here and not with the widget tests: this job has the time to spare.
+      - name: Generated code is current
+        run: just gen-check
 
   # ─── Release has no debug toolbar ──────────────────────────────────────────
   # Builds the web app with no --dart-define (what a forgotten flag gives) and
@@ -111,10 +118,17 @@ jobs:
         run: just check-release
 
   # ─── Widget Tests ──────────────────────────────────────────────────────────
-  widget-tests:
-    name: Widget Tests
+  # In three parts side by side (`flutter test --total-shards 3`): the suite is
+  # 165 files and about nine minutes in one job, the longest wait of a pull
+  # request by far. "Widget Tests" below is the check the ruleset requires.
+  widget-tests-part:
+    name: Widget Tests part ${{ matrix.part }} of 3
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2, 3]
     defaults:
       run:
         working-directory: frontend
@@ -150,14 +164,28 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # The committed *.g.dart / *.freezed.dart are what `just gen` makes now
-      # (about 50 s, so GitHub and `just gate-full` only, not the commit gate).
-      - name: Generated code is current
-        run: just gen-check
+      # Excludes golden-tagged tests: the golden job runs them
+      - name: Widget tests, part ${{ matrix.part }} of 3
+        run: just test-widgets ${{ matrix.part }} 3
 
-      # Excludes golden-tagged tests: the next job runs them
-      - name: Widget tests
-        run: just test-widgets
+  # The one required check for the widget tests. The three parts above are not in
+  # the ruleset: this job needs them all and passes only when every part ran and
+  # passed (a part that failed, was cancelled or was skipped fails it; `always()`
+  # makes it run and say so, where a job with a failed need would be skipped,
+  # which GitHub counts as passing).
+  widget-tests:
+    name: Widget Tests
+    needs: [widget-tests-part]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every part ran and passed
+        env:
+          PARTS: ${{ needs.widget-tests-part.result }}
+        run: |
+          echo "the three parts together: $PARTS"
+          [ "$PARTS" = "success" ]
 
   # ─── Screens strict ────────────────────────────────────────────────────────
   # Every screen rendered at 360 and at 390 wide, one job each so they run side by
@@ -196,6 +224,21 @@ jobs:
 
       - name: Screens, strict
         run: just screens ${{ matrix.width }} strict
+
+      # Every word a player reads, on one page made from the code (it is not
+      # committed): attached to the run so it can be read without running anything.
+      - name: The copy page
+        if: ${{ always() && matrix.width == 390 }}
+        working-directory: .
+        run: python3 tool/copy_page.py --out copy.md
+
+      - name: Upload the copy page
+        if: ${{ always() && matrix.width == 390 }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: copy-page
+          path: copy.md
+          retention-days: 30
 
       - name: Upload the screens
         if: failure()
