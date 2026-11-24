@@ -66,6 +66,13 @@ Map<int, Rect> nightLiftedOf(
       size: size,
       taken: taken,
       step: mine,
+      names: [
+        for (final c in plan.cards) nightNameOf(c, docked[c.id] ?? Offset.zero),
+      ],
+      under: [
+        for (final c in plan.cards)
+          if (own.contains(c.id) && c.id != actor.id) lying(c.leaned, c.id),
+      ],
       scroll: scroll,
     );
     lifted[i] = at;
@@ -140,6 +147,14 @@ nightStepOf(
         ],
         step: [
           ...lifted.values,
+          for (final c in plan.cards)
+            if (own.contains(c.id)) lying(c),
+        ],
+        names: [
+          for (final c in plan.cards)
+            if (c.id != playerId) nightNameOf(c, docked[c.id] ?? Offset.zero),
+        ],
+        under: [
           for (final c in plan.cards)
             if (own.contains(c.id)) lying(c),
         ],

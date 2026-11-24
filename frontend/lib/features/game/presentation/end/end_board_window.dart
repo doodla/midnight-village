@@ -41,6 +41,12 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
   int? _shown;
   double? _dayOffset;
 
+  /// Where the board was last brought for the night: the step shown and the
+  /// scroll it brings, read from the plan as it is now. Keyed on the value,
+  /// so a plan made again (a turned phone, a new text size) at the same step
+  /// brings the board where that plan says, as if opened there.
+  (int, double)? _aimed;
+
   // The board opens where the hanged are in view, in the reveal from its
   // first frame too: the seats never move while it plays.
   ScrollController get _controller =>
@@ -59,6 +65,13 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
   void didUpdateWidget(EndBoardWindow old) {
     super.didUpdateWidget(old);
     _openWhereTheHangedAre();
+    // The plan made again: once laid out, the night's step is brought into
+    // view where the new plan has it (the plan's own room is laid out first).
+    if (_shown != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _aim(glide: false);
+      });
+    }
   }
 
   /// A controller from outside starts at 0: it is moved, once, where the
@@ -93,7 +106,8 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
   /// about is brought whole into view, under the eave and above the foot's
   /// lip, moving the board as little as it can; the deal brings the board
   /// to the top with "you" in view. Back at the result, the board stands
-  /// where it stood by day, exactly.
+  /// where it stood by day, exactly (kept in the new plan's bounds when the
+  /// plan was made again at night).
   void _stepped() {
     final night = _night;
     final shown = night?.step;
@@ -103,22 +117,42 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
     if (_shown == null && scrolled) _dayOffset = c.offset;
     _shown = shown;
     if (shown == null) {
-      if (scrolled && _dayOffset != null) c.jumpTo(_dayOffset!);
+      _aimed = null;
+      final day = _dayOffset;
       _dayOffset = null;
+      if (scrolled && day != null) {
+        final p = c.position;
+        c.jumpTo(day.clamp(p.minScrollExtent, p.maxScrollExtent));
+      }
       return;
     }
-    if (!scrolled) return;
+    _aim(glide: !night!.cut);
+  }
+
+  /// Brings the board where the plan, as it is now, has the step shown
+  /// ([nightViewOf]); nothing when it is there already. A new step glides
+  /// there; a plan made again jumps, as the board would stand had the night
+  /// been opened at this size.
+  void _aim({required bool glide}) {
+    final night = _night, shown = _shown;
+    final c = _controller;
+    if (night == null || shown == null) return;
+    if (!widget.plan.scrolls || !c.hasClients) return;
     final position = c.position;
     final to = nightViewOf(
       widget.plan,
-      nightPlayersOf(widget.plan, night!),
+      nightPlayersOf(widget.plan, night),
       deal: night.opening,
     ).scroll.clamp(position.minScrollExtent, position.maxScrollExtent);
+    final aim = (shown, to);
+    // Already there, or gliding there.
+    if (aim == _aimed) return;
+    _aimed = aim;
     if (to == position.pixels) return;
-    if (night.cut) {
-      c.jumpTo(to);
-    } else {
+    if (glide) {
       unawaited(c.animateTo(to, duration: Motion.settle, curve: Motion.curve));
+    } else {
+      c.jumpTo(to);
     }
   }
 

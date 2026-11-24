@@ -27,10 +27,9 @@ Future<void> pumpEndNight(
   Map<String, dynamic> results, {
   int step = 0,
   double at = 1,
-  double textScale = 1,
   bool back = false,
 }) async {
-  await pumpEndBoard(tester, results, textScale: textScale);
+  await pumpEndBoard(tester, results);
   await plainTap(
     tester,
     find.textContaining('happened').first,
@@ -183,15 +182,12 @@ final endNightEntries = <ScreenEntry>[
     ScreenEntry(
       '12-end-night-$name',
       mock: null,
-      build: (t) => pumpEndNight(
-        t,
-        results(),
-        step: step,
-        at: at,
-        textScale: scale,
-        back: back,
-      ),
+      build: (t) => pumpEndNight(t, results(), step: step, at: at, back: back),
       playerScreen: true,
+      // A page at larger text is the phone's text size (the gallery sets
+      // it), the twin of its state at 1, which the sweep turns through every
+      // text size: not swept again on top of its own.
+      textScale: scale,
       // The moment is pumped to exactly; no settling frames after it.
       frames: 0,
       // The step's links keep their rules at every phone and text size.
