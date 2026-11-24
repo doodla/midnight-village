@@ -1,0 +1,545 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/core/api/api_exception.dart';
+import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/requests/player_request.dart';
+import 'package:midnight_village/features/auth/presentation/auth_notifier.dart';
+import 'package:midnight_village/features/lobby/data/lobby_service.dart';
+import 'package:midnight_village/features/lobby/domain/lobby_state.dart';
+import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
+import 'package:mocktail/mocktail.dart';
+
+import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/contract/from_sample.dart';
+import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_events.dart';
+import '../../../helpers/mock_http_client.dart';
+import '../../../helpers/mock_websocket.dart';
+
+// The lobby's settings lane (`lobby_notifier.dart`: `_change`, `_send`,
+// `_resendUnsent`, `retry`, `deal`) as it is TODAY, pinned so that lifting it
+// into a pure value changes nothing. The rules are the model's:
+// `docs/dev/models/phone/lobby/README.md` (`PhoneLobby.tla`).
+//
+// What is pinned here (and not elsewhere; `practice_players_test` pins + + −
+// one at a time with every tap sent, the refusals, the loss and the stale
+// "Try again"; `lobby_notifier_test` the tap shown at once and the answer
+// adopted):
+// - settings and practice share ONE lane: every tap sent, one out at a time,
+//   in tap order, two taps on one key both sent;
+// - a `lobby_update` while a tap is out never takes the tap back;
+// - after a refusal or a loss the next change waits for the lobby read, and
+//   the refused or lost value stays shown until that read lands;
+// - "Try again" goes at the back of the queue, trimmed to the keys nothing
+//   newer asked for;
+// - the deal shares the one "Try again" slot; an answered deal empties it;
+// - the host role moving mid-queue, and the table left with changes queued.
+// And the model's KNOWN gaps a, b (b2) and c, each as it behaves today: the
+// fix flips the one assertion marked KNOWN GAP.
+//
+// The stand-in server holds every request until the test answers it, so the
+// order of everything is the test's: payloads from `contract_samples/`.
+
+class _MockLobbyService extends Mock implements LobbyService {}
+
+const _code = 'ABC123';
+
+/// One request the phone sent and the server has not answered yet.
+class _Request {
+  _Request(this.what, this.body);
+
+  /// `PATCH`, `PRACTICE` or `DEAL`.
+  final String what;
+  final Map<String, Object?> body;
+  final answer = Completer<Object?>();
+
+  bool get open => !answer.isCompleted;
+
+  @override
+  String toString() => '$what $body';
+}
+
+/// One lobby read: the lobby as the server served it when the phone asked.
+class _Read {
+  _Read(this.served);
+  final LobbyState served;
+  final answer = Completer<LobbyState>();
+}
+
+/// The stand-in server and the host's phone at table [_code].
+class _Lane {
+  _Lane._(this.container, this.service, this.ws);
+
+  final ProviderContainer container;
+  final _MockLobbyService service;
+  final MockWebSocketChannel ws;
+  late final ProviderSubscription<AsyncValue<LobbyState>> _sub;
+
+  /// The table's settings as the server has them.
+  final settings = <String, Object?>{
+    'roles': const {'Werewolf': 2, 'Seer': 1, 'Robber': 1, 'Villager': 2},
+    'seats': 4,
+    'card_look_seconds': 240,
+  };
+
+  /// Who hosts, as the server says.
+  var hostId = 1;
+
+  /// Every request the phone sent, in the order sent.
+  final sent = <_Request>[];
+
+  /// Lobby reads: answered at once unless [holdReads].
+  var holdReads = false;
+  final reads = <_Read>[];
+
+  static Future<_Lane> open() async {
+    final service = _MockLobbyService();
+    final ws = MockWebSocketChannel();
+    final container = ProviderContainer(
+      overrides: [
+        lobbyServiceProvider.overrideWithValue(service),
+        lobbyWebSocketFactoryProvider.overrideWithValue((_) => ws),
+        authenticatedClientProvider.overrideWithValue(
+          AuthenticatedClient.forTesting(dio: MockHttpClient().dio),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final lane = _Lane._(container, service, ws);
+    when(() => service.fetchLobby(_code)).thenAnswer((_) {
+      if (!lane.holdReads) return Future.value(lane.lobby());
+      final read = _Read(lane.lobby());
+      lane.reads.add(read);
+      return read.answer.future;
+    });
+    when(() => service.patchSettings(any(), _code, any())).thenAnswer(
+      (call) => lane._hold(
+        'PATCH',
+        (call.positionalArguments[2] as Map).cast<String, Object?>(),
+      ),
+    );
+    when(
+      () => service.setPractice(
+        any(),
+        _code,
+        on: any(named: 'on'),
+        count: any(named: 'count'),
+      ),
+    ).thenAnswer(
+      (call) => lane._hold('PRACTICE', {
+        if (call.namedArguments[#on] case final bool on) 'on': on,
+        if (call.namedArguments[#count] case final int count) 'count': count,
+      }),
+    );
+    when(
+      () => service.startGame(any(), _code),
+    ).thenAnswer((_) => lane._hold('DEAL', const {}));
+    lane._sub = container.listen(lobbyProvider(_code), (_, _) {});
+    await container.read(lobbyProvider(_code).future);
+    return lane;
+  }
+
+  Future<T> _hold<T>(String what, Map<String, Object?> body) {
+    final request = _Request(what, body);
+    sent.add(request);
+    return request.answer.future.then((v) => v as T);
+  }
+
+  /// The server's lobby body now.
+  Map<String, dynamic> json() => withValues(
+    serverLobby(code: _code, hostId: hostId),
+    {'settings': Map<String, Object?>.of(settings)},
+  );
+
+  LobbyState lobby() => FromSample.lobby(json());
+
+  /// What the host's phone shows.
+  LobbyState get shown => container.read(lobbyProvider(_code)).value!;
+  LobbyNotifier get notifier => container.read(lobbyProvider(_code).notifier);
+
+  /// The requests sent and not answered yet.
+  List<_Request> get out => [
+    for (final r in sent)
+      if (r.open) r,
+  ];
+
+  /// The one request out (the lane sends one at a time).
+  _Request get theOneOut {
+    expect(out, hasLength(1), reason: 'one request out at a time');
+    return out.single;
+  }
+
+  /// What was sent, in order.
+  List<String> get log => [for (final r in sent) '$r'];
+
+  /// The server takes the one request out and answers with its lobby.
+  Future<void> take() async {
+    final r = theOneOut;
+    switch (r.what) {
+      case 'PATCH':
+        settings.addAll(r.body);
+        r.answer.complete(lobby());
+      case 'PRACTICE':
+        r.answer.complete(lobby());
+      case 'DEAL':
+        r.answer.complete(
+          ContractSamples.map('http/game/started')['game_id'] as String,
+        );
+    }
+    await _drain();
+  }
+
+  /// The server refuses the one request out (a recorded refusal).
+  Future<void> refuse() async {
+    final r = theOneOut;
+    final body = r.what == 'DEAL'
+        ? ContractSamples.map('http/game/start_not_waiting')
+        : ContractSamples.map('http/lobby/settings_invalid');
+    r.answer.completeError(ValidationException(parseServerErrors(body)));
+    await _drain();
+  }
+
+  /// The one request out gets no answer (offline, a timeout).
+  Future<void> lose() async {
+    theOneOut.answer.completeError(const NetworkException('offline'));
+    await _drain();
+  }
+
+  /// The host role moved: the server answers 403.
+  Future<void> forbid() async {
+    theOneOut.answer.completeError(const ForbiddenException());
+    await _drain();
+  }
+
+  /// The oldest read still out lands, with what it was served.
+  Future<void> landRead() async {
+    final read = reads.firstWhere((r) => !r.answer.isCompleted);
+    read.answer.complete(read.served);
+    await _drain();
+  }
+
+  int get readsOut => reads.where((r) => !r.answer.isCompleted).length;
+
+  /// The server's `lobby_update` (the whole lobby body).
+  Future<void> lobbyUpdate() async {
+    ws.addServerEvent(
+      withValues(ContractSamples.map('ws/lobby/lobby_update'), {
+        'data': json(),
+      }),
+    );
+    await _drain();
+  }
+
+  /// The table is left: the lobby's notifier goes away.
+  Future<void> leave() async {
+    _sub.close();
+    await _drain();
+  }
+}
+
+/// Lets every answer already given run through the phone (event-loop turns,
+/// never a stretch of time).
+Future<void> _drain() async {
+  for (var i = 0; i < 20; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+String _patch(Map<String, Object?> body) => 'PATCH $body';
+String _practice(Map<String, Object?> body) => 'PRACTICE $body';
+
+void main() {
+  setUpAll(() {
+    registerFallbackValue(Door.forTest());
+    registerFallbackValue(<String, Object?>{});
+  });
+
+  group('one lane, tap order, one at a time, every tap sent', () {
+    test('settings and practice taps mixed go out one at a time in the '
+        'order tapped, two taps on one key both sent', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      unawaited(t.notifier.togglePractice());
+      unawaited(t.notifier.setLength('card_look_seconds', 300));
+      unawaited(t.notifier.setSeats(6));
+      unawaited(t.notifier.setPracticeCount(1));
+      await _drain();
+
+      // Shown at once, all of them over the server's lobby.
+      expect(t.shown.table.seats, 6);
+      expect(t.shown.table.raw['card_look_seconds'], 300);
+      expect(t.shown.practiceCount, 1);
+      expect(t.shown.settling, isTrue);
+
+      for (var answered = 0; answered < 5; answered++) {
+        t.theOneOut; // exactly one out
+        await t.take();
+        if (answered < 4) {
+          expect(t.shown.table.seats, 6, reason: 'after ${answered + 1}');
+        }
+      }
+      expect(t.log, [
+        _patch({'seats': 5}),
+        _practice({'on': true}),
+        _patch({'card_look_seconds': 300}),
+        _patch({'seats': 6}),
+        _practice({'count': 1}),
+      ]);
+      expect(t.shown.settling, isFalse);
+      expect(t.settings['seats'], 6);
+    });
+
+    test('a lobby_update while a tap is out keeps the tap shown and the '
+        'lobby settling; the rest of the update is taken', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      await _drain();
+      // Meanwhile the server's lobby moves on another key.
+      t.settings['card_look_seconds'] = 360;
+      await t.lobbyUpdate();
+
+      expect(t.shown.table.seats, 5, reason: 'the tap is not taken back');
+      expect(t.shown.table.raw['card_look_seconds'], 360);
+      expect(t.shown.settling, isTrue);
+
+      await t.take();
+      expect(t.shown.table.seats, 5);
+      expect(t.shown.table.raw['card_look_seconds'], 360);
+      expect(t.shown.settling, isFalse);
+    });
+  });
+
+  group('after a refusal or a loss', () {
+    for (final lost in [false, true]) {
+      final how = lost ? 'a loss' : 'a refusal';
+      test(
+        '$how: the next change waits for the lobby read; the '
+        '${lost ? 'lost' : 'refused'} value stays shown until it lands',
+        () async {
+          final t = await _Lane.open();
+          t.holdReads = true;
+          unawaited(t.notifier.setSeats(5));
+          unawaited(t.notifier.setLength('card_look_seconds', 300));
+          await _drain();
+          expect(t.log, [
+            _patch({'seats': 5}),
+          ]);
+
+          lost ? await t.lose() : await t.refuse();
+          expect(t.readsOut, 1, reason: 'the lobby is read again');
+          expect(t.out, isEmpty, reason: 'the next change waits for the read');
+          expect(t.shown.table.seats, 5, reason: 'until the read lands');
+          expect(t.shown.notSent, lost, reason: '"Not sent." only for a loss');
+
+          await t.landRead();
+          expect(t.shown.table.seats, 4, reason: "the server's, from the read");
+          expect(
+            t.shown.table.raw['card_look_seconds'],
+            300,
+            reason: 'pending',
+          );
+          expect(t.log, [
+            _patch({'seats': 5}),
+            _patch({'card_look_seconds': 300}),
+          ]);
+          await t.take();
+          expect(t.settings['seats'], 4, reason: 'never sent again by itself');
+          expect(t.shown.notSent, lost);
+        },
+      );
+    }
+
+    test('the host role moved (403) mid-queue: the change is dropped with '
+        'no "Not sent.", and the next change is STILL sent', () async {
+      // Not in the plan's words ("each later one dropped quietly"): today
+      // each later change goes out and meets its own 403.
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      unawaited(t.notifier.setLength('card_look_seconds', 300));
+      await _drain();
+      t.hostId = 2;
+      await t.forbid();
+      expect(t.shown.hostId, 2);
+      expect(t.shown.notSent, isFalse);
+      expect(t.log, [
+        _patch({'seats': 5}),
+        _patch({'card_look_seconds': 300}),
+      ]);
+      await t.forbid();
+      expect(t.shown.table.seats, 4);
+      expect(t.shown.table.raw['card_look_seconds'], 240);
+      expect(t.shown.settling, isFalse);
+      expect(t.shown.notSent, isFalse);
+    });
+
+    test('the table left with changes queued: nothing more is sent', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      unawaited(t.notifier.setLength('card_look_seconds', 300));
+      await _drain();
+      await t.leave();
+      await t.take();
+      expect(t.log, [
+        _patch({'seats': 5}),
+      ]);
+    });
+  });
+
+  group('"Try again"', () {
+    test('goes at the back of the queue, after what is still queued, '
+        'trimmed to the keys nothing newer asked for', () async {
+      final t = await _Lane.open();
+      final roles = {'Werewolf': 2, 'Seer': 1, 'Villager': 3};
+      // A custom deck for 6 (deck, roles and seats in one tap), then 7 seats.
+      unawaited(t.notifier.startCustomDeck(roles, seats: 6));
+      unawaited(t.notifier.setSeats(7));
+      await _drain();
+      await t.lose();
+      expect(t.shown.notSent, isTrue);
+      // The read landed; the seats went out after it.
+      expect(t.theOneOut.body, {'seats': 7});
+
+      unawaited(t.notifier.retry());
+      await _drain();
+      expect(t.shown.notSent, isFalse);
+      expect(t.theOneOut.body, {'seats': 7}, reason: 'Try again waits');
+      await t.take();
+      await t.take();
+      expect(t.log, [
+        _patch({'deck': 'custom', 'roles': roles, 'seats': 6}),
+        _patch({'seats': 7}),
+        _patch({'deck': 'custom', 'roles': roles}),
+      ], reason: 'the newer seats are never undone');
+      expect(t.settings['seats'], 7);
+      expect(t.shown.table.seats, 7);
+    });
+
+    test('the deal shares the one slot: a deal answered (taken or refused) '
+        'empties it, so Try again then sends nothing', () async {
+      for (final refused in [false, true]) {
+        final t = await _Lane.open();
+        unawaited(t.notifier.setSeats(5));
+        await _drain();
+        await t.lose();
+        expect(t.shown.notSent, isTrue);
+
+        final dealt = t.notifier.deal();
+        await _drain();
+        refused ? await t.refuse() : await t.take();
+        await dealt;
+        // A refused deal says why and takes "Not sent." away. A taken deal
+        // leaves the line as it was (the game opens over it).
+        expect(t.shown.notSent, !refused, reason: 'refused: $refused');
+        if (refused) expect(t.shown.dealRefused, isNotNull);
+
+        final before = t.sent.length;
+        await t.notifier.retry();
+        await _drain();
+        expect(t.sent.length, before, reason: 'refused: $refused');
+      }
+    });
+  });
+
+  group('KNOWN GAPS (docs/dev/models/phone/lobby/README.md): today\'s '
+      'behaviour; the fix flips the assertion marked KNOWN GAP', () {
+    test('KNOWN GAP (a), known_a.cfg: a read that crosses an answer shows '
+        'the old value until the next lobby_update', () async {
+      final t = await _Lane.open();
+      t.holdReads = true;
+      unawaited(t.notifier.setSeats(5));
+      await _drain();
+      // Someone sits down: a read, served before the server applies 5.
+      t.ws.addServerEvent(GameEvents.playerJoined());
+      await _drain();
+      expect(t.readsOut, 1);
+      await t.take();
+      expect(t.shown.table.seats, 5, reason: 'the answer');
+
+      await t.landRead();
+      // KNOWN GAP (NoFlickerBack): the read served before the answer shows
+      // the old count. Fixed, this is 5.
+      expect(t.shown.table.seats, 4);
+
+      // It heals when the change's lobby_update arrives.
+      await t.lobbyUpdate();
+      expect(t.shown.table.seats, 5);
+    });
+
+    test('KNOWN GAP (b), known_b.cfg: a new tap hides "Not sent." while the '
+        'lost change still waits for Try again', () async {
+      final t = await _Lane.open();
+      t.holdReads = true;
+      unawaited(t.notifier.setSeats(5));
+      await _drain();
+      await t.lose();
+      expect(t.shown.notSent, isTrue);
+      expect(t.shown.table.seats, 5);
+
+      unawaited(t.notifier.togglePractice());
+      await _drain();
+      // KNOWN GAP (LostFlagged): the lost count is still shown and Try again
+      // would still send it, with no word. Fixed, this is true.
+      expect(t.shown.notSent, isFalse);
+      expect(t.shown.table.seats, 5);
+
+      await t.landRead();
+      expect(t.shown.table.seats, 4, reason: 'flips back, still unsaid');
+      expect(t.shown.notSent, isFalse);
+    });
+
+    test('KNOWN GAP (b2), known_b2.cfg: Try again sends a change whose '
+        '"Not sent." a later tap took away', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      await _drain();
+      await t.lose();
+      unawaited(t.notifier.togglePractice());
+      await _drain();
+      expect(t.shown.notSent, isFalse);
+      await t.lose(); // practice is lost too: "Not sent." again
+      expect(t.shown.notSent, isTrue);
+
+      unawaited(t.notifier.retry());
+      await _drain();
+      await t.take();
+      await t.take();
+      // KNOWN GAP (NoHiddenResend): the seats the host saw undone are sent
+      // again (oldest first). Fixed, only the practice switch is.
+      expect(t.log.skip(2), [
+        _patch({'seats': 5}),
+        _practice({'on': true}),
+      ]);
+      expect(t.settings['seats'], 5);
+    });
+
+    test('KNOWN GAP (c), known_c.cfg: a lost deal after a lost change: Try '
+        'again redoes only the deal', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      await _drain();
+      await t.lose();
+      expect(t.shown.settling, isFalse, reason: 'Deal is live');
+
+      final dealt = t.notifier.deal();
+      await _drain();
+      await t.lose();
+      expect(await dealt, isNull);
+      expect(t.shown.notSent, isTrue);
+
+      final again = t.notifier.retry();
+      await _drain();
+      await t.take();
+      await again;
+      // KNOWN GAP (RetryCoversAll): the lost seat count is never sent: the
+      // game is dealt for the old count. Fixed, the seats go too.
+      expect(t.log, [
+        _patch({'seats': 5}),
+        'DEAL {}',
+        'DEAL {}',
+      ]);
+      expect(t.settings['seats'], 4);
+    });
+  });
+}
