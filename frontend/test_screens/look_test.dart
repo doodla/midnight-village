@@ -28,11 +28,23 @@ const _ratio = int.fromEnvironment('LOOK_RATIO', defaultValue: 3);
 const _out = String.fromEnvironment('LOOK_OUT', defaultValue: 'build/look');
 const _mostAtOnce = 8;
 
+/// Many states at once, by exact id, separated by commas (`just handover`):
+/// no limit, and an id this checkout does not have is skipped (main may lack
+/// a new state).
+const _states = String.fromEnvironment('LOOK_STATES');
+
 List<ScreenEntry> _wanted() {
   final built = [
     for (final e in screenCatalogue)
       if (e.build != null) e,
   ];
+  if (_states.isNotEmpty) {
+    final ids = _states.split(',').toSet();
+    return [
+      for (final e in built)
+        if (ids.contains(e.id)) e,
+    ];
+  }
   final exact = [
     for (final e in built)
       if (e.id == _state) e,
@@ -52,6 +64,7 @@ void main() {
     File('$_out/states.txt')
       ..parent.createSync(recursive: true)
       ..writeAsStringSync([for (final e in wanted) e.id].join('\n'));
+    if (_states.isNotEmpty) return;
     if (wanted.isEmpty) {
       final near = [
         for (final e in screenCatalogue)
@@ -74,7 +87,7 @@ void main() {
     );
   });
 
-  for (final entry in wanted.take(_mostAtOnce)) {
+  for (final entry in _states.isEmpty ? wanted.take(_mostAtOnce) : wanted) {
     testWidgets(entry.id, (tester) async {
       tester.view.physicalSize = Size(
         _width * _ratio.toDouble(),

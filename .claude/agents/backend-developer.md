@@ -18,7 +18,9 @@ seeded, several players, named for the behaviour. A payload change means `just s
 a reviewed diff; a sample the task does not mean to change must not change. A model change means a new
 migration that follows the deploy-safe rules and a case in `tests/test_migrations.py`. Keep
 the README you touched true. Run the tests you touch while you work and `just test` before
-you hand over (`just gate-full` for everything); the commit gate only runs `just check`, and
+you hand over, which is done with `just handover <file>` and in no other way (it refuses
+uncommitted or unpushed work and runs the checks; give your caller the file's path;
+`just gate-full` for everything); the commit gate only runs `just check`, and
 GitHub runs the rest on the pull request.
 
 Do not open screenshots one by one: hand the PNG paths to the `eyes` agent, or view one contact
