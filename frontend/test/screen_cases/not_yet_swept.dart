@@ -26,24 +26,7 @@ const notYetSwept = <String, String>{
   '08-talk-held-mason-alone': _storyOver,
   '08-talk-held-doppelganger-robber': _storyOver,
   '08-talk-held-doppelganger-villager': _storyOver,
-  // These four passed before main's end board layout change (#112) and fail
-  // the same way now, found when it was merged in.
-  '12-end-night-nobody-dealt': _replayTurned,
-  '12-end-night-game-0-dealing': _replayTurned,
-  '12-end-night-game-1-dealt': _replayTurned,
-  '12-end-night-game-4-take': _replayTurned,
-  '12-end-night-dop-1-copy': _replayTurned,
-  '12-end-night-dop-5-masons': _replayTurned,
-  '12-end-night-game-2-team': _replayTurned,
-  '12-end-night-game-3-look': _replayTurned,
-  '12-end-night-game-5-swap-moving': _replayTurned,
-  '12-end-night-game-6-last': _replayTurned,
-  '12-end-night-text-1.6': _replayTurned,
 };
-
-const _replayTurned =
-    "a replay card lies on a player's name once the phone's size or text "
-    'size changes mid-replay (the moving cards keep the old layout)';
 
 const _nightUp =
     'My night, up by itself as the talk opens, lies over Ready: the first '

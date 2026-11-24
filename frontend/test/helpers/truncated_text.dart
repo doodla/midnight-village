@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/features/game/presentation/end/end_reveal.dart'
+    show RenderRevealPaint;
 
 // No text a player sees is drawn cut short: a name, a heading or a button's
 // words are set smaller or wrap between words, never end in "...", fade out,
@@ -49,6 +51,9 @@ bool isUnseen(Element element, RenderObject paragraph) {
   while (node != null) {
     if (node is RenderOpacity) opacity *= node.opacity;
     if (node is RenderAnimatedOpacity) opacity *= node.opacity.value;
+    // The end board's own fade (the settled board hidden while the night
+    // plays, a reveal's piece before its beat): painted at this opacity.
+    if (node is RenderRevealPaint) opacity *= node.opacity?.call() ?? 1;
     if (node is RenderOffstage && node.offstage) return true;
     node = node.parent;
   }

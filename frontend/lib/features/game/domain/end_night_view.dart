@@ -19,7 +19,8 @@ const nightClear = EndMetrics.clear + EndMetrics.clear;
 /// where they cannot all be in it together, the first (the one who acted)
 /// stands at the window's edge away from the others, and each other card is
 /// lifted to the window's opposite edge, in front, for the step (or the
-/// first place in the window clear of the step's other cards). [deal]: the
+/// first place in the window clear of the step's other cards, and of the
+/// other players' names where one is). [deal]: the
 /// board as near its top as it can stand with the cards in view ("you", as
 /// the night begins).
 ({double scroll, Map<int, Offset> docked}) nightViewOf(
@@ -61,6 +62,12 @@ const nightClear = EndMetrics.clear + EndMetrics.clear;
           .clamp(0.0, most);
   final placed = [first];
   final docked = <int, Offset>{};
+  // The names of the cards the step is not about: a card lifted over them
+  // leaves them clear where it can.
+  final names = [
+    for (final c in plan.cards)
+      if (!rects.containsKey(c.id)) nightNameOf(c),
+  ];
   for (final MapEntry(key: id, value: r) in rects.entries) {
     if (id == players.first) continue;
     var dy = 0.0;
@@ -80,7 +87,7 @@ const nightClear = EndMetrics.clear + EndMetrics.clear;
         c.bottom <= scroll + seen - nightClear + 0.5 &&
         !placed.any((p) => p.inflate(EndMetrics.clear).overlaps(c));
     final w = r.width, h = r.height;
-    final at = [
+    final spots = [
       for (final y in [
         edge.top,
         if (dy >= 0) scroll + seen - nightClear - h else scroll + nightClear,
@@ -93,7 +100,12 @@ const nightClear = EndMetrics.clear + EndMetrics.clear;
           (plan.boardWidth - w) / 2,
         ])
           Rect.fromLTWH(x, y, w, h),
-    ].where(free).firstOrNull;
+    ].where(free);
+    final at =
+        spots
+            .where((c) => !names.any((n) => n.deflate(0.5).overlaps(c)))
+            .firstOrNull ??
+        spots.firstOrNull;
     if (at == null) {
       return (
         scroll: scroll,
@@ -173,3 +185,194 @@ double nightRoomOf(EndBoardPlan plan) => plan.scrolls
 /// of the step's cards were lifted together ([nightViewOf]'s last resort).
 bool nightLevel(Map<int, Offset> docked, int players) =>
     docked.length == players && players > 1;
+
+/// Where a middle card the step is about lies for the step: lifted onto the
+/// board beside the card of the one who acted ([actor], as it lies for the
+/// step), so its thread is short and stays on the board (never down over
+/// the board's lip to the foot). Clear of every card and seal ([taken], as
+/// they lie) and of the frame's edges, in the window the board stands at
+/// ([scroll]); the first of: right of the actor, left, below, above, then
+/// the free place in the window nearest the actor, the line to it crossing
+/// nothing. Where no place is clear
+/// of every card, it is lifted in front of the cards the step is not about,
+/// as the fit pass lifts a card ([nightViewOf]): clear of the step's own
+/// cards and seals ([step]) and of every player's name ([names]: a name is
+/// never covered); where that leaves no room, over the picture of a step's
+/// player card ([under]), still clear of every name; only where even that leaves none, clear of
+/// the step's own cards alone.
+Rect nightMiddleAt(
+  EndBoardPlan plan, {
+  required Rect actor,
+  required Size size,
+  required List<Rect> taken,
+  List<Rect> step = const [],
+  List<Rect> names = const [],
+  List<Rect> under = const [],
+  double scroll = 0,
+}) => _middleAt(
+  plan,
+  actor: actor,
+  size: size,
+  taken: taken,
+  step: step,
+  names: names,
+  under: under,
+  scroll: scroll,
+  clear: false,
+)!;
+
+/// Where [nightMiddleAt] puts a card, only where it leaves every card it is
+/// not lifted over, every seal and every player's name clear: null where no
+/// such place is in the window (the step's middle cards stay in the foot).
+Rect? nightMiddleClearAt(
+  EndBoardPlan plan, {
+  required Rect actor,
+  required Size size,
+  required List<Rect> taken,
+  List<Rect> step = const [],
+  List<Rect> names = const [],
+  List<Rect> under = const [],
+  double scroll = 0,
+}) => _middleAt(
+  plan,
+  actor: actor,
+  size: size,
+  taken: taken,
+  step: step,
+  names: names,
+  under: under,
+  scroll: scroll,
+  clear: true,
+);
+
+Rect? _middleAt(
+  EndBoardPlan plan, {
+  required Rect actor,
+  required Size size,
+  required List<Rect> taken,
+  required List<Rect> step,
+  required List<Rect> names,
+  required List<Rect> under,
+  required double scroll,
+  required bool clear,
+}) {
+  const gap = EndMetrics.clear;
+  final seen = math.min(plan.boardHeight, plan.viewHeight - EndMetrics.lip);
+  final window = Rect.fromLTRB(
+    gap,
+    scroll + gap,
+    plan.boardWidth - gap,
+    scroll + seen - gap,
+  );
+  // Room for the thread and its two ends between the actor and the card
+  // (less, where the window is small).
+  var room = EndMetrics.clear * 6;
+  var clearOf = taken;
+  var mustReach = true;
+  // The names kept clear of in this tier: to the hair, a name's band being
+  // all a card lifted over the others must leave.
+  var named = const <Rect>[];
+  // A thread can run to it: the line between the two crosses nothing.
+  bool reaches(Rect r) {
+    const steps = 32;
+    for (var i = 1; i < steps; i++) {
+      final p = Offset.lerp(actor.center, r.center, i / steps)!;
+      if (actor.contains(p) || r.contains(p)) continue;
+      if (clearOf.any((t) => t.inflate(gap / 2).contains(p))) return false;
+    }
+    return true;
+  }
+
+  bool free(Rect r) =>
+      window.inflate(0.5).contains(r.topLeft) &&
+      window.inflate(0.5).contains(r.bottomRight) &&
+      !actor.inflate(room - 0.5).overlaps(r) &&
+      !clearOf.any((t) => t.inflate(gap).overlaps(r)) &&
+      !named.any((n) => n.deflate(0.5).overlaps(r)) &&
+      (!mustReach || reaches(r));
+  final w = size.width, h = size.height;
+  List<Rect> beside() => [
+    Rect.fromLTWH(actor.right + room, actor.center.dy - h / 2, w, h),
+    Rect.fromLTWH(actor.left - room - w, actor.center.dy - h / 2, w, h),
+    Rect.fromLTWH(actor.center.dx - w / 2, actor.bottom + room, w, h),
+    Rect.fromLTWH(actor.center.dx - w / 2, actor.top - room - h, w, h),
+  ];
+  Rect slide(Rect r) {
+    // Slid into the window along its side, if it is only a little out.
+    final dy = r.top < window.top
+        ? window.top - r.top
+        : math.min(0.0, window.bottom - r.bottom);
+    final dx = r.left < window.left
+        ? window.left - r.left
+        : math.min(0.0, window.right - r.right);
+    return r.shift(Offset(dx, dy));
+  }
+
+  const stride = EndMetrics.clear / 2;
+  for (final (tier, keepNames, least, reach) in [
+    (taken, false, room, true),
+    (step, true, room, true),
+    (step, true, EndMetrics.clear * 3, true),
+    (step, true, EndMetrics.clear, true),
+    (step, true, EndMetrics.clear, false),
+    // No room off the step's cards: over the picture of a step's card it
+    // may lie on ([under]), still clear of every name.
+    (
+      [
+        for (final t in step)
+          if (!under.contains(t)) t,
+      ],
+      true,
+      EndMetrics.clear,
+      false,
+    ),
+    // Over a name: never where it must leave every name clear.
+    if (!clear) ...[
+      (step, false, room, true),
+      (step, false, EndMetrics.clear * 3, true),
+      (step, false, EndMetrics.clear, false),
+    ],
+  ]) {
+    clearOf = tier;
+    named = keepNames ? names : const [];
+    room = least;
+    mustReach = reach;
+    for (final r in beside().map(slide)) {
+      if (free(r)) return r;
+    }
+    Rect? best;
+    for (var y = window.top; y + h <= window.bottom + 0.5; y += stride) {
+      for (var x = window.left; x + w <= window.right + 0.5; x += stride) {
+        final r = Rect.fromLTWH(x, y, w, h);
+        if (!free(r)) continue;
+        if (best == null ||
+            (r.center - actor.center).distance <
+                (best.center - actor.center).distance) {
+          best = r;
+        }
+      }
+    }
+    if (best != null) return best;
+  }
+  return clear ? null : slide(beside().first);
+}
+
+/// Where [card]'s name is drawn as the card lies ([lift]: its offset for the
+/// step): the room its letters have ([EndCard.nameText]), turned with the
+/// card about its middle, as a box. What a card lifted for the step keeps
+/// clear of ([nightMiddleAt]'s names, [nightViewOf]).
+Rect nightNameOf(EndCard card, [Offset lift = Offset.zero]) {
+  final r = card.rect, letters = card.nameText;
+  final d = letters.center - r.center;
+  final cos = math.cos(card.angle), sin = math.sin(card.angle);
+  final turned =
+      r.center + Offset(d.dx * cos - d.dy * sin, d.dx * sin + d.dy * cos);
+  return EndMetrics.leaned(
+    Rect.fromCenter(
+      center: turned,
+      width: letters.width,
+      height: letters.height,
+    ),
+    card.angle,
+  ).shift(lift);
+}

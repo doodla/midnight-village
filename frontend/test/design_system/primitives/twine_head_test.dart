@@ -25,7 +25,7 @@ void main() {
       expect(headed.right, closeTo(110, 0.5));
       // The head is wider across than the thread.
       expect(headed.height, greaterThan(plain.height + 4));
-      expect(headed.height, closeTo(TwinePainter.headWidth, 0.5));
+      expect(headed.height, closeTo(TwinePainter.headLength, 0.5));
       // Only the far end: the near end is where it was.
       expect(headed.left, closeTo(plain.left, 0.01));
     });
@@ -42,6 +42,6 @@ void main() {
     );
     final bounds = painter.thread().getBounds();
     expect(bounds.bottom, closeTo(100, 0.5));
-    expect(bounds.width, closeTo(TwinePainter.headWidth, 0.5));
+    expect(bounds.width, closeTo(TwinePainter.headLength, 0.5));
   });
 }

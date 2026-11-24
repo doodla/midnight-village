@@ -74,6 +74,11 @@ class PaperParts {
     this.storySlipWidest = 360,
     this.storySceneShare = 1.4,
     this.storyLookSag = 8,
+    this.linkWidth = 4,
+    this.linkHead = 16,
+    this.linkDot = 5.6,
+    this.linkDash = 12,
+    this.linkGap = 7,
     this.winnerPaper = const Color(0xFFF4E8CB),
     this.loserPaper = const Color(0xFFC9C0AA),
     this.nightPaper = const Color(0xFFCFD2E2),
@@ -273,6 +278,15 @@ class PaperParts {
   final double storySlipWidest;
   final double storySceneShare;
   final double storyLookSag;
+
+  /// The end board's "What happened" links (`CardLink`), read at arm's
+  /// length across a whole board: the thread's width, a head's length and
+  /// width, a dot's radius, and a look's dash and gap.
+  final double linkWidth;
+  final double linkHead;
+  final double linkDot;
+  final double linkDash;
+  final double linkGap;
 
   /// The end board's card papers: a winner lit, a loser dull, the Werewolf
   /// team's red (won, lost) and the cool paper of the replayed night. Ink on

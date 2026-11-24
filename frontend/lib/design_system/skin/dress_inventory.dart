@@ -368,7 +368,7 @@ const inventory = <PartEntry>[
     plain:
         'the same thread (filled, never a stroke): solid for a move, gapped for a look, a head at its far end where it says a way',
     paper:
-        'paper thread in bone, a sagging curve between two cards\' corners with a paper shadow away from the light; solid for a move, gapped for a look; with a head, a filled paper triangle at its far end, the way it went; red only for the Werewolf team',
+        'paper thread in bone, a sagging curve between two cards\' corners with a paper shadow away from the light; solid for a move, gapped for a look; with a head, a filled paper triangle at its far end, the way it went (`TwineEnd`: a head or a dot at either end, `tail` and `tip`; the links of the end board are thicker, `PaperParts.linkWidth`); red only for the Werewolf team',
   ),
   PartEntry(
     'StoryCardFace',
@@ -477,6 +477,8 @@ const inventory = <PartEntry>[
 /// Files in `primitives/` that are not a component a player sees as one: what
 /// they are, so a new file must say.
 const notAComponent = <String, String>{
+  'primitives/card_link.dart':
+      'geometry, nothing drawn: where a link between two cards is tied and how it bends; Twine paints it',
   'primitives/screen_frame_layout.dart':
       'part of screen_frame.dart: how the screen lays its body out',
   'primitives/timer_band.dart':

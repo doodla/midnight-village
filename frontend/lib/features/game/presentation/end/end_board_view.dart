@@ -29,6 +29,7 @@ export 'end_foot.dart' show EndAct;
 import 'end_board_window.dart';
 import 'end_foot.dart';
 import 'end_night.dart';
+import 'end_night_foot.dart';
 import 'end_reveal.dart';
 
 /// The end of the game, settled: a notice board in the village square at
@@ -122,9 +123,6 @@ class _EndBoardViewState extends State<EndBoardView>
     ..cue = !widget.stepTaught
     ..taught = () => widget.onStepTaught?.call();
 
-  /// Where the board stands as it scrolls: the thread to a middle card,
-  /// drawn over the board and the foot, follows it.
-  final _scrolled = ValueNotifier<double>(0);
   AnimationController? _fade;
 
   /// The reveal is over (or never was): the board is drawn settled.
@@ -177,7 +175,6 @@ class _EndBoardViewState extends State<EndBoardView>
   void dispose() {
     _clock.dispose();
     _night.dispose();
-    _scrolled.dispose();
     _fade?.dispose();
     super.dispose();
   }
@@ -386,6 +383,8 @@ class _EndBoardViewState extends State<EndBoardView>
           top: windowTop,
           child: _still(context, BoardRoof(width: screen.width)),
         ),
+        // A thread down to a middle card in the foot, over the board's lip.
+        Positioned.fill(child: NightFootLinks(boardTop: boardTop)),
         Positioned(
           left: 0,
           right: 0,
@@ -405,13 +404,11 @@ class _EndBoardViewState extends State<EndBoardView>
             restDrop: windowTop - bannerTop - FurledScroll.thickness,
           ),
         ),
-        // A step's thread to a middle card, over the board and the foot.
-        Positioned.fill(child: NightMiddleTwines(scrolled: _scrolled)),
       ],
     );
     return NotificationListener<ScrollUpdateNotification>(
       onNotification: (n) {
-        _scrolled.value = n.metrics.pixels;
+        _night.scrolled.value = n.metrics.pixels;
         return false;
       },
       child: page,
@@ -511,6 +508,11 @@ class _EndBoardViewState extends State<EndBoardView>
           );
     _plan = (key, plan);
     _planned(plan);
+    if (!identical(_night.laidOut.value, plan)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _night.laidOut.value = plan;
+      });
+    }
     return _still(
       context,
       EndBoardWindow(plan: plan, scrollController: widget.scrollController),
