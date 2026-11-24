@@ -4,19 +4,21 @@
 # migrations: the previous code (its models, views, services) on the new schema.
 # A migration that would break the serving build fails here, before it merges.
 #
-# Does nothing when the change has no migration. The previous build is main on
-# the remote, or the ref given.
+# Does nothing when the change has no migration. The previous build is the main
+# this change was built on (tool/change_base.py), or the ref given.
 #
 # usage: tool/previous_build_check.sh [<previous ref>] [-- <pytest arguments>]
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
-previous="origin/main"
+previous=""
 if [ $# -gt 0 ] && [ "$1" != "--" ]; then previous="$1"; shift; fi
 [ "${1:-}" = "--" ] && shift
-
-if ! git -C "$root" rev-parse -q --verify "$previous^{commit}" >/dev/null; then
-  git -C "$root" fetch -q --no-tags --depth=1 origin "+refs/heads/main:refs/remotes/origin/main"
+# The build that is serving when this one goes live: the main this change was built on.
+[ -n "$previous" ] || previous="$("$root/tool/change_base.py")"
+if [ -z "$previous" ]; then
+  echo "previous-build check: no main to compare with; nothing checked."
+  exit 0
 fi
 
 changed="$( { git -C "$root" diff --name-only "$previous" -- 'backend/apps/*/migrations/*.py';
