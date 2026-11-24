@@ -33,6 +33,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    # What the answer cost the server, in its own header (apps/core/server_timing.py).
+    # After CORS: a preflight is answered there and costs nothing to time.
+    "apps.core.server_timing.ServerTimingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
