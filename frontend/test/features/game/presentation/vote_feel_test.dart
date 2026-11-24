@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -244,12 +245,12 @@ void main() {
         'on another moves the pick', (tester) async {
       final picks = <int>[];
       await _pump(tester, unpicked, onPick: picks.add);
-      await tester.tap(_row(cleo));
+      await pressLikeAFinger(tester, _row(cleo));
       await tester.pump(Motion.quick);
       expect(_rowOf(tester, cleo).picked, isTrue);
       expect(_rowOf(tester, ben).picked, isFalse);
       expect(find.text(VoteCopy.lockIn.fill({'name': cleo})), findsOneWidget);
-      await tester.tap(_row(ben));
+      await pressLikeAFinger(tester, _row(ben));
       await tester.pump(Motion.quick);
       expect(_rowOf(tester, ben).picked, isTrue);
       expect(_rowOf(tester, cleo).picked, isFalse);
@@ -273,9 +274,13 @@ void main() {
 
   group('locking', () {
     Future<void> lock(WidgetTester tester) async {
-      await tester.tap(_row(cleo));
+      await pressLikeAFinger(tester, _row(cleo));
       await tester.pump(Motion.quick);
-      await tester.tap(find.byType(PrimaryButton).last);
+      await plainTap(
+        tester,
+        find.byType(PrimaryButton).last,
+        why: 'the seal\'s frames are counted from the tap',
+      );
     }
 
     testWidgets('a lock stamps a seal on the pick and dims '
@@ -303,14 +308,14 @@ void main() {
     testWidgets('the words read on the paper on every frame '
         'of the lock (4.5:1 at least)', (tester) async {
       await _pump(tester, unpicked);
-      await tester.tap(_row(cleo));
+      await pressLikeAFinger(tester, _row(cleo));
       await tester.pump(Motion.quick);
       final before = contrast(
         tester.widget<Text>(find.text(cleo)).style!.color!,
         _paintedPaper(tester, cleo),
       );
       expect(before, greaterThanOrEqualTo(4.5), reason: 'before the lock');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       var frames = 0;
       // The tap's own frame, then a frame every 17 ms until it settles.
       for (var t = 0; t <= Motion.settle.inMilliseconds; t += 17) {
@@ -514,7 +519,7 @@ void main() {
       );
       await s.settle(tester);
       s.answerPost('/vote/', 'game/vote_repicked');
-      await tester.tap(find.text(cleo));
+      await pressLikeAFinger(tester, find.text(cleo));
       await tester.pump(Motion.quick);
       return s;
     }
@@ -535,7 +540,7 @@ void main() {
         'seal, no fill', (tester) async {
       final s = await picked(tester);
       s.answerPost('/vote/', 'game/vote_self', status: 400);
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expectChoosable(tester);
       await s.close(tester);
@@ -546,11 +551,11 @@ void main() {
         'goes when the server then refuses it', (tester) async {
       final s = await picked(tester);
       s.failPost('/vote/');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       s.answerPost('/vote/', 'game/vote_self', status: 400);
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expectChoosable(tester);
       expect(find.text(BannerCopy.notSent), findsNothing);
@@ -571,10 +576,10 @@ void main() {
       testWidgets('ten players at 360 wide: every name whole, nothing '
           'overflows${locked ? ', locked' : ''}', (tester) async {
         await _pump(tester, _tableOf(5, long));
-        await tester.tap(_row('Rosalind Fairweather-Okonkwo'));
+        await pressLikeAFinger(tester, _row('Rosalind Fairweather-Okonkwo'));
         await tester.pump(Motion.quick);
         if (locked) {
-          await tester.tap(find.byType(PrimaryButton).last);
+          await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
           await tester.pump(Motion.settle);
         }
         for (final name in long.values) {
@@ -683,11 +688,11 @@ void main() {
       await s.settle(tester);
       expect(buzzes, isEmpty);
       s.answerPost('/vote/', 'game/vote_repicked');
-      await tester.tap(find.text(cleo));
+      await pressLikeAFinger(tester, find.text(cleo));
       await tester.pump();
       expect(buzzes, ['HapticFeedbackType.selectionClick']);
       s.answerPost('/vote/', 'game/vote_locked');
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(buzzes.last, 'HapticFeedbackType.lightImpact');
       expect(buzzes, hasLength(2), reason: 'on the tap, once');
@@ -709,9 +714,9 @@ void main() {
         onLock: locks.add,
         accepts: () => false,
       );
-      await tester.tap(find.text(cleo));
+      await pressLikeAFinger(tester, find.text(cleo));
       await tester.pump();
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(picks, hasLength(1), reason: 'the tap still goes to the phone');
       expect(locks, hasLength(1));

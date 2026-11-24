@@ -7,6 +7,8 @@ import 'package:midnight_village/design_system/primitives/one_light.dart';
 import 'package:midnight_village/design_system/primitives/paper_light.dart';
 import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/paper_scrap.dart';
+import 'package:midnight_village/design_system/primitives/secondary_button.dart'
+    show BusyMark;
 import 'package:midnight_village/design_system/primitives/sliced_art.dart';
 import 'package:midnight_village/design_system/primitives/tilted_paper.dart';
 import 'package:midnight_village/design_system/primitives/twine.dart';
@@ -132,6 +134,47 @@ void main() {
       );
       expect(find.text('Back to\nthe result'), findsOneWidget);
     });
+
+    for (final dress in Dress.values) {
+      testWidgets('busy on a ${dress.name} screen: the mark turns in the '
+          'scrap\'s own end room; its words stay put, whole and in full ink', (
+        tester,
+      ) async {
+        _phone(tester);
+        Future<Rect> words({required bool busy}) async {
+          await _pump(
+            tester,
+            PaperScrap(
+              label: 'Edit deck',
+              onTap: () {},
+              sends: true,
+              busy: busy,
+            ),
+            dress: dress,
+          );
+          return tester.getRect(find.text('Edit deck'));
+        }
+
+        final idle = await words(busy: false);
+        final busy = await words(busy: true);
+        expect(busy, idle);
+        final mark = tester.getRect(find.byType(BusyMark));
+        expect(mark.overlaps(busy), isFalse, reason: 'the mark on the words');
+        if (dress.isPaper) {
+          final paper = tester.getRect(find.byType(PaperPiece));
+          expect(paper.contains(mark.topLeft), isTrue);
+          expect(paper.contains(mark.bottomRight - const Offset(1, 1)), isTrue);
+        }
+        // Nothing dims the words.
+        expect(
+          find.ancestor(
+            of: find.text('Edit deck'),
+            matching: find.byType(Opacity),
+          ),
+          findsNothing,
+        );
+      });
+    }
 
     testWidgets('a slip says something and takes no tap', (tester) async {
       _phone(tester);

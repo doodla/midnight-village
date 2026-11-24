@@ -70,6 +70,9 @@ job. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds
 (`WorkflowPublishing`); the wall's rules above apply to every other workflow.
 `guardrails/tests/test_release_assets.py` holds `frontend/tool/record_release_assets.py` to refusing to record over a removed asset that has no retired copy or dated reason. The `Web page smoke` job's `routes.test.cjs` judges `frontend/vercel.json` as Vercel compiles it, so `test_workflows.py` no longer reads its rewrite as a pattern.
 
+The branches Vercel deploys from (`live-server`, `live-app`) are moved by `tool/promote_live.py`
+only when what a side ships changed (`guardrails/tests/test_promote_live.py`).
+
 A second workflow is not part of the wall: `deployed-check.yml` ("Deployed Check") runs after
 every merge to main and proves the live server and app work together
 (`tool/deployed_check.py`; `docs/dev/deploy-vercel.md`, "The check after each merge"). It can

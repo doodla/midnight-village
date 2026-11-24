@@ -5,7 +5,7 @@ import 'contract_samples.dart';
 /// The screen each recorded `/me/` is (the first-time play spec, section 3,
 /// as amended by sections 7 and 8), at its own game's table with no local
 /// step taken, read from the sample's own words: the results phase is the
-/// count (10); else its stage names the screen, the look is your card (04),
+/// end board; else its stage names the screen, the look is your card (04),
 /// a night window the night board (05), the talk 08, the vote 09. A sample
 /// whose stage is none of these fails here, and so does `screen_table_test`.
 Map<String, AppScreen> get meScreens => {
@@ -14,7 +14,7 @@ Map<String, AppScreen> get meScreens => {
 };
 
 AppScreen _screenOf(Map<String, dynamic> me) {
-  if (me['phase'] == 'results') return AppScreen.count;
+  if (me['phase'] == 'results') return AppScreen.end;
   final stage = (me['stage'] as String).split('.').first;
   return switch (stage) {
     'look' => AppScreen.yourCard,

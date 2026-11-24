@@ -1,3 +1,4 @@
+import '../test/helpers/finger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,12 @@ import '../test/helpers/mock_http_client.dart';
 import '../test/helpers/outcome_samples.dart';
 import '../test/helpers/shell_setup.dart';
 
+// The results phase through the real shell (TableShell): the end board's
+// live states (loading, a request on its way, failed, refused) are in the
+// gallery. The 10 and 11 pages below are no longer reached from the shell
+// (the results phase is the end board) and are out of the gallery; piece 5b
+// deletes them with the screens.
+//
 // 10 The count and 11 Results through the real shell (TableShell), as a
 // phone at the end of a recorded game has them: `/me/` at the results
 // (`me_results` at that game's table) and the results body
@@ -39,7 +46,7 @@ Future<ShellSetup> _end(
 
 /// From the count to 11, the way a player goes: "See who won".
 Future<void> _seeWhoWon(WidgetTester tester, ShellSetup setup) async {
-  await tester.tap(find.text(CountCopy.seeWhoWon));
+  await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
   await setup.settle(tester);
 }
 
@@ -172,7 +179,7 @@ Future<void> pumpResultsFolded(WidgetTester tester) async {
   final night = find.bySemanticsLabel(ResultsCopy.nightSpoken);
   await tester.ensureVisible(night);
   await tester.pump();
-  await tester.tap(night);
+  await pressLikeAFinger(tester, night);
   await setup.settle(tester);
 }
 
@@ -256,64 +263,68 @@ Future<void> pumpCountLoading(WidgetTester tester) async {
   await _endHeld(tester, viewer: 'Ben');
 }
 
-/// 11 while the results load: the night's ground and the wait.
+/// The end board while the results load: the night's ground and the wait.
 Future<void> pumpResultsLoading(WidgetTester tester) async {
-  await _endHeld(tester, viewer: 'Ben', seeWhoWon: true);
+  await _endHeld(tester, viewer: 'Ben');
 }
 
 /// The path of the table's play-again and leave.
 String _tablePath(ShellSetup s, String endpoint) =>
     '/lobbies/${s.me['lobby_code']}/$endpoint/';
 
-/// 11 with "Play again" tapped, the server not answered yet: that button
-/// busy, "Edit deck" and "Leave" dim.
+/// The end board with "Play again" tapped, the server not answered yet: that
+/// button busy.
 Future<void> pumpResultsPlayingAgain(WidgetTester tester) async {
   final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
-  await _seeWhoWon(tester, setup);
   final path = _tablePath(setup, 'play-again');
   setup.http
     ..hold(method: 'POST', path: path)
     ..answer('POST', path, ContractSamples.load('http/lobby/play_again'));
-  await tester.tap(find.text(ResultsCopy.playAgain));
+  await plainTap(
+    tester,
+    find.text(EndCopy.playAgain),
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
-/// 11 on a guest's phone with "Leave" tapped, the server not answered yet.
+/// The end board on a guest's phone with "Leave" tapped, the server not answered yet.
 Future<void> pumpResultsLeaving(WidgetTester tester) async {
   final setup = await _end(tester, recordedResults('results'), viewer: 'Ben');
-  await _seeWhoWon(tester, setup);
   final path = _tablePath(setup, 'leave');
   setup.http
     ..hold(method: 'POST', path: path)
     ..answer('POST', path, ContractSamples.load('http/lobby/left'));
-  await tester.tap(find.text(CommonCopy.leave));
+  await plainTap(
+    tester,
+    find.text(EndCopy.leave),
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
-/// 11 when "Play again" got no answer: "Not sent." with "Try again".
+/// The end board when "Play again" got no answer: "Not sent." with "Try again".
 Future<void> pumpResultsNotSent(WidgetTester tester) async {
   final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
-  await _seeWhoWon(tester, setup);
   setup.http.answer(
     'POST',
     _tablePath(setup, 'play-again'),
     'Server Error',
     status: 503,
   );
-  await tester.tap(find.text(ResultsCopy.playAgain));
+  await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
   await setup.settle(tester);
 }
 
-/// 11 when the server refuses "Play again" with a reason: no "Try again".
+/// The end board when the server refuses "Play again" with a reason: no "Try again".
 Future<void> pumpResultsRefused(WidgetTester tester) async {
   final setup = await _end(tester, recordedResults('results'), viewer: 'Ana');
-  await _seeWhoWon(tester, setup);
   setup.http.answer(
     'POST',
     _tablePath(setup, 'play-again'),
     ContractSamples.load('http/lobby/play_again_not_finished'),
     status: 409,
   );
-  await tester.tap(find.text(ResultsCopy.playAgain));
+  await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
   await setup.settle(tester);
 }

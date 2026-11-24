@@ -1,3 +1,9 @@
+@Skip(
+  'The results phase shows the end board now (end_board_shell_test.dart); '
+  'piece 5b deletes 10, 11 and this file.',
+)
+library;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

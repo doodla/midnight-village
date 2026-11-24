@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -37,10 +38,16 @@ Future<void> _until(WidgetTester tester, bool Function() done) async {
 
 bool _shows(Finder finder) => finder.evaluate().isNotEmpty;
 
-Future<void> _tapText(WidgetTester tester, String text) async {
+/// Presses [text] like a finger; [beforeLift] runs with the finger still
+/// down (a count of what the tap sends starts at the lift).
+Future<void> _tapText(
+  WidgetTester tester,
+  String text, {
+  void Function()? beforeLift,
+}) async {
   await tester.ensureVisible(find.text(text));
   await tester.pump();
-  await tester.tap(find.text(text));
+  await pressLikeAFinger(tester, find.text(text), beforeLift: beforeLift);
 }
 
 /// The server's new guest account for [name], with id [id].
@@ -157,7 +164,7 @@ void main() {
     await tester.enterText(find.byType(TextField).last, 'V9YC2J');
     await tester.pump();
 
-    await _tapText(tester, JoinCopy.join);
+    await pressLikeAFinger(tester, find.text(JoinCopy.join));
     await setup.settle(tester);
     expect(find.text(BannerCopy.notSent), findsOneWidget);
 
@@ -196,9 +203,14 @@ void main() {
     );
     setup.answerGame(recordedMe('me_look_stage'));
     final me = 'GET /onuw/games/${started['game_id']}/me/';
-    final from = setup.http.requests.length;
-
-    await _tapText(tester, TableCopy.start);
+    // From the lift: 02's slow poll (50 ms here) goes on while the finger is
+    // down, as on a phone (15 s there).
+    var from = 0;
+    await _tapText(
+      tester,
+      TableCopy.start,
+      beforeLift: () => from = setup.http.requests.length,
+    );
     await _until(tester, () {
       final sent = _sent(setup, from);
       return sent.contains(me) && sent.contains('GET /me/table/');

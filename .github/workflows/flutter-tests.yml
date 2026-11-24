@@ -124,9 +124,13 @@ jobs:
         uses: actions/checkout@v4
 
       # The asset test compares the bundle with what main holds (a removed
-      # picture an open app still asks for): it needs main's file list.
+      # picture an open app still asks for): it needs main's file list. The
+      # raw-values guard compares screen code with where the branch left main
+      # (the merge base): it needs the history.
       - name: Fetch main for the asset comparison
-        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+        run: |
+          deepen=$([ "$(git rev-parse --is-shallow-repository)" = true ] && echo --unshallow || true)
+          git fetch --no-tags $deepen origin +refs/heads/main:refs/remotes/origin/main
 
       - name: Install just
         uses: extractions/setup-just@v2

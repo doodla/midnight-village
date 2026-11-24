@@ -1,3 +1,4 @@
+import 'finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -148,7 +149,7 @@ enum ComponentPage {
     final who = viewer ?? this.viewer;
     Future<void> tapAll(Iterable<String> captions) async {
       for (final caption in captions) {
-        await tester.tap(find.text(caption).last);
+        await pressLikeAFinger(tester, find.text(caption).last);
         await tester.pump();
       }
     }
@@ -177,19 +178,24 @@ enum ComponentPage {
         await tapAll([NightCopy.left, NightCopy.right]);
       case actionChosen:
         await tapAll(who.taps);
-        await tester.tap(find.byType(PrimaryButton));
+        await pressLikeAFinger(tester, find.byType(PrimaryButton));
       case actionNotSent:
         await tapAll(who.taps);
-        await tester.tap(find.byType(PrimaryButton));
+        await pressLikeAFinger(tester, find.byType(PrimaryButton));
         await tester.pump();
       case votePicked:
-        await tester.tap(find.text(cleo.name));
+        await pressLikeAFinger(tester, find.text(cleo.name));
       case voteLocked:
-        await tester.tap(find.text(cleo.name));
+        await pressLikeAFinger(tester, find.text(cleo.name));
         await tester.pump();
-        await tester.tap(find.byType(PrimaryButton));
+        await pressLikeAFinger(tester, find.byType(PrimaryButton));
       case gates:
-        await tester.tap(find.byKey(replayedGateKey));
+        await plainTap(
+          tester,
+          find.byKey(replayedGateKey),
+          why:
+              'the gate\'s replay is pictured at its moment, timed from the tap',
+        );
       default:
     }
     await tester.pump();

@@ -62,6 +62,7 @@ void runScreens(int shard) {
         width: _width,
         playerScreen: entry.playerScreen,
         frames: entry.frames,
+        textScale: entry.textScale,
       );
       results[entry.id] = saveScreen(entry, capture, width: _width);
       // A screen that cannot be built always fails the run.

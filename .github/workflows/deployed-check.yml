@@ -1,15 +1,19 @@
-# Deployed check: after every merge to main, proves the live server and the live
-# app work together, from outside (tool/deployed_check.py; docs/dev/deploy-vercel.md,
-# "The check after each merge").
+# After every merge to main: move the branches Vercel deploys from, then prove the
+# live server and the live app work together, from outside.
 #
-# It waits until both live addresses serve the merged commit, then does a real
-# Start and Join through the deployed routing. A red run here means players may
-# be looking at a broken game: read the failed step's line in the log.
+# 1. tool/promote_live.py moves `live-server` and `live-app` to the merged commit,
+#    each only when the files that side ships changed (tests, docs and tooling cost
+#    no deployment: Vercel allows 100 in 24 hours). This is the job's one write:
+#    a push to those two branches.
+# 2. tool/deployed_check.py waits until each live address serves the commit its
+#    branch holds, then does a real Start and Join through the deployed routing.
+#    A red run here means players may be looking at a broken game: read the failed
+#    step's line in the log (docs/dev/deploy-vercel.md, "The check after each merge").
 #
 # This is NOT a check of the merge wall: it can only run after the merge (the
 # deployment it tests does not exist before), so it never runs on a pull request
-# and is not in docs/dev/main-ruleset.json. It reads public addresses only: no
-# secret, no write permission. guardrails/tests/test_workflows.py holds it to that.
+# and is not in docs/dev/main-ruleset.json. It reads public addresses and holds no
+# secret. guardrails/tests/test_workflows.py holds it to that.
 
 name: Deployed Check
 
@@ -22,6 +26,8 @@ permissions:
   contents: read
 
 # A newer merge replaces the build an older run is waiting for: only the newest runs.
+# (A run cancelled before it moved the branches loses nothing: the next one compares
+# with the branches themselves.)
 concurrency:
   group: deployed-check
   cancel-in-progress: true
@@ -36,15 +42,24 @@ jobs:
     name: Live game works after the merge
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # Only main is deployed.
+    # Only main is promoted.
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write  # tool/promote_live.py pushes live-server and live-app, nothing else
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the comparison with what each live branch holds
 
-      - name: Wait for the merged commit, then Start and Join on the live game
+      - name: Move the live branches when what they serve changed
+        id: live
+        run: python3 tool/promote_live.py
+
+      - name: Wait for each side's build, then Start and Join on the live game
         run: >
           python3 tool/deployed_check.py
           --api "$API_ORIGIN" --app "$PUBLIC_ORIGIN"
-          --commit "$GITHUB_SHA" --wait 900
+          --commit "${{ steps.live.outputs.server }}"
+          --app-commit "${{ steps.live.outputs.app }}" --wait 900

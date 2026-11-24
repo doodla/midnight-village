@@ -6,6 +6,7 @@ import 'package:midnight_village/features/game/domain/end_board.dart';
 import 'package:midnight_village/features/game/domain/end_board_metrics.dart';
 
 import '../../../helpers/end_board_plans.dart';
+import '../../../helpers/end_board_rules.dart';
 import '../../../helpers/outcome_samples.dart';
 
 // The end board's layout (docs/specs/frontend/end-board.md, section 3), on
@@ -13,7 +14,7 @@ import '../../../helpers/outcome_samples.dart';
 // recordings widened, as `widened` does), at text sizes 1, 1.3 and 1.6. The
 // measure is a plain stand-in for the serif (a name 8.4 a letter, a role 6.8 a
 // letter, times the text size): the invariants hold whatever the letters
-// measure, and `end_board_sweep_test.dart` checks the drawn board on the real
+// measure, and the screen sweep (`end_board_pages.dart`) checks the drawn board on the real
 // fonts.
 
 void main() {
@@ -74,89 +75,7 @@ void main() {
 
   group('what hangs on a card covers no other card, name or tag', () {
     for (final (name, plan) in everyEndPlan()) {
-      test(name, () {
-        for (final a in plan.cards) {
-          final hung = <(String, Rect)>[
-            if (a.dealtRect != null) ('dealt card', a.dealtRect!),
-            if (a.ribbonRect != null) ('ribbon', a.ribbonRect!),
-            if (a.sealRect != null) ('seal', a.sealRect!),
-            if (a.pin != null) ('pin', a.pin!),
-            for (final t in a.tags) ('tag of ${t.name}', t.rect),
-          ];
-          for (final (what, rect) in hung) {
-            for (final b in plan.cards) {
-              if (a.id == b.id) {
-                // A tag, a seal or a ribbon never covers its own name.
-                if (what != 'dealt card' && what != 'pin') {
-                  expect(
-                    rect.overlaps(a.nameText),
-                    isFalse,
-                    reason: '${a.name}\'s $what covers its name',
-                  );
-                }
-                continue;
-              }
-              expect(
-                rect.overlaps(b.leaned),
-                isFalse,
-                reason: '${a.name}\'s $what covers ${b.name}',
-              );
-              for (final t in b.tags) {
-                if (what.startsWith('tag')) {
-                  expect(
-                    rect.overlaps(t.rect),
-                    isFalse,
-                    reason: '${a.name}\'s $what covers a tag of ${b.name}',
-                  );
-                }
-              }
-            }
-          }
-          // A strand hangs in its card's column, every tag clear of the next.
-          for (final t in a.tags) {
-            for (final u in a.tags) {
-              if (identical(t, u)) continue;
-              expect(
-                t.rect.overlaps(u.rect),
-                isFalse,
-                reason: '${t.name}\'s and ${u.name}\'s tags touch',
-              );
-            }
-            expect(
-              t.rect.left >= a.column.left - 0.01 &&
-                  t.rect.right <= a.column.right + 0.01,
-              isTrue,
-              reason: '${t.name}\'s tag leaves ${a.name}\'s column',
-            );
-          }
-        }
-        for (final pick in plan.picks) {
-          for (final c in plan.cards) {
-            expect(
-              pick.slip.overlaps(c.nameText),
-              isFalse,
-              reason: 'the Hunter\'s slip covers ${c.name}',
-            );
-            for (final t in c.tags) {
-              expect(pick.slip.overlaps(t.rect), isFalse);
-            }
-            if (c.id != pick.hunterId && c.id != pick.pickId) {
-              expect(
-                pick.slip.overlaps(c.leaned),
-                isFalse,
-                reason: 'the Hunter\'s slip covers ${c.name}',
-              );
-            }
-            for (final part in [c.sealRect, c.ribbonRect]) {
-              if (part != null) expect(pick.slip.overlaps(part), isFalse);
-            }
-          }
-          expect(
-            pick.slip.left >= 0 && pick.slip.right <= plan.boardWidth,
-            isTrue,
-          );
-        }
-      });
+      test(name, () => expect(coverFaults(plan), isEmpty));
     }
   });
 
@@ -502,6 +421,23 @@ void main() {
           ];
           final first = endPlan(entry.value, viewer: ids.first);
           final last = endPlan(entry.value, viewer: ids.last);
+          if (first.fit != last.fit) {
+            // A fit step one phone's seal would spoil (the Hunter's slip has
+            // nowhere clean beside it) is not taken on that phone: the hard
+            // rule never bends. Nothing else differs.
+            final (loose, tight) =
+                EndFit.levels.indexOf(first.fit) <
+                    EndFit.levels.indexOf(last.fit)
+                ? (first, last)
+                : (last, first);
+            final spoilt = loose.refused.firstWhere((p) => p.fit == tight.fit);
+            expect(
+              coverFaults(spoilt).any((f) => f.contains('seal')),
+              isTrue,
+              reason: '${entry.key}: the phones differ in fit, not by a seal',
+            );
+            continue;
+          }
           expect(first.rows, last.rows, reason: entry.key);
           for (final c in first.cards) {
             expect(last.card(c.id).rect, c.rect, reason: entry.key);

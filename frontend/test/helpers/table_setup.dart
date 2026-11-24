@@ -36,6 +36,7 @@ import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
 import 'live_game_setup.dart' show testHealTiming;
+import 'text_scale.dart';
 
 // 01 Join, 02 Table and 03 Deck through the app's real routes and providers
 // (`HomeGate`, the table's shell), every answer a recorded server payload
@@ -259,7 +260,7 @@ class TableSetup {
             theme: ref.watch(appThemeProvider),
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(textScale),
+                textScaler: ambientTextScaler(context, textScale),
                 // The phone's keyboard, up (a field focused).
                 viewInsets: EdgeInsets.only(bottom: keyboard),
               ),
@@ -326,6 +327,21 @@ class TableSetup {
 
   int count(String method, String path) =>
       http.requests.where((r) => r.method == method && r.path == path).length;
+
+  /// The server has this phone at no table (`/me/table/`) from the moment a
+  /// leave from [table] reaches it, answered or not, and not before: the
+  /// table's slow poll (50 ms in tests, 15 s on a phone) runs while a finger
+  /// is down, and a server that said "no table" before the leave would move
+  /// the phone off the table under the finger, which no phone sees.
+  void offTheTableOnceLeft(String table) => http.answerEach(
+    method: 'POST',
+    path: '/lobbies/$table/leave/',
+    answer: (_) => http.answer(
+      'GET',
+      '/me/table/',
+      ContractSamples.map('http/lobby/my_table_none'),
+    ),
+  );
 
   /// Lets answers and a screen change finish.
   Future<void> settle(WidgetTester tester) async {

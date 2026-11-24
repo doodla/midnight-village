@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
@@ -7,6 +8,7 @@ import '../skin/skin.dart';
 import 'fit_line.dart';
 import 'paper_pin.dart';
 import 'paper_piece.dart';
+import 'secondary_button.dart' show BusyMark;
 
 /// A scrap of bone paper pinned to a board, and tapped as a whole: "What
 /// happened", "Edit deck", "Leave". Its paper is [paperHeight] tall (more where
@@ -24,11 +26,23 @@ class PaperScrap extends StatelessWidget {
     this.id,
     this.pinned = true,
     this.width,
-  });
+    this.sends = false,
+    this.busy = false,
+  }) : assert(!busy || sends, 'a scrap that can be busy is one that sends');
 
   /// The words. A break the caller wants is a newline.
   final String label;
   final VoidCallback onTap;
+
+  /// Its tap sends a request, so it can be [busy]: its paper keeps the busy
+  /// mark's room at its end, as a button's padding does, so the mark never
+  /// lies on its words and the words never move.
+  final bool sends;
+
+  /// Its request is on its way: as on `PrimaryButton` and `SecondaryButton`,
+  /// the busy mark turns in the paper's own end room, the words stay in their
+  /// place in their full ink, and a tap does nothing.
+  final bool busy;
 
   /// Seeds the tear and the tilt (the label when null).
   final Object? id;
@@ -46,37 +60,74 @@ class PaperScrap extends StatelessWidget {
   /// What a finger can hit: the paper and the invisible margin round it.
   static const touchHeight = 48.0;
 
+  /// The end room of a scrap that [sends]: the busy mark, [Space.sm] in from
+  /// the paper's end, and air between it and the words.
+  static const busyRoom = Space.sm + Space.xl + Space.xxs;
+
+  Widget _busy(BuildContext context, Widget scrap) =>
+      _busyOver(context, scrap, busy);
+
   @override
   Widget build(BuildContext context) {
-    final words = _Words(label, pinned: pinned && context.dress.isPaper);
+    final words = _Words(
+      label,
+      pinned: pinned && context.dress.isPaper,
+      endRoom: sends ? busyRoom : Space.md,
+    );
+    final tap = busy ? null : onTap;
     return Semantics(
       button: true,
       label: label.replaceAll('\n', ' '),
+      value: busy ? SpokenCopy.working : null,
       excludeSemantics: true,
-      onTap: onTap,
+      onTap: tap,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onTap,
+        onTap: tap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: touchHeight),
           child: Center(
             widthFactor: 1,
             heightFactor: 1,
-            child: context.dress.isPaper
-                ? SizedBox(
-                    width: width,
-                    child: PaperPiece(
-                      part: PaperPart.scrap,
-                      id: id ?? label,
-                      child: words,
-                    ),
-                  )
-                : SizedBox(width: width, child: words),
+            child: _busy(
+              context,
+              context.dress.isPaper
+                  ? SizedBox(
+                      width: width,
+                      child: PaperPiece(
+                        part: PaperPart.scrap,
+                        id: id ?? label,
+                        child: words,
+                      ),
+                    )
+                  : SizedBox(width: width, child: words),
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// While busy: the busy mark turning in the scrap's own end room
+/// ([PaperScrap.busyRoom]), in its words' ink; the words keep their place and
+/// their ink, and nothing beside it moves (the form of `PrimaryButton`'s and
+/// `SecondaryButton`'s `Pending`).
+Widget _busyOver(BuildContext context, Widget scrap, bool busy) {
+  if (!busy) return scrap;
+  final ink = context.dress.isPaper
+      ? PaperPiece.inkOf(context, PaperPart.scrap)
+      : context.ground.text;
+  return Stack(
+    alignment: Alignment.center,
+    children: [
+      scrap,
+      PositionedDirectional(
+        end: Space.sm,
+        child: BusyMark(size: Space.xl, color: ink),
+      ),
+    ],
+  );
 }
 
 /// A slip of bone paper that says something and is no control: the words of a
@@ -127,11 +178,19 @@ class PaperSlip extends StatelessWidget {
 /// The words of a scrap or a slip, on its paper: padded, with the pin's room
 /// kept clear on the left when it is pinned.
 class _Words extends StatelessWidget {
-  const _Words(this.label, {required this.pinned, this.maxLines});
+  const _Words(
+    this.label, {
+    required this.pinned,
+    this.maxLines,
+    this.endRoom = Space.md,
+  });
 
   final String label;
   final bool pinned;
   final int? maxLines;
+
+  /// The padding at its end: more on a scrap that sends, for the busy mark.
+  final double endRoom;
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +213,7 @@ class _Words extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(
           pinned ? Space.md + pin : Space.md,
           Space.xxs,
-          Space.md,
+          endRoom,
           Space.xxs,
         ),
         child: Center(

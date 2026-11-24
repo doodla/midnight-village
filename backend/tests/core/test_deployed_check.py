@@ -45,24 +45,41 @@ def test_health_names_the_commit_the_build_was_made_from(live_server, monkeypatc
 def test_waiting_for_a_commit_that_never_arrives_fails_and_says_what_is_live(
     live_server,
 ):
-    with pytest.raises(deployed_check.Failed, match="server: NO deploy arrived"):
+    with pytest.raises(
+        deployed_check.Failed, match=r"server: NO deploy of f{10} arrived"
+    ):
         deployed_check.wait_for_commit(live_server.url, None, "f" * 40, seconds=0)
     failures = deployed_check.run(live_server.url, commit="f" * 40, wait=0)
     # the missing deploy is the one failure: the build that IS serving is still
     # checked (health, Start and Join), and works
-    assert len(failures) == 1 and "NO deploy arrived" in failures[0]
+    assert len(failures) == 1 and "NO deploy of" in failures[0]
 
 
 def test_a_missing_deploy_is_told_for_the_server_and_the_app_each_on_its_own():
     """Vercel builds and skips the two separately: the message says which."""
     merged, older = "a" * 40, "b" * 40
     app_only = deployed_check.no_deploy_message(merged, 900, older, merged, True)
-    assert f"server: NO deploy arrived; still serving {older[:10]}" in app_only
+    assert (
+        f"server: NO deploy of {merged[:10]} arrived; still serving {older[:10]}"
+        in app_only
+    )
     assert "app: deployed" in app_only
     neither = deployed_check.no_deploy_message(merged, 900, older, "", True)
-    assert neither.count("NO deploy arrived") == 2
+    assert neither.count("NO deploy of") == 2
     server_alone = deployed_check.no_deploy_message(merged, 900, older, "", False)
     assert "app:" not in server_alone
+
+
+def test_each_side_can_wait_for_its_own_commit(live_server, monkeypatch):
+    """The server and the app are deployed from their own branches."""
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "abc123")
+    told = deployed_check.no_deploy_message(
+        "abc123", 0, "abc123", "old", True, "def456"
+    )
+    assert "server: deployed (abc123)" in told
+    assert "app: NO deploy of def456 arrived; still serving old" in told
+    # with no app address only the server's commit is waited for
+    deployed_check.wait_for_commit(live_server.url, None, "abc123", 0, app_commit="zzz")
 
 
 def test_a_page_of_html_where_json_belongs_fails_the_step(live_server):
