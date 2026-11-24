@@ -30,7 +30,8 @@ inputs() {
   find lib web assets test_screens pubspec.yaml pubspec.lock -type f -print0 2>/dev/null |
     LC_ALL=C sort -z | xargs -0 sha256sum
 }
-version="$(flutter --version --machine 2>/dev/null | sha256sum)"
+# no Flutter here (a test with a stand-in build): no version, and the build says so itself
+version="$({ flutter --version --machine 2>/dev/null || true; } | sha256sum)"
 key="$({
   inputs
   printf 'args:%s\n' "$@"
