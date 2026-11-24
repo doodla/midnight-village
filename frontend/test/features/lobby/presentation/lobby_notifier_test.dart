@@ -366,8 +366,8 @@ void main() {
         expect(after.notSent, isFalse);
       });
 
-      test('a refused change is taken back and says "Not sent."; Try again '
-          'sends it again', () async {
+      test('a change that gets no answer is taken back and says "Not '
+          'sent."; Try again sends it again', () async {
         container = createContainer();
         container.listen(lobbyProvider('ABC123'), (_, _) {});
         await container.read(lobbyProvider('ABC123').future);
