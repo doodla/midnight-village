@@ -412,3 +412,7 @@ test-marker *args:
 # (backend) The migration tests, against a database built by the real migrations (no coverage)
 test-migrations *args:
     {{backend_just}} test-migrations {{args}}
+
+# (frontend) Usage: just end-link-pictures [folder]
+end-link-pictures *args:
+    {{frontend_just}} end-link-pictures {{args}}

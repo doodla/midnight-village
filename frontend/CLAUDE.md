@@ -123,7 +123,7 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 - **No waits.** Nothing adds a wait, a minimum time or an assumed timer length: lengths come
   from the server's deadlines, which are the table's settings. "Ready to vote" is never
   locked.
-- **Words**: every player-facing string is in `lib/design_system/copy/copy.dart` (read them
+- **Words**: every player-facing string is in `lib/design_system/copy/` (the library `copy.dart`, one part file per screen's words: `vote_copy.dart`, `table_copy.dart`, ...; read them
   all on one page with `just copy-page` at the repo root; a spec names a copy class or key in
   backticks, never the words, and `just check` fails a name that does not exist), held to the
   spec's budgets by `copy_budget_test.dart`; none in widgets.
