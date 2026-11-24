@@ -333,7 +333,13 @@ the round's mock, on purpose (the owner rejected busier designs; the fixing pass
 - **A middle card is lifted onto the board for its step** (owner, 24 Nov 2026: a thread down to the foot "sweeps a long
   way"): beside the card of the one who acted, clear of every card, seal and the lantern where the window has room,
   else in front of cards the step is not about, as the fit pass lifts a card (`nightMiddleAt`); its place in the foot
-  stands empty for the step. Never a bare "Left", "Right" or "Middle".
+  stands empty for the step. Never a bare "Left", "Right" or "Middle". Lifting is the preferred form, and it never
+  covers a name, card, seal or tag (coordinator's rule, 24 Nov 2026; `nightLiftedOf`): the step's middle cards side by
+  side where they fit clear; else two of them fanned, the second over the first's far third and raised by its strip,
+  so each shows its strip and at least two thirds of its face; else none is lifted. Then they stay in the foot, raised
+  there (the selection's lift), and the thread runs from the one who acted down over the lip to each, the shortest way
+  that crosses no card or name (`end_night_foot.dart`); the board stands with the one who acted as the lowest card in
+  view where the window allows (`nightStandOf`). The step's banner line is the same in every form.
 - **Links** (owner, 24 Nov 2026: "The links are not at all polished there are breaks."): one part, `CardLink`
   (`design_system/primitives/card_link.dart`), given the two cards as they lie (turned, lifted). It is tied ON each
   card's edge where the two face each other, never under a seal, and bends gently, more only as needed to clear every
@@ -343,7 +349,7 @@ the round's mock, on purpose (the owner rejected busier designs; the fixing pass
   lifted beside the near one for the step (`nightStepOf`). It draws in on the step's clock (a tap finishes it). The
   sweep (`end_night_sweep_test.dart`, `test/helpers/end_links.dart`) holds it on every recorded night and ten players
   at 360 x 640, 360 x 780, 390 x 844 and 412 x 915, text 1.0, 1.3, 1.6: both ends on the right cards' edges (within a
-  point), the path in the window, off its own cards, across no other card or seal (a card the step lifted a card over
+  point), the path in the window (down over the foot to a middle card kept there), off its own cards, across no other card or seal (a card the step lifted a card over
   is under the step; where the step's cards cannot lie apart at all, only the ends are judged), the ends right for
   the kind. The `12-end-night-*` pages' sweep plan carries the same rule.
 - **The way back reads "The result"** (two words); after the last step one more tap is the result. **No auto-advance**:

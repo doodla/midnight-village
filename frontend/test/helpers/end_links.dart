@@ -34,8 +34,14 @@ List<String> nightLinkFaults(WidgetTester tester) {
   if (drawn.evaluate().isEmpty) {
     return [if (step.threads.isNotEmpty) '${night.line}: no links drawn'];
   }
-  final links = tester.widget<NightLinks>(drawn).links;
-  final box = tester.renderObject<RenderBox>(drawn);
+  // The board's links, and the threads down to the middle cards where they
+  // stay in the foot (NightFootLinks), each in its own painter's frame.
+  final drawnLinks = [
+    for (final e in drawn.evaluate())
+      for (final l in (e.widget as NightLinks).linksNow())
+        (l, e.findRenderObject()! as RenderBox),
+  ];
+  final links = [for (final (l, _) in drawnLinks) l];
   if (links.length != step.threads.length) {
     faults.add(
       '${night.line}: ${links.length} links for '
@@ -76,7 +82,7 @@ List<String> nightLinkFaults(WidgetTester tester) {
             .evaluate())
       tester.getRect(find.byWidget(e.widget)),
   ];
-  for (final (:from, :to, :link) in links) {
+  for (final ((:from, :to, :link), box) in drawnLinks) {
     final why = '${night.line}: ${_named(from)} to ${_named(to)}';
     final a = cardOf(from), b = cardOf(to);
     if (a == null || b == null) {
@@ -93,8 +99,12 @@ List<String> nightLinkFaults(WidgetTester tester) {
     if (b.edgeDistance(points.last) > 1) {
       faults.add('$why: ends ${points.last} off its card\'s edge');
     }
-    // Every other card on the board, but one the step lifted a card over
-    // (it lies under the step's cards, as the fit pass lifts them).
+    // A middle card kept in the foot: its thread runs down over the lip.
+    final inFoot = foot.overlaps(a.bounds) || foot.overlaps(b.bounds);
+    final reach = inFoot ? room.expandToInclude(foot.inflate(0.5)) : room;
+    // Every other card on the board (and in the foot), but one the step
+    // lifted a card over (it lies under the step's cards, as the fit pass
+    // lifts them).
     final mine = [
       for (final place in step.places) ?cardOf(place)?.bounds.deflate(2),
     ];
@@ -102,11 +112,12 @@ List<String> nightLinkFaults(WidgetTester tester) {
       for (final place in night.placed)
         if (place != from && place != to)
           if (cardOf(place) case final card?)
-            if (room.overlaps(card.bounds) && !mine.any(card.bounds.overlaps))
-              card,
+            if ((place is CenterPlace ? reach : room).overlaps(card.bounds) &&
+                !mine.any(card.bounds.overlaps))
+              (place, card),
     ];
     final inner = points.sublist(1, points.length - 1);
-    if (!points.every(room.contains)) {
+    if (!points.every(reach.contains)) {
       faults.add('$why: leaves the board\'s window $room');
     }
     if (inner.any(
@@ -114,7 +125,12 @@ List<String> nightLinkFaults(WidgetTester tester) {
     )) {
       faults.add('$why: runs under its own card');
     }
-    if (inner.any((p) => others.any((c) => c.contains(p)))) {
+    // A player's card is seen only in the window: under the foot it is
+    // hidden, and a thread down to the foot passes over the foot there.
+    final seen = room.deflate(1);
+    bool over(LaidCard c, CardPlace place, Offset p) =>
+        c.contains(p) && (place is CenterPlace || seen.contains(p));
+    if (inner.any((p) => others.any((o) => over(o.$2, o.$1, p)))) {
       faults.add('$why: crosses another card (clear: ${link.clear})');
     }
     if (points.any((p) => seals.any((s) => s.contains(p)))) {

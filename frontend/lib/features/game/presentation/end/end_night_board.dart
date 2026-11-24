@@ -16,6 +16,7 @@ import '../../domain/end_story.dart';
 import '../../domain/night_timeline.dart';
 import 'end_cards.dart';
 import 'end_night.dart';
+import 'end_night_foot.dart';
 import 'end_night_links.dart';
 import 'end_reveal.dart';
 
@@ -40,6 +41,13 @@ class NightBoard extends StatelessWidget {
     if (night == null || story == null || !night.on) {
       return const SizedBox.shrink();
     }
+    return ValueListenableBuilder(
+      valueListenable: night.laidOut,
+      builder: (context, _, _) => _night(context, night),
+    );
+  }
+
+  Widget _night(BuildContext context, EndNight night) {
     final skin = context.skin;
     final mood = skin.mood;
     final frame = Rect.fromLTWH(
@@ -49,12 +57,15 @@ class NightBoard extends StatelessWidget {
       plan.boardHeight,
     );
     final players = nightPlayersOf(plan, night);
+    // Lifted or kept in the foot, as the foot was told (end_night_foot.dart).
+    final told = night.laidOut.value;
     final laid = nightStepOf(
       plan,
       night.current,
       players: players,
       origin: origin,
       deal: night.opening,
+      inFoot: told == null ? null : nightFootRaised(night).isNotEmpty,
       head: context.skin.parts.linkHead,
     );
     final docked = laid.docked, lifted = laid.lifted, links = laid.links;

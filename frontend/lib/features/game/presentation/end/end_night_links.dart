@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
+import '../../../../design_system/primitives/board_pieces.dart';
 import '../../../../design_system/primitives/card_link.dart';
 import '../../../../design_system/primitives/one_light.dart';
 import '../../../../design_system/primitives/twine.dart';
@@ -17,11 +20,20 @@ import 'end_night.dart';
 // [CardLink] per thread of the step, tied between the cards as they lie on
 // the night board, turned and lifted as drawn. A middle card the step is
 // about is lifted onto the board beside the one who acted for the step
-// ([nightLiftedOf]), so no thread leaves the board.
+// ([nightLiftedOf]), so no thread leaves the board; where no lift leaves
+// every name clear, it stays in the foot, raised there, and its thread runs
+// down to it (end_night_foot.dart).
+
+/// How much of the back card of a fanned pair shows past the front one,
+/// across: its strip all, and this share of its face.
+const _fanShows = 2 / 3;
 
 /// The middle cards [step] is about, each where it lies on the board for
 /// the step (in the board's frame, as [EndBoardPlan]'s rects): beside the
-/// card of the one who acted, clear of every card, seal and the lantern.
+/// card of the one who acted, clear of every card, seal, name and the
+/// lantern; side by side, or else (two of them) fanned, the second over the
+/// first, each showing its strip and the most of its face. Where neither
+/// leaves every name clear: none (empty), and the cards stay in the foot.
 Map<int, Rect> nightLiftedOf(
   EndBoardPlan plan,
   StoryStep? step, {
@@ -36,57 +48,158 @@ Map<int, Rect> nightLiftedOf(
   if (middles.isEmpty) return const {};
   final actor = plan.card(step.actors.first);
   Rect lying(Rect r, int id) => r.shift(docked[id] ?? Offset.zero);
-  final taken = [
+  final own = {
+    for (final p in step.places)
+      if (p is PlayerPlace) p.playerId,
+  };
+  final widest = plan.cards
+      .map((c) => c.rect.width)
+      .reduce((a, b) => a > b ? a : b);
+  final size = Size(widest, actor.rect.height - actor.header);
+  final names = [
+    for (final c in plan.cards) nightNameOf(c, docked[c.id] ?? Offset.zero),
+  ];
+  final under = [
+    for (final c in plan.cards)
+      if (own.contains(c.id) && c.id != actor.id) lying(c.leaned, c.id),
+  ];
+  // Where the next card of [size] may lie, clear of [taken] (every card and
+  // seal, and the cards lifted before it) and of the step's own ([mine]).
+  Rect? place(Size size, List<Rect> taken, List<Rect> mine) =>
+      nightMiddleClearAt(
+        plan,
+        actor: lying(actor.leaned, actor.id),
+        size: size,
+        taken: taken,
+        step: mine,
+        names: names,
+        under: under,
+        scroll: scroll,
+      );
+  List<Rect> taken() => [
     plan.lantern,
     for (final c in plan.cards) ...[
       lying(c.leaned, c.id),
       if (c.sealRect case final seal?) lying(seal, c.id),
     ],
   ];
-  final own = {
-    for (final p in step.places)
-      if (p is PlayerPlace) p.playerId,
-  };
-  final mine = [
+  List<Rect> mine() => [
     for (final c in plan.cards)
       if (own.contains(c.id)) ...[
         lying(c.leaned, c.id),
         if (c.sealRect case final seal?) lying(seal, c.id),
       ],
   ];
-  final widest = plan.cards
-      .map((c) => c.rect.width)
-      .reduce((a, b) => a > b ? a : b);
-  final size = Size(widest, actor.rect.height - actor.header);
-  final lifted = <int, Rect>{};
+  // Side by side.
+  final apart = <int, Rect>{};
+  final clearOf = taken(), steps = mine();
   for (final i in middles) {
-    final at = nightMiddleAt(
-      plan,
-      actor: lying(actor.leaned, actor.id),
-      size: size,
-      taken: taken,
-      step: mine,
-      names: [
-        for (final c in plan.cards) nightNameOf(c, docked[c.id] ?? Offset.zero),
-      ],
-      under: [
-        for (final c in plan.cards)
-          if (own.contains(c.id) && c.id != actor.id) lying(c.leaned, c.id),
-      ],
-      scroll: scroll,
-    );
-    lifted[i] = at;
-    taken.add(at);
-    mine.add(at);
+    final at = place(size, clearOf, steps);
+    if (at == null) break;
+    apart[i] = at;
+    clearOf.add(at);
+    steps.add(at);
   }
-  return lifted;
+  if (apart.length == middles.length) return apart;
+  // Fanned: the second lies over the first's far side, raised by the
+  // first's strip, so its strip and the most of its face show.
+  if (middles.length == 2) {
+    final rise = BoardCard.stripUp + actor.stripHeight + BoardCard.stripUp;
+    final across = size.width * _fanShows;
+    final pair = Size(across + size.width, size.height + rise);
+    if (place(pair, taken(), mine()) case final at?) {
+      return {
+        middles.first: Rect.fromLTWH(
+          at.left,
+          at.top + rise,
+          size.width,
+          size.height,
+        ),
+        middles.last: Rect.fromLTWH(
+          at.left + across,
+          at.top,
+          size.width,
+          size.height,
+        ),
+      };
+    }
+  }
+  return const {};
+}
+
+/// Whether the step's middle cards stay in the foot for [step] (none can be
+/// lifted with every name clear, [nightLiftedOf]): the board then stands
+/// with the one who acted as low in the window as it can, over the foot.
+bool nightInFoot(EndBoardPlan plan, StoryStep? step, List<int> players) {
+  if (!_aboutMiddles(step)) return false;
+  final view = nightViewOf(plan, players);
+  return nightLiftedOf(
+    plan,
+    step,
+    docked: view.docked,
+    scroll: view.scroll,
+  ).isEmpty;
+}
+
+/// Whether [step] is about a middle card, and someone acted for it.
+bool _aboutMiddles(StoryStep? step) =>
+    step != null &&
+    step.actors.isNotEmpty &&
+    step.places.any((p) => p is CenterPlace);
+
+/// Where the board stands for [step] ([nightViewOf]): as low as it can with
+/// the step's cards in view where its middle cards stay in the foot
+/// ([nightInFoot]), so the thread down to them is short.
+({double scroll, Map<int, Offset> docked}) nightStandOf(
+  EndBoardPlan plan,
+  StoryStep? step,
+  List<int> players, {
+  bool deal = false,
+}) => !deal && nightInFoot(plan, step, players)
+    ? _lowView(plan, players)
+    : nightViewOf(plan, players, deal: deal);
+
+/// The board standing for a step whose middle cards stay in the foot: as
+/// low as it can with the step's cards whole in the window, but no lower
+/// than leaves the cards under them hidden under the foot's lip, so the
+/// one who acted is the lowest card in view and its thread runs straight
+/// down.
+({double scroll, Map<int, Offset> docked}) _lowView(
+  EndBoardPlan plan,
+  List<int> players,
+) {
+  final view = nightViewOf(plan, players, deal: true);
+  if (!plan.scrolls || players.isEmpty) return view;
+  final seen = plan.viewHeight - EndMetrics.lip;
+  final step = [
+    for (final id in players)
+      if (plan.card(id).sealRect case final seal?)
+        plan.card(id).leaned.expandToInclude(seal)
+      else
+        plan.card(id).leaned,
+  ];
+  final bottom = step.map((r) => r.bottom).reduce(math.max);
+  final under = [
+    for (final c in plan.cards)
+      if (!players.contains(c.id) && c.leaned.center.dy > bottom) c.leaned.top,
+  ];
+  if (under.isEmpty) return view;
+  final top = step.map((r) => r.top).reduce(math.min);
+  // The cards under them just under the lip: lower than the board stands
+  // for the deal, where their tops would peek over it.
+  final low = under.reduce(math.min) - seen;
+  // Only while the step's cards stay whole in the window.
+  if (low < 0 || low >= view.scroll || top < low) return view;
+  return (scroll: low, docked: view.docked);
 }
 
 /// The step shown, as the night board lays it: where each card lies
 /// ([docked], [lifted], [level]) and its links. Where a link cannot run
 /// clear of every other card, its far card is lifted beside the near one
 /// for the step, as a middle card is ([nightMiddleAt]), and the links are
-/// tied again.
+/// tied again. [inFoot]: whether the step's middle cards stay in the foot,
+/// as the foot was told ([EndNight.laidOut]), so the two never both hold a
+/// card; null: as this [plan] has it.
 ({
   Map<int, Offset> docked,
   Map<int, Rect> lifted,
@@ -99,12 +212,20 @@ nightStepOf(
   required List<int> players,
   required Offset origin,
   bool deal = false,
+  bool? inFoot,
   double head = TwinePainter.headLength,
 }) {
-  final view = nightViewOf(plan, players, deal: deal);
+  final first = nightViewOf(plan, players, deal: deal);
+  final lifted = inFoot ?? false
+      ? const <int, Rect>{}
+      : nightLiftedOf(plan, step, docked: first.docked, scroll: first.scroll);
+  // In the foot: the board stands low ([nightStandOf]), and the middle
+  // cards' threads are the page's (end_night_foot.dart).
+  final low = inFoot ?? (lifted.isEmpty && _aboutMiddles(step));
+  final view = low ? _lowView(plan, players) : first;
+  final scroll = view.scroll;
   final docked = {...view.docked};
   final level = nightLevel(docked, players.length);
-  final lifted = nightLiftedOf(plan, step, docked: docked, scroll: view.scroll);
   List<NightLink> tie() => nightLinksOf(
     plan,
     head: head,
@@ -113,7 +234,7 @@ nightStepOf(
     docked: docked,
     level: level,
     lifted: lifted,
-    scroll: view.scroll,
+    scroll: scroll,
   );
   var links = tie();
   final moved = <int>{};
@@ -158,7 +279,7 @@ nightStepOf(
           for (final c in plan.cards)
             if (own.contains(c.id)) lying(c),
         ],
-        scroll: view.scroll,
+        scroll: scroll,
       );
       docked[playerId] = at.topLeft - far.leaned.topLeft;
       moved.add(playerId);
@@ -212,7 +333,12 @@ List<NightLink> nightLinksOf(
     plan.boardWidth,
     plan.scrolls ? plan.viewHeight - EndMetrics.lip : plan.boardHeight,
   );
-  final mine = [for (final p in step.places) laid(p).bounds];
+  // The step's cards on the board (a middle card kept in the foot is not).
+  final shown = [
+    for (final p in step.places)
+      if (p is PlayerPlace || lifted.containsKey(_index(p))) p,
+  ];
+  final mine = [for (final p in shown) laid(p).bounds];
   final seals = [
     for (final c in plan.cards)
       if (c.sealRect case final seal?)
@@ -234,7 +360,7 @@ List<NightLink> nightLinksOf(
               avoid: [
                 plan.lantern.shift(origin),
                 ...seals,
-                for (final p in step.places)
+                for (final p in shown)
                   if (p != t.from && p != t.to) laid(p).bounds,
                 // A card the step lifted a card over is under it: the
                 // thread may pass over it there.
@@ -253,20 +379,30 @@ List<NightLink> nightLinksOf(
 int? _index(CardPlace p) => p is CenterPlace ? p.index : null;
 
 /// The step's links, drawn from one end to the other on its clock (a
-/// paint, not a build): [links] is what the tests read.
+/// paint, not a build): [linksNow] is what the tests read.
 class NightLinks extends StatelessWidget {
   const NightLinks({
     super.key,
     required this.night,
     required this.links,
     required this.werewolf,
+    this.measured,
+    this.moved,
   });
 
   final EndNight night;
   final List<NightLink> links;
 
+  /// Links tied as the cards lie when painted (a thread down to the foot,
+  /// [NightFootLinks]), in place of [links]; painted again as [moved] moves.
+  final List<NightLink> Function()? measured;
+  final Listenable? moved;
+
   /// The Werewolf team's act: red.
   final bool werewolf;
+
+  /// The links as they are drawn now.
+  List<NightLink> linksNow() => measured?.call() ?? links;
 
   @override
   Widget build(BuildContext context) {
@@ -275,12 +411,14 @@ class NightLinks extends StatelessWidget {
       size: Size.infinite,
       painter: _LinksPainter(
         night: night,
-        links: links,
+        links: linksNow,
         color: werewolf ? context.skin.parts.werewolfWonPaper : ground.text,
         shadow:
             ground.elevation.card.layers.firstOrNull?.color ?? ground.shadow,
         light: OneLight.maybeOf(context),
         parts: context.skin.parts,
+        moved: moved,
+        key: measured == null ? links : null,
       ),
     );
   }
@@ -296,12 +434,17 @@ class _LinksPainter extends CustomPainter {
     required this.shadow,
     required this.light,
     required this.parts,
+    required this.key,
+    Listenable? moved,
   }) : step = night.step ?? 0,
-       super(repaint: night.clock);
+       super(repaint: Listenable.merge([night.clock, moved]));
 
   final EndNight night;
   final int step;
-  final List<NightLink> links;
+  final List<NightLink> Function() links;
+
+  /// What the links are (null: measured as painted, so always painted).
+  final Object? key;
   final Color color;
   final Color shadow;
   final OneLight? light;
@@ -313,7 +456,7 @@ class _LinksPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final drawn = night.drawn();
     if (drawn <= 0) return;
-    for (final (from: _, to: _, :link) in links) {
+    for (final (from: _, to: _, :link) in links()) {
       final full = link.route;
       TwinePainter(
         route: TwineRoute(
@@ -340,7 +483,8 @@ class _LinksPainter extends CustomPainter {
   bool shouldRepaint(_LinksPainter old) =>
       old.step != step ||
       old.night != night ||
-      old.links != links ||
+      key == null ||
+      old.key != key ||
       old.color != color ||
       old.parts != parts;
 }

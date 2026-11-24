@@ -209,6 +209,52 @@ Rect nightMiddleAt(
   List<Rect> names = const [],
   List<Rect> under = const [],
   double scroll = 0,
+}) => _middleAt(
+  plan,
+  actor: actor,
+  size: size,
+  taken: taken,
+  step: step,
+  names: names,
+  under: under,
+  scroll: scroll,
+  clear: false,
+)!;
+
+/// Where [nightMiddleAt] puts a card, only where it leaves every card it is
+/// not lifted over, every seal and every player's name clear: null where no
+/// such place is in the window (the step's middle cards stay in the foot).
+Rect? nightMiddleClearAt(
+  EndBoardPlan plan, {
+  required Rect actor,
+  required Size size,
+  required List<Rect> taken,
+  List<Rect> step = const [],
+  List<Rect> names = const [],
+  List<Rect> under = const [],
+  double scroll = 0,
+}) => _middleAt(
+  plan,
+  actor: actor,
+  size: size,
+  taken: taken,
+  step: step,
+  names: names,
+  under: under,
+  scroll: scroll,
+  clear: true,
+);
+
+Rect? _middleAt(
+  EndBoardPlan plan, {
+  required Rect actor,
+  required Size size,
+  required List<Rect> taken,
+  required List<Rect> step,
+  required List<Rect> names,
+  required List<Rect> under,
+  required double scroll,
+  required bool clear,
 }) {
   const gap = EndMetrics.clear;
   final seen = math.min(plan.boardHeight, plan.viewHeight - EndMetrics.lip);
@@ -280,9 +326,12 @@ Rect nightMiddleAt(
       EndMetrics.clear,
       false,
     ),
-    (step, false, room, true),
-    (step, false, EndMetrics.clear * 3, true),
-    (step, false, EndMetrics.clear, false),
+    // Over a name: never where it must leave every name clear.
+    if (!clear) ...[
+      (step, false, room, true),
+      (step, false, EndMetrics.clear * 3, true),
+      (step, false, EndMetrics.clear, false),
+    ],
   ]) {
     clearOf = tier;
     named = keepNames ? names : const [];
@@ -305,7 +354,7 @@ Rect nightMiddleAt(
     }
     if (best != null) return best;
   }
-  return slide(beside().first);
+  return clear ? null : slide(beside().first);
 }
 
 /// Where [card]'s name is drawn as the card lies ([lift]: its offset for the

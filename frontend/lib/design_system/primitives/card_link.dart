@@ -129,8 +129,9 @@ class CardLink {
   /// each other (never under anything in [avoid]: the other cards, every
   /// seal and tag), bending gently and as little as clears [avoid], inside
   /// [frame]; a move's thread runs at least four of its [head]s long where
-  /// it can. Where nothing clears, the gentlest that stays off its own
-  /// cards, marked not [clear].
+  /// it can; where nothing clears with both ends turned alike, each end
+  /// turned on its own. Where nothing clears, the gentlest that stays off
+  /// its own cards, marked not [clear].
   factory CardLink.between(
     LaidCard a,
     LaidCard b, {
@@ -176,6 +177,31 @@ class CardLink {
       }
     }
     if (short != null) return CardLink(route: short, kind: kind, clear: true);
+    // Nothing clears with the two ends turned alike: each end turned on its
+    // own (out of one card's foot and into the other's top, between rows),
+    // an end free to leave its edge slantwise.
+    for (final bow in bows) {
+      for (final aimA in aims) {
+        for (final aimB in aims) {
+          final control =
+              Offset.lerp(a.center, b.center, 0.5)! + normal * (bow * length);
+          final from = a.edgeToward(_aimed(a.center, control, aimA));
+          final to = b.edgeToward(_aimed(b.center, control, aimB));
+          final span = (to - from).distance;
+          final route = TwineRoute(
+            from,
+            Offset.lerp(from, to, 0.5)! + normal * (bow * span),
+            to,
+          );
+          if (!_offItsCards(route, a, b, inset: 0.5)) continue;
+          if (others.any((r) => r.contains(from) || r.contains(to))) continue;
+          if (frame != null && !_inside(route, frame)) continue;
+          if (_crosses(route, others)) continue;
+          if (_length(route) < least) continue;
+          return CardLink(route: route, kind: kind, clear: true);
+        }
+      }
+    }
     final from = a.edgeToward(b.center), to = b.edgeToward(a.center);
     return CardLink(
       route: fallback ?? TwineRoute(from, Offset.lerp(from, to, 0.5)!, to),
@@ -202,9 +228,17 @@ class CardLink {
     return length;
   }
 
-  static bool _offItsCards(TwineRoute route, LaidCard a, LaidCard b) => _inner(
+  /// Whether the route keeps off its own two cards: [inset] past their
+  /// edges (inside them, where negative, as an end leaving its edge
+  /// slantwise does).
+  static bool _offItsCards(
+    TwineRoute route,
+    LaidCard a,
+    LaidCard b, {
+    double inset = -0.5,
+  }) => _inner(
     route,
-  ).every((p) => !a.contains(p, inset: -0.5) && !b.contains(p, inset: -0.5));
+  ).every((p) => !a.contains(p, inset: inset) && !b.contains(p, inset: inset));
 
   static bool _inside(TwineRoute route, Rect frame) =>
       route.sample(TwinePainter.steps).every(frame.inflate(0.5).contains);

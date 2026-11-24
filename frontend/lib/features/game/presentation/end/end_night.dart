@@ -9,6 +9,7 @@ import '../../../../design_system/skin/dress_style.dart';
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/skin.dart';
+import '../../domain/end_board.dart';
 import '../../domain/end_story.dart';
 import '../../domain/night_timeline.dart';
 import 'end_reveal.dart';
@@ -92,6 +93,15 @@ class EndNight extends ChangeNotifier {
   /// Every place given a key so far.
   Iterable<CardPlace> get placed => _keys.keys;
 
+  /// The board as it was last planned (its window's room): what the foot
+  /// reads to know whether the step's middle cards are lifted onto the
+  /// board or stay in the foot ([nightInFoot]).
+  final laidOut = ValueNotifier<EndBoardPlan?>(null);
+
+  /// How far the board's window has scrolled: a thread down to the foot
+  /// follows the board.
+  final scrolled = ValueNotifier<double>(0);
+
   /// The night falls: the cards turn to the deal.
   void open() {
     if (story == null) return;
@@ -155,6 +165,8 @@ class EndNight extends ChangeNotifier {
   @override
   void dispose() {
     clock.dispose();
+    laidOut.dispose();
+    scrolled.dispose();
     super.dispose();
   }
 }

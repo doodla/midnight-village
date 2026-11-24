@@ -29,6 +29,7 @@ export 'end_foot.dart' show EndAct;
 import 'end_board_window.dart';
 import 'end_foot.dart';
 import 'end_night.dart';
+import 'end_night_foot.dart';
 import 'end_reveal.dart';
 
 /// The end of the game, settled: a notice board in the village square at
@@ -382,6 +383,8 @@ class _EndBoardViewState extends State<EndBoardView>
           top: windowTop,
           child: _still(context, BoardRoof(width: screen.width)),
         ),
+        // A thread down to a middle card in the foot, over the board's lip.
+        Positioned.fill(child: NightFootLinks(boardTop: boardTop)),
         Positioned(
           left: 0,
           right: 0,
@@ -403,7 +406,13 @@ class _EndBoardViewState extends State<EndBoardView>
         ),
       ],
     );
-    return page;
+    return NotificationListener<ScrollUpdateNotification>(
+      onNotification: (n) {
+        _night.scrolled.value = n.metrics.pixels;
+        return false;
+      },
+      child: page,
+    );
   }
 
   /// What holds still in the reveal is its own layer, painted once. Settled
@@ -499,6 +508,11 @@ class _EndBoardViewState extends State<EndBoardView>
           );
     _plan = (key, plan);
     _planned(plan);
+    if (!identical(_night.laidOut.value, plan)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _night.laidOut.value = plan;
+      });
+    }
     return _still(
       context,
       EndBoardWindow(plan: plan, scrollController: widget.scrollController),

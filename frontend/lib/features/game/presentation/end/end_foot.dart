@@ -18,6 +18,7 @@ import '../../domain/end_story.dart';
 import '../../domain/night_timeline.dart';
 
 import 'end_night.dart';
+import 'end_night_foot.dart';
 import 'end_reveal.dart';
 
 // The foot of the end board, on the cobbles, under the board's window: "What
@@ -334,7 +335,10 @@ class _MiddleCards extends StatelessWidget {
     final sizes = _sizes(context);
     final night = EndNightScope.maybeOf(context);
     if (night != null && night.on && night.story != null) {
-      return _atNight(context, night, sizes, strip);
+      return ValueListenableBuilder(
+        valueListenable: night.laidOut,
+        builder: (context, _, _) => _atNight(context, night, sizes, strip),
+      );
     }
     final driver = EndRevealScope.maybeOf(context);
     // In the reveal they lie face down and turn with the last row.
@@ -380,18 +384,25 @@ class _MiddleCards extends StatelessWidget {
     );
   }
 
-  BoardCard _card(int i, Size size, double strip, StoryFace f, BoardPaper p) =>
-      BoardCard(
-        role: f.face,
-        strip: f.strip.displayName,
-        paper: p,
-        size: size,
-        portraitWidth: _middlePortrait.width,
-        rect: Offset.zero & size,
-        angle: (i - 1) * _middleTurn,
-        stripHeight: strip,
-        semantics: f.strip.displayName,
-      );
+  BoardCard _card(
+    int i,
+    Size size,
+    double strip,
+    StoryFace f,
+    BoardPaper p, {
+    bool raised = false,
+  }) => BoardCard(
+    role: f.face,
+    strip: f.strip.displayName,
+    paper: p,
+    size: size,
+    portraitWidth: _middlePortrait.width,
+    rect: Offset.zero & size,
+    angle: (i - 1) * _middleTurn,
+    raised: raised,
+    stripHeight: strip,
+    semantics: f.strip.displayName,
+  );
 
   /// At night: the cards in the middle at this step, turning as the step
   /// moves one (and at the night's opening from the result to the deal).
@@ -402,14 +413,18 @@ class _MiddleCards extends StatelessWidget {
     double strip,
   ) {
     final before = night.before.centre, after = night.after.centre;
+    // The step's middle cards: lifted onto the board, or kept here raised
+    // where no lift leaves every name clear (end_night_foot.dart).
+    final raised = nightFootRaised(night);
     final lifted = {
       for (final p in night.current?.places ?? const <CardPlace>[])
-        if (p is CenterPlace) p.index,
+        if (p is CenterPlace && !raised.contains(p.index)) p.index,
     };
     Widget turned(int i) {
       final size = sizes[i];
       final box = Offset.zero & size;
-      Widget face(StoryFace f) => _card(i, size, strip, f, paperAtNight(f));
+      Widget face(StoryFace f) =>
+          _card(i, size, strip, f, paperAtNight(f), raised: raised.contains(i));
       Widget card = before[i] == after[i]
           ? face(after[i])
           : RevealTurn(

@@ -16,6 +16,7 @@ import '../../domain/end_night_view.dart';
 import '../../domain/end_reveal.dart';
 import 'end_cards.dart';
 import 'end_night.dart';
+import 'end_night_links.dart';
 import 'end_reveal.dart';
 
 // The end board's window (split from end_board_view.dart): the board itself,
@@ -139,8 +140,9 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
     if (night == null || shown == null) return;
     if (!widget.plan.scrolls || !c.hasClients) return;
     final position = c.position;
-    final to = nightViewOf(
+    final to = nightStandOf(
       widget.plan,
+      night.current,
       nightPlayersOf(widget.plan, night),
       deal: night.opening,
     ).scroll.clamp(position.minScrollExtent, position.maxScrollExtent);
