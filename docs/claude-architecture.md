@@ -124,7 +124,11 @@ the key; the words cannot drift into a second home) (`guardrails/tests/test_copy
 **Starting and handing over.** `just brief <screen>` (`tool/brief.py`) prints what a builder
 needs from the sources themselves: the spec's section and the owner's lines about the
 screen word for word, its catalogue states and parked faults, the files that draw it with
-their sizes, its tests, and the remote branches in the same files. `just handover <file>`
+their sizes, its tests, and the remote branches in the same files. Work that is not a screen
+has an area brief (`just brief copy`; `tool/brief_areas.py` is the table: an area's rules
+printed word for word from where they are written, its files with sizes, its model slice,
+its tests, who else is in them; `test_brief.py` fails a row that points at nothing), and
+`just brief` alone lists every brief. `just handover <file>`
 (`tool/handover.py`, `frontend/tool/handover_sheet.py`) is the one way to hand over: it
 refuses work that is not committed, pushed and mergeable with main; runs the fast check's
 plan at both widths plus the harness, each result and each finished set of pictures kept per commit

@@ -6,7 +6,8 @@ does that piece and reports; the rest of this page is not theirs to do.
 ## The shape of a piece
 
 1. One builder, in its own worktree with its own `DB_NAME`, gets a brief and builds one
-   finished piece. The brief says `just brief <screen>` and the task: that command prints the
+   finished piece. The brief says `just brief <screen>` (or, for work that is not a screen,
+   `just brief <area>`: `just brief` alone lists them) and the task: that command prints the
    spec's section and the owner's words about the screen as they are written, with its
    states, files, tests and who else is in them, so nothing is paraphrased from memory. It
    commits in small steps that each pass the checks.

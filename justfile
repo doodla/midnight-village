@@ -94,7 +94,9 @@ handover *args:
 
 # FIRST, before starting on a screen: its spec section and the owner's words about it
 # (word for word), its states, files, tests, and who else is in them (tool/brief.py).
-# Usage: just brief 09   |   just brief end-board
+# Work that is not a screen has an area brief (the lobby's queue, the outbox, the kit, the
+# words, the models, the server: tool/brief_areas.py). Alone, it lists every brief.
+# Usage: just brief 09   |   just brief end-board   |   just brief copy   |   just brief
 brief *args:
     @tool/brief.py {{args}}
 

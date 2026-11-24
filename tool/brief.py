@@ -244,24 +244,34 @@ def others_in(files: set[str]) -> dict[str, list[str]]:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 1:
-        print(
-            "usage: just brief <screen>     e.g. just brief 09, just brief end-board",
-            file=sys.stderr,
+    areas = tool("brief_areas")
+    if len(argv) == 1 and argv[0] in areas.AREAS:
+        print(areas.brief(argv[0], others_in))
+        return 0
+    sections = spec_sections((ROOT / SPEC).read_text())
+
+    def every(known: list[str]) -> str:
+        return (
+            f"Screens (just brief 09):\n  {' '.join(known)}\n"
+            "  or a word from a state's id (`just screens` lists them), e.g. end-board\n\n"
+            f"Areas that are not a screen (just brief copy):\n{areas.listing()}"
         )
-        return 2
+
+    if len(argv) != 1:
+        # no argument is a question, not a mistake: what briefs are there? (at once:
+        # the screens the spec names, without reading every state's widgets)
+        print("usage: just brief <screen or area>\n\n" + every(sorted(sections)))
+        return 0 if not argv else 2
     screens, piece = tool("piece_screens"), tool("piece_check")
     widgets = screens.state_widgets()
     states = sorted(widgets)
-    sections = spec_sections((ROOT / SPEC).read_text())
     numbers = which_screens(argv[0], states, sections)
     if not numbers:
         known = sorted(
             {screen_of(s) for s in states if re.match(r"\d\d", s)} | set(sections)
         )
         print(
-            f"brief: no screen '{argv[0]}'. Screens: {' '.join(known)}; or a word from a state's id (`just screens` lists them).",
-            file=sys.stderr,
+            f"brief: no screen or area '{argv[0]}'.\n\n{every(known)}", file=sys.stderr
         )
         return 1
     mine = [s for s in states if screen_of(s) in numbers]
