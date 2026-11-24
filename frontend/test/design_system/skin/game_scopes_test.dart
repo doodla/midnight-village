@@ -14,6 +14,7 @@ import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/werewolf_portrait.dart';
 
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/finger.dart';
 
 // A sheet or dialog is a route on the root navigator, above the table shell:
 // it must still see every game-wide scope (`GameScopes`), so a card detail
@@ -53,7 +54,7 @@ void main() {
       ),
       ground: GroundKind.day,
     );
-    await tester.tap(find.text('open'));
+    await pressLikeAFinger(tester, find.text('open'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
   }

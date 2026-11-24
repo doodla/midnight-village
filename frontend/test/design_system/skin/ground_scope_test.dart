@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/finger.dart';
 
 /// Records the ground its context reads.
 class _Probe extends StatelessWidget {
@@ -101,7 +102,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Open'));
+    await pressLikeAFinger(tester, find.text('Open'));
     await tester.pumpAndSettle();
     return inside;
   }
@@ -158,7 +159,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Open'));
+    await pressLikeAFinger(tester, find.text('Open'));
     await tester.pumpAndSettle();
     expect(body, GroundKind.paper);
     expect(edge, skin.day.selection);

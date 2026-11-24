@@ -19,6 +19,7 @@ import '../../../../test_screens/end_board_pages.dart' show endTen;
 import '../../../../test_screens/reading_floor.dart';
 import '../../../helpers/end_board_pump.dart';
 import '../../../helpers/outcome_samples.dart';
+import '../../../helpers/finger.dart';
 
 // The end board's reveal on a fake clock (docs/specs/frontend/end-board.md,
 // section 8; the timeline itself is end_reveal_test.dart in domain/): each
@@ -198,7 +199,7 @@ void main() {
     await _pump(tester, 'results_moved_dead_card');
     await tester.pump(const Duration(milliseconds: 300));
     expect(_seen(_backs), greaterThan(0));
-    await tester.tapAt(const Offset(195, 400));
+    await pressAtLikeAFinger(tester, const Offset(195, 400));
     await tester.pump();
     expect(_driver(tester), isNull);
     expect(_backs, findsNothing);
@@ -418,7 +419,7 @@ void main() {
     expect(offset(), closeTo(r.scroll, 0.5));
     await _to(tester, r.of(RevealBeat.lift)!.start);
     expect(offset(), closeTo(r.scroll, 0.5));
-    await tester.tapAt(const Offset(180, 300));
+    await pressAtLikeAFinger(tester, const Offset(180, 300));
     await tester.pump();
     expect(offset(), closeTo(r.scroll, 0.5), reason: 'settled where it opens');
   });

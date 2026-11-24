@@ -24,6 +24,7 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 import '../../helpers/art_decoded.dart';
 import '../../helpers/frame_pixels.dart';
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/finger.dart';
 
 // The end board's parts (piece 1 of the end board): each one's own promise,
 // beside the kit's tests that every part passes (`paper_components_test.dart`
@@ -102,14 +103,23 @@ void main() {
           expect(paper.height, PaperScrap.paperHeight);
           expect(PaperScrap.paperHeight, 40);
           // Four points above and below the paper is still the scrap...
-          await tester.tapAt(paper.topCenter - const Offset(0, 3));
-          await tester.tapAt(paper.bottomCenter + const Offset(0, 3));
+          await pressAtLikeAFinger(
+            tester,
+            paper.topCenter - const Offset(0, 3),
+          );
+          await pressAtLikeAFinger(
+            tester,
+            paper.bottomCenter + const Offset(0, 3),
+          );
           expect(taps, 2);
           // ...and ten is not.
-          await tester.tapAt(paper.topCenter - const Offset(0, 10));
+          await pressAtLikeAFinger(
+            tester,
+            paper.topCenter - const Offset(0, 10),
+          );
           expect(taps, 2);
         } else {
-          await tester.tap(find.byType(PaperScrap));
+          await pressLikeAFinger(tester, find.byType(PaperScrap));
           expect(taps, 1);
         }
       });

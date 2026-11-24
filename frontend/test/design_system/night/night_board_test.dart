@@ -738,14 +738,14 @@ void main() {
             .first,
       );
       expect(column.width, greaterThan(back.width));
-      await tester.tapAt(column.centerLeft + const Offset(2, 0));
+      await pressAtLikeAFinger(tester, column.centerLeft + const Offset(2, 0));
       await tester.pump();
       expect(lifted(tester), [ben.name]);
 
       final place = tester.getRect(
         find.ancestor(of: you, matching: find.byType(PaperCard)),
       );
-      await tester.tapAt(place.topLeft + const Offset(3, 3));
+      await pressAtLikeAFinger(tester, place.topLeft + const Offset(3, 3));
       await tester.pump();
       expect(lifted(tester), [NightCopy.you]);
     });

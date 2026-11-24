@@ -18,6 +18,7 @@ import 'package:midnight_village/features/game/presentation/end/end_night.dart';
 
 import '../../../helpers/end_board_pump.dart';
 import '../../../helpers/outcome_samples.dart';
+import '../../../helpers/finger.dart';
 
 // What happened, on the board (docs/specs/frontend/end-board.md, section 8):
 // the scrap starts the night and becomes the way back; every card turns to
@@ -71,7 +72,8 @@ EndNight _night(WidgetTester tester) =>
 
 Future<void> _tapScrap(WidgetTester tester, String label) async {
   // On one line, or on two where one leaves the middle cards no room.
-  await tester.tap(
+  await pressLikeAFinger(
+    tester,
     find
         .byWidgetPredicate(
           (w) => w is PaperScrap && w.label.replaceAll('\n', ' ') == label,
@@ -100,7 +102,7 @@ String _banner(WidgetTester tester) => tester
 
 /// A tap on the board, clear of the foot.
 Future<void> _tapBoard(WidgetTester tester) async {
-  await tester.tapAt(const Offset(180, 300));
+  await pressAtLikeAFinger(tester, const Offset(180, 300));
   await tester.pump();
 }
 

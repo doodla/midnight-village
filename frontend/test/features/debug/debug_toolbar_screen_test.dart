@@ -8,6 +8,7 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/debug/presentation/debug_toolbar_screen.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../helpers/finger.dart';
 
 class _MockController extends Mock implements DebugTableController {}
 
@@ -80,9 +81,12 @@ void main() {
       await tester.pumpWidget(buildApp());
 
       // Select a preset (enables Create Table) then create.
-      await tester.tap(find.text('Starter'));
+      await pressLikeAFinger(tester, find.text('Starter'));
       await tester.pump();
-      await tester.tap(find.byKey(const Key('debug-create-table')));
+      await pressLikeAFinger(
+        tester,
+        find.byKey(const Key('debug-create-table')),
+      );
       await tester.pumpAndSettle();
 
       // Perspective switcher lists players with their true (debug-only) roles.
@@ -116,9 +120,12 @@ void main() {
       ).thenAnswer((_) async {});
 
       await tester.pumpWidget(buildApp());
-      await tester.tap(find.text('Starter'));
+      await pressLikeAFinger(tester, find.text('Starter'));
       await tester.pump();
-      await tester.tap(find.byKey(const Key('debug-create-table')));
+      await pressLikeAFinger(
+        tester,
+        find.byKey(const Key('debug-create-table')),
+      );
       await tester.pumpAndSettle();
       verify(
         () => controller.createTable(
@@ -131,10 +138,13 @@ void main() {
 
       // This phone is Bob's: the others are driven, he is not.
       await tester.ensureVisible(find.byKey(const Key('debug-switch-2')));
-      await tester.tap(find.byKey(const Key('debug-switch-2')));
+      await pressLikeAFinger(tester, find.byKey(const Key('debug-switch-2')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('debug-everyone-ready')));
-      await tester.tap(find.byKey(const Key('debug-everyone-ready')));
+      await pressLikeAFinger(
+        tester,
+        find.byKey(const Key('debug-everyone-ready')),
+      );
       await tester.pumpAndSettle();
       final driven = verify(
         () => controller.stagedAs(captureAny(), 'ready', {
@@ -159,15 +169,15 @@ void main() {
     when(() => controller.switchTo(any())).thenAnswer((_) async {});
 
     await tester.pumpWidget(buildApp());
-    await tester.tap(find.text('Starter'));
+    await pressLikeAFinger(tester, find.text('Starter'));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('debug-create-table')));
+    await pressLikeAFinger(tester, find.byKey(const Key('debug-create-table')));
     await tester.pumpAndSettle();
 
     final switchBtn = find.byKey(const Key('debug-switch-2'));
     await tester.ensureVisible(switchBtn);
     await tester.pumpAndSettle();
-    await tester.tap(switchBtn);
+    await pressLikeAFinger(tester, switchBtn);
     await tester.pumpAndSettle();
 
     final captured = verify(() => controller.switchTo(captureAny())).captured;
@@ -186,15 +196,15 @@ void main() {
     when(() => controller.oracle()).thenThrow(Exception('no backend'));
 
     await tester.pumpWidget(buildApp());
-    await tester.tap(find.text('Starter'));
+    await pressLikeAFinger(tester, find.text('Starter'));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('debug-create-table')));
+    await pressLikeAFinger(tester, find.byKey(const Key('debug-create-table')));
     await tester.pumpAndSettle();
 
     final refreshBtn = find.byKey(const Key('debug-refresh-oracle'));
     await tester.ensureVisible(refreshBtn);
     await tester.pumpAndSettle();
-    await tester.tap(refreshBtn);
+    await pressLikeAFinger(tester, refreshBtn);
     await tester.pumpAndSettle();
 
     verify(() => controller.oracle()).called(1);
@@ -212,7 +222,7 @@ void main() {
 
     final reset = find.byKey(const Key('debug-forget-cues'));
     await tester.ensureVisible(reset);
-    await tester.tap(reset);
+    await pressLikeAFinger(tester, reset);
     await tester.pumpAndSettle();
     expect(container.read(learnedCuesProvider), isEmpty);
   });

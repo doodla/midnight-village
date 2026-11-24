@@ -367,7 +367,7 @@ Future<List<String>> _mainActionProblems(WidgetTester tester) async {
         ? tester.view.physicalSize.center(Offset.zero) /
               tester.view.devicePixelRatio
         : paintedRect(under.first).center;
-    await tester.tapAt(at);
+    await pressAtLikeAFinger(tester, at);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     if (find.byType(UntilTouched).evaluate().isNotEmpty) {

@@ -63,7 +63,7 @@ void _answerAck(ShellSetup s) =>
 /// Puts My night away when it is up by itself as the talk opens: the first
 /// touch anywhere (it is only that touch).
 Future<void> _putAway(WidgetTester tester) async {
-  await tester.tapAt(const Offset(4, 400));
+  await pressAtLikeAFinger(tester, const Offset(4, 400));
   await tester.pumpAndSettle();
 }
 
@@ -298,7 +298,7 @@ void main() {
       expect(find.text(CommonCopy.hold), findsNothing, reason: 'taught on 04');
 
       // The first touch only puts it away: Ready is not pressed by it.
-      await tester.tap(find.byType(PrimaryButton).last);
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pumpAndSettle();
       expect(find.byType(NightStoryView), findsNothing);
       expect(find.byType(DeckPile), findsWidgets);

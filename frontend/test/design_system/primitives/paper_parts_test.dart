@@ -29,6 +29,7 @@ import 'package:midnight_village/design_system/skin/skin_tilt.dart';
 
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/table_pages.dart';
+import '../../helpers/finger.dart';
 
 // The dress switch and every paper part: a screen is plain (exactly today's
 // look) unless it asks for `Dress.paper`; each part draws only there, and is
@@ -251,7 +252,8 @@ void main() {
         tester.getTopLeft(find.text('Tap')),
         tester.getTopLeft(find.byType(TiltedPaper)),
       );
-      await tester.tapAt(
+      await pressAtLikeAFinger(
+        tester,
         tester.getRect(find.byType(TiltedPaper)).topLeft + const Offset(2, 2),
       );
       expect(taps, 1);
@@ -391,7 +393,7 @@ void main() {
           slot.topRight + const Offset(-3, 3),
         ]) {
           await table();
-          await tester.tapAt(at);
+          await pressAtLikeAFinger(tester, at);
           await tester.pumpAndSettle();
           final sheet = tester.widget<RoleSheetBody>(
             find.byType(RoleSheetBody),
@@ -536,7 +538,8 @@ void main() {
       await tester.pump();
       final first = tester.getRect(find.byType(Fanned).first);
       for (final dx in [0.2, 0.5, 0.8]) {
-        await tester.tapAt(
+        await pressAtLikeAFinger(
+          tester,
           Offset(first.left + first.width * dx, first.top - Space.xs),
         );
         await tester.pumpAndSettle();
@@ -585,7 +588,7 @@ void main() {
           slot.topRight + const Offset(-1.5, 3),
           slot.center,
         ]) {
-          await tester.tapAt(at);
+          await pressAtLikeAFinger(tester, at);
           expect(_taps.last, i, reason: 'slot $i at $at');
         }
       }

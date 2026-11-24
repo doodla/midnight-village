@@ -13,6 +13,7 @@ import '../../../helpers/component_sheet.dart' show learnedOverrides;
 import '../../../helpers/pump_skinned.dart';
 import '../../../helpers/sheet/sheet_data.dart' as sheet;
 import '../../../helpers/table_setup.dart';
+import '../../../helpers/finger.dart';
 
 // Two findings of the cold read on the real screens: the talk's deck was a
 // row of tiny unnamed cards nobody read as the deck, and nothing on 02 said
@@ -56,7 +57,7 @@ void main() {
 
     testWidgets('a tap on a role opens its sheet', (tester) async {
       await pumpTalk(tester);
-      await tester.tap(find.text('3 Villagers'));
+      await pressLikeAFinger(tester, find.text('3 Villagers'));
       // The sheet slides up (the hold cue on My night breathes on: no settle).
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
