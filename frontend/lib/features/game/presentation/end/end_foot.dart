@@ -402,6 +402,10 @@ class _MiddleCards extends StatelessWidget {
     double strip,
   ) {
     final before = night.before.centre, after = night.after.centre;
+    final lifted = {
+      for (final p in night.current?.places ?? const <CardPlace>[])
+        if (p is CenterPlace) p.index,
+    };
     Widget turned(int i) {
       final size = sizes[i];
       final box = Offset.zero & size;
@@ -442,11 +446,16 @@ class _MiddleCards extends StatelessWidget {
         runSpacing: Space.xs,
         children: [
           for (var i = 0; i < roles.length; i++)
-            SizedBox.fromSize(
-              key: night.placeKey(CenterPlace(i)),
-              size: sizes[i],
-              child: turned(i),
-            ),
+            if (lifted.contains(i))
+              // Lifted onto the board beside the one who acted, for the step
+              // (`NightBoard`): its place here stands empty.
+              SizedBox.fromSize(size: sizes[i])
+            else
+              SizedBox.fromSize(
+                key: night.placeKey(CenterPlace(i)),
+                size: sizes[i],
+                child: turned(i),
+              ),
         ],
       ),
     );

@@ -329,9 +329,23 @@ the round's mock, on purpose (the owner rejected busier designs; the fixing pass
   other card is lifted from its seat to the window's nearest edge, in front, for that step. At night the board may
   scroll a little further, so its lowest card stands above the foot's lip. `end_night_sweep_test.dart` fails when any
   card of the step shown is clipped, covered or off screen, for every recorded night, ten players and a night where
-  nobody acted, at 360 x 640, 360 x 780 and 390 x 844, text 1.0, 1.3 and 1.6.
-- **A middle card's thread runs to it in the foot**, from the card of the one who acted, over the board's lip (drawn
-  on the page over both, following the board as it scrolls). Never a bare "Left", "Right" or "Middle".
+  nobody acted, at 360 x 640, 360 x 780, 390 x 844 and 412 x 915, text 1.0, 1.3 and 1.6.
+- **A middle card is lifted onto the board for its step** (owner, 24 Nov 2026: a thread down to the foot "sweeps a long
+  way"): beside the card of the one who acted, clear of every card, seal and the lantern where the window has room,
+  else in front of cards the step is not about, as the fit pass lifts a card (`nightMiddleAt`); its place in the foot
+  stands empty for the step. Never a bare "Left", "Right" or "Middle".
+- **Links** (owner, 24 Nov 2026: "The links are not at all polished there are breaks."): one part, `CardLink`
+  (`design_system/primitives/card_link.dart`), given the two cards as they lie (turned, lifted). It is tied ON each
+  card's edge where the two face each other, never under a seal, and bends gently, more only as needed to clear every
+  other card, seal and the lantern, inside the board's window. A take and a swap are solid with a head at both ends
+  (each card received the other's); a look (a copy too) is gapped with a dot at the card seen; a team is gapped with a
+  dot at each end. A move's link too short for its two heads bows out. Where no clean link exists, the far card is
+  lifted beside the near one for the step (`nightStepOf`). It draws in on the step's clock (a tap finishes it). The
+  sweep (`end_night_sweep_test.dart`, `test/helpers/end_links.dart`) holds it on every recorded night and ten players
+  at 360 x 640, 360 x 780, 390 x 844 and 412 x 915, text 1.0, 1.3, 1.6: both ends on the right cards' edges (within a
+  point), the path in the window, off its own cards, across no other card or seal (a card the step lifted a card over
+  is under the step; where the step's cards cannot lie apart at all, only the ends are judged), the ends right for
+  the kind. The `12-end-night-*` pages' sweep plan carries the same rule.
 - **The way back reads "The result"** (two words); after the last step one more tap is the result. **No auto-advance**:
   a step plays on a tap (or a swipe left; a swipe right goes back), its motion short (`settle` + `quick`; the deal
   `scene`), and a tap while it plays finishes it: the owner's no-added-waits rule.
@@ -366,7 +380,7 @@ tested in `story_copy_test.dart`): each leads with the role and ends with what c
 | Moment | What moves | Tokens |
 |---|---|---|
 | Tap "What happened" | The sky turns to night; the moon comes up behind the roofs and becomes the light; the lantern goes out. Every card turns to the face it was dealt, on cool night paper. Tags, ribbons and dealt cards fade out; the seal stays. The banner: "The cards as dealt." The scrap becomes "The result" | sky `scene`; turns `PaperFlip` |
-| Each step, one a tap | The board brings the step's cards whole into view. Its thread is drawn between the cards' corners, never across another card (it rounds the column's outer side), or down to the middle card in the foot. Cards whose card moved turn to their new face. The banner says the step. Red twine for the Werewolf team, gapped for a look | scroll `settle`; twine and turns `settle` + `quick` |
+| Each step, one a tap | The board brings the step's cards whole into view. Its link is tied between the cards' facing edges, never across another card, to a middle card lifted beside the one who acted. Cards whose card moved turn to their new face. The banner says the step. Red twine for the Werewolf team, gapped for a look | scroll `settle`; twine and turns `settle` + `quick` |
 | After the last step | It stays until a tap or "The result" | — |
 | "The result" | Dawn returns. The cards turn to their final faces, and tags, ribbon and the pool come back; the banner says the result | `scene` |
 

@@ -22,6 +22,12 @@ const endPhone = Size(360, 780);
 const endBig = Size(390, 844);
 const endShort = Size(360, 640);
 
+/// The owner's phone (412 wide).
+const endOwner = Size(412, 915);
+
+/// Every phone the end board is held on.
+const endScreens = [endPhone, endBig, endShort, endOwner];
+
 /// The mocks' foot: what the board's window leaves under it.
 const endFoot = 148.0;
 
@@ -155,7 +161,7 @@ Iterable<(String, EndBoardPlan)> everyEndPlan() sync* {
       for (final p in entry.value['players'] as List)
         (p as Map)['player_id'] as int,
     ];
-    for (final screen in [endPhone, endBig, endShort]) {
+    for (final screen in endScreens) {
       for (final viewer in [ids.first, ids.last]) {
         for (final scale in [1.0, 1.3, 1.6]) {
           yield (

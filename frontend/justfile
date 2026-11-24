@@ -183,6 +183,14 @@ end-reveal-frames folder="build/end_reveal" width="390":
       --dart-define=END_REVEAL_DIR={{folder}} \
       --dart-define=END_REVEAL_WIDTH={{width}}
 
+# What happened's links (frontend/test/README.md): every step of a few recorded
+# nights, done, at 360, 390 and 412 wide, one PNG a step into <folder>/<game>/w<width>.
+# Usage: just end-link-pictures [folder]
+end-link-pictures folder="build/end_links":
+    flutter test test_screens/end_link_pictures_test.dart --reporter expanded \
+      --dart-define=ENV=dev \
+      --dart-define=END_LINKS_DIR={{folder}}
+
 # What happened, filmed (frontend/test/README.md): the six-player game's night
 # stepped through at a player's pace, a frame every 66 ms, to <folder>/film.
 # Usage: just end-night-frames [folder] [width]

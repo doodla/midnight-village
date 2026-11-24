@@ -5,7 +5,6 @@ import '../../../../design_system/models/role.dart';
 import '../../../../design_system/primitives/board_pieces.dart';
 import '../../../../design_system/primitives/end_lantern.dart';
 import '../../../../design_system/primitives/one_light.dart';
-import '../../../../design_system/primitives/twine.dart';
 import '../../../../design_system/primitives/you_seal.dart';
 import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/skin/ground_scope.dart';
@@ -13,11 +12,11 @@ import '../../../../design_system/skin/paper_parts.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_metrics.dart';
-import '../../domain/end_night_view.dart';
 import '../../domain/end_story.dart';
 import '../../domain/night_timeline.dart';
 import 'end_cards.dart';
 import 'end_night.dart';
+import 'end_night_links.dart';
 import 'end_reveal.dart';
 
 // The board at night (split from end_night.dart): every card where it lies,
@@ -50,10 +49,16 @@ class NightBoard extends StatelessWidget {
       plan.boardHeight,
     );
     final players = nightPlayersOf(plan, night);
-    final docked = nightViewOf(plan, players, deal: night.opening).docked;
-    final level = nightLevel(docked, players.length);
+    final laid = nightStepOf(
+      plan,
+      night.current,
+      players: players,
+      origin: origin,
+      deal: night.opening,
+    );
+    final docked = laid.docked, lifted = laid.lifted, links = laid.links;
+    final level = laid.level;
     Rect at(Rect r, int id) => r.shift(origin + (docked[id] ?? Offset.zero));
-    final ties = tiesOf(plan, night.current, origin: origin, docked: docked);
     // The cards lifted to the window's edge for the step lie in front.
     final cards = [
       for (final c in plan.cards)
@@ -121,11 +126,24 @@ class NightBoard extends StatelessWidget {
                     child: YouSeal(token: c.token, size: seal.width),
                   ),
                 ),
+            // The middle cards lifted for the step, in front.
+            for (final MapEntry(key: i, value: r) in lifted.entries)
+              Positioned.fromRect(
+                rect: r.shift(origin),
+                child: KeyedSubtree(
+                  key: night.placeKey(CenterPlace(i)),
+                  child: _middle(night, i, r),
+                ),
+              ),
             Positioned.fill(
               child: IgnorePointer(
                 child: ExcludeSemantics(
                   child: RepaintBoundary(
-                    child: _Twines(night: night, ties: ties),
+                    child: NightLinks(
+                      night: night,
+                      links: links,
+                      werewolf: night.current?.werewolf ?? false,
+                    ),
                   ),
                 ),
               ),
@@ -162,6 +180,32 @@ class NightBoard extends StatelessWidget {
       );
     }
     return face;
+  }
+
+  /// A middle card lifted onto the board for the step, at [rect]: as the
+  /// players' cards are (the actor's portrait and strip), with no name,
+  /// turning to its new face as the step moves it.
+  Widget _middle(EndNight night, int i, Rect rect) {
+    final before = night.before.centre[i], after = night.after.centre[i];
+    final actor = plan.card(night.current!.actors.first);
+    Widget face(StoryFace f) => BoardCard(
+      role: f.face,
+      strip: f.strip.displayName,
+      paper: paperAtNight(f),
+      size: rect.size,
+      portraitWidth: actor.portraitWidth,
+      rect: rect,
+      stripHeight: actor.stripHeight,
+      semantics: f.strip.displayName,
+    );
+    if (before == after) return face(after);
+    return RevealTurn(
+      driver: night.driver,
+      value: night.moveTurn,
+      backAt: Offset.zero & rect.size,
+      back: ExcludeSemantics(child: face(before)),
+      face: face(after),
+    );
   }
 
   Widget _face(EndCard c, StoryFace f, {bool level = false}) => BoardCard(
@@ -202,202 +246,3 @@ List<int> nightPlayersOf(EndBoardPlan plan, EndNight night) => [
     for (final c in plan.cards)
       if (c.sealRect != null) c.id,
 ];
-
-/// One twine of the step shown, between two players' cards.
-typedef NightTie = ({TwineRoute route, bool look, bool werewolf});
-
-/// The twines of [step] between players' cards, each routed round the
-/// other cards, in the board's content ([origin] the frame's place in it).
-/// A thread to a middle card is the page's ([NightMiddleTwines]): it runs
-/// down off the board to the card in the foot.
-List<NightTie> tiesOf(
-  EndBoardPlan plan,
-  StoryStep? step, {
-  required Offset origin,
-  Map<int, Offset> docked = const {},
-}) {
-  if (step == null) return const [];
-  final cards = {
-    for (final c in plan.cards)
-      c.id: c.leaned.shift(origin + (docked[c.id] ?? Offset.zero)),
-  };
-  return [
-    for (final t in step.threads)
-      if ((t.from, t.to) case (final PlayerPlace a, final PlayerPlace b))
-        (
-          route: TwineRoute.between(
-            cards[a.playerId]!,
-            cards[b.playerId]!,
-            avoid: [
-              for (final MapEntry(:key, :value) in cards.entries)
-                if (key != a.playerId && key != b.playerId) value,
-            ],
-          ),
-          look: !step.kind.moves,
-          werewolf: step.werewolf,
-        ),
-  ];
-}
-
-/// The step's twines, drawn from one end to the other on its clock (a
-/// paint, not a build).
-class _Twines extends StatelessWidget {
-  const _Twines({required this.night, required this.ties});
-
-  final EndNight night;
-  final List<NightTie> ties;
-
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-    size: Size.infinite,
-    painter: _TwinesPainter(
-      night: night,
-      routes: () => [for (final t in ties) (t.route, t.look, t.werewolf)],
-      style: TwineStyle.of(context),
-    ),
-  );
-}
-
-/// How the night's twines are drawn: bone, or the Werewolf team's red
-/// paper (the board's one red, read on felt), with the paper's shadow
-/// thrown from the moon.
-@immutable
-class TwineStyle {
-  const TwineStyle({
-    required this.bone,
-    required this.red,
-    required this.shadow,
-    required this.light,
-  });
-
-  factory TwineStyle.of(BuildContext context) {
-    final ground = context.ground;
-    return TwineStyle(
-      bone: ground.text,
-      red: context.skin.parts.werewolfWonPaper,
-      shadow: ground.elevation.card.layers.firstOrNull?.color ?? ground.shadow,
-      light: OneLight.maybeOf(context),
-    );
-  }
-
-  final Color bone;
-  final Color red;
-  final Color shadow;
-  final OneLight? light;
-}
-
-/// A step's twines: each drawn as far as the step's clock has come.
-class _TwinesPainter extends CustomPainter {
-  _TwinesPainter({
-    required this.night,
-    required this.routes,
-    required this.style,
-    Listenable? repaint,
-  }) : step = night.step ?? 0,
-       super(repaint: repaint ?? night.clock);
-
-  final EndNight night;
-  final int step;
-
-  /// The routes (looked at when painted: one may follow a scroll), whether
-  /// each is a look, and the Werewolf team's.
-  final List<(TwineRoute, bool, bool)> Function() routes;
-  final TwineStyle style;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final drawn = night.drawn();
-    if (drawn <= 0) return;
-    for (final (full, look, werewolf) in routes()) {
-      TwinePainter(
-        route: TwineRoute(
-          full.from,
-          Offset.lerp(full.from, full.control, drawn)!,
-          full.at(drawn),
-        ),
-        kind: look ? TwineKind.look : TwineKind.move,
-        color: werewolf ? style.red : style.bone,
-        shadow: style.shadow,
-        lean: style.light?.leanFor(full.bounds) ?? 0,
-      ).paint(canvas, size);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_TwinesPainter old) =>
-      old.step != step || old.night != night || old.routes != routes;
-}
-
-/// The step's thread to a middle card: from the card of the one who acted,
-/// on the board, down to the middle card in the foot, over the board's lip;
-/// on the page over both, so it follows the board as it scrolls
-/// ([scrolled]). Nothing when the step touches no middle card.
-class NightMiddleTwines extends StatefulWidget {
-  const NightMiddleTwines({super.key, required this.scrolled});
-
-  final Listenable scrolled;
-
-  @override
-  State<NightMiddleTwines> createState() => _NightMiddleTwinesState();
-}
-
-class _NightMiddleTwinesState extends State<NightMiddleTwines> {
-  final _self = GlobalKey();
-
-  @override
-  Widget build(BuildContext context) {
-    final night = EndNightScope.maybeOf(context);
-    final step = night?.current;
-    final threads = [
-      for (final t in step?.threads ?? const <StoryThread>[])
-        if (t.from is CenterPlace || t.to is CenterPlace) t,
-    ];
-    if (night == null || step == null || threads.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    Rect? rectOf(CardPlace place) {
-      final page = _self.currentContext?.findRenderObject() as RenderBox?;
-      final box =
-          night.placeKey(place).currentContext?.findRenderObject()
-              as RenderBox?;
-      if (page == null || box == null || !box.attached || !box.hasSize) {
-        return null;
-      }
-      return box.localToGlobal(Offset.zero, ancestor: page) & box.size;
-    }
-
-    List<(TwineRoute, bool, bool)> routes() {
-      final others = [
-        for (final place in night.placed)
-          if (place is PlayerPlace && !step.places.contains(place))
-            ?rectOf(place),
-      ];
-      return [
-        for (final t in threads)
-          if ((rectOf(t.from), rectOf(t.to)) case (final a?, final b?))
-            (
-              TwineRoute.between(a, b, avoid: others),
-              !step.kind.moves,
-              step.werewolf,
-            ),
-      ];
-    }
-
-    return IgnorePointer(
-      child: ExcludeSemantics(
-        child: RepaintBoundary(
-          child: CustomPaint(
-            key: _self,
-            size: Size.infinite,
-            painter: _TwinesPainter(
-              night: night,
-              routes: routes,
-              style: TwineStyle.of(context),
-              repaint: Listenable.merge([night.clock, widget.scrolled]),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

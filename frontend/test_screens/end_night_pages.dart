@@ -2,7 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/features/game/presentation/end/end_night.dart';
 
+import '../test/helpers/end_links.dart';
 import '../test/helpers/finger.dart';
+import '../test/helpers/screen_sweep.dart' show SweepPlan;
 import '../test/helpers/outcome_samples.dart';
 import 'end_board_pages.dart' show endTen, pumpEndBoard;
 import 'screen_catalogue.dart';
@@ -192,5 +194,7 @@ final endNightEntries = <ScreenEntry>[
       playerScreen: true,
       // The moment is pumped to exactly; no settling frames after it.
       frames: 0,
+      // The step's links keep their rules at every phone and text size.
+      sweep: SweepPlan(rules: [(tester, _) => nightLinkFaults(tester)]),
     ),
 ];

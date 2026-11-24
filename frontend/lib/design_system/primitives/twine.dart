@@ -13,6 +13,10 @@ import 'paper_light.dart';
 /// ([Twine.werewolf]).
 enum TwineKind { move, look }
 
+/// How a twine ends at a card: bare, a filled [head] (a card went this way),
+/// or a filled [dot] (the card looked at).
+enum TwineEnd { none, head, dot }
+
 /// A twine's path: a quadratic curve from [from] to [to] bent toward
 /// [control], all in the board's coordinates.
 @immutable
@@ -126,7 +130,9 @@ class TwinePainter extends CustomPainter {
     this.gap = 6,
     this.alpha = 1,
     this.head = false,
-  });
+    this.tail = TwineEnd.none,
+    TwineEnd tip = TwineEnd.none,
+  }) : tip = head ? TwineEnd.head : tip;
 
   final TwineRoute route;
   final TwineKind kind;
@@ -134,6 +140,13 @@ class TwinePainter extends CustomPainter {
 
   /// A head at the far end: the way a card went, or a look's way.
   final bool head;
+
+  /// How it ends at its start ([TwineRoute.from]) and at its far end.
+  final TwineEnd tail;
+  final TwineEnd tip;
+
+  /// A dot's radius.
+  static const dotRadius = 3.4;
 
   /// The head's length along the thread and its width across.
   static const headLength = 9.0;
@@ -177,7 +190,8 @@ class TwinePainter extends CustomPainter {
       path.addPolygon([...left, ...right.reversed], true);
     }
 
-    if (head) _head(path);
+    _end(path, tip, route.to, route.at(0.9));
+    _end(path, tail, route.from, route.at(0.1));
     if (kind == TwineKind.move) {
       strip(points);
       return path;
@@ -211,11 +225,14 @@ class TwinePainter extends CustomPainter {
     return path;
   }
 
-  /// The head: a filled triangle whose tip is the route's end, turned along
-  /// the thread's last stretch.
-  void _head(Path path) {
-    final tip = route.to;
-    final back = route.at(0.9);
+  /// An end: a dot on [tip], or a filled triangle whose tip is [tip],
+  /// turned along the thread's stretch from [back].
+  static void _end(Path path, TwineEnd end, Offset tip, Offset back) {
+    if (end == TwineEnd.none) return;
+    if (end == TwineEnd.dot) {
+      path.addOval(Rect.fromCircle(center: tip, radius: dotRadius));
+      return;
+    }
     final along = tip - back;
     final length = along.distance;
     if (length == 0) return;
@@ -253,7 +270,8 @@ class TwinePainter extends CustomPainter {
       shadow != old.shadow ||
       lean != old.lean ||
       alpha != old.alpha ||
-      head != old.head ||
+      tip != old.tip ||
+      tail != old.tail ||
       width != old.width;
 }
 

@@ -122,9 +122,6 @@ class _EndBoardViewState extends State<EndBoardView>
     ..cue = !widget.stepTaught
     ..taught = () => widget.onStepTaught?.call();
 
-  /// Where the board stands as it scrolls: the thread to a middle card,
-  /// drawn over the board and the foot, follows it.
-  final _scrolled = ValueNotifier<double>(0);
   AnimationController? _fade;
 
   /// The reveal is over (or never was): the board is drawn settled.
@@ -177,7 +174,6 @@ class _EndBoardViewState extends State<EndBoardView>
   void dispose() {
     _clock.dispose();
     _night.dispose();
-    _scrolled.dispose();
     _fade?.dispose();
     super.dispose();
   }
@@ -405,17 +401,9 @@ class _EndBoardViewState extends State<EndBoardView>
             restDrop: windowTop - bannerTop - FurledScroll.thickness,
           ),
         ),
-        // A step's thread to a middle card, over the board and the foot.
-        Positioned.fill(child: NightMiddleTwines(scrolled: _scrolled)),
       ],
     );
-    return NotificationListener<ScrollUpdateNotification>(
-      onNotification: (n) {
-        _scrolled.value = n.metrics.pixels;
-        return false;
-      },
-      child: page,
-    );
+    return page;
   }
 
   /// What holds still in the reveal is its own layer, painted once. Settled

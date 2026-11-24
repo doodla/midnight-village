@@ -37,6 +37,12 @@ DONE by the end board (pieces 1 to 5a; live with 5a): every player is a card wit
 
 DONE by the end board (piece 5a): the count, "See who won" and the results are one screen; "What happened" is part of it, replayed on the board itself. The old two screens' code goes in piece 5b.
 
+## 24 November 2026, the end board's "What happened" on the live game (written, with a screenshot of "Robber Teapot takes Sridhar's card.")
+
+> The links are not at all polished there are breaks.
+
+DONE (branch `end-links`): a step's thread was tied between the corners of the box a tilted card fills, so on a turned card it began and ended in mid-air, and a pair side by side got a diagonal from one card's top to the other's bottom, with no heads. Now every link is one part, `CardLink` (`design_system/primitives/card_link.dart`): tied on the real card edges that face each other, a head at both ends of a take or a swap, a dot at the card seen (a look) or at both ends (a team), bent gently round every other card, seal and the lantern; a middle card is lifted onto the board beside the one who acted for its step (no thread down to the foot), and a card no clean thread can reach is lifted beside the other end the same way. `end_night_sweep_test.dart` holds the rule on every recorded night, at 360, 390 and 412 wide and text 1.0, 1.3 and 1.6.
+
 > I think, yes, our design is still a bit weak. I'd like to see a few more mocks or a few more designs to see if we can show up all these issues.
 
 OPEN: more mocks and designs.

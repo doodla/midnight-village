@@ -13,7 +13,9 @@ import '../../../../test_screens/end_board_pages.dart' show endTen;
 import '../../../../test_screens/end_night_pages.dart' show nobodyActs;
 import '../../../../test_screens/reading_floor.dart';
 import '../../../helpers/contract/contract_samples.dart';
+import '../../../helpers/end_board_plans.dart' show endScreens;
 import '../../../helpers/end_board_pump.dart';
+import '../../../helpers/end_links.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/truncated_text.dart';
 
@@ -23,7 +25,9 @@ import '../../../helpers/truncated_text.dart';
 // inside the screen, and at its name and its four corners the first thing a
 // finger would meet is that card (not the eave, the foot's lip, the banner,
 // another card, or nothing because it is clipped off). The deal brings
-// "you" into view. The banner's words are whole on the screen, no word is
+// "you" into view. Every link keeps the links' rules (on the cards' edges,
+// in the window, crossing no other card or seal, its ends saying what
+// happened). The banner's words are whole on the screen, no word is
 // cut and nothing is under the reading floor.
 
 /// Every recorded results body with a night, ten players, and a night
@@ -89,7 +93,7 @@ String? unseen(WidgetTester tester, EndNight night, CardPlace place) {
 
 void main() {
   for (final (name, results) in _games) {
-    for (final size in const [Size(360, 640), Size(360, 780), Size(390, 844)]) {
+    for (final size in endScreens) {
       for (final scale in const [1.0, 1.3, 1.6]) {
         testWidgets('$name at ${size.width.toInt()}x${size.height.toInt()} '
             'text x$scale: every card of every step whole on screen', (
@@ -131,6 +135,8 @@ void main() {
                 expect(a.overlaps(b), isFalse, reason: '$why: $a $b');
               }
             }
+            // Its links keep the links' rules (test/helpers/end_links.dart).
+            expect(nightLinkFaults(tester), isEmpty, reason: why);
             expect(tester.takeException(), isNull, reason: why);
             expect(truncatedText(tester), isEmpty, reason: why);
             expect(readingFloorBreaches(tester), isEmpty, reason: why);
