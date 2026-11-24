@@ -422,6 +422,14 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
 
+      # The database's own log is dumped at the end of the job, errors our tests cause
+      # on purpose included, and buried what failed. It keeps quiet here.
+      - name: Quiet the database's own log
+        run: |
+          docker exec "$(docker ps -q --filter ancestor=postgres:16)" \
+            psql -U postgres -c "ALTER SYSTEM SET log_min_messages = 'panic'" \
+            -c "SELECT pg_reload_conf()"
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:

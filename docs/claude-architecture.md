@@ -128,7 +128,10 @@ their sizes, its tests, and the remote branches in the same files. Work that is 
 has an area brief (`just brief copy`; `tool/brief_areas.py` is the table: an area's rules
 printed word for word from where they are written, its files with sizes, its model slice,
 its tests, who else is in them; `test_brief.py` fails a row that points at nothing), and
-`just brief` alone lists every brief. `just handover <file>`
+`just brief` alone lists every brief. A red test run ends with what failed
+(`tool/failed_tests.py`: each failed test's file, name and first error line, from the run's
+own report; on GitHub an annotation each, and the database keeps its own log quiet so the
+list is the job's last lines; `guardrails/tests/test_failed_tests.py`). `just handover <file>`
 (`tool/handover.py`, `frontend/tool/handover_sheet.py`) is the one way to hand over: it
 refuses work that is not committed, pushed and mergeable with main; runs the fast check's
 plan at both widths plus the harness, each result and each finished set of pictures kept per commit
