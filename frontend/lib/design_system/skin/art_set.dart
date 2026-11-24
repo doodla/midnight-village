@@ -338,7 +338,6 @@ class ArtSet {
     required this.layered,
     required this.candleCut,
     required this.portraitFocus,
-    this.faceCentres = const {},
     this.sceneFocus = const {},
   });
 
@@ -374,26 +373,6 @@ class ArtSet {
 
   /// Where a role portrait's face is, wherever it is cropped.
   final Alignment portraitFocus;
-
-  /// How far down each role's portrait its face's middle is (0 the top, 1
-  /// the bottom), read off the art: where a short crop centres
-  /// ([portraitCrop]) so the face stays whole.
-  final Map<RoleId, double> faceCentres;
-
-  /// The alignment that keeps [role]'s face in the middle of a [box] the
-  /// portrait covers (as much as the picture allows): a short, wide box
-  /// shows the face whole rather than the portrait's top or middle.
-  Alignment portraitCrop(RoleId role, Size box) {
-    final centre = faceCentres[role];
-    if (centre == null || box.isEmpty || !box.isFinite) return portraitFocus;
-    // The share of the picture's height the box shows, the picture scaled
-    // to cover it.
-    final shown =
-        box.height / (box.width * rolePixels.height / rolePixels.width);
-    if (shown >= 1) return portraitFocus;
-    final top = (centre - shown / 2).clamp(0.0, 1 - shown);
-    return Alignment(0, 2 * top / (1 - shown) - 1);
-  }
 
   final Map<Scene, Alignment> sceneFocus;
 

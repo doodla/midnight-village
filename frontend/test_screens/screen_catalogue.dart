@@ -111,6 +111,8 @@ final screenCatalogue = <ScreenEntry>[
   ..._rebuilt('01-join', '01-join.png', {
     '': pumpJoinFresh,
     '-returning': pumpJoinReturning,
+    // The one plaque: Start a table until the code is whole, then Join.
+    '-code-open': pumpJoinCodeOpen,
     '-code': pumpJoinCode,
     '-link': pumpJoinLink,
     '-link-named': pumpJoinLinkNamed,
@@ -122,6 +124,8 @@ final screenCatalogue = <ScreenEntry>[
     '-android-web-keyboard': pumpJoinAndroidWebKeyboard,
     '-android-web-x2': const _AtText(2.0, pumpJoinAndroidWeb),
     '-x1.3': const _AtText(1.3, pumpJoinFresh),
+    '-x1.6': const _AtText(1.6, pumpJoinFresh),
+    '-code-x1.6': const _AtText(1.6, pumpJoinCode),
     '-x2': const _AtText(2.0, pumpJoinFresh),
   }),
   // The scanner 01 opens (no mock: its pictures are the build's own).
@@ -219,8 +223,15 @@ final screenCatalogue = <ScreenEntry>[
     '': pumpYourCard,
     '-held': pumpYourCardHeld,
     '-held-minion': pumpYourCardHeldMinion,
+    '-held-doppelganger': (tester) =>
+        pumpYourCardHeldAs(tester, 'Doppelganger'),
+    // The Werewolf's three portraits, each held on the card.
+    for (final wolf in WerewolfPortrait.values)
+      '-held-werewolf-${wolf.name}': (tester) =>
+          _withWerewolf(wolf, () => pumpYourCardHeldAs(tester, 'Werewolf')),
     '-ready': const _NoMain(_done, pumpYourCardReady),
     '-x1.3': const _AtText(1.3, pumpYourCard),
+    '-held-minion-x1.6': const _AtText(1.6, pumpYourCardHeldMinion),
   }),
   ..._rebuilt('04-your-card', null, {
     '-waiting': const _NoMain(_waits, pumpYourCardWaiting),

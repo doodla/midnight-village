@@ -7,7 +7,6 @@ import 'package:midnight_village/core/debug/debug_api_client.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
-import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/primitives/value_stepper.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
@@ -244,10 +243,17 @@ class _Run {
           ui.container.read(authProvider) is AuthUnauthenticated,
       reason: '01 Join, signed out',
     );
-    final start = find.widgetWithText(SecondaryButton, JoinCopy.startTable);
+    // 01's one amber plaque while no code is typed: it acts once the name
+    // is in the field (with none, a tap only leads to the name).
+    final start = find.widgetWithText(PrimaryButton, JoinCopy.startTable);
     bool startOpen() =>
         start.evaluate().isNotEmpty &&
-        tester.widget<SecondaryButton>(start).onPressed != null;
+        tester
+                .widget<EditableText>(find.byType(EditableText).first)
+                .controller
+                .text
+                .trim() ==
+            'Hana';
     for (var i = 0; i < 3 && !startOpen(); i++) {
       await tester.enterText(find.byType(EditableText).first, 'Hana');
       await tester.pump();

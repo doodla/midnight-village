@@ -44,6 +44,7 @@ class FacePage {
     this.name,
     this.tag,
     this.team,
+    this.rules,
   });
 
   final FacePortrait portrait;
@@ -57,6 +58,10 @@ class FacePage {
   /// The team the tag is coloured for (`TagChip.team`).
   final TeamId? team;
   final List<String> lines;
+
+  /// A role's text, drawn as its rows (`RoleRules`) in place of [lines]
+  /// (which carry the same words, for a screen reader).
+  final RoleText? rules;
 
   /// Everything on the page, in reading order: what is read aloud when the
   /// player asks for it.
@@ -512,6 +517,7 @@ class FaceContent {
         tag: text.tag,
         team: text.team,
         lines: text.lines.skip(1).toList(),
+        rules: text,
       ),
     ]);
   }

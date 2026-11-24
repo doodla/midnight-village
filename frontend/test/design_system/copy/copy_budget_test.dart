@@ -56,7 +56,8 @@ void main() {
     });
 
     test('the role text totals are the spec\'s', () {
-      // The spec's table: Werewolf 20 ... Tanner 11.
+      // The spec's table: Werewolf 23 ... Tanner 11 (24 November 2026: the
+      // rows and "Werewolf team" added no words to any role).
       final totals = {
         for (final (role, lines) in [
           for (final s in screens['03b Role sheet']!.states.entries)
@@ -65,10 +66,10 @@ void main() {
           role: lines.fold(0, (sum, l) => sum + wordCount(l.text)),
       };
       expect(totals, {
-        'werewolf': 24,
+        'werewolf': 23,
         'minion': 28,
         'villager': 15,
-        'seer': 21,
+        'seer': 20,
         'robber': 22,
         'troublemaker': 20,
         'drunk': 21,

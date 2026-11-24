@@ -1,48 +1,101 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 
 import '../models/role.dart';
 import 'copy.dart';
 
+/// One row of a role's text: a small [label] ("Night", "Vote", "Wins") and
+/// its short [lines], one per case ("At dawn, see the other Werewolves." /
+/// "Alone: you may see 1 center card.").
+@immutable
+class RolePart {
+  const RolePart(this.label, this.lines);
+
+  final String label;
+  final List<String> lines;
+}
+
 /// One role's text: what the 04 face, the role sheet (03b) and the role card
-/// say about it. Laid out as [tag]; "Night:" [night]; "Wins:" [wins]; then
-/// [RoleCopy.shared] (first-time play spec, section 3, "Role text").
+/// say about it. Laid out as [tag] over the name; then [parts], a small label
+/// beside each part's lines; then [RoleCopy.shared] set apart, a rule of the
+/// game rather than of this role (first-time play spec, section 3, "Role
+/// text"; drawn by `RoleRules`).
 @immutable
 class RoleText {
-  const RoleText._(this.role, {required this.night, required this.wins});
+  const RoleText._(this.role, this.parts);
 
   /// The text for [role]: the one table every screen reads.
   factory RoleText.of(RoleId role) {
-    final (night, wins) = switch (role) {
-      RoleId.werewolf => (RoleCopy.werewolfNight, RoleCopy.werewolfWins),
-      RoleId.minion => (RoleCopy.minionNight, RoleCopy.minionWins),
-      RoleId.mason => (RoleCopy.masonNight, RoleCopy.villageWins),
-      RoleId.seer => (RoleCopy.seerNight, RoleCopy.villageWins),
-      RoleId.robber => (RoleCopy.robberNight, RoleCopy.villageWins),
-      RoleId.troublemaker => (RoleCopy.troublemakerNight, RoleCopy.villageWins),
-      RoleId.drunk => (RoleCopy.drunkNight, RoleCopy.villageWins),
-      RoleId.insomniac => (RoleCopy.insomniacNight, RoleCopy.villageWins),
-      RoleId.hunter => (RoleCopy.hunterNight, RoleCopy.villageWins),
-      RoleId.villager => (RoleCopy.sleep, RoleCopy.villageWins),
-      RoleId.tanner => (RoleCopy.sleep, RoleCopy.tannerWins),
-      RoleId.doppelganger => (
-        RoleCopy.doppelgangerNight,
-        RoleCopy.doppelgangerWins,
-      ),
+    const village = RolePart(RoleCopy.winsLabel, [
+      RoleCopy.villageWins,
+      RoleCopy.villageNoWerewolf,
+    ]);
+    RolePart night(List<String> lines) => RolePart(RoleCopy.nightLabel, lines);
+    RolePart wins(List<String> lines) => RolePart(RoleCopy.winsLabel, lines);
+    final parts = switch (role) {
+      RoleId.werewolf => [
+        night([RoleCopy.werewolfNight, RoleCopy.werewolfAlone]),
+        wins([RoleCopy.werewolfWins]),
+      ],
+      RoleId.minion => [
+        night([RoleCopy.minionNight, RoleCopy.minionUnseen]),
+        wins([RoleCopy.minionWins, RoleCopy.minionNoWerewolf]),
+      ],
+      RoleId.mason => [
+        night([RoleCopy.masonNight]),
+        village,
+      ],
+      RoleId.seer => [
+        night([RoleCopy.seerNight]),
+        village,
+      ],
+      RoleId.robber => [
+        night([RoleCopy.robberNight]),
+        village,
+      ],
+      RoleId.troublemaker => [
+        night([RoleCopy.troublemakerNight]),
+        village,
+      ],
+      RoleId.drunk => [
+        night([RoleCopy.drunkNight]),
+        village,
+      ],
+      RoleId.insomniac => [
+        night([RoleCopy.insomniacNight]),
+        village,
+      ],
+      RoleId.hunter => [
+        night([RoleCopy.sleep]),
+        const RolePart(RoleCopy.voteLabel, [RoleCopy.hunterVote]),
+        village,
+      ],
+      RoleId.villager => [
+        night([RoleCopy.sleep]),
+        village,
+      ],
+      RoleId.tanner => [
+        night([RoleCopy.sleep]),
+        wins([RoleCopy.tannerWins]),
+      ],
+      RoleId.doppelganger => [
+        night([RoleCopy.doppelgangerNight]),
+        wins([RoleCopy.doppelgangerWins]),
+      ],
     };
-    return RoleText._(role, night: night, wins: wins);
+    return RoleText._(role, parts);
   }
 
   final RoleId role;
-  final String night;
-  final String wins;
 
-  /// The role's tag: its team, as the card in hand would play it.
+  /// The rows, in reading order: "Night" (the Hunter's "Vote" after it),
+  /// then "Wins".
+  final List<RolePart> parts;
+
+  /// The role's tag: its team, as the card in hand would play it, never the
+  /// role's own name.
   String get tag => switch (role) {
     RoleId.doppelganger => RoleCopy.copies,
-    RoleId.tanner => RoleCopy.alone,
-    RoleId.werewolf || RoleId.minion => teamTag(TeamId.werewolf),
-    _ => RoleCopy.village,
+    _ => teamLabel(team),
   };
 
   /// The team the role's tag is coloured for, the same on every surface
@@ -54,12 +107,11 @@ class RoleText {
     _ => TeamId.village,
   };
 
-  /// The four parts in reading order, labels included: tag, "Night: ...",
-  /// "Wins: ...", the shared line.
+  /// Every word on the card, in reading order: the tag, each label and its
+  /// lines, the shared line.
   List<String> get lines => [
     tag,
-    '${RoleCopy.nightLabel} $night',
-    '${RoleCopy.winsLabel} $wins',
+    for (final part in parts) ...[part.label, ...part.lines],
     RoleCopy.shared,
   ];
 
@@ -70,25 +122,12 @@ class RoleText {
     TeamId.independent => RoleCopy.alone,
   };
 
-  /// One of the role's lines as words: its "Night:" or "Wins:" label in the
-  /// strong face, the rest in [style]. The one way every card, sheet and
-  /// page sets these lines, so the same words are in the same face
-  /// everywhere.
-  static TextSpan lineSpan(String line, TextStyle style, TextStyle strong) {
-    for (final label in [RoleCopy.nightLabel, RoleCopy.winsLabel]) {
-      if (line.startsWith('$label ')) {
-        return TextSpan(
-          style: style,
-          children: [
-            TextSpan(
-              text: '$label ',
-              style: strong.copyWith(color: style.color),
-            ),
-            TextSpan(text: line.substring(label.length + 1)),
-          ],
-        );
-      }
-    }
-    return TextSpan(text: line, style: style);
-  }
+  /// A team's tag beside a role's name (a card, a sheet, the count): never
+  /// the name twice, so the Werewolf team's reads "Werewolf team".
+  static String teamLabel(TeamId team) => switch (team) {
+    TeamId.werewolf => CountCopy.werewolfTeam.fill({
+      'role': teamTag(TeamId.werewolf),
+    }),
+    _ => teamTag(team),
+  };
 }

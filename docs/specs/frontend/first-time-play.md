@@ -206,34 +206,36 @@ A name is never cut: if two long names do not fit on one line ("Swap Rosalind Fa
 
 ### Role text (single source for the 04 face, 03b and the role name on faces)
 
-Every role entry is laid out as: tag; "Night:" line; "Wins:" line; then the shared line **"You are your last card."** (5 words; "Anyone may lie." was cut on review, 21 November 2026, so the card reads at full size on small phones).
+Every role entry is laid out as (owner, 24 November 2026: "I'd like the copy updated with different formatting so it's easier to parse"): the tag above the name; then rows, each a small label ("Night", the Hunter's "Vote", "Wins") in a column of its own beside short lines, one line per case; then, after more room and across the whole width, the shared line **"You are your last card."** (5 words; "Anyone may lie." was cut on review, 21 November 2026, so the card reads at full size on small phones), a rule of the game rather than of the role. Where the lines' column would be too narrow for its words (a small phone at large text), each label sits above its lines. Form parts them, not words: no role has more words than before.
 
-Village line: **"A Werewolf dies. No Werewolf player: nobody dies."** (6 words)
+**Tag** (owner, 24 November 2026: "There's a double label as well."): a team's tag beside a role's name never repeats the name: the Werewolf team's is "Werewolf team" (red: the Werewolf and the Minion), the Village's "Village", the Tanner's "Alone", the Doppelganger's "Copies".
 
-| Role | Tag | Night: | Wins: | Total words |
+Village Wins lines: **"A Werewolf dies."** / **"No Werewolf player: nobody dies."** (6 words)
+
+| Role | Tag | Night | Wins | Total words (was) |
 |---|---|---|---|---|
-| Werewolf | Werewolf | At dawn, see the other Werewolves. Alone at night: you may see 1 center card. | No Werewolf and no Tanner dies. | 24 |
-| Minion | Werewolf | At dawn, see the Werewolves. They don't see you. | With the Werewolves, even if you die. No Werewolf player: someone else dies, not the Tanner. | 28 |
-| Mason | Village | At dawn, see the other Mason. | Village line | 19 |
-| Seer | Village | Look at 1 player's card, or 2 center cards. | Village line | 21 |
-| Robber | Village | Swap with a player. See your new card. | Village line | 22 |
-| Troublemaker | Village | Swap 2 other players' cards. Don't look. | Village line | 20 |
-| Drunk | Village | Swap with a center card. Don't look. | Village line | 21 |
-| Insomniac | Village | At dawn, see your own card. | Village line | 20 |
-| Hunter | Village | Sleep. If you die, your pick dies. | Village line | 21 |
-| Villager | Village | Sleep. | Village line | 15 |
-| Tanner | Alone | Sleep. | You die. | 11 |
-| Doppelganger | Copies | Copy a player's role. Act as that role. | As the role you copy. | 21 |
+| Werewolf | Werewolf team | At dawn, see the other Werewolves. / Alone: you may see 1 center card. | No Werewolf and no Tanner dies. | 23 (24) |
+| Minion | Werewolf team | At dawn, see the Werewolves. / They don't see you. | With the Werewolves, even if you die. / No Werewolf player: another dies, not the Tanner. | 28 (28) |
+| Mason | Village | At dawn, see the other Mason. | Village lines | 19 (19) |
+| Seer | Village | See 1 player's card or 2 center cards. | Village lines | 20 (21) |
+| Robber | Village | Swap with a player. See your new card. | Village lines | 22 (22) |
+| Troublemaker | Village | Swap 2 other players' cards. Don't look. | Village lines | 20 (20) |
+| Drunk | Village | Swap with a center card. Don't look. | Village lines | 21 (21) |
+| Insomniac | Village | At dawn, see your own card. | Village lines | 20 (20) |
+| Hunter | Village | Sleep. Then a "Vote" row: Your pick dies with you. | Village lines | 21 (21) |
+| Villager | Village | Sleep. | Village lines | 15 (15) |
+| Tanner | Alone | Sleep. | You die. | 11 (11) |
+| Doppelganger | Copies | Copy a player's role. Act as that role. | As the role you copy. | 21 (21) |
 
-**Team tags** on 10 and 11 come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf", `neutral` → "Alone".
+**Team tags** on 10 and 11 come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf" ("Werewolf team" beside a role's name, as on 10), `neutral` → "Alone".
 
 **Where the team shows** (issue 37): the other Werewolves, the Minion's Werewolves and the other Mason are shown only at dawn, when the talk opens, in My night's picture story (your card, the cards you touched, the one sentence: "You and {names} are the Werewolves."; section 3, "Brief amendments": team shown only there), never at night; so these role texts say "At dawn", as the Insomniac's does, and a sleeper's night face says only "Nothing to do tonight." A lone Werewolf's center look is at night ("Alone at night").
 
 **Where I chose brevity over precision** (each string was checked against `roles.md` and `voting-and-resolution.md`):
 1. "You are your last card": for a Doppelganger card, "your card" means the role she copied. Her own line says this.
 2. Doppelganger "Act as that role": a copied Werewolf, Mason or Insomniac acts later, not at once.
-3. Minion: with no Werewolf player, `voting-and-resolution.md` (Minion special rules) has the Minion win when a player other than the Minion and the Tanner dies, and lose when only the Tanner dies; "someone else dies, not the Tanner" says that.
-4. Hunter "your pick": an unlocked pick counts too (contract amendment), so "pick" is exact.
+3. Minion: with no Werewolf player, `voting-and-resolution.md` (Minion special rules) has the Minion win when a player other than the Minion and the Tanner dies, and lose when the Tanner dies; "another dies, not the Tanner" says that ("another": not you).
+4. Hunter "your pick": an unlocked pick counts too (contract amendment), so "pick" is exact. It is under "Vote", not "Night": the Hunter sleeps; his rule acts at the vote.
 5. Insomniac "At dawn": this is the end of window 2.
 6. "Keep my card" is not true for a Drunk (see the trade-off above): his pass reads "Choose for me".
 7. Robber and Drunk carry the Village line, because the shared line covers their change of team.
@@ -261,8 +263,9 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 
 **01 Join**
 - **One thing / loudest:** type a name; the empty name field, focused.
-- **Locked until:** both buttons stay locked until a name is entered (the scan glyph is the one exception, below). None of them looks dead (23 November 2026, review): a tap on "Start a table" or "Join a table" with no name takes the cursor to the name field and gives it a short shake (reduced motion: a colour flash). A locked amber "Join" (from a link, or with the code typed) is never silent (23 November 2026, the app's rule for primary buttons): a tap on it takes the cursor to the empty name field, or to the code field when only the code is missing.
-- **Copy:** hint "Your name"; "Start a table" and "Join a table", outlined and of equal weight. "Join a table" opens a hint "Code" and an amber "Join". Body text at 16 px: "{n} at tables" and "You won last game" / "You lost last game". **14 of 14 words.**
+- **Locked until:** both ways in lead to the name until one is entered (the scan glyph is the one exception, below); the amber plaque stays amber (one plaque, below). None of them looks dead (23 November 2026, review): a tap on "Start a table" or "Join a table" with no name takes the cursor to the name field and gives it a short shake (reduced motion: a colour flash). A locked amber "Join" (from a link, or with the code typed) is never silent (23 November 2026, the app's rule for primary buttons): a tap on it takes the cursor to the empty name field, or to the code field when only the code is missing.
+- **One plaque** (24 November 2026, the coordinator's decision, 01 dressed in paper): exactly one amber plaque at any moment. While the code field holds a whole code (typed, scanned, or the link's) it is "Join" and "Start a table" is a small bone scrap; otherwise it is "Start a table", and "Join a table" is a bone scrap (closed) or, beside a code not yet whole, Join in the locked form saying "Code" (a tap takes the cursor to the name, then the code). The buttons keep their places when it flips: only the paper changes. With no name the plaque is still amber; a tap leads to the name (never a dead button).
+- **Copy:** hint "Your name"; "Start a table" and "Join a table" (one of them the amber plaque, above). "Join a table" opens a hint "Code" and an amber "Join". Body text at 16 px: "{n} at tables" and "You won last game" / "You lost last game". **14 of 14 words.**
 - **Removed:** the prefilled "Ana" (8). The amber "Start a table" (4). The tagline. The footer (12).
 - **States:**
   - Opened from a link: the name field and an amber "Join" (3 words).

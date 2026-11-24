@@ -14,6 +14,7 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/chips.dart';
 import 'package:midnight_village/design_system/primitives/deckle.dart';
+import 'package:midnight_village/design_system/primitives/card_back_paper.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
@@ -103,12 +104,12 @@ void main() {
         unlocked: VoteCopy.lockIn.raw,
         why: 'the pick it waits for; a tap nudges the slips',
       ),
-      'features/lobby/presentation/join_view.dart': (
-        says: JoinCopy.join,
+      'features/lobby/presentation/join_ways.dart': (
+        says: JoinCopy.codeHint,
         unlocked: JoinCopy.join,
         why:
-            'a plain screen (01 is not dressed up): a tap takes the cursor to '
-            'the field that lacks its word',
+            '01\'s Join beside a code not yet whole says "Code": a tap takes '
+            'the cursor to the field that lacks its word, the name first',
       ),
     };
 
@@ -132,8 +133,6 @@ void main() {
         reason: 'classify a new locked button',
       );
       for (final e in locked.entries) {
-        final plain = e.key.contains('join_view');
-        if (plain) continue; // a plain screen: its look is today's, unchanged
         final unlocked = e.value.unlocked;
         expect(
           unlocked == null || e.value.says != unlocked,

@@ -155,7 +155,9 @@ void main() {
         await tester.pump();
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pump();
-        expect(find.widgetWithText(SecondaryButton, label), findsOneWidget);
+        // Start a table is the amber plaque (the code is empty), Join a
+        // table a scrap: neither looks dead.
+        expect(find.text(label), findsOneWidget);
         await pressLikeAFinger(tester, find.text(label));
         await tester.pump();
         await tester.pump(Motion.settle ~/ 12);

@@ -32,7 +32,23 @@ class JoinView extends StatefulWidget {
     required this.onStart,
     required this.onJoin,
     this.onEdited,
+    this.dress = defaultDress,
   });
+
+  /// 01 is dressed in paper; [dress] is for a preview or a test.
+  static const defaultDress = Dress.paper;
+  final Dress dress;
+
+  /// Which way in is the amber plaque: Join once the code field holds a
+  /// whole code ([codeOpen] and [code]) or 01 is a table's [link], else
+  /// Start a table. Exactly one at any moment.
+  static JoinPlaque plaqueOf({
+    required String? link,
+    required bool codeOpen,
+    required String code,
+  }) => link != null || (codeOpen && code.length == codeLength)
+      ? JoinPlaque.join
+      : JoinPlaque.start;
 
   final String name;
   final String? code;
@@ -215,33 +231,6 @@ class _JoinViewState extends State<JoinView> {
     }
   }
 
-  /// The amber "Join". Never silently dimmed (the app's rule for primary
-  /// buttons): while the name or the code is missing a tap leads to the field
-  /// that lacks it, the name first.
-  Widget _joinButton(VoidCallback? go, ButtonSize size, JoinWay? busy) {
-    if (go == null) {
-      // Another request is on its way (Start a table): Join holds its words.
-      if (busy != null) {
-        return PrimaryButton.waiting(
-          label: JoinCopy.join,
-          reason: SpokenCopy.working,
-          size: size,
-        );
-      }
-      return PrimaryButton.locked(
-        label: JoinCopy.join,
-        onLockedTap: _named ? _codeFocus.requestFocus : _needName,
-        size: size,
-      );
-    }
-    return PrimaryButton(
-      label: JoinCopy.join,
-      onPressed: go,
-      busy: busy == JoinWay.join,
-      size: size,
-    );
-  }
-
   final _nameNudge = GlobalKey<NudgeState>();
 
   /// A tap on what needs a name before there is one: the cursor goes to the
@@ -251,59 +240,30 @@ class _JoinViewState extends State<JoinView> {
     _nameNudge.currentState?.nudge();
   }
 
-  /// "Join a table" and "Start a table": with no name a tap leads to the name
-  /// field; while another request is on its way it holds its words; [own] is
-  /// the request this one made.
-  Widget _secondary({
-    required String label,
-    required JoinWay? busy,
-    required JoinWay? own,
-    required VoidCallback act,
-  }) {
-    const size = ButtonSize.large;
-    if (!_named) {
-      return SecondaryButton.locked(
-        label: label,
-        onLockedTap: _needName,
-        size: size,
-      );
-    }
-    if (own != null && busy == own) {
-      return SecondaryButton(
-        label: label,
-        busy: true,
-        onPressed: act,
-        size: size,
-      );
-    }
-    if (busy != null) {
-      return SecondaryButton.waiting(
-        label: label,
-        reason: SpokenCopy.working,
-        size: size,
-      );
-    }
-    return SecondaryButton(label: label, onPressed: act, size: size);
-  }
-
   String get _typedName => _name.text.trim();
   bool get _named => _typedName.isNotEmpty;
   bool get _coded => _code.text.length == JoinView.codeLength;
 
+  /// Which way in is the amber plaque now (one at any moment).
+  JoinPlaque get _plaque => JoinView.plaqueOf(
+    link: widget.code,
+    codeOpen: _codeOpen,
+    code: _code.text,
+  );
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: widget.dress,
+    child: Builder(builder: _build),
+  );
+
+  Widget _build(BuildContext context) {
     final skin = context.skin;
     final type = skin.typography;
     final busy = widget.busy;
     final idle = busy == null;
     final link = widget.code;
-
-    // Busy, Join keeps its amber and its reading (a tap does nothing: the
-    // button ignores it and the flow sends one request at a time).
-    VoidCallback? join(String? code) =>
-        (idle || busy == JoinWay.join) && _named && code != null
-        ? () => widget.onJoin(_typedName, code)
-        : null;
+    final plaque = _plaque;
 
     final banner = widget.banner;
     final make = widget.scanner;
@@ -333,9 +293,11 @@ class _JoinViewState extends State<JoinView> {
             )
           : ScreenFrame(
               ground: GroundKind.night,
+              // Its one light is the lantern by the door in the picture.
+              mood: MoodKind.lantern,
               topArt: skin.art.streetDoor,
-              // The village takes the height the form leaves: the form sits low,
-              // under the thumb, never above an empty lower half.
+              // The village takes the height the form leaves: the form sits
+              // low, under the thumb, on the picture's foreground.
               topArtLayout: TopArtLayout.fill,
               // The numbers and "Get the app" are quiet lines: on a short
               // phone or above the keyboard they follow the form (reached by
@@ -350,24 +312,24 @@ class _JoinViewState extends State<JoinView> {
                       header: true,
                       child: FitLine(JoinCopy.title, style: type.heroTitle),
                     ),
-                    // The lantern by the door throws its warm light on the name
-                    // field (a dressed screen only).
-                    LanternPool(
-                      child: Nudge(
-                        key: _nameNudge,
-                        child: SkinField.paper(
-                          controller: _name,
-                          focusNode: _nameFocus,
-                          hint: JoinCopy.nameHint,
-                          semanticLabel: JoinCopy.nameHint,
-                          autofocus: widget.name.isEmpty,
-                          maxLength: JoinView.nameLength,
-                          inputFormatters: [_NameFormatter()],
-                          textInputAction: TextInputAction.go,
-                          onSubmitted: (_) => _nameEntered(link),
-                        ),
+                    // The one light is the mood's lantern (the lit door in
+                    // the picture): no second pool round the name.
+                    Nudge(
+                      key: _nameNudge,
+                      child: SkinField.paper(
+                        controller: _name,
+                        focusNode: _nameFocus,
+                        hint: JoinCopy.nameHint,
+                        semanticLabel: JoinCopy.nameHint,
+                        autofocus: widget.name.isEmpty,
+                        maxLength: JoinView.nameLength,
+                        inputFormatters: [_NameFormatter()],
+                        textInputAction: TextInputAction.go,
+                        onSubmitted: (_) => _nameEntered(link),
                       ),
                     ),
+                    // A refusal stays where the eye is: between the name and
+                    // the code.
                     if (banner != null)
                       Notice(
                         message: banner,
@@ -379,7 +341,12 @@ class _JoinViewState extends State<JoinView> {
                     if (link != null && widget.seated)
                       const SizedBox.shrink()
                     else if (link != null)
-                      _joinButton(join(link), ButtonSize.large, busy)
+                      _join(
+                        plaque: plaque,
+                        code: link,
+                        size: ButtonSize.large,
+                        busy: busy,
+                      )
                     else ...[
                       if (_codeOpen)
                         LayoutBuilder(
@@ -396,18 +363,25 @@ class _JoinViewState extends State<JoinView> {
                                   maxLength: JoinView.codeLength,
                                   inputFormatters: [_CodeFormatter()],
                                   textInputAction: TextInputAction.go,
-                                  onSubmitted: (_) =>
-                                      join(_coded ? _code.text : null)?.call(),
+                                  onSubmitted: (_) {
+                                    if (_plaque == JoinPlaque.join &&
+                                        _named &&
+                                        widget.busy == null) {
+                                      widget.onJoin(_typedName, _code.text);
+                                    }
+                                  },
                                 ),
                               ),
-                              // Only where the code keeps its room (the narrowest
-                              // phones show the whole code, and scan is one Back away).
+                              // Only where the code keeps its room (the
+                              // narrowest phones show the whole code, and
+                              // scan is one Back away).
                               if (room.maxWidth >= JoinView.scanBesideCodeFrom)
                                 ?scan,
-                              _joinButton(
-                                join(_coded ? _code.text : null),
-                                ButtonSize.compact,
-                                busy,
+                              _join(
+                                plaque: plaque,
+                                code: _coded ? _code.text : null,
+                                size: ButtonSize.compact,
+                                busy: busy,
                               ),
                             ],
                           ),
@@ -417,7 +391,7 @@ class _JoinViewState extends State<JoinView> {
                           spacing: Space.smPlus,
                           children: [
                             Expanded(
-                              child: _secondary(
+                              child: _scrap(
                                 label: JoinCopy.joinTable,
                                 busy: busy,
                                 own: null,
@@ -427,79 +401,23 @@ class _JoinViewState extends State<JoinView> {
                             ?scan,
                           ],
                         ),
-                      _secondary(
-                        label: JoinCopy.startTable,
-                        busy: busy,
-                        own: JoinWay.start,
-                        act: () => widget.onStart(_typedName),
-                      ),
+                      _start(plaque: plaque, busy: busy),
                     ],
                   ],
                 ),
               ),
               actions: [
-                if ((link == null &&
-                        (widget.online != null || widget.lastWon != null)) ||
-                    widget.onGetApp != null)
-                  Builder(
-                    builder: (context) {
-                      final style = type.lede.copyWith(
-                        color: context.ground.text,
-                      );
-                      final online = widget.online;
-                      final won = widget.lastWon;
-                      final showStats =
-                          link == null && (online != null || won != null);
-                      // "Get the app" shares the "at tables" row, at its end;
-                      // with no such line it sits alone, at the end.
-                      // The target's side padding overhangs the column, so the
-                      // words end on its edge; the 48 px target stays whole.
-                      final getApp = widget.onGetApp == null
-                          ? null
-                          : Transform.translate(
-                              offset: const Offset(Space.sm, 0),
-                              child: TextAction(
-                                label: JoinCopy.getApp,
-                                onPressed: widget.onGetApp,
-                                roomy: true,
-                                quiet: true,
-                              ),
-                            );
-                      final onlineLine = showStats && online != null
-                          ? FitWords(
-                              JoinCopy.online.fill({'n': online}),
-                              style: style,
-                            )
-                          : null;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        spacing: Space.xs,
-                        children: [
-                          if (showStats)
-                            const Rule.divider(height: Space.mdPlus),
-                          if (onlineLine != null && getApp != null)
-                            Row(
-                              spacing: Space.sm,
-                              children: [
-                                Expanded(child: onlineLine),
-                                getApp,
-                              ],
-                            )
-                          else if (onlineLine != null)
-                            onlineLine
-                          else if (getApp != null)
-                            Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: getApp,
-                            ),
-                          if (showStats && won != null)
-                            FitWords(
-                              won ? JoinCopy.lastWon : JoinCopy.lastLost,
-                              style: style,
-                            ),
-                        ],
-                      );
-                    },
+                if (_JoinFoot.shows(
+                  online: widget.online,
+                  lastWon: widget.lastWon,
+                  link: link,
+                  onGetApp: widget.onGetApp,
+                ))
+                  _JoinFoot(
+                    online: widget.online,
+                    lastWon: widget.lastWon,
+                    link: link,
+                    onGetApp: widget.onGetApp,
                   ),
               ],
             ),

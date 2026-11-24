@@ -281,6 +281,52 @@ def plan(
     return steps
 
 
+# ---- the run ---------------------------------------------------------------------
+
+# What a step takes on a builder's machine, in seconds, by the words its name
+# starts with or holds: a guess to plan by, said before anything runs.
+GUESSES = (
+    ("checks", 25),
+    ("all backend tests", 130),
+    ("the migration tests", 40),
+    ("analyze", 30),
+    ("format", 5),
+    ("all frontend tests", 500),
+    ("the screen states", 150),
+    ("generated code", 50),
+    ("guardrail tests", 20),
+)
+# A selected frontend run: the build, then each file.
+FRONTEND_START, FRONTEND_FILE = 25, 6
+# A step that prints nothing says it is alive this often.
+HEARTBEAT = 30
+
+
+def guess(what: str, command: list[str]) -> int:
+    if "frontend test files" in what:
+        files = sum(1 for part in command if part.endswith("_test.dart"))
+        return FRONTEND_START + FRONTEND_FILE * files
+    return next((seconds for words, seconds in GUESSES if what.startswith(words)), 60)
+
+
+def minutes(seconds: float) -> str:
+    return f"{seconds:.0f} s" if seconds < 90 else f"{seconds / 60:.0f} min"
+
+
+def run_aloud(command: list[str], folder: Path, what: str, started: float) -> int:
+    """Runs a step; while it runs, a line every HEARTBEAT seconds says it is alive
+    (a passing test run prints nothing for minutes, and silence looks like a hang)."""
+    process = subprocess.Popen(command, cwd=folder)
+    while True:
+        try:
+            return process.wait(timeout=HEARTBEAT)
+        except subprocess.TimeoutExpired:
+            print(
+                f"   ... still running after {time.monotonic() - started:.0f} s: {what}",
+                flush=True,
+            )
+
+
 def main(argv: list[str]) -> int:
     base = argv[argv.index("--base") + 1] if "--base" in argv else None
     changed = changed_files(base)
@@ -305,9 +351,12 @@ def main(argv: list[str]) -> int:
             " run `git fetch origin main` and try again; this compares with where the"
             " branch left main.)"
         )
-    print(f"piece-check: {len(steps)} steps:")
-    for number, (what, _, _) in enumerate(steps, 1):
-        print(f"  {number}. {what}")
+    guesses = [guess(what, command) for what, _, command in steps]
+    print(f"piece-check: {len(steps)} steps, about {minutes(sum(guesses))} in all:")
+    for number, ((what, _, _), seconds) in enumerate(zip(steps, guesses), 1):
+        print(f"  {number}. {what}  (about {minutes(seconds)})")
+    if any("screen states" in what for what, _, _ in steps):
+        print("  (--no-screens leaves the screens to GitHub.)")
     if "--list" in argv:
         for what, folder, command in steps:
             shown = " ".join(command)
@@ -319,7 +368,7 @@ def main(argv: list[str]) -> int:
     for number, (what, folder, command) in enumerate(steps, 1):
         print(f"\n== {number}/{len(steps)} {what}", flush=True)
         started = time.monotonic()
-        ok = subprocess.run(command, cwd=ROOT / folder).returncode == 0
+        ok = run_aloud(command, ROOT / folder, what, started) == 0
         took = time.monotonic() - started
         results.append((ok, what, took))
         print(f"== {'ok' if ok else 'FAILED'} in {took:.0f} s: {what}", flush=True)
