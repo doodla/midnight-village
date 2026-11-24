@@ -19,6 +19,7 @@ import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
 
+import '../../helpers/real_wait.dart';
 import '../../helpers/contract/sample_sets.dart';
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/shell_setup.dart';
@@ -287,27 +288,31 @@ void main() {
       PaintingBinding.instance.imageCache.clear();
       final s = await ShellSetup.pump(tester, me, holdMe: true);
       await s.settle(tester);
-      // The decode runs on real time; the shell does not wait for it.
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 300)),
-      );
-      await tester.pump();
-      expect(find.byType(YourCardScreen), findsNothing);
-      expect(find.byType(FaceDownCard), findsNothing);
-
       final context = tester.element(find.byType(Scaffold).first);
       final ratio = MediaQuery.devicePixelRatioOf(context);
       final config = ImageConfiguration(devicePixelRatio: ratio);
       final cache = PaintingBinding.instance.imageCache;
-      for (final size in FaceDownSize.values) {
-        final provider = _art.cardBack(back).decodedFor(size.mock, ratio);
-        final key = await tester.runAsync(() => provider.obtainKey(config));
-        expect(
-          cache.containsKey(key!),
-          isTrue,
-          reason: '${size.name} is decoded before 04 asks for it',
-        );
-      }
+      final keys = <Object>[
+        for (final size in FaceDownSize.values)
+          (await tester.runAsync(
+            () => _art
+                .cardBack(back)
+                .decodedFor(size.mock, ratio)
+                .obtainKey(config),
+          ))!,
+      ];
+      // The decode runs on real time; the shell does not wait for it, and
+      // /me/ is still held: every size is decoded before 04 can ask.
+      await untilReal(
+        tester,
+        () => keys.every((key) {
+          final status = cache.statusForKey(key);
+          return status.tracked && !status.pending;
+        }),
+        what: 'the card back in every size, decoded before 04 asks for it',
+      );
+      expect(find.byType(YourCardScreen), findsNothing);
+      expect(find.byType(FaceDownCard), findsNothing);
 
       // /me/ answers: the card appears already painted.
       s.meReplies!.releaseAll();
