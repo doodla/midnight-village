@@ -11,7 +11,9 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 rounds=${1:-3}
 shift || true
 free() { python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'; }
-api_port=$(free)
+# A fixed backend port by default, so the web build (which names it) is the
+# cached one on the next run (frontend/tool/web_build_cached.sh).
+api_port=${PHONE_TIMING_PORT:-18791}
 app_port=$(free)
 work=$(mktemp -d)
 pids=()
@@ -23,9 +25,17 @@ echo "[phone-timing] backend on $api_port"
 pids+=($!)
 
 echo "[phone-timing] building the web app (release) for it"
-(cd "${PHONE_TIMING_FRONTEND:-$root/frontend}" && flutter build web --release --dart-define=ENV=prod \
-  --dart-define=API_ORIGIN="http://127.0.0.1:$api_port" --output "$work/web" > "$work/build.log" 2>&1) ||
-  { tail -30 "$work/build.log"; exit 2; }
+fe=${PHONE_TIMING_FRONTEND:-$root/frontend}
+defines=(--release --dart-define=ENV=prod --dart-define=API_ORIGIN="http://127.0.0.1:$api_port")
+if [ -x "$fe/tool/web_build_cached.sh" ]; then
+  web=$("$fe/tool/web_build_cached.sh" "${defines[@]}" 2> "$work/build.log") ||
+    { tail -30 "$work/build.log"; exit 2; }
+else
+  # An older tree (main before the cached builder): its own build.
+  web="$work/web"
+  (cd "$fe" && flutter build web "${defines[@]}" --output "$web" > "$work/build.log" 2>&1) ||
+    { tail -30 "$work/build.log"; exit 2; }
+fi
 
 python3 -I -c '
 import http.server, os, sys
@@ -37,7 +47,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         return super().send_head()
     def log_message(s, *a): pass
 http.server.ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
-' "$work/web" "$app_port" &
+' "$web" "$app_port" &
 pids+=($!)
 
 for _ in $(seq 1 120); do

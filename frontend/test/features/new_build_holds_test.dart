@@ -88,9 +88,14 @@ void main() {
           expect(tab.reloads, isEmpty);
           expect(watch.waiting, isTrue);
 
-          // Joined: the draft is cleared and the table is shown.
+          // Joined: the draft is cleared and the table is shown. The table
+          // is no moment (nobody waits only on 01).
           container.read(joinDraftProvider.notifier).clear();
           watch.seen(AppScreen.table);
+          tab.settle(async);
+          expect(tab.reloads, isEmpty);
+          // Back on 01 (the table left) with nothing typed: it goes at once.
+          watch.seen(AppScreen.join);
           tab.settle(async);
           expect(tab.reloads, ['new']);
         });

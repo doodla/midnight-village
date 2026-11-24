@@ -96,17 +96,20 @@ void main() {
       halfTyped: typed,
     );
 
-    test('at once on the first screen and a table before the deal', () {
-      for (final place in [
-        AppScreen.join,
-        AppScreen.table,
-        AppScreen.deck,
-        'join',
-        'elsewhere',
-      ]) {
+    test('at once on the first screen, at every moment', () {
+      for (final place in [AppScreen.join, 'join']) {
         for (final moment in Moment.values) {
           expect(may(place, moment), isTrue, reason: '$place $moment');
         }
+      }
+    });
+
+    test('at the table, the set-up page and "another table": ONLY when the '
+        'app comes back, never on a screen change or when learned of', () {
+      for (final place in [AppScreen.table, AppScreen.deck, 'elsewhere']) {
+        expect(may(place, Moment.learned), isFalse, reason: '$place');
+        expect(may(place, Moment.screenChanged), isFalse, reason: '$place');
+        expect(may(place, Moment.resumed), isTrue, reason: '$place');
       }
     });
 
@@ -123,6 +126,17 @@ void main() {
         expect(may(place, Moment.learned), isFalse, reason: '$place');
         expect(may(place, Moment.screenChanged), isFalse, reason: '$place');
         expect(may(place, Moment.resumed), isTrue, reason: '$place');
+      }
+    });
+
+    test('every screen the app can show is asked about: only the first '
+        'screen reloads at a screen change', () {
+      for (final place in AppScreen.values) {
+        expect(
+          may(place, Moment.screenChanged),
+          place == AppScreen.join,
+          reason: '$place',
+        );
       }
     });
 
@@ -248,25 +262,47 @@ void main() {
       });
     });
 
-    test('after the game, at the results, a reload that waited goes at '
-        'once', () {
+    test('after the game, reaching the table (play again) is no moment: '
+        'friends wait there, so nothing reloads', () {
       fakeAsync((async) {
         final page = _Page(live: 'new', place: AppScreen.vote)..build(async);
         page.watch.start();
         page.settle(async);
         page.show(async, AppScreen.end);
-        expect(page.reloads, isEmpty);
         page.show(async, AppScreen.table);
+        page.show(async, AppScreen.yourCard);
+        page.show(async, AppScreen.table);
+        expect(page.reloads, isEmpty);
+        expect(page.renewals, 0, reason: 'nothing was even touched');
+        expect(page.watch.waiting, isTrue, reason: 'it still waits');
+      });
+    });
+
+    test('a build learned of at the table waits there, and goes when the '
+        'app comes back after a while away', () {
+      fakeAsync((async) {
+        final page = _Page(place: AppScreen.table)..build(async);
+        page.watch.start();
+        page.settle(async);
+        page.live = 'new';
+        async.elapse(const Duration(minutes: 20));
+        page.settle(async);
+        expect(page.watch.waiting, isTrue);
+        expect(page.reloads, isEmpty);
+        page.comeBack(async, const Duration(seconds: 2));
+        expect(page.reloads, isEmpty, reason: 'a glance is not a come-back');
+        page.comeBack(async, const Duration(seconds: 6));
         expect(page.reloads, ['new']);
       });
     });
 
-    test('and at the table after the game', () {
+    test('a build that waited at the table goes at the first screen', () {
       fakeAsync((async) {
-        final page = _Page(live: 'new', place: AppScreen.talk)..build(async);
+        final page = _Page(live: 'new', place: AppScreen.table)..build(async);
         page.watch.start();
         page.settle(async);
-        page.show(async, AppScreen.table);
+        expect(page.reloads, isEmpty);
+        page.show(async, AppScreen.join);
         expect(page.reloads, ['new']);
       });
     });
@@ -298,7 +334,8 @@ void main() {
         page.settle(async);
         expect(page.reloads, isEmpty);
         page.typing = false;
-        page.show(async, AppScreen.table);
+        page.watch.settled();
+        page.settle(async);
         expect(page.reloads, ['new']);
       });
     });
@@ -310,7 +347,7 @@ void main() {
         page.watch.start();
         page.settle(async);
         expect(page.reloads, isEmpty);
-        page.show(async, AppScreen.table);
+        page.show(async, AppScreen.join);
         expect(page.reloads, ['new']);
       });
     });
