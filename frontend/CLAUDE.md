@@ -81,6 +81,8 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
   bundle at the main branch (origin/main), else `tool/release_assets.json`) until it is an `ArtSet.retired` copy or
   a dated `removedOnPurpose` line in `tool/release_assets.json`; `just record-assets` refuses
   while one is uncovered, so regenerating cannot hide a removal.
+- **A tool that needs the built web app asks for it**: `out=$(tool/web_build_cached.sh <flutter build web arguments>)`,
+  never its own `flutter build web`: the build is made again only when what goes into it changed (a minute, else a blink).
 - **`vercel.json` is judged as Vercel compiles it**: `tool/web_smoke/routes.test.cjs` (run by
   `just web-smoke`, which needs `@vercel/routing-utils` from `just web-smoke-setup`), never by
   reading a `source` as a plain pattern.
