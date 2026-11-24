@@ -463,6 +463,12 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      # After the upload, whose progress lines would bury it: what failed, as the
+      # last thing this job's own steps print.
+      - name: What failed
+        if: failure()
+        run: tool/failed_tests.py flutter frontend/build/harness-report.jsonl
+
   # ─── Web page smoke ────────────────────────────────────────────────────────
   # The built web page in Chromium, served as Vercel serves it: a first visit
   # loads without waiting for the service worker, a return is served by it,
