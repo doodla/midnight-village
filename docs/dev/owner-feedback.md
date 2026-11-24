@@ -102,7 +102,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
 
 `docs/dev/running-the-work.md`.
 
-## In flight (22 November 2026)
+## In flight (as of 24 November 2026; what is next is `docs/dev/status.md`)
 
 - The owner, live app: "After I back after viewing a card's details. Can't see another cards
   details till I remove/add a card from the deck." Then a recording (web, Chrome on Android,
@@ -120,6 +120,13 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
     NOT ruled out: not reproduced, not fixed. Open until a new recording or a hunt settles it.
   Both shown before and after in a real Chromium with touches, against a release build.
 
+- Speed, the last of the audit's three (back is #9, loading is #10, both merged): open as
+  [#11](https://github.com/doodla/midnight-village/issues/11). Keeping the server warm and moving
+  the database are proposals for the owner (they change the owner's accounts): on the owner's
+  board, not here.
+
+## Done
+
 - Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
   the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
   (same files), as small pull requests: back, then loading, then speed. Back is merged (#49 and #52):
@@ -133,8 +140,6 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   (`just screens`) and four looping clips (`just loading-clips`). Still open: 02's and 03's own waiting
   and busy lines (held with the practice-players session), the first paint before Flutter (white page,
   Android launch), the 10 s request timeout.
-
-## Done
 
 - Practice players (issue 26): on the set-up page, press and hold the word "Players". A
   "Practice" stepper then seats village things (Scarecrow, Teapot, ...) with their own tokens
