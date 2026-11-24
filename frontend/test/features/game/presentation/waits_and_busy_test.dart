@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
@@ -105,7 +106,7 @@ void main() {
       final reads = s.http.hold(method: 'GET', path: '/me/table/');
       final answers = s.http.hold(method: 'POST', path: path);
 
-      await tester.tap(find.text(EndCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
       await tester.pump();
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).busy,
@@ -116,8 +117,8 @@ void main() {
       expect(_posts(s, 'play-again'), 1);
 
       // Sent, not answered: nothing is live.
-      await tester.tap(find.text(EndCopy.playAgain));
-      await tester.tap(find.text(EndCopy.editDeck));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.editDeck));
       await s.settle(tester);
       expect(_posts(s, 'play-again'), 1, reason: 'never sent twice');
       expect(
@@ -159,7 +160,7 @@ void main() {
         ContractSamples.load('http/lobby/play_again'),
       );
       s.http.hold(method: 'POST', path: path);
-      await tester.tap(find.text(EndCopy.editDeck));
+      await pressLikeAFinger(tester, find.text(EndCopy.editDeck));
       await s.settle(tester);
       expect(
         find.descendant(
@@ -192,14 +193,14 @@ void main() {
         ContractSamples.load('http/lobby/play_again_not_finished'),
         status: 409,
       );
-      await tester.tap(find.text(EndCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.cannotDeal), findsOneWidget);
       expect(find.text(BannerCopy.tryAgain), findsNothing);
       expect(find.text(BannerCopy.notSent), findsNothing);
 
       s.http.answer('POST', path, 'Server Error', status: 503);
-      await tester.tap(find.text(EndCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(find.text(BannerCopy.tryAgain), findsOneWidget);
@@ -221,7 +222,7 @@ void main() {
         path,
         ContractSamples.load('http/lobby/play_again'),
       );
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(s.screenOn(tester), AppScreen.table);
       expect(find.text(BannerCopy.notSent), findsNothing);
@@ -245,7 +246,11 @@ void main() {
       );
       s.answerHome();
       final leave = find.text(EndCopy.leave);
-      await tester.tap(leave);
+      await plainTap(
+        tester,
+        leave,
+        why: 'the busy mark is read in the frame of the tap',
+      );
       await tester.pump();
       expect(
         find.descendant(
@@ -332,7 +337,7 @@ void main() {
           .length;
       s.answerMe(me);
       s.answerNightResultsSeen();
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await s.settle(tester);
       expect(
         s.http.requests

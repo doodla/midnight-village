@@ -1,3 +1,4 @@
+import 'text_scale.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -207,7 +208,7 @@ class ShellSetup {
         builder: (context, ref, _) {
           Widget builder(BuildContext context, Widget? child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(textScale),
+              textScaler: ambientTextScaler(context, textScale),
               disableAnimations: disableAnimations,
             ),
             child: GroundScope(

@@ -14,7 +14,7 @@ import '../../../helpers/outcome_samples.dart';
 // recordings widened, as `widened` does), at text sizes 1, 1.3 and 1.6. The
 // measure is a plain stand-in for the serif (a name 8.4 a letter, a role 6.8 a
 // letter, times the text size): the invariants hold whatever the letters
-// measure, and `end_board_sweep_test.dart` checks the drawn board on the real
+// measure, and the screen sweep (`end_board_pages.dart`) checks the drawn board on the real
 // fonts.
 
 void main() {

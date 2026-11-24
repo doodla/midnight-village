@@ -36,6 +36,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/contract/contract_samples.dart';
+import '../helpers/finger.dart';
 import '../helpers/contract/server_json.dart';
 import '../helpers/fake_wakelock_service.dart';
 import '../helpers/live_game_setup.dart';
@@ -724,12 +725,15 @@ void main() {
 
       await tester.enterText(find.byType(EditableText).first, 'Bo');
       await tester.pump();
-      await tester.tap(find.text(JoinCopy.startTable));
+      await pressLikeAFinger(tester, find.text(JoinCopy.startTable));
+      // The account read back arrives as 01 again: while the scene switches,
+      // the old 01 and the new one are both drawn.
       await _until(
         tester,
-        () =>
-            find.byType(JoinView).evaluate().isNotEmpty &&
-            tester.widget<JoinView>(find.byType(JoinView)).name == 'Ana',
+        () => find
+            .byType(JoinView)
+            .evaluate()
+            .any((e) => (e.widget as JoinView).name == 'Ana'),
       );
 
       expect(find.text(BannerCopy.notSent), findsNothing);

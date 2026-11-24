@@ -1,3 +1,4 @@
+import '../helpers/finger.dart';
 import 'dart:io';
 import 'dart:ui' show PointerDeviceKind;
 
@@ -188,7 +189,7 @@ final _scanAction = find.byWidgetPredicate(
 Future<void> _tap(WidgetTester tester, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  await tester.tap(what);
+  await pressLikeAFinger(tester, what);
   await _settled(tester);
 }
 
@@ -275,7 +276,7 @@ void main() {
         'and 01 is as it was; the next Back leaves', (tester) async {
       final platform = _Platform.listen(tester);
       final setup = await TableSetup.pump(tester, signedInAs: 'Ana');
-      await tester.tap(_scanAction);
+      await pressLikeAFinger(tester, _scanAction);
       await _settled(tester);
       expect(setup.scanners.single.started, isTrue);
       expect(find.text(JoinCopy.joinTable), findsNothing);
@@ -299,7 +300,7 @@ void main() {
       final platform = _Platform.listen(tester);
       final setup = await TableSetup.pump(tester, signedInAs: 'Ana');
       await _tap(tester, find.text(JoinCopy.joinTable));
-      await tester.tap(_scanAction);
+      await pressLikeAFinger(tester, _scanAction);
       await _settled(tester);
 
       await _back(tester);
@@ -405,12 +406,8 @@ void main() {
           ContractSamples.map('http/lobby/left_owner'),
         );
         await _back(tester);
-        setup.http.answer(
-          'GET',
-          '/me/table/',
-          ContractSamples.map('http/lobby/my_table_none'),
-        );
-        await tester.tap(find.text(CommonCopy.leave).last);
+        setup.offTheTableOnceLeft('V9YC2J');
+        await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
         // Frame by frame, until 01 is the screen.
         for (var i = 0; i < 40 && _screen(tester) != AppScreen.join; i++) {
           await tester.pump(const Duration(milliseconds: 16));
@@ -441,18 +438,13 @@ void main() {
         expect(find.text(TableCopy.stay), findsNothing);
         expect(platform.left, isFalse);
 
-        setup.http
-          ..answer(
-            'POST',
-            '/lobbies/V9YC2J/leave/',
-            ContractSamples.map('http/lobby/left'),
-          )
-          ..answer(
-            'GET',
-            '/me/table/',
-            ContractSamples.map('http/lobby/my_table_none'),
-          );
-        await tester.tap(find.text(CommonCopy.leave));
+        setup.http.answer(
+          'POST',
+          '/lobbies/V9YC2J/leave/',
+          ContractSamples.map('http/lobby/left'),
+        );
+        setup.offTheTableOnceLeft('V9YC2J');
+        await pressLikeAFinger(tester, find.text(CommonCopy.leave));
         await tester.pump();
         expect(find.text(TableCopy.stay), findsNothing);
         await _settled(tester);
@@ -500,22 +492,17 @@ void main() {
           lobby: v2Lobby('detail_auto_deck_5'),
           viewer: 'Ben',
         );
-        setup.http
-          ..answer(
-            'POST',
-            '/lobbies/V9YC2J/leave/',
-            ContractSamples.map('http/lobby/left'),
-          )
-          ..answer(
-            'GET',
-            '/me/table/',
-            ContractSamples.map('http/lobby/my_table_none'),
-          );
+        setup.http.answer(
+          'POST',
+          '/lobbies/V9YC2J/leave/',
+          ContractSamples.map('http/lobby/left'),
+        );
+        setup.offTheTableOnceLeft('V9YC2J');
         final leave = setup.http.hold(
           method: 'POST',
           path: '/lobbies/V9YC2J/leave/',
         );
-        await tester.tap(find.text(CommonCopy.leave));
+        await pressLikeAFinger(tester, find.text(CommonCopy.leave));
         await _until(tester, () => leave.length == 1);
         await _press(tester);
         await tester.pump(const Duration(milliseconds: 300));
@@ -545,7 +532,7 @@ void main() {
           method: 'POST',
           path: '/onuw/lobbies/V9YC2J/start/',
         );
-        await tester.tap(find.text(TableCopy.start));
+        await pressLikeAFinger(tester, find.text(TableCopy.start));
         await _until(tester, () => deal.length == 1);
         await _press(tester);
         await tester.pump(const Duration(milliseconds: 300));
@@ -931,7 +918,7 @@ void main() {
       }
 
       Future<void> pressClose(WidgetTester tester) async {
-        await tester.tap(find.text(RoleSheetCopy.close));
+        await pressLikeAFinger(tester, find.text(RoleSheetCopy.close));
         await _settled(tester);
       }
 

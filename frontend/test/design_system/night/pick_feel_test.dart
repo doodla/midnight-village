@@ -1,3 +1,4 @@
+import '../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -252,7 +253,7 @@ void main() {
       await finger.up();
       await tester.pumpAndSettle();
       await tapCard(tester, name);
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       await tester.pumpAndSettle();
       expect(calls.where((c) => c.contains('HapticFeedback')), isEmpty);
     });
@@ -336,7 +337,7 @@ void main() {
         reason: 'it starts down in the slot',
       );
       // A tap before it has finished rising is a choose.
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       await tester.pump();
       expect(board.sent, hasLength(1));
       await tester.pumpAndSettle();
@@ -404,7 +405,7 @@ void main() {
       await tapCard(tester, _seat(board));
       await tester.pumpAndSettle();
       expect(height(), greaterThanOrEqualTo(48));
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       await tester.pumpAndSettle();
       expect(height(), greaterThanOrEqualTo(48));
     });

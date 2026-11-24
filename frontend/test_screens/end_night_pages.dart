@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/features/game/presentation/end/end_night.dart';
 
+import '../test/helpers/finger.dart';
 import '../test/helpers/outcome_samples.dart';
 import 'end_board_pages.dart' show endTen, pumpEndBoard;
 import 'screen_catalogue.dart';
@@ -28,7 +29,11 @@ Future<void> pumpEndNight(
   bool back = false,
 }) async {
   await pumpEndBoard(tester, results, textScale: textScale);
-  await tester.tap(find.textContaining('happened').first);
+  await plainTap(
+    tester,
+    find.textContaining('happened').first,
+    why: 'the night is pumped to its moment exactly, from the tap',
+  );
   // A clock started counts from the next frame.
   await tester.pump();
   final night = nightOf(tester);
@@ -40,7 +45,11 @@ Future<void> pumpEndNight(
   }
   if (back) {
     await tester.pump(night.clock.duration);
-    await tester.tap(find.textContaining('result').first);
+    await plainTap(
+      tester,
+      find.textContaining('result').first,
+      why: 'the dawn is pumped to its moment exactly, from the tap',
+    );
     await tester.pump(Motion.scene);
     await tester.pump(Motion.scene);
     return;

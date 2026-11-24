@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
@@ -22,7 +23,7 @@ PrimaryButton _button(WidgetTester tester, String label) =>
 Future<void> _tap(WidgetTester tester, TableSetup setup, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  await tester.tap(what);
+  await pressLikeAFinger(tester, what);
   await setup.settle(tester);
 }
 
@@ -155,7 +156,7 @@ void main() {
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pump();
         expect(find.widgetWithText(SecondaryButton, label), findsOneWidget);
-        await tester.tap(find.text(label));
+        await pressLikeAFinger(tester, find.text(label));
         await tester.pump();
         await tester.pump(Motion.settle ~/ 12);
         final name = tester.widget<EditableText>(

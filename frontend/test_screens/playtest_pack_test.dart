@@ -12,6 +12,7 @@
 // screen to screen. Hand a folder to someone who has never played and ask,
 // screen by screen, what they would do next. Run it with
 // `just playtest-pack`; it is not part of `just test`.
+import '../test/helpers/finger.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -98,7 +99,7 @@ Future<void> _pump(
   final lobby = step.sample?.replaceFirst('http/lobby/', '');
   Future<void> tapAll(Iterable<String> captions) async {
     for (final caption in captions) {
-      await tester.tap(find.text(caption).last);
+      await pressLikeAFinger(tester, find.text(caption).last);
       await tester.pump();
     }
   }
@@ -147,7 +148,7 @@ Future<void> _pump(
           await tapAll(journey.taps);
         case PackScreen.boardChosen:
           await tapAll(journey.taps);
-          await tester.tap(find.byType(PrimaryButton));
+          await pressLikeAFinger(tester, find.byType(PrimaryButton));
           await tester.pump();
         default:
       }
@@ -177,10 +178,10 @@ Future<void> _pump(
       );
       // A recorded pick or lock is the payload's own; else the phone taps.
       if (body!['my_vote'] == null && step.screen != PackScreen.vote) {
-        await tester.tap(find.text(journey.vote));
+        await pressLikeAFinger(tester, find.text(journey.vote));
         await tester.pump();
         if (step.screen == PackScreen.voteLocked) {
-          await tester.tap(find.byType(PrimaryButton));
+          await pressLikeAFinger(tester, find.byType(PrimaryButton));
           await tester.pump();
         }
       }

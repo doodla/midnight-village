@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -61,7 +62,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The deck's Werewolf chip opens the card details.
-      await tester.tap(find.text('2 Werewolves'));
+      await pressLikeAFinger(tester, find.text('2 Werewolves'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       final sheet = find.byType(RoleSheetBody);

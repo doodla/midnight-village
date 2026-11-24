@@ -1,3 +1,4 @@
+import '../../helpers/finger.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -93,7 +94,7 @@ void main() {
         await board.pump(tester);
         final before = _card(tester, NightCopy.you);
         final layout = _layout(tester);
-        await tester.tap(you);
+        await pressLikeAFinger(tester, you);
         // The bob starts on the frame after the tap's, its first tick time 0.
         await tester.pump();
         await tester.pump();
@@ -116,7 +117,7 @@ void main() {
           for (final element in find.byType(FaceDownCard).evaluate())
             (element.widget as FaceDownCard).semanticLabel,
         ].indexOf(NightCopy.you);
-        await tester.tap(you);
+        await pressLikeAFinger(tester, you);
         await tester.pump();
         await tester.pump(Motion.quick ~/ 2);
         final halfway = before[at].top - _card(tester, NightCopy.you).top;
@@ -144,7 +145,7 @@ void main() {
       final board = _board('me_choose_prompt_seer', answer: answer);
       await board.pump(tester);
       await tapCard(tester, cleo.name);
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       await tester.pump();
       expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
       return visibleTrees(tester);
@@ -172,7 +173,7 @@ void main() {
       );
       await board.pump(tester);
       await tapCard(tester, cleo.name);
-      await tester.tap(find.byType(PrimaryButton));
+      await pressLikeAFinger(tester, find.byType(PrimaryButton));
       await tester.pump();
       await tester.pump();
       expect(find.text(BannerCopy.notSent), findsOneWidget);

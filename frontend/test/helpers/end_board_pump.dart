@@ -5,6 +5,7 @@ import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/features/game/domain/game_outcome.dart';
 import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
+import 'text_scale.dart';
 
 /// The end board on the results [results], for the player in seat [viewer]
 /// (0 is the first), as a host or a guest, at text size [scale]. A guest's
@@ -33,7 +34,7 @@ Future<void> pumpEndBoardOn(
       theme: skinTheme(SkinId.fallback.skin),
       builder: (context, app) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(scale),
+          textScaler: ambientTextScaler(context, scale),
           disableAnimations: reduceMotion,
         ),
         child: app!,

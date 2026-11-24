@@ -6,8 +6,8 @@ import 'package:midnight_village/features/game/domain/end_board_metrics.dart';
 
 // The end board's rules as checks on a plan (docs/specs/frontend/end-board.md,
 // section 3, rule 9), shared by the domain tests (the stand-in measure,
-// `end_board_plans.dart`) and the sweep on the real fonts
-// (`end_board_sweep_test.dart`), so the two can never disagree silently:
+// `end_board_plans.dart`) and the screen sweep on the real
+// fonts (`endBoardSweep` in `test_screens/end_board_pages.dart`), so the two can never disagree silently:
 // - the hard rule: what hangs on a card covers no other card and no name
 //   ([coverFaults]), checked here on its own, not by the app's own check;
 // - six or fewer give up nothing: a board of six or fewer that scrolls stands

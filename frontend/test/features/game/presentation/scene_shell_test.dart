@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
@@ -230,7 +231,7 @@ void main() {
           of: find.byType(TalkScreen),
           matching: find.byType(PrimaryButton),
         );
-        await tester.tapAt(_rest(tester, ready));
+        await pressAtLikeAFinger(tester, _rest(tester, ready));
         await tester.pump();
         expect(
           tester.widget<PrimaryButton>(ready).label,

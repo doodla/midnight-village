@@ -5,6 +5,7 @@
 // The frames are drawn on the test's clock (so the same every run): a step
 // is 83 ms (12 per second); a long wait is stepped wider, and each frame
 // says how long it stays (`<clip>/NNN-<ms>.png`).
+import '../test/helpers/finger.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -140,7 +141,7 @@ void main() {
         );
       },
     );
-    await tester.tap(find.text(JoinCopy.joinTable));
+    await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
     await tester.pump();
     await tester.enterText(find.byType(TextField).last, 'V9YC2J');
     await tester.pump();

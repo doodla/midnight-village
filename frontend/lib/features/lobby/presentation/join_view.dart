@@ -337,6 +337,10 @@ class _JoinViewState extends State<JoinView> {
               // The village takes the height the form leaves: the form sits low,
               // under the thumb, never above an empty lower half.
               topArtLayout: TopArtLayout.fill,
+              // The numbers and "Get the app" are quiet lines: on a short
+              // phone or above the keyboard they follow the form (reached by
+              // scrolling) rather than take the room its buttons need.
+              actionsFollow: true,
               body: Builder(
                 builder: (context) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

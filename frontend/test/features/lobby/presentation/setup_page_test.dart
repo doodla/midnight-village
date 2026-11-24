@@ -1,3 +1,4 @@
+import '../../../helpers/finger.dart';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
@@ -424,7 +425,7 @@ void main() {
 Future<void> _tap(WidgetTester tester, TableSetup setup, Finder what) async {
   await tester.ensureVisible(what);
   await tester.pump();
-  await tester.tap(what);
+  await pressLikeAFinger(tester, what);
   await setup.settle(tester);
 }
 

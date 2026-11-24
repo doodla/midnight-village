@@ -1,3 +1,4 @@
+import '../../helpers/finger.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -26,7 +27,7 @@ import 'board_harness.dart';
 // and moves the same for every role.
 
 Future<void> _choose(WidgetTester tester) async {
-  await tester.tap(find.byType(PrimaryButton));
+  await pressLikeAFinger(tester, find.byType(PrimaryButton));
   await tester.pump();
 }
 
@@ -94,7 +95,7 @@ void main() {
   group('the picks are always "You", a shape of the prompt, or its start', () {
     testWidgets('a tap picks at once and a second tap unpicks', (tester) async {
       await BoardHarness.of(Viewer.seer).pump(tester);
-      await tester.tap(you);
+      await pressLikeAFinger(tester, you);
       await tester.pump();
       expect(lifted(tester), [NightCopy.you]);
       await tapCard(tester, NightCopy.left);
@@ -415,7 +416,7 @@ void main() {
     await tapCard(tester, NightCopy.you);
     await tester.pump(const Duration(seconds: 1));
     expect(lifted(tester), isEmpty);
-    await tester.tap(find.byType(PrimaryButton));
+    await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await tester.pump();
     expect(board.sent, isEmpty);
     expect(button(tester), (NightCopy.nothingToDo, ButtonPhase.done));
@@ -481,7 +482,7 @@ void main() {
         .widgetList<CueWave>(find.byType(CueWave))
         .every((wave) => wave.play);
     expect(waving(), isFalse);
-    await tester.tap(find.byType(PrimaryButton));
+    await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await tester.pump();
     expect(waving(), isTrue);
     expect(board.sent, isEmpty);
@@ -506,7 +507,7 @@ void main() {
     expect(button(tester), (NightCopy.chosen, ButtonPhase.done));
     await tapCard(tester, ben.name);
     expect(lifted(tester), [NightCopy.left, NightCopy.right]);
-    await tester.tap(find.byType(PrimaryButton));
+    await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await tester.pump();
     expect(board.sent, hasLength(1));
     expect(
@@ -545,7 +546,7 @@ void main() {
     expect(board.prompt.choosesLeft, 0);
     await board.pump(tester);
     await tapCard(tester, NightCopy.left);
-    await tester.tap(find.byType(PrimaryButton));
+    await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await tester.pump();
     expect(board.sent, isEmpty);
     expect(button(tester), (NightCopy.nothingToDo, ButtonPhase.done));
@@ -605,7 +606,7 @@ void main() {
       );
 
       board.answer = () async => _answered('choose_submitted_seer');
-      await tester.tap(find.text(BannerCopy.tryAgain));
+      await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
       await tester.pump();
       expect(find.text(BannerCopy.notSent), findsNothing);
       expect(board.stages, [board.prompt.stage, board.prompt.stage]);

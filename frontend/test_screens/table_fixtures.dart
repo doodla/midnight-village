@@ -1,3 +1,4 @@
+import '../test/helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -121,16 +122,33 @@ Future<void> pumpJoinStarting(WidgetTester tester) async {
         status: 201,
       ),
   );
-  await tester.tap(find.text(JoinCopy.startTable));
+  await plainTap(
+    tester,
+    find.text(JoinCopy.startTable),
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
-Future<void> _typeCodeAndJoin(WidgetTester tester, TableSetup setup) async {
-  await tester.tap(find.text(JoinCopy.joinTable));
+/// [timed]: the picture is of the busy Join, timed from the tap.
+Future<void> _typeCodeAndJoin(
+  WidgetTester tester,
+  TableSetup setup, {
+  bool timed = false,
+}) async {
+  await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
   await tester.pump();
   await tester.enterText(find.byType(TextField).last, 'V9YC2J');
   await tester.pump();
-  await tester.tap(find.text(JoinCopy.join));
+  if (timed) {
+    await plainTap(
+      tester,
+      find.text(JoinCopy.join),
+      why: 'the gallery\'s picture of a busy button is timed from the tap',
+    );
+  } else {
+    await pressLikeAFinger(tester, find.text(JoinCopy.join));
+  }
   await setup.settle(tester);
 }
 
@@ -149,7 +167,7 @@ Future<void> pumpJoinJoining(WidgetTester tester) async {
         ContractSamples.map('http/lobby/joined'),
       ),
   );
-  await _typeCodeAndJoin(tester, setup);
+  await _typeCodeAndJoin(tester, setup, timed: true);
 }
 
 /// A join that got no answer: "Not sent." with "Try again", on 01.
@@ -197,7 +215,7 @@ Future<void> pumpStartNotSent(WidgetTester tester) async {
     before: (s) =>
         s.http.answer('POST', '/lobbies/', 'Server Error', status: 503),
   );
-  await tester.tap(find.text(JoinCopy.startTable));
+  await pressLikeAFinger(tester, find.text(JoinCopy.startTable));
   await setup.settle(tester);
 }
 
@@ -222,7 +240,7 @@ Future<void> pumpJoinReturning(WidgetTester tester) =>
 /// 01 with "Join a table" opened: the code and an amber "Join".
 Future<void> pumpJoinCode(WidgetTester tester) async {
   await pumpJoinReturning(tester);
-  await tester.tap(find.text(JoinCopy.joinTable));
+  await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
   await tester.pump();
   await tester.enterText(find.byType(TextField).last, 'V9YC2J');
   await tester.pump();
@@ -240,7 +258,7 @@ Future<void> pumpJoinCodeFresh(WidgetTester tester) async {
   await pumpJoinFresh(tester);
   await tester.enterText(find.byType(TextField), 'Ben');
   await tester.pump();
-  await tester.tap(find.text(JoinCopy.joinTable));
+  await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
   await tester.pump();
   await tester.enterText(find.byType(TextField).last, 'V9YC2J');
   await tester.pump();
@@ -319,7 +337,8 @@ Future<void> pumpScanRefused(WidgetTester tester) async {
 }
 
 Future<void> _openScanner(WidgetTester tester) async {
-  await tester.tap(
+  await pressLikeAFinger(
+    tester,
     find.byWidgetPredicate(
       (w) => w is GlyphButton && w.semanticLabel == ScanCopy.scan,
     ),
@@ -481,7 +500,7 @@ Future<void> pumpTableSeatsLowered(WidgetTester tester) async {
   final play = find.text(TableCopy.playWith.fill({'n': 7}));
   await tester.ensureVisible(play);
   await tester.pumpAndSettle();
-  await tester.tap(play);
+  await pressLikeAFinger(tester, play);
   await setup.settle(tester);
 }
 
@@ -546,7 +565,11 @@ Future<void> pumpTableDealing(WidgetTester tester) async {
         status: 201,
       ),
   );
-  await tester.tap(find.byType(PrimaryButton).last);
+  await plainTap(
+    tester,
+    find.byType(PrimaryButton).last,
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
@@ -563,7 +586,7 @@ Future<void> pumpTableDealNotSent(WidgetTester tester) async {
       status: 503,
     ),
   );
-  await tester.tap(find.byType(PrimaryButton).last);
+  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
   await setup.settle(tester);
 }
 
@@ -582,7 +605,11 @@ Future<void> pumpTableLeaving(WidgetTester tester) async {
         ContractSamples.load('http/lobby/left'),
       ),
   );
-  await tester.tap(find.text(CommonCopy.leave).last);
+  await plainTap(
+    tester,
+    find.text(CommonCopy.leave).last,
+    why: 'the gallery\'s picture of a busy button is timed from the tap',
+  );
   await setup.settle(tester);
 }
 
@@ -600,7 +627,7 @@ Future<void> pumpTableLeaveNotSent(WidgetTester tester) async {
       status: 503,
     ),
   );
-  await tester.tap(find.text(CommonCopy.leave).last);
+  await pressLikeAFinger(tester, find.text(CommonCopy.leave).last);
   await setup.settle(tester);
 }
 
@@ -699,7 +726,7 @@ Future<void> pumpDeckGridShort(WidgetTester tester) async {
   );
   await tester.ensureVisible(minus);
   await tester.pumpAndSettle();
-  await tester.tap(minus);
+  await pressLikeAFinger(tester, minus);
   await tester.pump(const Duration(milliseconds: 300));
 }
 
@@ -713,7 +740,7 @@ Future<void> pumpDeckGridOver(WidgetTester tester) async {
   await _tapCard(tester, RoleId.hunter);
   // The first "Done" does not leave: it brings the count into view and
   // nudges it.
-  await tester.tap(find.text(DeckCopy.done));
+  await pressLikeAFinger(tester, find.text(DeckCopy.done));
   await tester.pumpAndSettle();
 }
 
@@ -806,7 +833,7 @@ Future<void> _tapCard(WidgetTester tester, RoleId role) async {
   final card = find.byWidgetPredicate((w) => w is RoleCard && w.role == role);
   await tester.ensureVisible(card);
   await tester.pumpAndSettle();
-  await tester.tap(card);
+  await pressLikeAFinger(tester, card);
   await tester.pump(const Duration(milliseconds: 300));
 }
 
@@ -835,7 +862,7 @@ Future<void> _openDeck(WidgetTester tester) async {
   final edit = find.text(TableCopy.editDeck);
   await tester.ensureVisible(edit);
   await tester.pumpAndSettle();
-  await tester.tap(edit);
+  await pressLikeAFinger(tester, edit);
   for (var i = 0; i < 12; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }

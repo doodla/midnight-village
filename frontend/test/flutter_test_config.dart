@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/art_picture.dart';
 
 import 'helpers/contract/contract_shape.dart';
+import 'helpers/finger.dart';
 import 'helpers/mock_http_client.dart';
 import 'helpers/test_fonts.dart';
 
@@ -16,7 +17,9 @@ import 'helpers/test_fonts.dart';
 ///    server sends (`contract_samples/`, see `helpers/contract/`).
 /// 3. Fail a test that draws a picture that is missing or does not decode
 ///    (`ArtPicture.debugBeforeDraw`, `debugOnError`).
-/// 4. Resolve golden paths against `test/design_system/`, so every golden
+/// 4. Fail a test that presses a main button with no frame between the
+///    finger going down and up (`installFingerRule`, helpers/finger.dart).
+/// 5. Resolve golden paths against `test/design_system/`, so every golden
 ///    test shares one baseline set in `test/design_system/goldens/`.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +38,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   ArtPicture.debugOnError = (image, error) {
     throw StateError('Picture ${image.path} did not load: $error');
   };
+
+  installFingerRule();
 
   goldenFileComparator = LocalFileComparator(
     Uri.file('${Directory.current.path}/test/design_system/placeholder.dart'),
