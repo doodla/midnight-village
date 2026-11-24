@@ -23,9 +23,12 @@ table of "this test covers that file" to keep.
 - Screens: only the catalogue states that draw what changed, strict at 360 and
   390 (tool/piece_screens.py works out which from each state's widget tree).
 
-usage: tool/piece_check.py [--list] [--far] [--base <ref>]
+usage: tool/piece_check.py [--list] [--far] [--no-screens] [--both-widths] [--base <ref>]
   --list   print what would run, run nothing
   --far    every frontend test that can see the change, however far away
+  --no-screens    render no screens (a change to logic only)
+  --both-widths   render at 360 and 390 however many states it is (by default more
+                  than 60 states are rendered at 390 only)
   --base   what the change is measured against (default: where this branch
            left origin/main)
 """
@@ -192,7 +195,12 @@ def frontend_tests(changed: list[str], everything: bool = False) -> tuple[list[s
     return sorted(n for n, steps in how_far.items() if steps <= nearest + 1), ""
 
 
-def plan(changed: list[str], everything: bool = False) -> list[tuple[str, str, list[str]]]:
+def plan(
+    changed: list[str],
+    everything: bool = False,
+    screens: bool = True,
+    both_widths: bool = False,
+) -> list[tuple[str, str, list[str]]]:
     """[(what it is, folder to run in, command)] for this change."""
     steps: list[tuple[str, str, list[str]]] = []
     backend = [c for c in changed if c.startswith("backend/")]
@@ -242,13 +250,19 @@ def plan(changed: list[str], everything: bool = False) -> list[tuple[str, str, l
             for c in frontend
             if c.startswith(SCREEN_INPUTS) or c in ("frontend/pubspec.yaml",)
         ]
-        if drawn:
+        if drawn and screens:
             # which states is worked out when the step runs (tool/piece_screens.py)
             steps.append(
                 (
-                    "the screen states this change can reach, strict at 360 and 390",
+                    "the screen states this change can reach, strict"
+                    + (" at 360 and 390" if both_widths else " (one width when it is many)"),
                     ".",
-                    [sys.executable, "tool/piece_screens.py", *drawn],
+                    [
+                        sys.executable,
+                        "tool/piece_screens.py",
+                        *(["--both-widths"] if both_widths else []),
+                        *drawn,
+                    ],
                 )
             )
         generated = [
@@ -273,7 +287,12 @@ def main(argv: list[str]) -> int:
     if not changed:
         print("piece-check: nothing changed against main.")
         return 0
-    steps = plan(changed, everything="--far" in argv)
+    steps = plan(
+        changed,
+        everything="--far" in argv,
+        screens="--no-screens" not in argv,
+        both_widths="--both-widths" in argv,
+    )
     # The plan first, always: what was seen and what will run, before any of it.
     print(f"piece-check: {len(changed)} changed files against main:")
     for name in changed[:SHOWN_CHANGES]:

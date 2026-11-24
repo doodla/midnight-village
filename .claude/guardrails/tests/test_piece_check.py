@@ -195,6 +195,19 @@ class ScreensThatDrawAChange(unittest.TestCase):
         )
         self.assertEqual(found, ["A", "B", "C", "D", "E"])
 
+    def test_many_states_are_rendered_at_one_width_unless_both_are_asked_for(self):
+        many = self.screens.MANY
+        self.assertEqual(self.screens.widths_for(many, False), (360, 390))
+        self.assertEqual(self.screens.widths_for(many + 1, False), (390,))
+        self.assertEqual(self.screens.widths_for(many + 1, True), (360, 390))
+
+    def test_no_screens_drops_the_step_and_nothing_else(self):
+        tool = load(REPO)
+        with_screens = [w for w, _, _ in tool.plan(["frontend/lib/app.dart"])]
+        without = [w for w, _, _ in tool.plan(["frontend/lib/app.dart"], screens=False)]
+        self.assertEqual([w for w in with_screens if "screen states" not in w], without)
+        self.assertEqual(len(with_screens), len(without) + 1)
+
     def test_the_plan_renders_screens_only_for_what_can_change_one(self):
         def steps(*changed):
             return [what for what, _, _ in load(REPO).plan(list(changed))]

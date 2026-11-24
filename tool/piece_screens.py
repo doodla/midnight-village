@@ -15,7 +15,9 @@ Which states is worked out from the app itself, with nothing kept by hand:
 Everything is rendered instead when that cannot be trusted: an asset, the
 catalogue or a test helper changed, or a state could not be built.
 
-usage: tool/piece_screens.py [--list] <changed file>...
+More than 60 states are rendered at 390 only, unless --both-widths.
+
+usage: tool/piece_screens.py [--list] [--both-widths] <changed file>...
 """
 
 import hashlib
@@ -35,6 +37,8 @@ DIRECTIVE = re.compile(r"""^\s*(?:import|export|part)\s+['"]([^'"]+)['"]""", re.
 WIDTHS = (360, 390)
 # Past this share of the catalogue, choosing saves nothing: render it all.
 MOST = 0.6
+# Past this many states, one width only (the mocks'), unless both are asked for.
+MANY = 60
 
 
 def frontend() -> Path:
@@ -156,10 +160,10 @@ def states_for(
     return picked, ""
 
 
-def render(states: set[str] | None) -> int:
-    """`just screens` strict at each width: all of it, or only `states`."""
+def render(states: set[str] | None, widths: tuple[int, ...] = WIDTHS) -> int:
+    """`just screens` strict at each of `widths`: all of it, or only `states`."""
     status = 0
-    for width in WIDTHS:
+    for width in widths:
         if states is None:
             command = ["just", "screens", str(width), "strict"]
         else:
@@ -192,25 +196,39 @@ def render(states: set[str] | None) -> int:
     return status
 
 
+def widths_for(count: int, both: bool) -> tuple[int, ...]:
+    """Both widths for a handful of states; past MANY only the mocks' width, so a
+    central file does not cost ten minutes. GitHub renders both, always."""
+    return WIDTHS if both or count <= MANY else (WIDTHS[-1],)
+
+
 def main(argv: list[str]) -> int:
-    only_list = "--list" in argv
+    only_list, both = "--list" in argv, "--both-widths" in argv
     changed = [a for a in argv if not a.startswith("--")]
     widgets = state_widgets()
     states, why_all = states_for(changed, widgets, owners(), importers())
     total = len(widgets)
     if states is not None and len(states) > MOST * total:
         states, why_all = None, f"{len(states)} of {total} states draw what changed"
-    if states is None:
-        print(f"screens: all {total} states ({why_all}).")
-    elif not states:
+    if states is not None and not states:
         print("screens: no state draws what changed; nothing to render.")
         return 0
+    count = total if states is None else len(states)
+    widths = widths_for(count, both)
+    at = " and ".join(str(w) for w in widths)
+    if states is None:
+        print(f"screens: all {total} states ({why_all}), at {at}.")
     else:
-        print(f"screens: {len(states)} of {total} states draw what changed:")
+        print(f"screens: {count} of {total} states draw what changed, at {at}:")
         for state in sorted(states):
             print(f"    {state}")
-        print("  pictures: frontend/build/screens/ (390) and build/screens/w360/")
-    return 0 if only_list else render(states)
+    if len(widths) < len(WIDTHS):
+        print(
+            f"  (more than {MANY} states: at {at} only, to keep this quick. GitHub renders"
+            " both widths; `just piece-check --both-widths` does it here.)"
+        )
+    print("  pictures: frontend/build/screens/ (390) and build/screens/w360/")
+    return 0 if only_list else render(states, widths)
 
 
 if __name__ == "__main__":
