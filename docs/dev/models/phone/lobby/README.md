@@ -59,7 +59,8 @@ goes out is `lobby_taps.dart`, a part of `lobby_notifier.dart`.
 | `q`, `unsent`, `asked`, `askedAt` | `SettingsLane.pending`, `.unsent`, `._asked`, `._askedAt` |
 | `refC`, `dealHeld`, `dq = "queued"` | `SettingsLane._refused` (`refusedShown`), `.dealHeld`, `.dealWaiting` |
 | `base`, `srn` | `LobbyNotifier._base` (with what only this phone knows), `SettingsLane._shownRev` |
-| `ShowAll`, `Show` | `SettingsLane.admit` (in `LobbyNotifier._admit`, `_showServer`, `_refreshOnce`) |
+| `Apply`, `Show` (`Adm`: per table) | `SettingsLane.admit` (in `LobbyNotifier._admit` with `_tableOf`, `_showServer`, `_refreshOnce`, `_replayBuffered`); a `"host"` event: `_onHostChanged` (`admit(lobby: false)`) |
+| `phost`, `btid` | `LobbyState.hostId`, `.code` with `.createdAt` |
 | `Shown`, `Over`, `Layers` | `SettingsLane.over` (`_putBase`, `_showLane`) |
 | `NotSent` | `SettingsLane.notSent` (put on `LobbyState.notSent` by `over`) |
 | `Tap(ks)` | `SettingsLane.ask` (`_LobbyTaps._change`); a deal waiting is held |
@@ -107,7 +108,7 @@ Bound: 3 taps, 1 second-writer event, 1 deal tap, 2 faults.
 |---|---|
 | `PhoneLobby.tla` | The model; its header names the code it was read from. |
 | `lobby.cfg` | `NeverOlder`, 2 faults. |
-| `late.cfg` | `NeverOlder` with `LATE` and `FIX_ASKED` (the server's half of #16). |
+| `late.cfg` | `NeverOlder` with `LATE` and `FIX_ASKED` (the server's half of #16), without the second writer (`MaxJoins = 0`: it never writes a host's ask, with it the run had 36 million states and 6 million still queued at its twelfth minute, well on course past the script's hour). |
 | `rule_a.cfg`, `rule_b.cfg`, `rule_b2.cfg`, `rule_c.cfg`, `rule_d.cfg` | R0, R1, R1, R2, R4: their rules hold, 2 faults. |
 | `try.cfg` | R3, `TryAgainActs` (liveness), 1 tap, 2 faults. |
 | `heal.cfg` | `Converges` with 1 fault. |
@@ -122,15 +123,15 @@ the whole script: TLC 2026.11.19 (`tla2tools.jar` of the tlaplus v1.8.0 release)
 
 | Rule | Says | Run | Result |
 |---|---|---|---|
-| `NeverOlder` | The server never writes a key's older ask over a newer one (lane order; "Try again" never undoes a newer change) | `lobby` | holds (RESULT_lobby) |
-| `NoFlickerBack`, `HostNeverBack` | (R0) No lobby shown takes a host value back, nothing laid over the lobby is older than it, and no older host comes back | `rule_a` | holds (RESULT_rule_a) |
-| `LostFlagged` | (R1) A lost change that "Try again" would still send is said so on the screen | `rule_b` | holds (RESULT_rule_b) |
-| `NoHiddenResend` | (R1) "Try again" never sends a lost value after "Not sent." stopped showing for it | `rule_b2` | holds (RESULT_rule_b2) |
-| `RetryCoversAll`, `DealAsShown` | (R2) "Try again" leaves nothing behind; what is dealt is what the screen showed at the tap (but a key make_room wrote after the lobby then on screen) | `rule_c` | holds (RESULT_rule_c) |
-| `GuestQuiet` | (R4) A phone that met a 403 shows no "Not sent." | `rule_d` | holds (RESULT_rule_d) |
-| `TryAgainActs` | (R3) After "Try again" a request goes out or "Not sent." goes | `try` | holds (RESULT_try) |
-| `Converges` | The screen ends where the server is or says "Not sent." | `heal` (1 fault) | holds (RESULT_heal) |
-| `NeverOlder` | With `LATE` and `FIX_ASKED`: the server drops a change older than the one it stored | `late` | holds (RESULT_late) |
+| `NeverOlder` | The server never writes a key's older ask over a newer one (lane order; "Try again" never undoes a newer change) | `lobby` | holds (36,495,738 distinct states, 15 min) |
+| `NoFlickerBack`, `HostNeverBack` | (R0) No lobby shown takes a host value back, nothing laid over the lobby is older than it, and no older host comes back | `rule_a` | holds (36,495,738 distinct states, 17 min) |
+| `LostFlagged` | (R1) A lost change that "Try again" would still send is said so on the screen | `rule_b` | holds (36,495,738 distinct states, 15 min) |
+| `NoHiddenResend` | (R1) "Try again" never sends a lost value after "Not sent." stopped showing for it | `rule_b2` | holds (36,495,738 distinct states, 15 min2) |
+| `RetryCoversAll`, `DealAsShown` | (R2) "Try again" leaves nothing behind; what is dealt is what the screen showed at the tap, but a key another writer changed where the phone could not show it (`Unseen`: see below) | `rule_c` | holds (36,495,738 distinct states, 15 min) |
+| `GuestQuiet` | (R4) A phone that met a 403 shows no "Not sent." | `rule_d` | holds (36,495,738 distinct states, 15 min) |
+| `TryAgainActs` | (R3) After "Try again" a request goes out or "Not sent." goes | `try` | holds (191,320 distinct states, 0 min) |
+| `Converges` | The screen ends where the server is or says "Not sent." | `heal` (1 fault) | holds (2,416,919 distinct states, 3 min) |
+| `NeverOlder` | With `LATE` and `FIX_ASKED`: the server drops a change older than the one it stored | `late` | holds (3,218,025 distinct states, 1 min) |
 | `NeverOlder` | With `LATE` alone: a lost request may reach the server after a newer one | `known_late` | KNOWN gap (#16) |
 | `Converges` | With 2 faults: a refusal and a failed read | `known_converge` | KNOWN gap |
 
@@ -165,6 +166,17 @@ breaks `HostNeverBack` (a read showed the newest host, then the first move's lat
 the older one back). With a new table at the same code and the newest kept for the whole
 code, `Converges` breaks (two taps, then the new table's first `lobby_update`, numbered 1,
 is never shown). Both hold with the rules above.
+
+**What `DealAsShown` leaves out, and why (the honest nearest rule).** With the second writer
+in, the deal can only promise the screen for the keys the phone could know. Two traces broke
+the plain rule, neither a fault of the phone's: (1) a new table opened at the same code and
+the host dealt before its first `lobby_update` came; (2) the host changed the practice count
+and, before its answer, someone sat down at the full table: make_room took a practice seat
+AFTER the host's change was applied, the phone showed the host's change on its way over that
+newer lobby, and the answer (older) was rightly not shown; the deal dealt the server's order,
+which is the table as it is. So `Unseen` (the keys left out) is: make_room's `prac` after the
+lobby on screen or while the host's own practice change is on its way, and every key of a
+new table not heard of yet. Every other key is dealt as shown.
 
 **A slip in the model, found on the way.** `Next` read `\E r \in reqs : SRefuse(r) \/ SJoin`:
 the quantifier ran to the end of the line, so someone sat down only while a request of the

@@ -47,7 +47,7 @@ VARIABLES
   unsent, asked, askedAt,          \* the lost changes, the tap count, the newest ask per key
   refC, dealHeld, guest,           \* the refused change still on screen ({} or {c}); the deal not sent; a 403 met
   rq, rv, again, buf,              \* refreshLobby: the read, its body, _refreshAgain, _buffered
-  dq, pDealt, deals, dealView, dealMoved, \* the deal: its state, the game opened, deal taps, the screen at the tap, make_room wrote after it
+  dq, pDealt, deals, dealView, dealMoved, \* the deal: its state, the game opened, deal taps, the screen at the tap, the keys another writer changed that the phone could not have shown
   flick, hostBack, hidden, ghost, stranded, dealBad, \* history for the rules
   taps, faults, tried              \* tried: the step before was a "Try again"
 
@@ -82,6 +82,14 @@ Over(b) == [k \in Keys |-> LET L == {c \in Layers : k \in c.keys}
                            IN IF L = {} THEN b[k]
                               ELSE (CHOOSE c \in L : \A d \in L : d.n <= c.n).v]
 Shown == Over(base)
+\* the keys another writer changed that the phone could not show as they will be dealt:
+\* make_room's "prac" after the lobby on screen, or while the host's own practice change is
+\* still on its way (the server may apply make_room after it: the answer, older, is not
+\* shown, and the deal deals the server's order), or every key of a new table at the same
+\* code not heard of yet
+PracPending == \E i \in 1..Len(q) : "prac" \in q[i].keys
+Unseen == (IF roomAt > srn \/ (roomAt > 0 /\ PracPending) THEN {"prac"} ELSE {})
+          \cup (IF stid # btid THEN Keys ELSE {})
 
 (* ---------------- (b) "Not sent." is derived ---------------- *)
 \* a lost change Try again would still send: a key no newer change asked for
@@ -165,7 +173,8 @@ SOther ==
           /\ sv' = nb.v /\ srev' = srev + 1
           /\ roomAt' = IF kind = "room" THEN srev + 1 ELSE roomAt
           \* a deal tapped and not served yet: the phone could not have shown it
-          /\ dealMoved' = (dealMoved \/ (kind = "room" /\ dq \in {"queued", "sent"}))
+          /\ dealMoved' = IF kind = "room" /\ dq \in {"queued", "sent"}
+                          THEN dealMoved \cup {"prac"} ELSE dealMoved
           /\ evq' = IF sock = "down" THEN evq
                     ELSE IF kind = "presence" THEN Append(evq, [t |-> "upd", lob |-> nb])
                     ELSE evq \o <<[t |-> "upd", lob |-> nb], [t |-> "join", lob |-> NoBody]>>
@@ -315,7 +324,7 @@ DealTap ==
      ELSE LET R == Resend(unsent, askedAt, asked, q, {}) IN
           /\ unsent' = <<>>
           /\ askedAt' = R.a /\ asked' = R.n /\ q' = R.q
-          /\ dealView' = Shown /\ dealMoved' = (roomAt > srn)
+          /\ dealView' = Shown /\ dealMoved' = Unseen
           /\ dq' = (IF R.q = <<>> THEN "sent" ELSE "queued")
           /\ dealHeld' = FALSE
           /\ ghost' = (ghost \/ R.sent \cap hidden # {})
@@ -329,14 +338,13 @@ DealGo ==
 \* the server deals (what it holds), or answers 403 (the role moved: the phone is a guest,
 \* nothing held)
 DealServe ==
-  /\ dq = "sent" /\ dealView' = Zero /\ dealMoved' = FALSE
+  /\ dq = "sent" /\ dealView' = Zero /\ dealMoved' = {}
   /\ IF moved
      THEN /\ dq' = "none" /\ guest' = TRUE /\ unsent' = <<>> /\ dealHeld' = FALSE /\ q' = <<>>
           /\ UNCHANGED <<sDealt, dealBad>>
      ELSE /\ dq' = "taken" /\ sDealt' = TRUE
           \* a key make_room wrote after the screen's lobby at the tap: the phone could not show it
-          /\ LET moved2 == IF dealMoved THEN {"prac"} ELSE {} IN
-             dealBad' = (dealBad \/ \E k \in Keys \ moved2 : sv[k] # dealView[k])
+          /\ dealBad' = (dealBad \/ \E k \in Keys \ dealMoved : sv[k] # dealView[k])
           /\ UNCHANGED <<guest, unsent, dealHeld, q>>
   /\ UNCHANGED <<sv, sask, srev, badOrder, shost, stid, roomAt, reqs, rep, evq, sock, joins, phase,
                  asked, askedAt, refC, screenVars, readVars, pDealt, deals,
@@ -373,7 +381,7 @@ Retry ==
      /\ dq' = IF go THEN "queued" ELSE dq
      /\ dealHeld' = (dealHeld /\ ~go)
      /\ dealView' = IF go THEN Shown ELSE dealView
-     /\ dealMoved' = IF go THEN roomAt > srn ELSE dealMoved
+     /\ dealMoved' = IF go THEN Unseen ELSE dealMoved
      /\ IF refC # {} THEN Refresh ELSE UNCHANGED <<rq, again, buf>>
      \* nothing left behind: a waiting lost change is sent, a held deal goes or the lobby is read
      /\ stranded' = (stranded \/ (Waiting /\ R.sent = {}) \/ (dealHeld /\ ~go /\ refC = {}))
@@ -387,7 +395,7 @@ Init ==
   /\ q = <<>> /\ phase = "idle" /\ base = Zero /\ srn = 0 /\ phost = 0 /\ btid = 0 /\ hostBack = FALSE
   /\ unsent = <<>> /\ asked = 0 /\ askedAt = Zero /\ refC = {} /\ dealHeld = FALSE /\ guest = FALSE
   /\ rq = "none" /\ rv = NoBody /\ again = FALSE /\ buf = <<>>
-  /\ dq = "none" /\ pDealt = FALSE /\ deals = 0 /\ dealView = Zero /\ dealMoved = FALSE
+  /\ dq = "none" /\ pDealt = FALSE /\ deals = 0 /\ dealView = Zero /\ dealMoved = {}
   /\ flick = FALSE /\ hidden = {} /\ ghost = FALSE /\ stranded = FALSE
   /\ dealBad = FALSE /\ taps = 0 /\ faults = 0 /\ tried = FALSE
 

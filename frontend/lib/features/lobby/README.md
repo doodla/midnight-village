@@ -205,8 +205,10 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   will go: while a lost change would still be sent by "Try again" or Deal, its value lies over
   the server's (with "Not sent."), so what the host sees at the tap of Deal is what is dealt.
   A lobby the server sends (an answer, a read, a `lobby_update`) is never shown when its
-  `rev` is older than the newest shown (equal is shown; a body with no `rev` is shown), so a
-  setting never jumps back. A deal goes behind the lane, one at a time: every lost change is
+  `rev` is older than the newest shown (equal is shown; a body with no `rev` is shown and
+  leaves the newest alone; the newest is per table, its code with `created_at`), and a
+  `host_changed` counts as shown at its `rev` (a lower one is ignored), so a setting never
+  jumps back and a late handover never puts an older host back. A deal goes behind the lane, one at a time: every lost change is
   sent again first, and one of them lost or refused, a refused value still on screen, or a
   setting tapped while it waits keeps the deal back ("Not sent."; never a silent end); a
   setting tapped while the deal is out goes after its answer. "Try again" redoes every lost
