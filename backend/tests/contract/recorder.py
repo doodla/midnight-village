@@ -52,7 +52,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.core import host, presence, timers
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
-from apps.onuw import choose_night, game_presence, services
+from apps.onuw import game_presence, services, turns
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import Game, PlayerRole
 from apps.onuw.protocol import stage_token
@@ -292,7 +292,7 @@ class Table:
                 else None
             )
             staged["chosen"] = (
-                0 if pr is None else choose_night.chose_count(pr, game.current_wave)
+                0 if pr is None else turns.chose_count(pr, game.current_wave)
             )
         return staged
 

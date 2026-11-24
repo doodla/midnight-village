@@ -169,8 +169,19 @@ def _job_presence_check(scope: str, scope_id: str, user_id: int) -> None:
     """Timer: has this user's socket silently died? (see the module docstring)"""
     try:
         checker = _SCOPES.get(scope)
-        if checker is not None:
-            checker(scope_id, user_id)
+        if checker is None:
+            # A scope is registered when its module is imported, and the timers
+            # import every job module before a job runs: a scope still unknown
+            # here means its check would be skipped for good. Say so loudly.
+            logger.error(
+                "Presence check for an unknown scope %r (%s, user %s): nothing"
+                " registered it, so nobody will notice this socket dying",
+                scope,
+                scope_id,
+                user_id,
+            )
+            return
+        checker(scope_id, user_id)
     except Exception:
         logger.exception(
             "Presence check failed for %s %s user %s", scope, scope_id, user_id

@@ -221,7 +221,7 @@ def chooses_left(
     A phone with nothing to choose (its prompt's ``kind`` is ``none``: a Villager, a
     Werewolf who is not alone, a Mason, the Minion, the Insomniac, everyone but the
     Doppelganger in window 1) sends nothing: 0 from the start, and the window never
-    waits for it (``choose_night.ready_to_close``). Who taps at night is an accepted
+    waits for it (``readiness.ready_to_close``). Who taps at night is an accepted
     tell (``docs/specs/frontend/first-time-play.md``, section 8). A phone with a choice
     sends one per window, plus one in window 1 for the Doppelganger once her look has
     given her a role that chooses there (her follow-up, which her own ``kind`` already

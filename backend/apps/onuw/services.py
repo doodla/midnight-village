@@ -10,7 +10,8 @@ Beside them: ``night_results`` (what a player is shown of the night) and ``recov
 (rebuilding lost timers).
 
 What is left here is what sits on top of all of them: the timer jobs (registered
-from this module by name, ``apps.py``) and the lobby's current game.
+from this module by name, ``apps.py``), the game's presence check (its scope is
+registered at the foot of this file) and the lobby's current game.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import functools
 import logging
 from typing import Any
 
+from apps.core import presence as core_presence
 from apps.core import timers
 from apps.core.models import Lobby
 
@@ -93,3 +95,21 @@ def report_game_presence(game_id: Any, user_id: int, connected: bool) -> None:
     if newest is None or newest.id != game.id:
         return
     host.member_presence_changed(game.lobby_id, user_id, connected)
+
+
+# ── The game's presence check ─────────────────────────────────────────────
+
+
+def _check_game(scope_id: str, user_id: int) -> None:
+    """Scope checker of the durable presence check: a game socket may have died."""
+    from apps.core.effects import after_commit
+
+    if game_presence.check_game_presence(scope_id, user_id):
+        # Host handover has its own transaction and lock order (Lobby then
+        # LobbyMember): it runs only after this one has committed.
+        after_commit(lambda: report_game_presence(scope_id, user_id, False))
+
+
+# Registered when this module is imported, which the timers do before any job
+# runs (``timers.register_job_module("apps.onuw.services")``).
+core_presence.register_scope("game", _check_game)

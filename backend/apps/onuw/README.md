@@ -8,18 +8,19 @@ change the code it describes.
 
 ## Where the code is
 
-The game service is split by what each part is about. The first seven are layers: a part
+The game service is split by what each part is about. The first eight are layers: a part
 imports only the ones before it (`tests/onuw/test_module_directions.py`).
 
 | Module | What it holds |
 |---|---|
 | `basics.py` | the table's lengths and their defaults, the after-commit helpers, the engine's view of a game |
+| `turns.py` | whose turn it is in a window: the acting role, how often a phone has chosen, whether a choose is still owed |
 | `readiness.py` | who is here, who is gone, who is done; when a stage may move on |
 | `night_window.py` | one window of the night: who acts, timeouts, resolving, storing, the look stage, the move to the talk |
 | `night_flow.py` | the night's loop: when a window opens and when it closes |
 | `voting.py` | the talk and the vote, "ready", revealing the votes |
 | `game_presence.py` | phones coming and going during a game, the grace period |
-| `services.py` | the top: the timer jobs (registered from it by name) and the lobby's current game |
+| `services.py` | the top: the timer jobs (registered from it by name), the game's presence check and the lobby's current game |
 | `night_results.py` | what a player is shown of the night afterwards |
 | `recovery.py` | rebuilding timers that were lost |
 | `choose_night.py` | the night's requests: storing a choice, the prompt |
@@ -63,7 +64,7 @@ imports only the ones before it (`tests/onuw/test_module_directions.py`).
 
 **Stages.** `GET /me/` carries an opaque `stage` (`protocol.stage_token`: look, `w1`, `w2`, talk or vote plus a piece of the GAME's id, so a token from an earlier game, even the same stage after play again, never matches). `choose`, `ready`, `vote` (pick and lock) and the host's `advance-wave`, `end-discussion` and `reveal-votes` must send it back (missing or not a string: 400 `bad_request`); a request for a stage that is no longer the game's is `409 {"detail": "That stage is over.", "code": "wrong_stage"}`, the same for every role and every endpoint, decided under the Game lock (`protocol.require_stage`), storing nothing. So a late tap can never land in the next stage, and a host request aimed at one stage never ends the next (the host's end-discussion or reveal outside its stage is this same 409).
 
-**Closing (every stage ends the moment everyone present has done their part; nothing adds to a table's settings):** look = all ready; talk = all ready; vote = all locked; window 2 = every present phone with a choice has chosen (`choose_night.turn_open`: a phone whose prompt is `none` is never waited for, dropped or not; a choose it sends anyway is taken alike and does nothing), subject to `night_min_window_seconds`; a table where every phone is away waits for one to come back; window 1 keeps its fixed length.
+**Closing (every stage ends the moment everyone present has done their part; nothing adds to a table's settings):** look = all ready; talk = all ready; vote = all locked; window 2 = every present phone with a choice has chosen (`turns.turn_open`: a phone whose prompt is `none` is never waited for, dropped or not; a choose it sends anyway is taken alike and does nothing), subject to `night_min_window_seconds`; a table where every phone is away waits for one to come back; window 1 keeps its fixed length.
 
 **What differs between roles in a `choose` request (documented, and visible only to someone timing the network; the app's rule is that a phone changes what others can see immediately on tap, never on the response).** `choose_night.submit_choose` does the same work for every caller: lock the Game, check the stage, lock the caller's row, build the game state, parse the picks against the table, read the caller's acting role, store the picks and count them, and run the close check in the SAME transaction. Measured on the test database (queries per request): 14 for every role in window 2 and for every other player in window 1 (the close check reads the game state to know which phones still have a choice); a Doppelganger's FIRST choose in window 1 costs 21, the 7 extra being her look resolving in her request (`night_window._resolve_doppelganger_look`: it needs her copied role for her follow-up). `persist_wave_results` writes only the rows that changed.
 

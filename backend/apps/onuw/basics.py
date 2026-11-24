@@ -11,6 +11,7 @@ another part of the service.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from apps.core import effects
@@ -98,6 +99,11 @@ def _window_job_params(game: Game, window: int, *, deferred: bool = False) -> di
     return {"game_id": str(game.id), "wave": window, "deferred": deferred}
 
 
+# The practice players' driver, plugged in when the app is ready (``apps.py``):
+# ``practice`` stands on the whole service, so this bottom layer cannot import it.
+practice_driver: Callable[[Any], None] | None = None
+
+
 def _practice_after_commit(game: Game) -> None:
     """Once the transaction that opened a stage commits, the practice players act
     in it (``apps/onuw/practice.py``: the same requests a phone sends, at once).
@@ -106,9 +112,12 @@ def _practice_after_commit(game: Game) -> None:
     game_id = game.id
 
     def run() -> None:
-        from . import practice
-
-        practice.drive(game_id)
+        if practice_driver is None:
+            # the app plugs it in when it is ready: without it the practice
+            # players would quietly stop acting
+            logger.error("No practice driver is plugged in: game %s", game_id)
+            return
+        practice_driver(game_id)
 
     _after_commit(run)
 
