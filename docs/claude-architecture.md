@@ -94,11 +94,21 @@ unless its description has a line `- <file name>: <why>`; locally it only remind
 (`guardrails/tests/test_guard_edits.py`). `just check` also lints `tool/` and the hooks for
 errors swallowed in silence (`just lint-tools` in `backend/`).
 
+**Disk.** Each worktree fills about a gigabyte of build output. `tool/tidy.py` clears it for
+a worktree that has gone quiet: no source file changed for three hours and no process is
+working in it (the session-start hook runs this in the background). `just tidy` also removes
+a worktree whose branch's remote is gone (merged) when nothing in it is uncommitted. A
+helper's worktree, whose branch never had a remote of its own name, is never removed by it:
+that stays a person's decision (`guardrails/tests/test_tidy.py`).
+
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
 among them does not pay, the modules all lead to each other), and for the app only the test
 files nearest the change, found by following imports from each test (`--far`: every test that
-can see it; `--list`: the plan only). Nothing is listed by hand
+can see it; `--list`: the plan only). It renders only the screen states that draw what
+changed, strict at 360 and 390: `tool/piece_screens.py` walks every catalogue state's widget
+tree (about a minute, reused until the app changes), reads which file declares each widget
+class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
 (`guardrails/tests/test_piece_check.py`). GitHub still runs everything.
 
 `guardrails/tests/test_checkout_whole.py` keeps a fresh checkout working as it stands: every
