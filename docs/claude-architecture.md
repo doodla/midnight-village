@@ -135,7 +135,9 @@ compares a change with the main it was built on (`tool/change_base.py`, or the m
 a Dart test) and fails only for what that change did: file sizes, guard edits, root recipes,
 the to-do list of unswept states, raw values, removed assets. What cannot be made so (two
 changes that break each other's code or re-record the same samples) is caught by main's own
-run after each merge.
+run after each merge, and said: `.github/workflows/main-red.yml` (`tool/main_red.py`) opens
+one issue, "main is red", naming the check and the merge, adds to it while it is red, and
+closes it when main's newest runs have all passed (`guardrails/tests/test_workflows.py`).
 
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
