@@ -154,6 +154,7 @@ check:
     tool/copy_page.py --check-spec
     tool/check_instruction_links.sh
     tool/check_file_sizes.py
+    tool/root_recipes.py
 
 # Fix all auto-fixable issues
 fix:

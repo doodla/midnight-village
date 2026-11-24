@@ -124,8 +124,18 @@ plan at both widths plus the harness, each result kept per commit so a second ru
 on; draws every reached state beside main at 412x915 and 360x640 and puts the changed ones
 on contact sheets; and writes the hand-over file in one fixed shape
 (`guardrails/tests/test_handover.py`, `test_brief.py`). Every recipe of `frontend/` and
-`backend/` also exists at the root, and those folders fall back to the root's
+`backend/` also exists at the root, and those folders fall back to the root's.
+`tool/root_recipes.py` (in `just check`) fails only for a recipe the change itself adds
+without its root line, and `--fix` writes the lines
 (`guardrails/tests/test_recipes_everywhere.py`).
+
+**A rule holds per change.** A check that reads the whole tree can be passed by two pull
+requests separately and fail once both are merged, for a builder who did neither. So a rule
+compares a change with the main it was built on (`tool/change_base.py`, or the merge base in
+a Dart test) and fails only for what that change did: file sizes, guard edits, root recipes,
+the to-do list of unswept states, raw values, removed assets. What cannot be made so (two
+changes that break each other's code or re-record the same samples) is caught by main's own
+run after each merge.
 
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
