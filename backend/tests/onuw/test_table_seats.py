@@ -169,7 +169,7 @@ class TestChangingTheNumber:
         reply = t.patch({"seats": 4})
 
         assert reply.status_code == status.HTTP_400_BAD_REQUEST
-        assert reply.data["detail"] == ["5 players are at the table already."]
+        assert reply.data["detail"] == "5 players are at the table already."
         assert "seats" not in t.lobby().settings
 
     def test_null_opens_the_table_again(self, table) -> None:
@@ -378,7 +378,7 @@ class TestSeatsRange:
         assert t.patch({"seats": 6}).status_code == 200
         reply = t.patch({"seats": 7})
         assert reply.status_code == status.HTTP_400_BAD_REQUEST
-        assert reply.data["detail"] == ["The table holds 6 players at most."]
+        assert reply.data["detail"] == "The table holds 6 players at most."
 
     def test_never_below_who_is_here(self, table) -> None:
         t = table(players=5)

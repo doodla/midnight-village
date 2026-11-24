@@ -101,7 +101,8 @@ class TestLobbyPatch:
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert any("seconds" in e for e in response.data["detail"])
+        assert "seconds" in response.data["detail"]  # one message, a string
+        assert response.data["code"] == "bad_request"
         lobby.refresh_from_db()
         assert lobby.settings == {"roles": {}}
 

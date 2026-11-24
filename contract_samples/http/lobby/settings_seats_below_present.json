@@ -1,5 +1,4 @@
 {
-  "detail": [
-    "7 players are at the table already."
-  ]
+  "detail": "7 players are at the table already.",
+  "code": "bad_request"
 }

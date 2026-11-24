@@ -1,5 +1,4 @@
 {
-  "detail": [
-    "'deck_chip' must be one of: simple, classic, chaos."
-  ]
+  "detail": "'deck_chip' must be one of: simple, classic, chaos.",
+  "code": "bad_request"
 }

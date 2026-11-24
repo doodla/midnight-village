@@ -75,9 +75,6 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
   build that needs `PUBLIC_ORIGIN`, Android App Links with a committed PUBLIC signing key (sideloaded installs
   only, to be replaced before any store release: `frontend/android/release-key/README.md`). Skin art for
   Share is still the platform's glyph.
-- Untidy payloads left: three lobby refusals still answer `detail` as a list where every other
-  refusal's is a string (creating a table with bad settings; a settings change that is not an
-  object or that the game refuses; the last two also lack a `code`). The app reads both forms.
 - Renames made with the cleanup: the night module is `apps/onuw/choose_night.py`, the `_v2` samples have
   plain names (`started_with_look`, `results_five`, `detail_*`, ...), the e2e runners are
   `api_game_test.dart` and `ui_game_test.dart`, `ui_end_test.dart`, `ui_journey_test.dart`,

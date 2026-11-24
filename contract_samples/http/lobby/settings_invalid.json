@@ -1,5 +1,4 @@
 {
-  "detail": [
-    "'Seer' allows at most 1, got 2."
-  ]
+  "detail": "'Seer' allows at most 1, got 2.",
+  "code": "bad_request"
 }
