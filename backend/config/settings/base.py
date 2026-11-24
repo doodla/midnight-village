@@ -99,6 +99,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# The request header that carries the client's address when a platform we trust
+# writes it (the Vercel settings name it). None: the connection's own address.
+CLIENT_ADDRESS_HEADER: str | None = None
+
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
@@ -111,10 +115,13 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    # Per client address, sized so that tables sharing one network are never
+    # refused (apps/core/throttles.py says what these are for).
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "10/minute",
+        # Guest accounts: two tables of ten signing in and each retrying once is 40.
+        "sign_up": "60/minute",
         # GET /api/stats/online/ (the home screen polls it; a CDN absorbs most).
-        "online_stats": "60/minute",
+        "online_stats": "600/minute",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }
