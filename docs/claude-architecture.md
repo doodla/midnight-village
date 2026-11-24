@@ -112,7 +112,8 @@ edits: the fast checks, every backend test on every core (about a minute and a h
 among them does not pay, the modules all lead to each other), and for the app only the test
 files nearest the change, found by following imports from each test (`--far`: every test that
 can see it; `--list`: the plan only). It renders only the screen states that draw what
-changed, strict at 360 and 390: `tool/piece_screens.py` walks every catalogue state's widget
+changed, strict at 360 and 390 (at 390 only when more than 60 states are reached, unless
+`--both-widths`; `--no-screens` for a change to logic only): `tool/piece_screens.py` walks every catalogue state's widget
 tree (about a minute, reused until the app changes), reads which file declares each widget
 class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
 (`guardrails/tests/test_piece_check.py`). GitHub still runs everything.
