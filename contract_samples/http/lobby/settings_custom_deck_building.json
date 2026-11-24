@@ -11,15 +11,15 @@
   "max_players": 10,
   "settings": {
     "deck": "custom",
-    "seats": 8,
-    "deck_chip": "classic",
-    "card_look_seconds": 30,
     "roles": {
-      "Werewolf": 2,
       "Seer": 1,
       "Robber": 1,
-      "Villager": 1
-    }
+      "Villager": 1,
+      "Werewolf": 2
+    },
+    "seats": 8,
+    "deck_chip": "classic",
+    "card_look_seconds": 30
   },
   "players": [
     {
@@ -36,10 +36,10 @@
   "rev": 3,
   "deck_preview": null,
   "deck_cards": {
-    "Werewolf": 2,
     "Seer": 1,
     "Robber": 1,
-    "Villager": 1
+    "Villager": 1,
+    "Werewolf": 2
   },
   "deal": {
     "ok": false,

@@ -53,10 +53,17 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
     leaves it as it was. **The phone's rule:** show a lobby when its `rev` is equal to or
     higher than the newest it has shown; never show a lower one. Equal does not mean
     identical, in exactly two cases: (a) `players[].connected`, because presence partly
-    follows time, not a write (two bodies with one `rev` may differ there); (b) a read that
-    crosses a write may show the newer members with the older number (never the reverse).
-    So a later builder must not turn "equal" into "skip": a body with an equal `rev` is
-    shown.
+    follows time, not a write (two bodies with one `rev` may differ there); (b) a read may
+    show content newer than its number, never older (a read that crosses a write: newer
+    members, or across play again and a new deal the new game's deck, under the older
+    number). So a later builder must not turn "equal" into "skip": a body with an equal
+    `rev` is shown. Three more rules:
+    - A `host_changed` counts as shown at its `rev`: after it, a body with a lower `rev` is
+      not shown (else a read sent before the handover puts the old host back).
+    - A body or event with NO `rev` (an older server build, during a deploy) is shown as
+      today and leaves the newest number as it is.
+    - The number belongs to one table: keep the newest per table, its `code` together
+      with its `created_at`. A new table, or a table code used again, starts at 0.
   - `deck_preview`: the automatic deck the deal would build for the table's size (the
     number it is set for, `settings.seats`; at an open table the players here now) and its
     `deck_chip` (`{role: count}`, the shape of `settings.roles`); null for a custom deck or a

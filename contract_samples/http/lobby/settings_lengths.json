@@ -23,14 +23,14 @@
     },
     "seats": 8,
     "deck_chip": "classic",
+    "voting_seconds": 90,
     "card_look_seconds": 20,
     "discussion_seconds": 360,
-    "voting_seconds": 90,
     "night_wave_seconds": 25,
-    "night_min_window_seconds": 6,
-    "night_doppelganger_window_seconds": 12,
+    "host_handover_seconds": 120,
     "disconnect_grace_seconds": 30,
-    "host_handover_seconds": 120
+    "night_min_window_seconds": 6,
+    "night_doppelganger_window_seconds": 12
   },
   "players": [
     {

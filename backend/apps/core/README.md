@@ -63,9 +63,12 @@ Every lobby body has `rev`, an integer that starts at 0 and only rises, so a pho
 an older body from a newer one whatever order they arrive in (the rule it follows:
 `docs/specs/onuw/api-contract-v2.md`, section 2). **Telling is the bump.**
 `lobbies.told_body(lobby)` is the one way to build a body told to anyone because of a
-change: it raises `rev` by one (`lobbies.bump_rev`: an UPDATE on the lobby row, so it takes
-or waits for the row lock and numbers follow commit order even where a caller did not lock
-first) and builds the body after it, inside the caller's transaction. `announce_lobby`
+change: it raises `rev` by one (`lobbies.bump_rev`: an UPDATE on the lobby row, which takes
+or waits for the row lock, so numbers follow commit order), then re-reads the WHOLE row under
+the lock its UPDATE took and builds the body from that, inside the caller's transaction: a
+body is never numbered ahead of its content, even from a copy the caller loaded earlier. A
+caller saves its own changes before telling (unsaved ones on the instance are dropped by the
+re-read; every caller does). `announce_lobby`
 calls it and returns the body, so a request that answers and sends `lobby_update` (join,
 practice) bumps once and gives both one number; the settings PATCH and play again use
 `told_body` the same way. A change the table hears about without a body bumps alone:

@@ -11,9 +11,9 @@
   "max_players": 10,
   "settings": {
     "deck": "auto",
+    "seats": 8,
     "deck_chip": "classic",
-    "card_look_seconds": 30,
-    "seats": 8
+    "card_look_seconds": 30
   },
   "players": [
     {

@@ -141,14 +141,18 @@ def connected_members(lobby: Lobby) -> set[int]:
 
 
 def bump_rev(lobby: Lobby) -> int:
-    """Raise the table's ``rev`` by one and return it (also set on ``lobby``).
+    """Raise the table's ``rev`` by one and return it.
 
     An UPDATE on the lobby row, so it takes (or waits for) the row lock: numbers
-    are handed out in commit order even where the caller did not lock first.
+    are handed out in commit order. Then the WHOLE row is read again under that
+    lock (``refresh_from_db()``, relation caches cleared too), so whatever is
+    built from ``lobby`` afterwards is the row's content at this number, never an
+    older copy the caller loaded: a body is never numbered ahead of its content.
+    A caller saves its changes BEFORE this (unsaved ones on ``lobby`` are lost).
     Used by ``told_body``, and alone by a change the table hears about without a
     lobby body (``host_changed``, the deal, a game's end)."""
     Lobby.objects.filter(pk=lobby.pk).update(rev=F("rev") + 1)
-    lobby.refresh_from_db(fields=["rev"])
+    lobby.refresh_from_db()
     return lobby.rev
 
 

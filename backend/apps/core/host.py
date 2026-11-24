@@ -137,7 +137,9 @@ class _Presence:
 
 def _announce(lobby: Lobby, reason: str) -> None:
     """After commit, tell the lobby and the newest game's table who the host is.
-    Telling is the bump: the event carries the table's new ``rev``."""
+    Telling is the bump: the event carries the table's new ``rev``, and is
+    built from the row as re-read at it (``lobbies.bump_rev``)."""
+    rev = lobbies.bump_rev(lobby)
     host = lobby.effective_host
     event = {
         "type": "host.changed",
@@ -145,7 +147,7 @@ def _announce(lobby: Lobby, reason: str) -> None:
         "host_name": public_name(host),
         "original_host_id": lobby.host_id,
         "reason": reason,
-        "rev": lobbies.bump_rev(lobby),
+        "rev": rev,
     }
     messages = [(f"lobby_{lobby.code}", event)]
     game_group = games.hooks_for(lobby).newest_game_group(lobby)

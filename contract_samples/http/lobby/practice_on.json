@@ -11,9 +11,9 @@
   "max_players": 10,
   "settings": {
     "deck": "auto",
+    "practice": true,
     "deck_chip": "simple",
-    "card_look_seconds": 30,
-    "practice": true
+    "card_look_seconds": 30
   },
   "players": [
     {

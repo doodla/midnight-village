@@ -2,8 +2,8 @@
 The lobby's number (``Lobby.rev``): where it starts, who raises it, who carries it.
 
 ``lobbies.told_body`` is the one way to build a body told because of a change: it
-raises ``rev`` with an UPDATE on the lobby row (so numbers follow commit order even
-where a caller did not lock first) and builds the body after it. A read carries the
+raises ``rev`` with an UPDATE on the lobby row (numbers follow commit order), re-reads
+the whole row under that lock and builds the body from it. A read carries the
 number of the row it loaded. The whole evening at one table is
 ``tests/onuw/test_lobby_rev.py``; here: the start, the function, the consumers, an
 older phone, and two requests racing on one table (real threads, real transactions).
@@ -144,14 +144,47 @@ class TestTheOneFunction:
         assert lobby.rev == 2 == Lobby.objects.get(pk=lobby.pk).rev
         assert {**first, "rev": 0} == {**second, "rev": 0}
 
-    def test_a_stale_instance_still_gets_the_next_number_of_the_row(self) -> None:
-        """Two loads of one table: each bump reads the row's number back, so the
-        older instance never hands out a number already given."""
+    def test_a_stale_instance_still_gets_the_next_number_and_the_newest_content(
+        self,
+    ) -> None:
+        """Two loads of one table, the second changed and told first: the older
+        copy is told with the next number AND the row's newest content."""
         lobby = self._table()
         older = Lobby.objects.get(pk=lobby.pk)
-        assert lobbies.told_body(lobby)["rev"] == 1
-        assert lobbies.told_body(older)["rev"] == 2
+        assert older.effective_host.pk == lobby.host_id  # a cached relation
+        lobby.settings = {"pace": "quick"}
+        lobby.acting_host = User.objects.get(username="fn-1")
+        lobby.save(update_fields=["settings", "acting_host"])
+        newer = lobbies.told_body(lobby)
+        assert newer["rev"] == 1
+
+        again = lobbies.told_body(older)
+        assert again["rev"] == 2
+        assert again["settings"] == {"pace": "quick"}
+        assert again["host"]["id"] == lobby.acting_host_id
+        assert {**again, "rev": 0} == {**newer, "rev": 0}
         assert lobbies.bump_rev(lobby) == 3
+
+    def test_a_copy_loaded_before_a_patch_is_never_told_with_the_old_settings(
+        self,
+    ) -> None:
+        """The review's probe: A loads the table without a lock; B (the host's
+        PATCH) locks it, changes the settings and is told at 1; telling A's copy
+        afterwards gives 2 with B's settings, never 2 with the old ones."""
+        lobby = self._table()
+        copy_a = Lobby.objects.get(pk=lobby.pk)  # no select_for_update
+        assert copy_a.settings == {}
+        url = reverse("core:lobby-detail", kwargs={"code": lobby.code})
+        patched = _client(lobby.host).patch(
+            url, {"settings": {"pace": "long"}}, format="json"
+        )
+        assert patched.status_code == status.HTTP_200_OK
+        assert patched.data["rev"] == 1
+
+        told = lobbies.told_body(copy_a)
+        assert told["rev"] == 2
+        assert told["settings"] == patched.data["settings"] == {"pace": "long"}
+        assert copy_a.settings == {"pace": "long"}
 
     def test_announce_lobby_bumps_once_and_returns_what_it_sends(
         self, django_capture_on_commit_callbacks

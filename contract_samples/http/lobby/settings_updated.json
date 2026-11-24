@@ -11,13 +11,13 @@
   "max_players": 10,
   "settings": {
     "roles": {
-      "Werewolf": 2,
       "Seer": 1,
+      "Hunter": 1,
       "Robber": 1,
-      "Troublemaker": 1,
-      "Insomniac": 1,
       "Villager": 2,
-      "Hunter": 1
+      "Werewolf": 2,
+      "Insomniac": 1,
+      "Troublemaker": 1
     }
   },
   "players": [
@@ -80,13 +80,13 @@
   "rev": 6,
   "deck_preview": null,
   "deck_cards": {
-    "Werewolf": 2,
     "Seer": 1,
+    "Hunter": 1,
     "Robber": 1,
-    "Troublemaker": 1,
-    "Insomniac": 1,
     "Villager": 2,
-    "Hunter": 1
+    "Werewolf": 2,
+    "Insomniac": 1,
+    "Troublemaker": 1
   },
   "deal": {
     "ok": true,
