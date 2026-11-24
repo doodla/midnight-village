@@ -7,6 +7,7 @@ import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 
 import '../../../helpers/art_decoded.dart';
+import '../../../helpers/finger.dart';
 import '../../../helpers/table_setup.dart';
 
 // The owner (23 November 2026, the live app): on 03, the deck set-up page, with
@@ -27,7 +28,7 @@ void main() {
       lobby: v2Lobby('created_with_defaults'),
       viewer: 'Ana',
     );
-    await tester.tap(find.text(TableCopy.editDeck));
+    await pressLikeAFinger(tester, find.text(TableCopy.editDeck));
     await setup.settle(tester);
     expect(find.text(DeckCopy.headline), findsOneWidget);
     await loadPictures(tester);
