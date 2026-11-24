@@ -27,16 +27,18 @@ import time
 import urllib.parse
 
 HEAR = 5.0  # seconds a listener may take to hear an event sent because of another's request
-STAGES = 40  # the most steps a game may take to reach its results
+PLAYED = 150.0  # seconds a game of these lengths may take to reach its results
 GUEST_NAMES = ("Deploy check A", "Deploy check B", "Deploy check C")
 # Six cards for three players; nobody has to act at night for the game to go on.
 DECK = {"Werewolf": 2, "Villager": 3, "Seer": 1}
-# Short, not off: a game this check abandons ends by itself within a minute.
+# The shortest the LIVE rules take (a night window is never under 5 s there; a
+# local server with relaxed rules would take less and prove nothing about live):
+# a game this check abandons ends by itself.
 LENGTHS = {
     "card_look_seconds": 5,
-    "night_wave_seconds": 2,
-    "night_min_window_seconds": 0,
-    "night_doppelganger_window_seconds": 2,
+    "night_wave_seconds": 5,
+    "night_min_window_seconds": 5,
+    "night_doppelganger_window_seconds": 5,
     "discussion_seconds": 10,
     "voting_seconds": 10,
 }
@@ -168,13 +170,17 @@ def play_to_results(call, game: str, tokens: list[str]) -> None:
     the game shows its results. `call(what, method, path, want, token, body)` is the
     check's JSON request; it returns (status, body) and accepts any status in `want`."""
     host = tokens[0]
-    for _ in range(STAGES):
+    deadline, before = time.monotonic() + PLAYED, None
+    while time.monotonic() < deadline:
         me = call("read the game", "GET", f"/api/onuw/games/{game}/me/", (200,), host)[
             1
         ]
         phase, stage = me.get("phase"), me.get("stage")
         if phase == "results":
             return
+        if stage == before:
+            time.sleep(0.5)  # the server did not move on yet (a window's least length)
+        before = stage
         staged = {"stage": stage}
         any_status = (200, 201, 400, 403, 409)  # a stage that just moved on answers 409
         if me.get("ready") is not None and phase not in ("discussion", "voting"):
@@ -235,9 +241,7 @@ def play_to_results(call, game: str, tokens: list[str]) -> None:
                 host,
                 staged,
             )
-        else:
-            time.sleep(0.5)  # a stage on its own short timer
-    raise SocketFailed(f"the game did not reach its results in {STAGES} steps")
+    raise SocketFailed(f"the game did not reach its results in {PLAYED:.0f} s")
 
 
 def deal_is_heard(call, api: str, origin: str | None, guest, say=print) -> None:
