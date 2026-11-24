@@ -68,10 +68,22 @@ def flutter(report: Path) -> list[tuple[str, str, str]]:
                 f"{where}:{line}" if line else where,
                 test.get("name", "?"),
                 thrown("\n".join(prints.get(test_id, [])))
-                or first_line(errors.get(test_id, ""), lines=2),
+                or expected(errors.get(test_id, "")),
             )
         )
     return found
+
+
+def expected(error: str) -> str:
+    """A failed expectation in a line: its first two lines, and for a value
+    too long to say there (a map, a list) the matcher's own "Which:" line,
+    which is the one that names the difference."""
+    said = first_line(error, lines=2)
+    which = next(
+        (line.strip() for line in error.splitlines() if line.strip().startswith("Which:")),
+        "",
+    )
+    return f"{said}  {which}"[:300] if which and which not in said else said
 
 
 def thrown(printed: str) -> str:

@@ -147,6 +147,42 @@ class FromTheSources(unittest.TestCase):
             self.assertIn(number, sections, f"no per-screen section for {number}")
 
 
+class Quoted(unittest.TestCase):
+    """A line that names a screen is quoted with the paragraph or list item it
+    sits in: the sentence after it is often the rule."""
+
+    def setUp(self):
+        self.tool = load()
+
+    def test_the_sentence_after_the_one_that_names_the_screen_comes_with_it(self):
+        feedback = "## 23 November\n\n- The names are too small on 09.\n  A name must never be cut.\n- Something about 04.\n"
+        said = self.tool.said_by_owner(feedback, ["09"], [])
+        self.assertEqual(
+            [line for _, _, line in said],
+            ["- The names are too small on 09. A name must never be cut."],
+        )
+
+    def test_a_block_is_quoted_once_however_many_of_its_lines_match(self):
+        feedback = "## A day\n\nOn 09 the bar is thin.\nAlso on 09 the seal is late.\n"
+        said = self.tool.said_by_owner(feedback, ["09"], [])
+        self.assertEqual(len(said), 1)
+        self.assertIn("the seal is late", said[0][2])
+
+    def test_a_long_block_is_cut_around_the_line_and_says_so(self):
+        lines = ["- The board (06) opens the list."] + [f"  Sentence {n}." for n in range(1, 12)]
+        lines[6] = "  On 09 the slip lifts."
+        text, last = self.tool.quoted(lines, 6)
+        self.assertTrue(text.startswith("[...] Sentence 5."), text)
+        self.assertIn("On 09 the slip lifts. Sentence 7. Sentence 8.", text)
+        self.assertTrue(text.endswith("[...]"), text)
+        self.assertEqual(last, 8)
+
+    def test_a_list_item_stops_at_the_next_item_and_a_paragraph_at_a_blank_line(self):
+        lines = ["- one about 09.", "  its rule.", "- another item.", "", "A paragraph."]
+        self.assertEqual(self.tool.quoted(lines, 0)[0], "- one about 09. its rule.")
+        self.assertEqual(self.tool.quoted(lines, 4)[0], "A paragraph.")
+
+
 class Areas(unittest.TestCase):
     """`just brief <area>`: every row of the table still points at something."""
 

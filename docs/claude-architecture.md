@@ -153,6 +153,8 @@ run after each merge, and said: `.github/workflows/main-red.yml` (`tool/main_red
 one issue, "main is red", naming the check and the merge, adds to it while it is red, and
 closes it when main's newest runs have all passed (`guardrails/tests/test_workflows.py`).
 
+**Lines of the notes.** `tool/doc_lines.py` finds prose lines over 200 characters in the tracked `*.md` files (two branches that add a word to one such line clash) and `--fix` reflows them, one sentence to a line, changing line breaks only (`guardrails/tests/test_doc_lines.py`: every tracked note keeps every word in order). It is not in `just check` until the notes are reflowed (issue 44, done at a quiet moment).
+
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
 among them does not pay, the modules all lead to each other), and for the app only the test
@@ -162,7 +164,7 @@ changed, strict at 360 and 390 (at 390 only when more than 60 states are reached
 `--both-widths`; `--no-screens` for a change to logic only): `tool/piece_screens.py` walks every catalogue state's widget
 tree (about a minute, reused until the app changes), reads which file declares each widget
 class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
-(`guardrails/tests/test_piece_check.py`). It is never silent: the plan gives each step's rough
+(`guardrails/tests/test_piece_check.py`). A change to what the server sends (a recorded sample) or to the harness itself also runs the end-to-end harness, the one test that reads both sides at once; a red harness run ends with the failed tests' names (`tool/failed_tests.py`). It ends with the lines the pull request's description must carry (a guard file edited, words added), since only GitHub can read the description and fails without them. It is never silent: the plan gives each step's rough
 time and the total before anything runs, and a step that prints nothing says it is still
 running every 30 seconds. GitHub still runs everything.
 

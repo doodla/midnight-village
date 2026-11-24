@@ -182,7 +182,7 @@ new table not heard of yet. Every other key is dealt as shown.
 the quantifier ran to the end of the line, so someone sat down only while a request of the
 host's was in flight. Each quantifier is in parentheses now.
 
-## How the first gaps closed (`7821a42`)
+## How the gaps closed (the first four, `7821a42`)
 
 **(a) A read that crosses an answer showed the old value**; now the `rev` compare. **(b) A
 new tap hid "Not sent." while the lost change still waited**, and **(b2)** "Try again" then
