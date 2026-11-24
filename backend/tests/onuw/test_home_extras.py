@@ -20,6 +20,7 @@ from apps.core import online
 from apps.core.models import Lobby, LobbyMember, LobbySocket, User
 from apps.core.throttles import OnlineStatsThrottle, SignUpThrottle
 from apps.core.views import OnlineStatsView
+from apps.core.wire import wire_time
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.test_play_again import Table
 
@@ -192,7 +193,7 @@ class TestRecentGames:
         )
         pr = PlayerRole.objects.get(game=stored, user_id=mine.ids[2])
         assert (newest["token"], newest["seat"]) == (pr.token, 2)
-        assert newest["ended_at"] == stored.updated_at.isoformat()
+        assert newest["ended_at"] == wire_time(stored.updated_at)
 
     def test_you_won_follows_each_players_own_outcome(self, db, settings) -> None:
         settings.DEBUG = True

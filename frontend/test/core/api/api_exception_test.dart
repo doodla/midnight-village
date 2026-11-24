@@ -229,7 +229,7 @@ void main() {
         );
       });
 
-      test('reads the detail list a view returns itself', () {
+      test('reads the detail string a view returns itself', () {
         final exception = mapDioException(
           createDioException(
             statusCode: 400,

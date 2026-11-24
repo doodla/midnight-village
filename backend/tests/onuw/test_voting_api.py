@@ -396,7 +396,7 @@ class TestVoting:
             )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "cannot vote for yourself" in response.data["detail"][0].lower()
+        assert "cannot vote for yourself" in response.data["detail"].lower()
 
     def test_invalid_target_rejected(self, api_client, db):
         """Voting for a player not in the game is rejected."""

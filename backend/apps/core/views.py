@@ -336,6 +336,8 @@ class LobbyJoinView(APIView):
         if channel_layer is not None:
             async_to_sync(channel_layer.group_send)(
                 f"lobby_{lobby.code}",
+                # `username` stays in this internal message: a server instance of the
+                # build before this one reads it. No phone is sent it.
                 {"type": "player.joined", "username": request.user.username},
             )
 

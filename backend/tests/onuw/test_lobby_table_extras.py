@@ -10,6 +10,8 @@ A table before its deal (the lobby screens).
   deck); ``deal``: ``{ok, need, have}``, ``ok`` exactly what the deal view answers.
 - A member of another table that is still going is refused a seat with 409
   ``already_at_table`` and that table's code; finished tables trap nobody.
+- No lobby body and no ``lobby_update`` carries anybody's ``username`` (a guest's is
+  its account's id): ``id`` and ``display_name`` only.
 
 All through the real API, several players, seeded deals; a custom deck and an
 automatic one are answered alike.
@@ -18,6 +20,7 @@ automatic one are answered alike.
 from __future__ import annotations
 
 import itertools
+import json
 from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
@@ -484,6 +487,49 @@ class TestOneTableAtATime:
         second.users["p1"] = first.users["p1"]
 
         assert second.join("p1").status_code == status.HTTP_200_OK
+
+
+def _keys(value: Any) -> list[str]:
+    """Every key anywhere in a JSON value, however deep."""
+    if isinstance(value, dict):
+        return [k for key, inner in value.items() for k in (key, *_keys(inner))]
+    if isinstance(value, list):
+        return [k for inner in value for k in _keys(inner)]
+    return []
+
+
+class TestNobodysUsername:
+    def test_no_lobby_body_or_lobby_update_has_a_username_anywhere(
+        self, table, layer
+    ) -> None:
+        """A guest's username is its account's id, a practice player's marks it as
+        one: no lobby answer and no ``lobby_update`` carries anybody's."""
+        t = table(players=3)
+        signed_up = APIClient().post(
+            reverse("core:guest-create"), {"display_name": "Gus"}, format="json"
+        )
+        assert signed_up.status_code == status.HTTP_201_CREATED
+        t.users["guest"] = guest = User.objects.get(pk=signed_up.data["user"]["id"])
+        practice = reverse("core:lobby-practice", kwargs={"code": t.code})
+
+        bodies = [
+            t.join("guest").data,
+            t.post("host", practice, {"count": 2}).data,
+            t.patch({"discussion_seconds": 200}).data,
+            t.body("guest"),
+            t.body("host"),
+            *layer.lobby_updates(t.code),
+        ]
+
+        assert len(bodies) >= 8  # join, practice and patch each told the table
+        last = bodies[-1]
+        assert guest.id in {p["user"]["id"] for p in last["players"]}
+        assert sum(1 for p in last["players"] if p.get("practice")) == 2
+        usernames = list(User.objects.values_list("username", flat=True))
+        for body in bodies:
+            assert "username" not in _keys(body)
+            sent = json.dumps(body)
+            assert not [name for name in usernames if name in sent]
 
 
 class TestJoinRace:

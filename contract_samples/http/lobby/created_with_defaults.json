@@ -2,7 +2,6 @@
   "code": "R5ZD3H",
   "host": {
     "id": 27,
-    "username": "00000000-0000-4000-8000-000000000027",
     "display_name": "Ana"
   },
   "original_host_id": 27,
@@ -19,7 +18,6 @@
     {
       "user": {
         "id": 27,
-        "username": "00000000-0000-4000-8000-000000000027",
         "display_name": "Ana"
       },
       "token": "moth",

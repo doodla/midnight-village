@@ -36,6 +36,7 @@ from rest_framework.test import APIClient
 from apps.core import timers
 from apps.core.lobbies import add_member
 from apps.core.models import Lobby, User
+from apps.core.wire import wire_time
 from apps.onuw import (
     basics,
     choose_night,
@@ -1039,7 +1040,7 @@ class TestFixedDoppelgangerWindow:
         assert game.night_window_opened_at is not None
         expected = game.night_window_opened_at + timedelta(seconds=self.SECONDS)
         assert game.phase_deadline == expected
-        assert opened["deadline"] == expected.isoformat()
+        assert opened["deadline"] == wire_time(expected)
         assert night.timer_delays(1) == [self.SECONDS]
 
     def test_card_in_the_center_nobody_can_act_still_lasts_the_full_length(

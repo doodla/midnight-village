@@ -4,7 +4,6 @@
     "code": "V9YC2J",
     "host": {
       "id": 41,
-      "username": "00000000-0000-4000-8000-000000000041",
       "display_name": "Ana"
     },
     "original_host_id": 41,
@@ -21,7 +20,6 @@
       {
         "user": {
           "id": 41,
-          "username": "00000000-0000-4000-8000-000000000041",
           "display_name": "Ana"
         },
         "token": "bell",
@@ -31,7 +29,6 @@
       {
         "user": {
           "id": 42,
-          "username": "00000000-0000-4000-8000-000000000042",
           "display_name": "Ben"
         },
         "token": "hare",
@@ -41,7 +38,6 @@
       {
         "user": {
           "id": 43,
-          "username": "00000000-0000-4000-8000-000000000043",
           "display_name": "Cleo"
         },
         "token": "thorn",
@@ -51,7 +47,6 @@
       {
         "user": {
           "id": 44,
-          "username": "00000000-0000-4000-8000-000000000044",
           "display_name": "Dev"
         },
         "token": "key",
@@ -61,7 +56,6 @@
       {
         "user": {
           "id": 45,
-          "username": "00000000-0000-4000-8000-000000000045",
           "display_name": "Esme"
         },
         "token": "moth",

@@ -264,7 +264,7 @@ void main() {
         GameEvents.phaseChange(phase: 'discussion'),
         GameEvents.phaseChange(
           phase: 'voting',
-          deadline: '2026-11-19T21:00:30+00:00',
+          deadline: '2026-11-19T21:00:30Z',
         ),
         GameEvents.voteReveal(votes: {'1': 2, '2': null}),
         GameEvents.gameResults(eliminatedPlayers: [2]),

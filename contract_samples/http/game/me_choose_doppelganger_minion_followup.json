@@ -3,7 +3,7 @@
   "lobby_code": "X2PG5N",
   "phase": "night",
   "current_wave": 1,
-  "deadline": "2024-03-07T22:00:48+00:00",
+  "deadline": "2024-03-07T22:00:48Z",
   "your_role": {
     "original_role": "Doppelganger"
   },
@@ -125,6 +125,6 @@
   "ready": null,
   "progress": null,
   "stage": "w1.000000000014",
-  "stage_started_at": "2024-03-07T22:00:38+00:00",
+  "stage_started_at": "2024-03-07T22:00:38Z",
   "vote_targets": null
 }

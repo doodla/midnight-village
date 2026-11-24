@@ -157,7 +157,7 @@ The caller's own view, the same keys in every phase:
 | Key | |
 |---|---|
 | `game_id`, `lobby_code`, `phase`, `current_wave` | `phase` is `night`, `discussion`, `voting` or `results`; `current_wave` 0 (the look), 1 or 2 at night |
-| `deadline`, `stage_started_at` | when the open timed stage ends and began (ISO 8601 with offset); both null when the stage is untimed. A restart's reconnect allowance moves `deadline`, never `stage_started_at` |
+| `deadline`, `stage_started_at` | when the open timed stage ends and began (ISO 8601 in UTC ending in `Z`, as every time the server sends: `apps/core/wire.py`); both null when the stage is untimed. A restart's reconnect allowance moves `deadline`, never `stage_started_at` |
 | `stage` | the token every stage-scoped request sends back (`look.<g>`, `w1.<g>`, `w2.<g>`, `talk.<g>`, `vote.<g>`, ...) |
 | `player_id`, `is_host`, `host_id` | the caller's own id; who hosts now |
 | `your_role` | `{"original_role"}`; at the results also `current_role` and `night_action_data` |

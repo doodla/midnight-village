@@ -25,6 +25,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core import timers
+from apps.core.wire import wire_time
 from apps.onuw import night_flow, night_window, recovery
 from apps.onuw.engine.validation import validate_onuw_settings
 from apps.onuw.models import Game, Phase, PlayerRole
@@ -160,7 +161,7 @@ class TestTheStage:
         for name, body in bodies.items():
             assert body["phase"] == "night"
             assert body["current_wave"] == 0
-            assert body["deadline"] == night.game.phase_deadline.isoformat()
+            assert body["deadline"] == wire_time(night.game.phase_deadline)
             assert body["progress"] == {"stage": "look", "done": 1, "needed": 5}
             assert body["action_prompt"] is None
             assert body["ready"] is (name == "wolf")

@@ -644,7 +644,7 @@ class TestWhatClientsRead:
         self._hand_over(night)
         after = night.client.get(url).data
 
-        assert set(after["host"]) == {"id", "username", "display_name"}
+        assert set(after["host"]) == {"id", "display_name"}
         assert after["host"]["id"] == uid(night, "seer")
         assert after["original_host_id"] == uid(night, "wolf")
         assert after["is_acting_host"] is True

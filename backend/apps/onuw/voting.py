@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from apps.core import timers
 from apps.core.models import Lobby
+from apps.core.wire import wire_time
 
 from . import basics, night_flow, readiness
 from .engine.voting import apply_hunter, count_votes, determine_elimination
@@ -98,7 +99,7 @@ def transition_to_voting(game: Game) -> None:
                 {
                     "type": "phase.change",
                     "phase": "voting",
-                    "deadline": game.phase_deadline.isoformat()
+                    "deadline": wire_time(game.phase_deadline)
                     if game.phase_deadline
                     else None,
                 },
