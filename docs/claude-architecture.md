@@ -153,6 +153,8 @@ run after each merge, and said: `.github/workflows/main-red.yml` (`tool/main_red
 one issue, "main is red", naming the check and the merge, adds to it while it is red, and
 closes it when main's newest runs have all passed (`guardrails/tests/test_workflows.py`).
 
+**Lines of the notes.** `tool/doc_lines.py` finds prose lines over 200 characters in the tracked `*.md` files (two branches that add a word to one such line clash) and `--fix` reflows them, one sentence to a line, changing line breaks only (`guardrails/tests/test_doc_lines.py`: every tracked note keeps every word in order). It is not in `just check` until the notes are reflowed (issue 44, done at a quiet moment).
+
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
 among them does not pay, the modules all lead to each other), and for the app only the test
