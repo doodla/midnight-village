@@ -347,6 +347,22 @@ def run_aloud(command: list[str], folder: Path, what: str, started: float) -> in
             )
 
 
+def for_the_description() -> str:
+    """The lines the pull request's description must carry for this change (a
+    guard file edited, words added): said here, where every builder looks before
+    pushing, because only GitHub can read the description and it fails without
+    them. Empty when nothing is needed."""
+    said = subprocess.run(
+        ["just", "guard-edits"], cwd=ROOT, capture_output=True, text=True
+    ).stdout
+    if "needs" not in said:
+        return ""
+    return (
+        "\nFOR THE PULL REQUEST (GitHub fails the change without these lines in its"
+        " description):\n" + said
+    )
+
+
 def main(argv: list[str]) -> int:
     base = argv[argv.index("--base") + 1] if "--base" in argv else None
     changed = changed_files(base)
@@ -395,6 +411,7 @@ def main(argv: list[str]) -> int:
     print()
     for ok, what, took in results:
         print(f"{'ok  ' if ok else 'FAIL'} {took:5.0f} s  {what}")
+    print(for_the_description(), end="")
     if all(ok for ok, _, _ in results):
         print(
             "\nThis is the fast check: GitHub runs the whole suite on the pull request."

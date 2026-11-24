@@ -127,6 +127,35 @@ class Plan(unittest.TestCase):
                 any("end-to-end harness" in s for s in self.names(path)), path
             )
 
+    def test_the_lines_the_description_needs_are_said_and_nothing_when_none_are(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "piece_check_said", REPO / "tool" / "piece_check.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        class Ran:
+            def __init__(self, stdout):
+                self.stdout = stdout
+
+        real = module.subprocess.run
+        try:
+            module.subprocess.run = lambda *a, **k: Ran(
+                "guard edited: x_test.dart (+1 -0)  <- needs its line\n"
+                "Guards changed\n- x_test.dart: <why, in a sentence>\n"
+            )
+            said = module.for_the_description()
+            self.assertIn("FOR THE PULL REQUEST", said)
+            self.assertIn("- x_test.dart: <why, in a sentence>", said)
+            module.subprocess.run = lambda *a, **k: Ran(
+                "guard edits: no guard file is edited.\n"
+            )
+            self.assertEqual(module.for_the_description(), "")
+        finally:
+            module.subprocess.run = real
+
     def test_a_change_with_no_payload_in_it_does_not_run_the_harness(self):
         for path in ("frontend/lib/x.dart", "backend/apps/core/x.py", "docs/x.md"):
             self.assertFalse(
