@@ -15,7 +15,7 @@ import '../skin/skin_tilt.dart';
 import '../teach/hold_cue.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
-import 'face_down_card.dart' show CardBackPaper;
+import 'card_back_paper.dart';
 import 'fit_line.dart';
 import 'paper_piece.dart';
 

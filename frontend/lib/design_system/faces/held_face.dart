@@ -27,8 +27,10 @@ import 'face_content.dart';
 /// and 08's My night.
 ///
 /// - [fill]: the face takes the whole box it is given (04: the card turns
-///   over in place, in the face-down card's own frame); the portrait takes
-///   what the words leave.
+///   over in place, in the face-down card's own frame, which takes the whole
+///   height between the screen's title and its foot); the words take what
+///   they need and the portrait the rest, its art whole in 3 by 4 as large
+///   as that allows, at most the card's inner width, centred.
 /// - Otherwise (a face drawn over the screen): as wide as it is given (most
 ///   of the screen: [widthFor]) and as tall as its words and a portrait of
 ///   its natural shape need, at most the height it is given; the portrait
@@ -78,7 +80,7 @@ class HeldFace extends StatelessWidget {
   /// The least of the card's width the portrait keeps (its height): the
   /// whole art (never cropped) still large enough to tell. The words step
   /// down first, then the whole card is set smaller.
-  static const minPortraitShare = 0.5;
+  static const minPortraitShare = 0.46;
 
   /// The same with other pages stacked under the first: the first page's
   /// portrait gives up more, so the pages stay at the reading floor.

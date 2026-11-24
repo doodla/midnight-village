@@ -214,4 +214,54 @@ void main() {
       }
     }
   });
+
+  testWidgets('04\'s art is as large as the room allows: on a tall phone it is '
+      'close to the card\'s inner width, centred, never cropped', (
+    tester,
+  ) async {
+    addTearDown(tester.view.reset);
+    for (final (phone, least) in const [
+      (Size(412, 915), 0.8),
+      (Size(390, 844), 0.7),
+      (Size(360, 780), 0.55),
+      (Size(360, 640), 0.35),
+    ]) {
+      final frame = await _frameOf(tester, phone);
+      final inner = frame.width - HeldFace.padding.horizontal;
+      for (final role in [RoleId.werewolf, RoleId.minion]) {
+        await pumpSkinned(
+          tester,
+          Center(
+            child: SizedBox.fromSize(
+              size: frame,
+              child: HeldFace(
+                content: FaceContent.roleText(role),
+                page: 0,
+                fill: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final art = find
+            .descendant(
+              of: find.byType(HeldFace),
+              matching: find.byType(ClipRRect),
+            )
+            .first;
+        final window = tester.getRect(art);
+        final card = tester.getRect(find.byType(HeldFace));
+        expect(
+          window.width,
+          greaterThanOrEqualTo(inner * least),
+          reason: '${role.name} on $phone',
+        );
+        expect(
+          window.left - card.left,
+          moreOrLessEquals(card.right - window.right, epsilon: 0.5),
+          reason: 'the paper beside the art is equal on both sides',
+        );
+      }
+    }
+  });
 }
