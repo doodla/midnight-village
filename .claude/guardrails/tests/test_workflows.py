@@ -37,7 +37,11 @@ PUBLISHING = ["android-download.yml"]
 ALL_WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 # The merge wall's workflows: every pull request runs them, their jobs are the required checks.
 AFTER_MERGE = ["deployed-check.yml"]
-WORKFLOWS = [w for w in ALL_WORKFLOWS if w.name not in PUBLISHING + AFTER_MERGE]
+# Watches main's own runs and keeps the one "main is red" issue: not a check on anything.
+WATCHING = ["main-red.yml"]
+WORKFLOWS = [
+    w for w in ALL_WORKFLOWS if w.name not in PUBLISHING + AFTER_MERGE + WATCHING
+]
 JUSTFILES = ["justfile", "backend/justfile", "frontend/justfile"]
 
 
@@ -388,6 +392,68 @@ class WorkflowAfterMerge(unittest.TestCase):
         build = (ROOT / "frontend" / "tool" / "vercel_build.sh").read_text()
         self.assertIn("build/web/commit.txt", build)
         self.assertIn("VERCEL_GIT_COMMIT_SHA", build)
+
+
+class WorkflowMainIsRed(unittest.TestCase):
+    """Main's own runs are watched, and one issue says when main is red."""
+
+    def setUp(self):
+        self.path = ROOT / ".github" / "workflows" / WATCHING[0]
+        self.text = self.path.read_text()
+        self.code = "\n".join(l.split("#", 1)[0] for l in self.text.splitlines())
+        spec = __import__("importlib.util").util.spec_from_file_location(
+            "main_red", ROOT / "tool" / "main_red.py"
+        )
+        self.tool = __import__("importlib.util").util.module_from_spec(spec)
+        spec.loader.exec_module(self.tool)
+
+    def test_exists_and_is_set_apart(self):
+        self.assertIn(self.path, ALL_WORKFLOWS)
+        self.assertNotIn(self.path, WORKFLOWS)
+
+    def test_it_watches_every_workflow_that_runs_on_main_by_its_real_name(self):
+        named = re.search(r"workflows: \[(.*?)\]", self.code).group(1)
+        watched = re.findall(r'"([^"]+)"', named)
+        runs_on_main = []
+        for wf in ALL_WORKFLOWS:
+            text = wf.read_text()
+            if wf.name in WATCHING or wf.name in PUBLISHING:
+                continue
+            if re.search(r'(?m)^  push:\s*\n    branches: \["main"\]', text):
+                runs_on_main.append(re.search(r"(?m)^name:\s*(.+?)\s*$", text).group(1))
+        self.assertEqual(sorted(watched), sorted(runs_on_main))
+        self.assertEqual(sorted(self.tool.WATCHED), sorted(watched))
+
+    def test_it_runs_only_after_mains_own_runs_never_on_a_pull_request(self):
+        self.assertNotRegex(self.code, r"(?m)^  pull_request(_target)?:")
+        self.assertNotRegex(self.code, r"(?m)^  push:")
+        self.assertRegex(self.code, r'(?m)^    branches: \["main"\]')
+        self.assertIn("github.event.workflow_run.event == 'push'", self.code)
+
+    def test_its_one_write_is_the_issue_and_it_holds_no_secret(self):
+        writes = re.findall(r"(?m)^\s+([a-z-]+): write", self.code)
+        self.assertEqual(writes, ["issues"])
+        self.assertNotIn("secrets.", self.code)
+
+    def test_is_not_a_required_check(self):
+        ruleset = json.loads((ROOT / "docs" / "dev" / "main-ruleset.json").read_text())
+        rules = {r["type"]: r.get("parameters", {}) for r in ruleset["rules"]}
+        required = [
+            c["context"]
+            for c in rules["required_status_checks"]["required_status_checks"]
+        ]
+        for name in re.findall(r"(?m)^    name:\s*(.+?)\s*$", self.text):
+            self.assertNotIn(name, required)
+
+    def test_one_issue_opens_on_the_first_failure_and_closes_when_all_is_green(self):
+        decide = self.tool.decide
+        self.assertEqual(decide("failure", False, False), "open")
+        self.assertEqual(decide("failure", True, False), "add")
+        self.assertEqual(decide("success", True, True), "close")
+        # one workflow passing while another is still red does not close it
+        self.assertEqual(decide("success", True, False), "nothing")
+        self.assertEqual(decide("success", False, True), "nothing")
+        self.assertEqual(decide("cancelled", False, False), "nothing")
 
 
 if __name__ == "__main__":

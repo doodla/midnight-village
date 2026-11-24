@@ -16,6 +16,15 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 
 
+def load():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("root_recipes", REPO / "tool" / "root_recipes.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def recipes(justfile: Path) -> dict:
     out = subprocess.run(
         ["just", "--justfile", str(justfile), "--dump", "--dump-format", "json"],
@@ -28,16 +37,36 @@ def recipes(justfile: Path) -> dict:
 
 @unittest.skipUnless(shutil.which("just"), "just is not installed")
 class RecipesEverywhere(unittest.TestCase):
-    def test_every_folder_recipe_is_at_the_root_under_the_same_name(self):
-        root = recipes(REPO / "justfile")
-        for folder in ("frontend", "backend"):
-            missing = sorted(set(recipes(REPO / folder / "justfile")) - set(root) - {"default"})
-            self.assertEqual(
-                missing,
-                [],
-                f"{folder}/justfile has recipes the root justfile lacks: add to the root's"
-                f' "Every recipe from the root" block:  <name> *args:  {{{{{folder}_just}}}} <name> {{{{args}}}}',
-            )
+    def test_a_recipe_this_change_adds_must_be_at_the_root(self):
+        """Only this change's own: a hole two other merges left between them is
+        said by `just check`, and does not fail the next builder."""
+        tool = load()
+        holes = tool.missing()
+        self.assertEqual(
+            tool.added_here(holes),
+            [],
+            "a recipe this change adds runs only from its folder:"
+            " run tool/root_recipes.py --fix",
+        )
+
+    def test_a_missing_forward_is_written_as_the_others_are(self):
+        tool = load()
+        line = tool.forward("frontend", "end-link-pictures", {"doc": "the end board's links"})
+        self.assertEqual(
+            line,
+            "\n# (frontend) the end board's links\nend-link-pictures *args:\n"
+            "    {{frontend_just}} end-link-pictures {{args}}\n",
+        )
+
+    def test_a_recipe_the_folder_already_had_is_not_this_changes(self):
+        tool = load()
+        tool.change_base = lambda root: "HEAD"
+        had = sorted(tool.recipes_at("HEAD", "frontend/justfile"))[0]
+        self.assertEqual(tool.added_here({"frontend": {had: {}}, "backend": {}}), [])
+        self.assertEqual(
+            tool.added_here({"frontend": {"brand-new-recipe": {}}, "backend": {}}),
+            ["frontend/brand-new-recipe"],
+        )
 
     def test_a_forward_passes_its_arguments_on(self):
         text = (REPO / "justfile").read_text()

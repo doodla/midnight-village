@@ -13,8 +13,13 @@ not from a summary.
    with main without a conflict (it says the command that fixes each).
 2. Runs the checks this change reaches (`just piece-check`'s plan at both
    widths, plus the end-to-end harness when the app or the server changed) and
-   records each as passed or FAILED with its time. A step that passed on this
-   very commit is not run again, so a second run picks up where the first stopped.
+   records each as passed or FAILED with its time.
+
+It carries on where it stopped: a check that passed and a set of pictures drawn
+on this very commit are kept, each recorded the moment it finishes. A run that is
+killed part way (a shell that ends a command after ten minutes) loses only the
+step it was in: run the same command again.
+
 3. Draws every screen state the change reaches, main beside this change, at
    412x915 and 360x640, and puts the ones whose pixels changed on contact
    sheets (tool/handover_pictures.py, frontend/tool/handover_sheet.py).
@@ -408,7 +413,9 @@ def main(argv: list[str]) -> int:
         f"handover: {len(steps)} checks (about {piece.minutes(cost)}), then {len(states)} states drawn at two sizes from this change and from main (about {piece.minutes(drawing)})."
     )
     print(
-        "  A check that passed on this commit is not run again: run it again to carry on."
+        "  It carries on where it stopped: a check that passed and a set of pictures"
+        " drawn on this commit are kept. If your shell ends a command after ten"
+        " minutes, run the same command again."
     )
     for number, (what, _, command) in enumerate(steps, 1):
         print(
@@ -419,7 +426,7 @@ def main(argv: list[str]) -> int:
     out = ROOT / "frontend" / "build" / "handover"
     results = run_checks(steps, head, piece, out / f"checks-{head[:12]}.json")
     shots = (
-        shots_of.pictures(states, base, out)
+        shots_of.pictures(states, base, out, head)
         if states
         else {"changed": [], "missing": [], "sheets": [], "new": []}
     )

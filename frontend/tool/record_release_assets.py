@@ -36,8 +36,15 @@ def bundle_files():
 def files_at_origin_main():
     """The bundle's files at origin/main, or None when git cannot say."""
     try:
+        # main as this branch left it: one merely behind main has not removed
+        # what main added since
+        left = subprocess.run(
+            ["git", "merge-base", "origin/main", "HEAD"],
+            cwd=frontend, capture_output=True, text=True, timeout=30,
+        )
+        main = left.stdout.strip() if left.returncode == 0 and left.stdout.strip() else "origin/main"
         out = subprocess.run(
-            ["git", "ls-tree", "-r", "--name-only", "origin/main", "--", "assets"],
+            ["git", "ls-tree", "-r", "--name-only", main, "--", "assets"],
             cwd=frontend,
             capture_output=True,
             text=True,

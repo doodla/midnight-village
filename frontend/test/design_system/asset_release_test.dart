@@ -19,11 +19,15 @@ import 'package:midnight_village/design_system/skin/art_set.dart';
 /// no such branch: a shallow checkout).
 List<String>? filesAtOriginMain() {
   try {
+    // Main as this branch left it, when git can say: a branch merely behind
+    // main does not have what main has added since, and that is not a removal.
+    final left = Process.runSync('git', ['merge-base', 'origin/main', 'HEAD']);
+    final main = left.exitCode == 0 ? '${left.stdout}'.trim() : 'origin/main';
     final out = Process.runSync('git', [
       'ls-tree',
       '-r',
       '--name-only',
-      'origin/main',
+      main,
       '--',
       'assets',
     ]);

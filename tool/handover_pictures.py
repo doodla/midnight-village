@@ -94,11 +94,17 @@ def draw(
     return done.returncode == 0
 
 
-def pictures(states: list[str], base: str, out: Path) -> dict:
+def pictures(states: list[str], base: str, out: Path, head: str = "") -> dict:
     """Draws `states` from this change and from main at each size, then the sheets.
-    {"changed": [...], "missing": [...], "sheets": [...], "new": [...]}"""
-    run = out / "run"
-    subprocess.run(["rm", "-rf", str(run)])
+    {"changed": [...], "missing": [...], "sheets": [...], "new": [...]}
+
+    Each of the four passes (two sizes, this change and main) is kept for this
+    commit once it has finished, so a run that is stopped part way (a shell that
+    ends a command after ten minutes) carries on from the pass it was in."""
+    run = out / f"run-{head[:12] or 'now'}"
+    for other in out.glob("run*"):
+        if other != run:
+            subprocess.run(["rm", "-rf", str(other)])
     held = base_checkout(base)
     for width, height in SIZES:
         size = f"{width}x{height}"
@@ -106,10 +112,16 @@ def pictures(states: list[str], base: str, out: Path) -> dict:
             f"== drawing {len(states)} states at {size}: this change, then main",
             flush=True,
         )
-        draw(
-            ROOT, states, width, height, run / size / "after", f"this change at {size}"
-        )
-        draw(held, states, width, height, run / size / "before", f"main at {size}")
+        for checkout, side, what in (
+            (ROOT, "after", f"this change at {size}"),
+            (held, "before", f"main at {size}"),
+        ):
+            done = run / size / f"{side}.done"
+            if done.is_file() and done.read_text() == ",".join(states):
+                print(f"   {what}: drawn on this commit already", flush=True)
+                continue
+            draw(checkout, states, width, height, run / size / side, what)
+            done.write_text(",".join(states))
     made = subprocess.run(
         [
             "uv",
