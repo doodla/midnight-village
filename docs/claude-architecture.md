@@ -101,6 +101,12 @@ a worktree whose branch's remote is gone (merged) when nothing in it is uncommit
 helper's worktree, whose branch never had a remote of its own name, is never removed by it:
 that stays a person's decision (`guardrails/tests/test_tidy.py`).
 
+**Words.** The app's copy has one home, `frontend/lib/design_system/copy/`. `tool/copy_page.py`
+makes a page of every key and its words on demand (`just copy-page`, to `frontend/build/`,
+not committed: two branches regenerating one file would collide; GitHub attaches it to the
+screens job) and, in `just check`, fails a spec under `docs/specs/frontend/` that names a copy
+class or key in backticks that does not exist (`guardrails/tests/test_copy_page.py`).
+
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
 among them does not pay, the modules all lead to each other), and for the app only the test
