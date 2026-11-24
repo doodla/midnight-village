@@ -24,6 +24,7 @@ from apps.core import host
 from apps.core import presence as core_presence
 from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, LobbySocket, User
+from apps.core.wire import public_name
 from apps.onuw import game_presence, presence, recovery, services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.engine.validation import validate_timer_settings
@@ -180,8 +181,7 @@ class TestHandoverInAGame:
         expected = {
             "type": "host.changed",
             "host_id": uid(night, "seer"),
-            "host_name": night.users["seer"].display_name
-            or night.users["seer"].username,
+            "host_name": public_name(night.users["seer"]),
             "original_host_id": uid(night, "wolf"),
             "reason": "handover",
         }
@@ -1036,7 +1036,7 @@ class TestConsumersDriveHandover(TransactionTestCase):
         expected = {
             "type": "host_changed",
             "host_id": host_user.id,
-            "host_name": host_user.display_name or host_user.username,
+            "host_name": public_name(host_user),
             "original_host_id": host_user.id,
             "reason": "returned",
         }

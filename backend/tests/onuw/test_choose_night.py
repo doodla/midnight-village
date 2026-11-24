@@ -18,7 +18,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
-from apps.core.wire import wire_time
+from apps.core.wire import public_name, wire_time
 from apps.onuw import night_flow, night_window, turns
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
@@ -620,7 +620,9 @@ class TestReadingsThroughTheNight:
 
         assert result["action_type"] == "peek_player"
         assert result["revealed_info"]["role"] == "Werewolf"
-        assert result["revealed_info"]["target_name"] == night.users["wolf1"].username
+        assert result["revealed_info"]["target_name"] == public_name(
+            night.users["wolf1"]
+        )
 
     def test_a_seer_looks_at_two_centre_cards(self, make_p2) -> None:
         night = make_p2(TEN)
@@ -767,7 +769,7 @@ class TestReadingsThroughTheNight:
         (result,) = results(night, "wolf1")
 
         assert result["revealed_info"]["teammate_names"] == [
-            night.users["wolf2"].username
+            public_name(night.users["wolf2"])
         ]
         assert "center_card" not in result["revealed_info"]
 
@@ -781,11 +783,11 @@ class TestReadingsThroughTheNight:
         (mason,) = results(night, "mason1")
 
         assert sorted(minion["revealed_info"]["teammate_names"]) == sorted(
-            night.users[n].username for n in ("wolf1", "wolf2")
+            public_name(night.users[n]) for n in ("wolf1", "wolf2")
         )
         assert insomniac["revealed_info"]["current_role"] == "Insomniac"
         assert mason["revealed_info"]["teammate_names"] == [
-            night.users["mason2"].username
+            public_name(night.users["mason2"])
         ]
 
     def test_a_player_with_nothing_to_do_has_no_results(self, make_p2) -> None:
@@ -926,7 +928,7 @@ class TestWindowOne:
         types = [r["action_type"] for r in results(night, "dop")]
         assert types == ["peek_player", "see_team"]
         assert results(night, "dop")[1]["revealed_info"]["teammate_names"] == [
-            night.users["wolf"].username
+            public_name(night.users["wolf"])
         ]
 
     def test_a_copied_werewolf_makes_a_pack_of_two_so_neither_is_alone(
