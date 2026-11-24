@@ -117,5 +117,19 @@ class EnsureEnv(unittest.TestCase):
             self.assertFalse(self.env.exists(), bad)
 
 
+class HarnessFromAFreshCheckout(unittest.TestCase):
+    """`just test-harness` in a new worktree failed after 90 s with nothing but
+    "Password:" lines: its backend had no .env and asked Postgres's password."""
+
+    def test_the_harness_backend_writes_and_reads_a_missing_env(self):
+        text = (REPO / "backend" / "justfile").read_text()
+        recipe = text[text.index("\nharness-serve:") :]
+        recipe = recipe[: recipe.index("\n\n#")]
+        self.assertIn("../tool/ensure_env.sh", recipe)
+        # just loads .env before the recipe runs: the recipe must read what it wrote
+        self.assertIn(". ./.env", recipe)
+        self.assertLess(recipe.index("ensure_env.sh"), recipe.index("createdb"))
+
+
 if __name__ == "__main__":
     unittest.main()

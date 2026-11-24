@@ -1,9 +1,9 @@
 """Before | after | what changed, for each state `just look` drew.
 
-    uv run --with pillow python tool/look_compare.py <build/look> <width>
+    uv run --with pillow python tool/look_compare.py <folder> <width> [<sheets>]
 
-Reads <folder>/after/*.png and <folder>/before/*.png (same names) and writes
-<folder>/<state>-w<width>.png: the two pictures at full size side by side, and a
+Reads <folder>/after/*.png and <folder>/before/*.png (same names) and writes,
+into <sheets> (or <folder>), <state>-w<width>.png: the two pictures at full size side by side, and a
 third panel where every pixel that differs is red over a faded copy, so a change
 a few pixels long cannot hide. A state with no "before" gets the one picture.
 """
@@ -48,6 +48,7 @@ def changed(before: Image.Image, after: Image.Image) -> tuple[Image.Image, int]:
 
 def main(argv: list[str]) -> int:
     folder, width = Path(argv[1]), argv[2]
+    sheets = Path(argv[3]) if len(argv) > 3 else folder
     after_dir, before_dir = folder / "after", folder / "before"
     pictures = sorted(after_dir.glob("*.png"))
     if not pictures:
@@ -56,7 +57,7 @@ def main(argv: list[str]) -> int:
     for path in pictures:
         after = Image.open(path).convert("RGB")
         old = before_dir / path.name
-        out = folder / f"{path.stem}-w{width}.png"
+        out = sheets / f"{path.stem}-w{width}.png"
         if old.is_file():
             before = Image.open(old).convert("RGB")
             diff, count = changed(before, after)
