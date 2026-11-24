@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 import 'package:midnight_village/design_system/primitives/board_pieces.dart';
 import 'package:midnight_village/design_system/primitives/death_mark.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
@@ -129,6 +130,41 @@ Rect _own(Element e) {
 
 bool _current(Element e) => ModalRoute.of(e)?.isCurrent ?? true;
 
+/// [e] is part of what a hold is showing: the kit's [HeldFace] (which
+/// `HoldToReveal` draws only while the finger is down), anything in it, and
+/// the paper it is framed in. It is there to be read over the screen and goes
+/// when the finger lifts, so it may lie on a name, a card or the main action
+/// (the coordinator's decision, 24 November 2026). It is still held to its
+/// own rules: whole on the screen ([heldFaceProblems]), its words not cut
+/// (the cut-text rule every state keeps).
+bool heldOpen(Element e) {
+  if (e.widget is HeldFace) return true;
+  if (e.findAncestorWidgetOfExactType<HeldFace>() != null) return true;
+  var holds = false;
+  void look(Element child) {
+    if (holds) return;
+    if (child.widget is HeldFace) {
+      holds = true;
+      return;
+    }
+    child.visitChildren(look);
+  }
+
+  e.visitChildren(look);
+  return holds;
+}
+
+/// What is wrong with a held face itself: it is whole on the screen.
+List<String> heldFaceProblems(Size screen) {
+  final all = (Offset.zero & screen).inflate(0.5);
+  return [
+    for (final e in find.byType(HeldFace).evaluate())
+      if (_own(e) case final r
+          when !all.contains(r.topLeft) || !all.contains(r.bottomRight))
+        'the held face is not whole on the screen: $r',
+  ];
+}
+
 /// What is wrong with the players' names on the tree as drawn, one line each.
 List<String> nameProblems(WidgetTester tester, Size screen) {
   final pattern = _namesPattern({...sampleNames(), ..._treeNames()});
@@ -184,9 +220,15 @@ List<String> nameProblems(WidgetTester tester, Size screen) {
         .skip(i + 1)
         .any((d) => d.$3 == name && liesOnRect(d.$4, words));
     if (standIn) continue;
+    // A name in what a hold shows is drawn above the whole screen (the kit
+    // paints it in the overlay, wherever it sits in the tree): nothing the
+    // screen draws after it lies on it.
+    if (heldOpen(e)) continue;
     final at = order[e] ?? -1;
     for (final piece in pieces) {
       if ((order[piece] ?? -1) <= at || !_current(piece)) continue;
+      // What a hold shows may lie on a name while the finger is down.
+      if (heldOpen(piece)) continue;
       // A piece fixed over a scrolling list (a banner, a foot): the name
       // scrolls under it, as a list's rows do under its edges.
       if (scrollable != null && Scrollable.maybeOf(piece) != scrollable) {
