@@ -253,7 +253,10 @@ Future<ShellSetup> pumpTalkOpen(
 Future<void> _putAway(WidgetTester tester, ShellSetup setup) async {
   final face = find.byType(NightStoryView);
   if (face.evaluate().isEmpty) return;
-  await tester.tapAt(tester.getRect(face).topCenter + const Offset(0, 24));
+  await pressAtLikeAFinger(
+    tester,
+    tester.getRect(face).topCenter + const Offset(0, 24),
+  );
   await setup.settle(tester);
 }
 

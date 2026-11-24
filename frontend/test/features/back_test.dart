@@ -793,7 +793,10 @@ void main() {
       final s = await _game(tester, 'me_results');
       await s.settle(tester);
       expect(s.screenOn(tester), AppScreen.end);
-      await tester.tap(find.bySemanticsLabel(EndCopy.whatHappened));
+      await pressLikeAFinger(
+        tester,
+        find.bySemanticsLabel(EndCopy.whatHappened),
+      );
       await s.settle(tester);
       await _back(tester);
       expect(s.screenOn(tester), AppScreen.end);

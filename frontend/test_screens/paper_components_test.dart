@@ -25,6 +25,7 @@ import '../test/helpers/sheet/sheet_data.dart';
 import '../test/helpers/sheet/table_pages.dart';
 import '../test/helpers/real_wait.dart';
 import 'shell_fixtures.dart';
+import '../test/helpers/finger.dart';
 
 const _dir = String.fromEnvironment(
   'PAPER_COMPONENTS_DIR',
@@ -98,7 +99,7 @@ void main() {
     _phone(tester);
     await _page(tester, const TablePage(lobby: gameSevenLobby));
     await _settle(tester);
-    await tester.tap(find.byType(RoleCard).first);
+    await pressLikeAFinger(tester, find.byType(RoleCard).first);
     await tester.pump(const Duration(milliseconds: 600));
     await _settle(tester);
     await _save(tester, 'sheet');

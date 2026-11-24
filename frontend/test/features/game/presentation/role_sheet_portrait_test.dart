@@ -58,7 +58,7 @@ void main() {
       final night = find.byType(MyNightPanel);
       expect(night, findsOneWidget);
       expect(_wolvesIn(tester, night), {expected});
-      await tester.tapAt(const Offset(4, 400));
+      await pressAtLikeAFinger(tester, const Offset(4, 400));
       await tester.pumpAndSettle();
 
       // The deck's Werewolf chip opens the card details.

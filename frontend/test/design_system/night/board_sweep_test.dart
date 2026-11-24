@@ -18,6 +18,7 @@ import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/night_pages.dart';
 import '../../helpers/sheet/sheet_data.dart';
 import '../../helpers/truncated_text.dart';
+import '../../helpers/finger.dart';
 
 // The night board at every table the server seats (3 to 10), on the narrow
 // phones and with the text made larger, with long names and short: no row
@@ -204,7 +205,7 @@ void main() {
           // The opening wave, done.
           await tester.pump(const Duration(seconds: 2));
           for (var i = 0; i < picks; i++) {
-            await tester.tap(card(long[i]));
+            await pressLikeAFinger(tester, card(long[i]));
             await tester.pump();
           }
           final label = find.byWidgetPredicate(

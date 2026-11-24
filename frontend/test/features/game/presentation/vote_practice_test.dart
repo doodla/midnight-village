@@ -11,6 +11,7 @@ import 'package:midnight_village/features/game/presentation/shell/vote_screen.da
 import '../../../helpers/component_sheet.dart' show learnedOverrides;
 import '../../../helpers/pump_skinned.dart';
 import '../../../helpers/sheet/sheet_data.dart' show recordedMe;
+import '../../../helpers/finger.dart';
 
 // 09 at a table with practice players (`http/game/me_voting_practice`,
 // Quin's phone: Pia, and Scarecrow and Teapot whom the server plays): they
@@ -61,7 +62,7 @@ void main() {
   testWidgets('a practice player is picked like anyone', (tester) async {
     final picks = await pump(tester, const Size(390, 844));
     final me = GameMe.fromJson(recordedMe('me_voting_practice'));
-    await tester.tap(find.text('Scarecrow'));
+    await pressLikeAFinger(tester, find.text('Scarecrow'));
     await tester.pump();
     final scarecrow = me.seats.firstWhere((s) => s.name == 'Scarecrow').id;
     expect(picks, [scarecrow]);

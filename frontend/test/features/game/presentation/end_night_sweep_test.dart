@@ -18,6 +18,7 @@ import '../../../helpers/end_board_pump.dart';
 import '../../../helpers/end_links.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/truncated_text.dart';
+import '../../../helpers/finger.dart';
 
 // What happened, swept (docs/specs/frontend/end-board.md, section 8): at
 // every step of every recorded night, on three phones at three text sizes,
@@ -115,7 +116,10 @@ void main() {
             addTearDown(tester.view.reset);
             await pumpEndBoardOn(tester, results(), scale: scale);
             await tester.pump(const Duration(seconds: 1));
-            await tester.tap(find.textContaining('happened').first);
+            await pressLikeAFinger(
+              tester,
+              find.textContaining('happened').first,
+            );
             await tester.pump();
             final night = tester
                 .widget<EndNightScope>(find.byType(EndNightScope))

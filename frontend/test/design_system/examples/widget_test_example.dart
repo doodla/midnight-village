@@ -21,6 +21,7 @@ import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/finger.dart';
 
 /// A small part of the vote screen (S09): the rows to pick from and the
 /// button that locks the pick in.
@@ -79,12 +80,12 @@ void main() {
           SizedBox(width: 340, child: _VoteChoice(onLockIn: lockedIn.add)),
         );
 
-        await tester.tap(find.text('Pick a player'));
+        await pressLikeAFinger(tester, find.text('Pick a player'));
         expect(lockedIn, isEmpty);
 
-        await tester.tap(find.text('Cleo'));
+        await pressLikeAFinger(tester, find.text('Cleo'));
         await tester.pump();
-        await tester.tap(find.text('Lock in Cleo'));
+        await pressLikeAFinger(tester, find.text('Lock in Cleo'));
         expect(lockedIn, ['Cleo']);
       });
 
@@ -96,7 +97,7 @@ void main() {
           ground: GroundKind.day,
           SizedBox(width: 340, child: _VoteChoice(onLockIn: (_) {})),
         );
-        await tester.tap(find.text('Ben'));
+        await pressLikeAFinger(tester, find.text('Ben'));
         await tester.pump();
 
         expect(

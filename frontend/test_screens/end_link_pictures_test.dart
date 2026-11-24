@@ -10,6 +10,7 @@ import '../test/helpers/end_board_pump.dart';
 import '../test/helpers/outcome_samples.dart';
 import 'end_board_pages.dart' show endTen;
 import 'end_night_pages.dart' show nightOf;
+import '../test/helpers/finger.dart';
 
 // What happened's links, every step of a few recorded nights, done, on three
 // phones (360, 390 and the owner's 412): one PNG a step, to look at every
@@ -88,7 +89,7 @@ void main() {
         await pumpEndBoardOn(tester, results(), scale: _scale);
         await tester.pump(const Duration(seconds: 1));
         await _loadPictures(tester);
-        await tester.tap(find.textContaining('happened').first);
+        await pressLikeAFinger(tester, find.textContaining('happened').first);
         await tester.pump();
         final night = nightOf(tester);
         for (var i = 0; i <= night.story!.steps.length; i++) {

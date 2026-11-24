@@ -6,6 +6,7 @@ import 'package:midnight_village/design_system/primitives/paper_lantern.dart';
 import 'package:midnight_village/design_system/primitives/waiting_sign.dart';
 
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/finger.dart';
 
 /// The one body every waiting screen has: nothing at first (an answer that
 /// comes quickly shows no sign), then a sign of life, then one plain line
@@ -76,7 +77,7 @@ void main() {
     var tried = 0;
     await pumpSkinned(tester, Waiting(failing: true, onRetry: () => tried++));
     expect(find.text(BannerCopy.offline), findsOneWidget);
-    await tester.tap(find.text(BannerCopy.tryAgain));
+    await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
     expect(tried, 1);
     await tester.pump(Motion.slowAfter);
     expect(

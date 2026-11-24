@@ -23,6 +23,7 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 import '../../helpers/component_sheet.dart';
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/sheet_data.dart';
+import '../../helpers/finger.dart';
 
 /// A night board on a phone of a recorded game, with what it sent.
 class BoardHarness {
@@ -153,8 +154,7 @@ Finder get you => card(NightCopy.you);
 /// A tap shorter than 120 ms (on "You", longer is a hold); it picks at
 /// once, on every card.
 Future<void> tapCard(WidgetTester tester, String caption) async {
-  await tester.tap(card(caption));
-  await tester.pump();
+  await pressLikeAFinger(tester, card(caption));
 }
 
 /// The board's button: its label and what it can do.

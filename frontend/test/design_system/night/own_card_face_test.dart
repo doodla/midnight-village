@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/skin/dress.dart';
 
 import '../../helpers/sheet/sheet_data.dart';
 import 'board_harness.dart';
+import '../../helpers/finger.dart';
 
 // The night board's own card, "You", shows the role this phone was DEALT, face
 // up (owner, 23 November 2026: "keeping that face down makes no sense here").
@@ -110,7 +111,7 @@ void main() {
       final harness = BoardHarness.of(Viewer.seer, dress: Dress.paper);
       await harness.pump(tester);
       final name = find.descendant(of: you, matching: find.text('Seer'));
-      await tester.tap(name);
+      await pressLikeAFinger(tester, name);
       await tester.pump();
       expect(lifted(tester), [NightCopy.you]);
       final cell = tester.getRect(you);
