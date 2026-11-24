@@ -27,8 +27,15 @@ import 'truncated_text.dart';
 // - what the state says must be seen is drawn and on the screen; the pieces
 //   it says lie apart do not lie on each other; its own rules hold.
 
-/// Phones: a small one, a tall narrow one, the mocks' one.
-const sweepSizes = [Size(360, 640), Size(360, 780), Size(390, 844)];
+/// Phones: a small one, a tall narrow one, a large Android one (412 wide: a link
+/// drawn for 390 came out broken on the owner's), and last the mocks' one, which
+/// is the size a state opens at.
+const sweepSizes = [
+  Size(360, 640),
+  Size(360, 780),
+  Size(412, 915),
+  Size(390, 844),
+];
 
 /// The phone's text size: as set, larger, the largest a table plays with.
 const sweepScales = [1.0, 1.3, 1.6];
