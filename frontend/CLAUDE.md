@@ -70,8 +70,9 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
 - **The app renews itself for a new build** (`lib/core/update/`, the rule `mayReloadNow` in
   `features/game/domain/reload_rule.dart`, `docs/dev/deploy-vercel.md`): it knows its commit
   (`BUILD_COMMIT`), reads `/commit.txt`, and reloads at a safe moment through the cold opening, so
-  a seated player lands in their seat. In a running game it never reloads on a phase change or the
-  timer, only when the tab comes back after a while away. It updates the service worker and waits
+  a seated player lands in their seat. Only on 01 at once; at the table and in a running game it
+  never reloads on a screen change, a phase change or the timer, only when the tab comes back after
+  a while away (owner, 24 November 2026: "Reload only when nobody waits"). It updates the service worker and waits
   for it to take over before reloading; it never deletes the worker or its caches. Nothing is
   shown. A build with no commit (local, tests, the
   installed app) never looks. A new place that shows a screen or starts a request must not break
