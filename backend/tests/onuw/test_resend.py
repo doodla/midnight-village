@@ -34,7 +34,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.core.models import LobbyMember
-from apps.onuw import choose_night, night_flow, night_window, voting
+from apps.onuw import night_flow, night_window, turns, voting
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night
@@ -93,7 +93,7 @@ def player(night: Night, name: str) -> dict[str, int]:
 def chosen_now(night: Night, who: str) -> int:
     game = Game.objects.get(id=night.game.id)
     pr = PlayerRole.objects.get(game=game, user=night.users[who])
-    return choose_night.chose_count(pr, game.current_wave)
+    return turns.chose_count(pr, game.current_wave)
 
 
 def choose_body(night: Night, who: str, picks: list) -> dict[str, Any]:

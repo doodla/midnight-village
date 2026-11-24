@@ -30,8 +30,11 @@ from pathlib import Path
 
 LIMIT = 600
 ROOT = Path(__file__).resolve().parents[1]
-# What a change is compared with. A shallow checkout (GitHub's) does not have it
-# yet: it is fetched. A repository with no such remote compares with its HEAD.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from change_base import change_base  # noqa: E402
+
+# What a change is compared with: the main it was built on (tool/change_base.py).
+# A repository with no such remote compares with its HEAD.
 BASE = "origin/main"
 
 
@@ -67,18 +70,9 @@ def has(ref: str) -> bool:
 
 def base_ref() -> str | None:
     """The commit a change is measured against, or None in a repository with no commit."""
-    wanted = os.environ.get("FILE_SIZE_BASE", BASE)
-    if has(wanted):
-        return wanted
-    remote, _, branch = wanted.partition("/")
-    if branch:
-        subprocess.run(
-            ["git", "-C", str(ROOT), "fetch", "-q", "--no-tags", "--depth=1", remote,
-             f"+refs/heads/{branch}:refs/remotes/{remote}/{branch}"],
-            capture_output=True,
-        )
-        if has(wanted):
-            return wanted
+    found = change_base(ROOT, os.environ.get("FILE_SIZE_BASE", BASE))
+    if found:
+        return found
     return "HEAD" if has("HEAD") else None
 
 

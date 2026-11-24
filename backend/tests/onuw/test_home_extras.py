@@ -15,11 +15,11 @@ from django.utils import timezone
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
-from rest_framework.throttling import AnonRateThrottle
 
 from apps.core import online
 from apps.core.models import Lobby, LobbyMember, LobbySocket, User
-from apps.core.views import OnlineStatsThrottle, OnlineStatsView
+from apps.core.throttles import OnlineStatsThrottle, SignUpThrottle
+from apps.core.views import OnlineStatsView
 from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.onuw.test_play_again import Table
 
@@ -123,8 +123,10 @@ class TestOnlineCount:
 
     def test_it_has_its_own_throttle_budget(self) -> None:
         assert OnlineStatsView.throttle_classes == [OnlineStatsThrottle]
-        assert issubclass(OnlineStatsThrottle, AnonRateThrottle)
-        assert OnlineStatsThrottle.scope == "online_stats"  # not sign-up's "anon"
+        assert OnlineStatsThrottle.scope == "online_stats"
+        assert (
+            OnlineStatsThrottle.scope != SignUpThrottle.scope
+        )  # sign-up does not pay for it
         assert OnlineStatsView.authentication_classes == []
 
     def test_a_game_app_adds_its_sockets_through_a_registered_source(self, db) -> None:

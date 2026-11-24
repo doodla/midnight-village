@@ -47,7 +47,7 @@ from typing import Any
 
 from apps.core.practice import USERNAME_PREFIX, is_practice
 
-from . import basics, choose_night, voting
+from . import basics, choose_night, turns, voting
 from .engine.practice import practice_picks, practice_rng, practice_vote
 from .models import Game, Phase, PlayerRole
 from .protocol import (
@@ -148,7 +148,7 @@ def _choose(game: Game, pr: PlayerRole, stage: str) -> None:
     """Exactly one choose in the window, and a Doppelganger's follow-up."""
     for _ in range(_MAX_CHOOSES):
         window = game.current_wave
-        chosen = choose_night.chose_count(pr, window)
+        chosen = turns.chose_count(pr, window)
         prompt = choose_night.prompt_for(game, pr)
         if prompt is None or (chosen >= 1 and prompt["chooses_left"] <= 0):
             return
@@ -237,7 +237,7 @@ def behind(game: Game, player_roles: list[PlayerRole]) -> bool:
 def _behind_at_night(game: Game, pr: PlayerRole) -> bool:
     """Not chosen in the window yet, or a Doppelganger whose copy armed a
     follow-up she has not sent (the only player with a second choose)."""
-    chosen = choose_night.chose_count(pr, game.current_wave)
+    chosen = turns.chose_count(pr, game.current_wave)
     if chosen == 0:
         return True
     if game.current_wave != 1 or pr.original_role != "Doppelganger":

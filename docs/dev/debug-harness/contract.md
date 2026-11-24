@@ -346,8 +346,8 @@ the harness should treat that as a setup error, not a pass).
 
 ### B4. Guest throttle — DONE in `config/settings/harness.py`
 
-`harness.py` raises `anon`/`user` rates to 1,000,000/min (the guest view hardcodes
-`throttle_classes=[AnonRateThrottle]`, so raising the rate is the right lever, not
+`harness.py` raises the `sign_up` rate to 1,000,000/min (the guest view sets its own
+throttle, `SignUpThrottle`, so raising the rate is the right lever, not
 clearing `DEFAULT_THROTTLE_CLASSES`). `[SPIKE: 4 guests created back-to-back, no 429]`
 Backend agent: confirm it holds for a full nine-scenario run (each spins a table).
 

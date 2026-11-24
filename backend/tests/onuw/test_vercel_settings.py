@@ -78,3 +78,7 @@ def test_a_database_url_that_is_not_postgres_is_refused(monkeypatch):
 
     with pytest.raises(ValueError):
         importlib.import_module("config.settings.vercel")
+
+
+def test_the_request_limits_count_by_the_address_vercel_writes(monkeypatch):
+    assert load(monkeypatch).CLIENT_ADDRESS_HEADER == "HTTP_X_VERCEL_FORWARDED_FOR"

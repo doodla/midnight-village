@@ -79,6 +79,12 @@ every merge to main and proves the live server and app work together
 only run after the merge, so it is never a required check; it reads public addresses, writes
 nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
 
+**What a change is compared with.** `tool/change_base.py`: the main the change was built
+on (on a pull request the merge's first parent, elsewhere where the branch left main),
+never main as it is now, so main moving under a running check is not blamed on the
+change (`guardrails/tests/test_change_base.py`). The file-size, guard-edit and
+previous-build checks all take it from there.
+
 **File sizes.** `tool/check_file_sizes.py` fails `just check`, the commit gate (on what is
 staged) and `just gate-full` when a source file passes 600 lines: a file that long cannot be
 read whole, and two branches that touch it collide. A file already over it on main may stay
@@ -112,7 +118,8 @@ edits: the fast checks, every backend test on every core (about a minute and a h
 among them does not pay, the modules all lead to each other), and for the app only the test
 files nearest the change, found by following imports from each test (`--far`: every test that
 can see it; `--list`: the plan only). It renders only the screen states that draw what
-changed, strict at 360 and 390: `tool/piece_screens.py` walks every catalogue state's widget
+changed, strict at 360 and 390 (at 390 only when more than 60 states are reached, unless
+`--both-widths`; `--no-screens` for a change to logic only): `tool/piece_screens.py` walks every catalogue state's widget
 tree (about a minute, reused until the app changes), reads which file declares each widget
 class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
 (`guardrails/tests/test_piece_check.py`). GitHub still runs everything.

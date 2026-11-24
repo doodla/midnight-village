@@ -33,7 +33,7 @@ from apps.core import timers
 from apps.core.models import Lobby, LobbyMember, User
 from apps.core.practice import NAMES, USERNAME_PREFIX
 from apps.core.tokens import TOKENS
-from apps.onuw import choose_night
+from apps.onuw import choose_night, turns
 from apps.onuw import practice as onuw_practice
 from apps.onuw.engine.choose import (
     build_choose_prompt,
@@ -905,7 +905,7 @@ def test_with_the_real_lengths_window_1_ends_on_its_clock_and_they_act_in_window
     game = t.refresh()
     assert (game.phase, game.current_wave) == (Phase.NIGHT, 2)
     # Window 2 opened on a timer, and the practice Seer chose at once.
-    assert choose_night.chose_count(t.role_of(seer), 2) == 1
+    assert turns.chose_count(t.role_of(seer), 2) == 1
     # The person (a Villager) chooses nothing; the minimum window ends it.
     assert t.choose("Ana").status_code == status.HTTP_200_OK
     if t.refresh().phase == Phase.NIGHT:

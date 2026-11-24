@@ -18,7 +18,8 @@ from django.utils import timezone
 
 from apps.onuw import presence
 
-from . import basics, choose_night
+from . import basics, turns
+from .engine.state import GameState
 from .models import Game, Phase, PlayerRole
 from .protocol import (
     in_look_stage,
@@ -120,10 +121,24 @@ def _grace_timer_key(game_id: Any, user_id: int) -> str:
     return f"{game_id}:grace:{user_id}"
 
 
+def ready_to_close(
+    state: GameState, prs: list[PlayerRole], window: int, grace: int, now: Any
+) -> bool:
+    """Every present phone with a choice has sent its choose (``turn_open`` is false
+    for it), so the stage ends the moment everyone has done their part. A phone with
+    nothing to choose is never waited for, nor is one gone past the grace period.
+    (Window 1 is fixed-length; this is only asked of it when its length was switched
+    off, in development, and then a Doppelganger who copied a role that chooses in
+    window 1 is also waited for until she has sent her follow-up.)"""
+    return all(
+        not turns.turn_open(state, pr, window) or _is_gone(pr, grace, now) for pr in prs
+    )
+
+
 def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> bool:
     """True when the open night window has nothing left to wait for.
 
-    Every phone with a choice has chosen (``choose_night.ready_to_close``); a phone
+    Every phone with a choice has chosen (``ready_to_close``); a phone
     with nothing to choose is never waited for, and a phone gone past the grace
     period is treated as a timeout (through the normal close path, so the minimum
     window length still applies). A phone with a choice still inside its grace
@@ -142,8 +157,7 @@ def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> b
     window = game.current_wave
     state = basics.build_game_state(game)
     if not ignore_recent_drops and any(
-        _is_recently_dropped(pr, grace, now)
-        and choose_night.turn_open(state, pr, window)
+        _is_recently_dropped(pr, grace, now) and turns.turn_open(state, pr, window)
         for pr in prs
     ):
         return False
@@ -153,7 +167,7 @@ def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> b
         _is_gone(pr, grace, now) or _is_recently_dropped(pr, grace, now) for pr in prs
     ):
         return False  # every phone is away: nobody is there to be told yet
-    return choose_night.ready_to_close(state, prs, window, grace, now)
+    return ready_to_close(state, prs, window, grace, now)
 
 
 def _votes_ready(game: Game) -> bool:
