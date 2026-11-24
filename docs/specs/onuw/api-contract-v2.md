@@ -41,8 +41,22 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   settings are validated (`400 bad_request` with the errors).
 - `GET /lobbies/<code>/`, and every lobby answer and `lobby_update` event, carry the whole
   table: `host`, `original_host_id`, `is_acting_host`, `status`, `max_players` (3 to 10),
-  `settings`, `players[]` (`user`, `token`, `joined_at`, `connected`), and the
+  `settings`, `players[]` (`user`, `token`, `joined_at`, `connected`), `rev`, and the
   game's extras:
+  - `rev`: the table's number, an integer that starts at 0 on a new table (the create
+    answer has it) and only rises. Every change the table is told about (a lobby answer, a
+    `lobby_update`, a `host_changed`) raises it by one, and everything a write changes gets
+    a higher number, in the order the changes were committed (the deal and a game's end
+    raise it too). A read (`GET`, the create answer) does not raise it: it carries the
+    number of the row it read. One request that answers with the body and sends it as
+    `lobby_update` gives both the same number; a request refused, or one that tells nobody,
+    leaves it as it was. **The phone's rule:** show a lobby when its `rev` is equal to or
+    higher than the newest it has shown; never show a lower one. Equal does not mean
+    identical, in exactly two cases: (a) `players[].connected`, because presence partly
+    follows time, not a write (two bodies with one `rev` may differ there); (b) a read that
+    crosses a write may show the newer members with the older number (never the reverse).
+    So a later builder must not turn "equal" into "skip": a body with an equal `rev` is
+    shown.
   - `deck_preview`: the automatic deck the deal would build for the table's size (the
     number it is set for, `settings.seats`; at an open table the players here now) and its
     `deck_chip` (`{role: count}`, the shape of `settings.roles`); null for a custom deck or a
@@ -290,7 +304,10 @@ with `connected`.
 
 Game socket (`/ws/game/<id>/`): `night_window`, `progress`, `phase_change`, `vote_reveal`,
 `game_results`, `player_presence {player_id, connected}`, `host_changed`, `play_again`.
-Lobby socket (`/ws/lobby/<code>/`): `player_joined`, `player_left`, `lobby_update`, `game_started`, `host_changed`. Every consumer drops an event type it does
+Lobby socket (`/ws/lobby/<code>/`): `player_joined`, `player_left`, `lobby_update`, `game_started`, `host_changed`.
+`host_changed` is `{host_id, host_name, original_host_id, reason, rev}` on both sockets:
+`rev` is the table's number after the change (section 2; an event from a server instance
+older than `rev` has no key). Every consumer drops an event type it does
 not know, so an older instance never closes a socket over a newer event. Every event is a
 count, a window number, public identity or the end of the game.
 
@@ -308,11 +325,11 @@ as sending it once did (`backend/tests/onuw/test_resend.py`):
 | `night-results/seen` | `GREATEST`: same answer | no stage |
 | `advance-wave`, `end-discussion`, `reveal-votes` | end their stage | `409 wrong_stage` |
 | lobby `start` | n/a | `400` "Lobby is not in waiting state." |
-| lobby `play-again` | `200`, the same lobby body | `409` once the next game is dealt |
+| lobby `play-again` | `200`, the same lobby body (a read: the same `rev`) | `409` once the next game is dealt |
 | lobby `join` | state unchanged; `400 already_in_lobby` | n/a |
 | lobby `leave` | state unchanged; `400` (`404` if the table is gone) | n/a |
-| lobby `PATCH` | the same values: same answer | n/a |
-| lobby `practice` | the same switch and count: same answer | `409 lobby_closed` once dealt |
+| lobby `PATCH` | the same values: same answer (told again, so `rev` one higher) | n/a |
+| lobby `practice` | the same switch and count: same answer (told again, so `rev` one higher) | `409 lobby_closed` once dealt |
 
 For `join`, `leave` and `start`, whose second answer differs, the app treats the answer to
 its own resend as success and reads the table again.

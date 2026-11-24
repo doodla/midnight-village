@@ -21,6 +21,7 @@ from .lobbies import (
     add_member,
     announce_lobby,
     other_active_table,
+    told_body,
     touch,
 )
 from .models import Lobby, LobbyMember, User
@@ -199,7 +200,7 @@ class LobbyDetailView(RetrieveAPIView):
             lobby.settings = merged
             lobby.asked = ask.noted(lobby.asked, list(given), request.user.id, asked)
             lobby.save(update_fields=["settings", "asked", "updated_at"])
-            data = LobbySerializer(lobby).data
+            data = told_body(lobby)  # one bump: the answer and lobby_update
 
         channel_layer = get_channel_layer()
         if channel_layer is not None:
@@ -280,8 +281,7 @@ class LobbyJoinView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            data = LobbySerializer(lobby).data
-            announce_lobby(lobby)
+            data = announce_lobby(lobby)  # one bump: the answer and lobby_update
 
         # Broadcast player joined event (the join has committed)
         channel_layer = get_channel_layer()
@@ -396,10 +396,10 @@ class LobbyPlayAgainView(APIView):
         from apps.core.lobbies import PlayAgainError, play_again
 
         try:
-            lobby = play_again(code, request.user.id)
+            data = play_again(code, request.user.id)
         except PlayAgainError as exc:
             return Response({"detail": exc.detail}, status=exc.status_code)
-        return Response(LobbySerializer(lobby).data, status=status.HTTP_200_OK)
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class LobbyPracticeView(APIView):
@@ -473,8 +473,7 @@ class LobbyPracticeView(APIView):
                     {"detail": exc.detail, "code": exc.code}, status=exc.status
                 )
             practice.note_asked(lobby, request.user.id, asked)  # type: ignore[arg-type]
-            data = LobbySerializer(lobby).data
-            announce_lobby(lobby)
+            data = announce_lobby(lobby)  # one bump: the answer and lobby_update
             for other in cleared:
                 announce_lobby(other)
         return Response(data, status=status.HTTP_200_OK)

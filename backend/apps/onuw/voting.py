@@ -12,6 +12,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from apps.core import asked as ask
@@ -381,8 +382,9 @@ def reveal_votes(game: Game) -> None:
         }
         game.save(update_fields=["phase", "phase_deadline", "results", "updated_at"])
 
+        # The table's body changed (``status``): a higher ``rev`` (``Lobby.rev``).
         Lobby.objects.filter(id=game.lobby_id).update(
-            status=Lobby.Status.FINISHED, updated_at=timezone.now()
+            status=Lobby.Status.FINISHED, updated_at=timezone.now(), rev=F("rev") + 1
         )
 
     # Clean up all remaining timers for this game (safety net — individual
