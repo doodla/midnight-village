@@ -117,7 +117,9 @@ that stays a person's decision (`guardrails/tests/test_tidy.py`).
 makes a page of every key and its words on demand (`just copy-page`, to `frontend/build/`,
 not committed: two branches regenerating one file would collide; GitHub attaches it to the
 screens job) and, in `just check`, fails a spec under `docs/specs/frontend/` that names a copy
-class or key in backticks that does not exist (`guardrails/tests/test_copy_page.py`).
+class or key in backticks that does not exist, and a quote in section 3 of
+`first-time-play.md` that repeats the words of a key, exact or filled in (the spec names
+the key; the words cannot drift into a second home) (`guardrails/tests/test_copy_page.py`).
 
 **Starting and handing over.** `just brief <screen>` (`tool/brief.py`) prints what a builder
 needs from the sources themselves: the spec's section and the owner's lines about the

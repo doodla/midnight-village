@@ -87,10 +87,12 @@ Hidden-information analysis for the cues:
 
 ## 3. Screens
 
+The words are not quoted here: a copy key in backticks (`TalkCopy.readyToVote`) stands for them, and the code (`frontend/lib/design_system/copy/`, read on one page with `just copy-page`) is their one home. This section says what each is for, when it shows and the rule behind it. `tool/copy_page.py --check-spec` fails on a key that does not exist and on a quote that repeats a key's words. Words with no key (a pass line, an owner's quote, a removed line) stay in quotes.
+
 ### The night, second by second
 
 Shared rules for every phone at night:
-- Each phone draws the board from the player list in seat order (its own seat captioned "You"), followed by "Left", "Middle", "Right". It never draws from `valid_targets`.
+- Each phone draws the board from the player list in seat order (its own seat captioned `NightCopy.you`), followed by `NightCopy.left`, `NightCopy.middle`, `NightCopy.right` (a spoken card's name is the same). It never draws from `valid_targets`.
 - A tap shorter than 120 ms toggles a pick. You can pick up to 2 cards; a third tap replaces the oldest; tapping a chosen card unchooses it.
 - Nothing flashes, nothing is refused, and there is no haptic or sound.
 - Every request and response is the same for every role, as shown in the tables.
@@ -99,27 +101,27 @@ Shared rules for every phone at night:
 
 | Moment | What every phone shows | Held face | What the phone sends |
 |---|---|---|---|
-| Deal commits | 04: a face-down card, "Your card", "Look first" locked, pips "0 of {n}" | Role text, no cap | Opening event, then `GET /me` |
-| A 0.8 s reveal | "Ready" turns amber | same | nothing |
-| Ready tapped | "Ready ✓" (disabled); the pips update on every phone | same | `POST ready {true}` |
-| Everyone present is ready, or the 30 s backstop fires | Every phone goes to 06 in the same broadcast. A phone still unrevealed goes too; the role text is on its "You" face. | — | `GET /me` |
+| Deal commits | 04: a face-down card, `CardCopy.headline`, `CardCopy.readyLocked` locked, pips (`CommonCopy.progress`, at none) | Role text, no cap | Opening event, then `GET /me` |
+| A 0.8 s reveal | `CardCopy.ready` turns amber | same | nothing |
+| Ready tapped | `CommonCopy.readyDone` (disabled); the pips update on every phone | same | `POST ready {true}` |
+| Everyone present is ready, or the 30 s backstop fires | Every phone goes to 06 in the same broadcast. A phone still unrevealed goes too; the role text is on its `NightCopy.you` face. | — | `GET /me` |
 
 **Window 1** (only when the Doppelganger card is in the deck, dealt or in the center; fixed length, Copy = 15 s)
 
-| Moment | What every phone shows | Held face of "You" | What the phone sends |
+| Moment | What every phone shows | Held face of `NightCopy.you` | What the phone sends |
 |---|---|---|---|
-| Opens | 06: "The village sleeps", the board, Choose locked, candle | The dealt role name, then the instruction. Doppelganger: "Copy 1 player's card." Everyone else: "Nothing to do tonight." (section 8) | `GET /me` |
-| "You" held 0.8 s and at least 1 pick | Choose turns amber and says what will happen: "See Cleo", "Swap Ana, Ben", "Copy Cleo", or the role's pass ("Skip") when only "You" is picked | same | nothing |
-| First Choose | The picks clear and Choose locks again (hold "You" 0.8 s again, every phone) | Doppelganger, once her result arrives: "You copied {name}.", the copied role's portrait, then its window-1 instruction (from the instruction table below) or "Nothing to do tonight." Everyone else: unchanged | `POST choose {picks}` → the same 200 for everyone |
-| Second Choose | The picks stay lifted; the button reads "Chosen" | unchanged | `POST choose {picks}` → the same 200 for everyone. The server ignores it unless it is the Doppelganger's follow-up |
+| Opens | 06: `CommonCopy.nightTitle`, the board, Choose locked, candle | The dealt role name, then the instruction. Doppelganger: `NightCopy.doppelgangerLook`. Everyone else: `NightCopy.noChoice` (section 8) | `GET /me` |
+| `NightCopy.you` held 0.8 s and at least 1 pick | Choose turns amber and says what will happen: `NightCopy.see`, `NightCopy.swap`, `NightCopy.copyCard`, or the role's pass (`NightCopy.skip`) when only `NightCopy.you` is picked | same | nothing |
+| First Choose | The picks clear and Choose locks again (hold `NightCopy.you` 0.8 s again, every phone) | Doppelganger, once her result arrives: `NightCopy.copied`, the copied role's portrait, then its window-1 instruction (from the instruction table below) or `NightCopy.noChoice`. Everyone else: unchanged | `POST choose {picks}` → the same 200 for everyone |
+| Second Choose | The picks stay lifted; the button reads `NightCopy.chosen` | unchanged | `POST choose {picks}` → the same 200 for everyone. The server ignores it unless it is the Doppelganger's follow-up |
 | Fixed deadline | Every phone goes to the window-2 board at the same moment. No 07 appears in window 1. | — | `GET /me` |
 
 **Window 2** (always runs; closes when every present phone with a choice has chosen once (section 8), but no sooner than the table's minimum; otherwise at the deadline)
 
-| Moment | What every phone shows | Held face of "You" | What the phone sends |
+| Moment | What every phone shows | Held face of `NightCopy.you` | What the phone sends |
 |---|---|---|---|
-| Opens | A fresh board, Choose locked | Page 1: the role name and the instruction. Page 2, on every phone whenever window 1 ran: the window-1 result (Doppelganger: "You copied {name}." plus her follow-up result; everyone else: "You slept.") | `GET /me` |
-| Hold, taps, Choose | As in window 1, then "Chosen" with the picks lifted. The board stays. | same | one `POST choose` → the same 200 for everyone |
+| Opens | A fresh board, Choose locked | Page 1: the role name and the instruction. Page 2, on every phone whenever window 1 ran: the window-1 result (Doppelganger: `NightCopy.copied` plus her follow-up result; everyone else: `NightCopy.slept`) | `GET /me` |
+| Hold, taps, Choose | As in window 1, then `NightCopy.chosen` with the picks lifted. The board stays. | same | one `POST choose` → the same 200 for everyone |
 | Window closes | Every phone shows 05 until 07's data has loaded (under 1 s), then 07 | — | `GET /me` |
 | Timeout with no Choose | The same transition | — | nothing; the server applies the timeout (a Drunk gets the seeded swap) |
 
@@ -127,20 +129,20 @@ Shared rules for every phone at night:
 
 | Moment | What every phone shows | Held face | What the phone sends |
 |---|---|---|---|
-| Opens | 07: a face-down card, "What you saw", "Done" locked | One page (the 07 faces table), 5 s cap | — |
-| A 0.8 s reveal and 4 s since 07 opened | "Done" turns amber | same | — |
+| Opens | 07: a face-down card, "What you saw", `DeckCopy.done` locked | One page (the 07 faces table), 5 s cap | — |
+| A 0.8 s reveal and 4 s since 07 opened | `DeckCopy.done` turns amber | same | — |
 | Done | The screen for the current phase (08, or later) | — | `POST night-results/seen {len(night_results)}` |
 
 **Drops and missed closes**
 
 | Moment | That phone | Every other phone | Sends |
 |---|---|---|---|
-| Socket lost | A "One moment" banner | No change, no name. The server waits up to 25 s grace for this phone, whatever its role. | — |
-| Back inside the same window | The same screen. Picks are kept while the app stays open. After a cold start: re-hold "You" (any role). | — | `GET /me` |
+| Socket lost | A `BannerCopy.offline` banner | No change, no name. The server waits up to 25 s grace for this phone, whatever its role. | — |
+| Back inside the same window | The same screen. Picks are kept while the app stays open. After a cold start: re-hold `NightCopy.you` (any role). | — | `GET /me` |
 | Back after a close | 07 for any results past `night_results_seen`, then the current phase. In results phase it lands on the end board, settled (the reveal plays only for a phone in the game as the results came). | — | `GET /me` |
 | Missed the close event | 2 s after the local deadline it fetches, then follows the phase | — | `GET /me` |
 
-**How the server reads a `choose`.** It takes the first valid action in tap order. "You" is never a valid target.
+**How the server reads a `choose`.** It takes the first valid action in tap order. `NightCopy.you` is never a valid target.
 
 | Prompt | The pick means |
 |---|---|
@@ -153,25 +155,25 @@ Shared rules for every phone at night:
 | Doppelganger follow-up | As the copied role. A follow-up with no choice runs automatically. |
 | No choice | Sleep. |
 
-**Trade-off, stated plainly.** A pick that holds no valid action for your role does nothing, and 07 says so truthfully ("You did nothing."). A Seer who taps Cleo and then Left looks at Cleo. A Drunk who keeps their card is still swapped, as the rules require.
+**Trade-off, stated plainly.** A pick that holds no valid action for your role does nothing, and 07 says so truthfully (`SawCopy.didNothing`). A Seer who taps Cleo and then Left looks at Cleo. A Drunk who keeps their card is still swapped, as the rules require.
 
-### Night instructions (face of "You")
+### Night instructions (face of `NightCopy.you`)
 
-| Prompt | Line (words) |
+| Prompt | Line |
 |---|---|
-| No choice | "Nothing to do tonight." (4; section 8: a phone with nothing to choose is asked nothing, "Nothing to do" quiet where the button was) |
-| Seer | "Look at 1 player's card, or 2 center cards." (7; cold read: "1 card" did not say whose) |
-| Robber | "Swap with 1 player. See your new card." (7) |
-| Troublemaker | "Swap 2 other players' cards." (4) |
-| Drunk | "Swap with 1 center card. Don't look." (6) |
-| Lone Werewolf | "You may see 1 center card." (5) |
-| Doppelganger's look | "Copy 1 player's role." (3; agrees with her title) |
+| No choice | `NightCopy.noChoice` (section 8: a phone with nothing to choose is asked nothing, `NightCopy.nothingToDo` quiet where the button was) |
+| Seer | `NightCopy.seer` (cold read: "1 card" did not say whose) |
+| Robber | `NightCopy.robber` |
+| Troublemaker | `NightCopy.troublemaker` |
+| Drunk | `NightCopy.drunk` |
+| Lone Werewolf | `NightCopy.loneWerewolf` |
+| Doppelganger's look | `NightCopy.doppelgangerLook` (agrees with her title) |
 
-**The board's title** (06's headline, two lines of room on every phone) is the prompt's: the role's night line in a few words on a phone with a choice, "The village sleeps" on a sleeper's (playtest, 21 November 2026: "The village sleeps" read as wrong while acting). Seer "Look at cards" (3; her board says the rest, below); Robber "Swap with 1 player" (3); Troublemaker "Swap 2 other players' cards" (4); Drunk "Swap with a center card" (4); Lone Werewolf "See 1 center card" (3; its "Skip" carries the "may"); Doppelganger's look "Copy a player's role" (4). Each passes rule 11 in section 1. The face of "You" says the rest.
+**The board's title** (06's headline, two lines of room on every phone) is the prompt's: the role's night line in a few words on a phone with a choice, `CommonCopy.nightTitle` on a sleeper's (playtest, 21 November 2026: `CommonCopy.nightTitle` read as wrong while acting). Seer `NightCopy.seerTitle` (her board says the rest, below); Robber `NightCopy.robberTitle`; Troublemaker `NightCopy.troublemakerTitle`; Drunk `NightCopy.drunkTitle`; Lone Werewolf `NightCopy.loneWerewolfTitle` (its `NightCopy.skip` carries the "may"); Doppelganger's look `NightCopy.doppelgangerTitle`. Each passes rule 11 in section 1. The face of `NightCopy.you` says the rest.
 
-**The Seer's board names her two kinds of pick where they are** (the owner chose this on 22 November 2026, from "A: the title says it" and "B: the board says it"): "1 player" above the seats, a thin rule with "or" between the seats and the table's cards, and "2 center cards" on the strip in place of "Center"; the same buttons. The board's geometry is the same for every role: every board keeps the room above its seats and in the gap above the band for these words and leaves it empty (`BoardLayout.seatLabelRoom`, `ruleRoom`), so no card sits elsewhere on any phone. What gave: the row gap and the band's padding are 4 px tighter on every board, and the header's gap to the board is the label room; the table's cards and "You" reach 8 px down into the band's padding for a tap (`FaceDownCard.tapExtra`), so on the smallest phone with ten players (320 x 568) every tap target stays 4 px over the 48 px floor (`board_sweep_test.dart`). A Seer's board shows two labels the others do not: an accepted tell (the Seer's title already told).
+**The Seer's board names her two kinds of pick where they are** (the owner chose this on 22 November 2026, from "A: the title says it" and "B: the board says it"): `NightCopy.seerSeats` above the seats, a thin rule with `NightCopy.seerOr` between the seats and the table's cards, and `NightCopy.seerCenter` on the strip in place of `NightCopy.centerLabel`; the same buttons. The board's geometry is the same for every role: every board keeps the room above its seats and in the gap above the band for these words and leaves it empty (`BoardLayout.seatLabelRoom`, `ruleRoom`), so no card sits elsewhere on any phone. What gave: the row gap and the band's padding are 4 px tighter on every board, and the header's gap to the board is the label room; the table's cards and `NightCopy.you` reach 8 px down into the band's padding for a tap (`FaceDownCard.tapExtra`), so on the smallest phone with ten players (320 x 568) every tap target stays 4 px over the 48 px floor (`board_sweep_test.dart`). A Seer's board shows two labels the others do not: an accepted tell (the Seer's title already told).
 
-**The board shows what can be picked** (issue 37). **The board is identical for every role until the first tap: nothing is dimmed.** Once a pick has begun, a card that cannot join it is dimmed (the card back and token; its name stays in full ink), read from the prompt's `shapes` only, and a tap on a dimmed card still switches the pick (a screen reader hears "Switches your pick": dimmed here is not switched off, as it is on the vote's locked rows). The strip of the table's three cards carries the word "Center".
+**The board shows what can be picked** (issue 37). **The board is identical for every role until the first tap: nothing is dimmed.** Once a pick has begun, a card that cannot join it is dimmed (the card back and token; its name stays in full ink), read from the prompt's `shapes` only, and a tap on a dimmed card still switches the pick (a screen reader hears `NightCopy.switchesPick`: dimmed here is not switched off, as it is on the vote's locked rows). The strip of the table's three cards carries the word `NightCopy.centerLabel`.
 
 | Prompt | At the start | After the first pick |
 |---|---|---|
@@ -181,140 +183,140 @@ Shared rules for every phone at night:
 | Seer | Nothing dims | One player: everything else dims. One center card: the players dim, the other two center cards stay lit. Two: the third dims too |
 | A phone with nothing to choose | Nothing dims | Nothing dims |
 
-"You" is never dimmed, and picking "You" alone leaves the board as at the start. The layout is the same for every role (section 8). Dimming at the start was tried and dropped: a dark block of players on a Drunk's phone is readable across the table, where before only the small title differed.
+`NightCopy.you` is never dimmed, and picking `NightCopy.you` alone leaves the board as at the start. The layout is the same for every role (section 8). Dimming at the start was tried and dropped: a dark block of players on a Drunk's phone is readable across the table, where before only the small title differed.
 
-**A kind or shape the server adds later never throws in a player's hand**: an unknown prompt `kind` is the plain generic board ("Choose a card", then "Choose {cards}" or "Skip"), an unknown `shape` is left out (a prompt left with none takes any one card), and each is logged.
+**A kind or shape the server adds later never throws in a player's hand**: an unknown prompt `kind` is the plain generic board (`NightCopy.chooseNone`, then `NightCopy.choose` or `NightCopy.skip`), an unknown `shape` is left out (a prompt left with none takes any one card), and each is logged.
 
 **The title has room for two lines at the full title size** on every board, the same height whatever the role, with the seconds level with its first line; it wraps between words and is set smaller only if two lines are not enough (a title is never drawn under 0.8 of the title size at 360 wide: `board_sweep_test.dart`).
 
-| Prompt | Button with the picks whole | Pass ("You" alone) |
+| Prompt | Button with the picks whole | Pass (`NightCopy.you` alone) |
 |---|---|---|
-| Seer | "See {cards}" | "Skip" |
-| Robber | "Swap with {cards}" | "Keep my card" |
-| Troublemaker | "Swap {cards}" | "Skip" |
-| Drunk | "Swap with {cards}" | "Choose for me" |
-| Lone Werewolf | "See {cards}" | "Skip" |
-| Doppelganger's look (and a follow-up, as the copied role) | "Copy {cards}" | "Skip" |
+| Seer | `NightCopy.see` | `NightCopy.skip` |
+| Robber | `NightCopy.swapWith` | `NightCopy.keep` |
+| Troublemaker | `NightCopy.swap` | `NightCopy.skip` |
+| Drunk | `NightCopy.swapWith` | `NightCopy.chooseForMe` |
+| Lone Werewolf | `NightCopy.see` | `NightCopy.skip` |
+| Doppelganger's look (and a follow-up, as the copied role) | `NightCopy.copyCard` | `NightCopy.skip` |
 
-A name is never cut: if two long names do not fit on one line ("Swap Rosalind Fairweather, Bartholomew Longname" at 320 wide), the label wraps between words onto two lines, then is set smaller; the board takes the height.
+A name is never cut: if two long names do not fit on one line (two long names in `NightCopy.swap`, at 320 wide), the label wraps between words onto two lines, then is set smaller; the board takes the height.
 
 ### Role text (single source for the 04 face, 03b and the role name on faces)
 
-Every role entry is laid out as (owner, 24 November 2026: "I'd like the copy updated with different formatting so it's easier to parse"): the tag above the name; then rows, each a small label ("Night", the Hunter's "Vote", "Wins") in a column of its own beside short lines, one line per case; then, after more room and across the whole width, the shared line **"You are your last card."** (5 words; "Anyone may lie." was cut on review, 21 November 2026, so the card reads at full size on small phones), a rule of the game rather than of the role. Where the lines' column would be too narrow for its words (a small phone at large text), each label sits above its lines. Form parts them, not words: no role has more words than before.
+Every role entry is laid out as (owner, 24 November 2026: "I'd like the copy updated with different formatting so it's easier to parse"): the tag above the name; then rows, each a small label (`DeckCopy.night`, the Hunter's `DeckCopy.vote`, `RoleCopy.winsLabel`) in a column of its own beside short lines, one line per case; then, after more room and across the whole width, the shared line `RoleCopy.shared` ("Anyone may lie." was cut on review, 21 November 2026, so the card reads at full size on small phones), a rule of the game rather than of the role. Where the lines' column would be too narrow for its words (a small phone at large text), each label sits above its lines. Form parts them, not words: no role has more words than before.
 
-**Tag** (owner, 24 November 2026: "There's a double label as well."): a team's tag beside a role's name never repeats the name: the Werewolf team's is "Werewolf team" (red: the Werewolf and the Minion), the Village's "Village", the Tanner's "Alone", the Doppelganger's "Copies".
+**Tag** (owner, 24 November 2026: "There's a double label as well."): a team's tag beside a role's name never repeats the name: the Werewolf team's is `RoleCopy.werewolfTeam` (red: the Werewolf and the Minion), the Village's `RoleCopy.village`, the Tanner's `RoleCopy.alone`, the Doppelganger's `RoleCopy.copies`.
 
-Village Wins lines: **"A Werewolf dies."** / **"No Werewolf player: nobody dies."** (6 words)
+Village lines (the Wins column): `RoleCopy.villageWins` / `RoleCopy.villageNoWerewolf`.
 
 | Role | Tag | Night | Wins | Total words (was) |
 |---|---|---|---|---|
-| Werewolf | Werewolf team | At dawn, see the other Werewolves. / Alone: you may see 1 center card. | No Werewolf and no Tanner dies. | 23 (24) |
-| Minion | Werewolf team | At dawn, see the Werewolves. / They don't see you. | With the Werewolves, even if you die. / No Werewolf player: another dies, not the Tanner. | 28 (28) |
-| Mason | Village | At dawn, see the other Mason. | Village lines | 19 (19) |
-| Seer | Village | See 1 player's card or 2 center cards. | Village lines | 20 (21) |
-| Robber | Village | Swap with a player. See your new card. | Village lines | 22 (22) |
-| Troublemaker | Village | Swap 2 other players' cards. Don't look. | Village lines | 20 (20) |
-| Drunk | Village | Swap with a center card. Don't look. | Village lines | 21 (21) |
-| Insomniac | Village | At dawn, see your own card. | Village lines | 20 (20) |
-| Hunter | Village | Sleep. Then a "Vote" row: Your pick dies with you. | Village lines | 21 (21) |
-| Villager | Village | Sleep. | Village lines | 15 (15) |
-| Tanner | Alone | Sleep. | You die. | 11 (11) |
-| Doppelganger | Copies | Copy a player's role. Act as that role. | As the role you copy. | 21 (21) |
+| Werewolf | `RoleCopy.werewolfTeam` | `RoleCopy.werewolfNight` / `RoleCopy.werewolfAlone` | `RoleCopy.werewolfWins` | 23 (24) |
+| Minion | `RoleCopy.werewolfTeam` | `RoleCopy.minionNight` / `RoleCopy.minionUnseen` | `RoleCopy.minionWins` / `RoleCopy.minionNoWerewolf` | 28 (28) |
+| Mason | `RoleCopy.village` | `RoleCopy.masonNight` | Village lines | 19 (19) |
+| Seer | `RoleCopy.village` | `RoleCopy.seerNight` | Village lines | 20 (21) |
+| Robber | `RoleCopy.village` | `RoleCopy.robberNight` | Village lines | 22 (22) |
+| Troublemaker | `RoleCopy.village` | `RoleCopy.troublemakerNight` | Village lines | 20 (20) |
+| Drunk | `RoleCopy.village` | `RoleCopy.drunkNight` | Village lines | 21 (21) |
+| Insomniac | `RoleCopy.village` | `RoleCopy.insomniacNight` | Village lines | 20 (20) |
+| Hunter | `RoleCopy.village` | `RoleCopy.sleep`, then a `DeckCopy.vote` row: `RoleCopy.hunterVote` | Village lines | 21 (21) |
+| Villager | `RoleCopy.village` | `RoleCopy.sleep` | Village lines | 15 (15) |
+| Tanner | `RoleCopy.alone` | `RoleCopy.sleep` | `RoleCopy.tannerWins` | 11 (11) |
+| Doppelganger | `RoleCopy.copies` | `RoleCopy.doppelgangerNight` | `RoleCopy.doppelgangerWins` | 21 (21) |
 
-**Team tags** on the end board come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf" ("Werewolf team" beside a role's name), `neutral` → "Alone".
+**Team tags** on the end board come from the server's `team`: `village` → `RoleCopy.village`, `werewolf` → the Werewolf role's name (`RoleCopy.werewolfTeam` beside a role's name), `neutral` → `RoleCopy.alone`.
 
-**Where the team shows** (issue 37): the other Werewolves, the Minion's Werewolves and the other Mason are shown only at dawn, when the talk opens, in My night's picture story (your card, the cards you touched, the one sentence: "You and {names} are the Werewolves."; section 3, "Brief amendments": team shown only there), never at night; so these role texts say "At dawn", as the Insomniac's does, and a sleeper's night face says only "Nothing to do tonight." A lone Werewolf's center look is at night ("Alone at night").
+**Where the team shows** (issue 37): the other Werewolves, the Minion's Werewolves and the other Mason are shown only at dawn, when the talk opens, in My night's picture story (your card, the cards you touched, the one sentence: `NightStoryCopy.werewolves`; section 3, "Brief amendments": team shown only there), never at night; so these role texts say "At dawn", as the Insomniac's does, and a sleeper's night face says only `NightCopy.noChoice`. A lone Werewolf's center look is at night ("Alone at night").
 
 **Where I chose brevity over precision** (each string was checked against `roles.md` and `voting-and-resolution.md`):
 1. "You are your last card": for a Doppelganger card, "your card" means the role she copied. Her own line says this.
 2. Doppelganger "Act as that role": a copied Werewolf, Mason or Insomniac acts later, not at once.
 3. Minion: with no Werewolf player, `voting-and-resolution.md` (Minion special rules) has the Minion win when a player other than the Minion and the Tanner dies, and lose when the Tanner dies; "another dies, not the Tanner" says that ("another": not you).
-4. Hunter "your pick": an unlocked pick counts too (contract amendment), so "pick" is exact. It is under "Vote", not "Night": the Hunter sleeps; his rule acts at the vote.
+4. Hunter "your pick": an unlocked pick counts too (contract amendment), so "pick" is exact. It is under `DeckCopy.vote`, not `DeckCopy.night`: the Hunter sleeps; his rule acts at the vote.
 5. Insomniac "At dawn": this is the end of window 2.
-6. "Keep my card" is not true for a Drunk (see the trade-off above): his pass reads "Choose for me".
+6. `NightCopy.keep` is not true for a Drunk (see the trade-off above): his pass reads `NightCopy.chooseForMe`.
 7. Robber and Drunk carry the Village line, because the shared line covers their change of team.
 
 ### 07 faces (and the window pages in 08)
 
 Every face has exactly one portrait slot and at most 2 lines. Each line is a fact of the night, in the past: what this phone saw or did then, never what a card is now, since cards move after a look (playtest, 21 November 2026: "Cleo's card: Werewolf." read at the talk as Cleo's card today). The Insomniac's is the one line still true at the talk: she looks last.
 
-| Result | Portrait | Text (words) |
+| Result | Portrait | Text |
 |---|---|---|
-| Seer, player | That card | "{name}'s card was: {role}." (2) |
-| Seer, center | The first card | "{pos} was: {role}. {pos} was: {role}." (2): the server names each card's place (`center_indices`, contract third amendment) |
-| Robber | The new card | "You took {name}'s card: {role}." (3) |
-| Insomniac | Her card | "Your card now: {role}." (3) |
-| Troublemaker | Moon | "You swapped {name} and {name}." (3) |
-| Drunk (chosen or seeded) | Moon | "You took {pos}, unseen." (3) |
-| Werewolves | Werewolf | "Werewolves were: {names}." (1) |
-| Lone Werewolf | Werewolf | "Only you." plus "{pos} was: {role}." if it looked (3) |
-| Minion | Minion | "Werewolves were: {names}." or "There were no Werewolves." (3) |
-| Masons | Mason | "Masons were: {names}." or "Only you." (2) |
-| No choice, or timeout | Moon | "You slept." (2) |
-| Chose, nothing happened (the viewer's own `skip`, marked `nothing_chosen`, also the Doppelganger's look with no other player; a Drunk's server-made swap and a lone Werewolf who looked at nothing keep their own rows) | Moon | "You did nothing." (3) |
+| Seer, player | That card | `SawCopy.seerPlayer` |
+| Seer, center | The first card | `SawCopy.seerCenter`: the server names each card's place (`center_indices`, contract third amendment) |
+| Robber | The new card | `SawCopy.robbed` |
+| Insomniac | Her card | `SawCopy.newCard` |
+| Troublemaker | Moon | `SawCopy.swapped` |
+| Drunk (chosen or seeded) | Moon | `SawCopy.drunk` |
+| Werewolves | Werewolf | `SawCopy.werewolves` |
+| Lone Werewolf | Werewolf | `SawCopy.onlyYou` plus `SawCopy.centerLook` if it looked |
+| Minion | Minion | `SawCopy.werewolves` or `SawCopy.noWerewolves` |
+| Masons | Mason | `SawCopy.masons` or `SawCopy.onlyYou` |
+| No choice, or timeout | Moon | `NightCopy.slept` |
+| Chose, nothing happened (the viewer's own `skip`, marked `nothing_chosen`, also the Doppelganger's look with no other player; a Drunk's server-made swap and a lone Werewolf who looked at nothing keep their own rows) | Moon | `SawCopy.didNothing` |
 
 ### Per-screen sheet
 
 **01 Join**
 - **One thing / loudest:** type a name; the empty name field, focused.
-- **Locked until:** both ways in lead to the name until one is entered (the scan glyph is the one exception, below); the amber plaque stays amber (one plaque, below). None of them looks dead (23 November 2026, review): a tap on "Start a table" or "Join a table" with no name takes the cursor to the name field and gives it a short shake (reduced motion: a colour flash). A locked amber "Join" (from a link, or with the code typed) is never silent (23 November 2026, the app's rule for primary buttons): a tap on it takes the cursor to the empty name field, or to the code field when only the code is missing.
-- **One plaque** (24 November 2026, the coordinator's decision, 01 dressed in paper): exactly one amber plaque at any moment. While the code field holds a whole code (typed, scanned, or the link's) it is "Join" and "Start a table" is a small bone scrap; otherwise it is "Start a table", and "Join a table" is a bone scrap (closed) or, beside a code not yet whole, Join in the locked form saying "Code" (a tap takes the cursor to the name, then the code). The buttons keep their places when it flips: only the paper changes. With no name the plaque is still amber; a tap leads to the name (never a dead button).
-- **Copy:** hint "Your name"; "Start a table" and "Join a table" (one of them the amber plaque, above). "Join a table" opens a hint "Code" and an amber "Join". Body text at 16 px: "{n} at tables" and "You won last game" / "You lost last game".
-- **Removed:** the prefilled "Ana" (8). The amber "Start a table" (4). The tagline. The footer (12).
+- **Locked until:** both ways in lead to the name until one is entered (the scan glyph is the one exception, below); the amber plaque stays amber (one plaque, below). None of them looks dead (23 November 2026, review): a tap on `JoinCopy.startTable` or `JoinCopy.joinTable` with no name takes the cursor to the name field and gives it a short shake (reduced motion: a colour flash). A locked amber `JoinCopy.join` (from a link, or with the code typed) is never silent (23 November 2026, the app's rule for primary buttons): a tap on it takes the cursor to the empty name field, or to the code field when only the code is missing.
+- **One plaque** (24 November 2026, the coordinator's decision, 01 dressed in paper): exactly one amber plaque at any moment. While the code field holds a whole code (typed, scanned, or the link's) it is `JoinCopy.join` and `JoinCopy.startTable` is a small bone scrap; otherwise it is `JoinCopy.startTable`, and `JoinCopy.joinTable` is a bone scrap (closed) or, beside a code not yet whole, Join in the locked form saying `JoinCopy.codeHint` (a tap takes the cursor to the name, then the code). The buttons keep their places when it flips: only the paper changes. With no name the plaque is still amber; a tap leads to the name (never a dead button).
+- **Copy:** hint `JoinCopy.nameHint`; `JoinCopy.startTable` and `JoinCopy.joinTable` (one of them the amber plaque, above). `JoinCopy.joinTable` opens a hint `JoinCopy.codeHint` and an amber `JoinCopy.join`. Body text at 16 px: `JoinCopy.online` and `JoinCopy.lastWon` / `JoinCopy.lastLost`.
+- **Removed:** the prefilled "Ana" (8). The amber `JoinCopy.startTable` (4). The tagline. The footer (12).
 - **States:**
-  - Opened from a link: the name field and an amber "Join" (3 words).
+  - Opened from a link: the name field and an amber `JoinCopy.join` (3 words).
   - The name is prefilled only from this device's own guest account.
-  - The scan action (22 November 2026, issue 14): a glyph beside "Join a table" (and beside the code field once it is open), an outlined square of the buttons' height, no word, "Scan the code" to a screen reader. It is not locked by an empty name (scanning is the natural first move for a guest told "scan to join"): the name is asked for after the scan if it is empty. It is not offered on a table's link (that already names the table).
+  - The scan action (22 November 2026, issue 14): a glyph beside `JoinCopy.joinTable` (and beside the code field once it is open), an outlined square of the buttons' height, no word, `ScanCopy.scan` to a screen reader. It is not locked by an empty name (scanning is the natural first move for a guest told "scan to join"): the name is asked for after the scan if it is empty. It is not offered on a table's link (that already names the table).
   - The words on 01 are unchanged.
-  - The app's download (22 November 2026): in an Android browser only (the web build on Android; never inside the Android app, on iOS or a desktop, and on no other screen), one quiet link "Get the app" on the "N at tables" row, right-aligned (alone on that row, right-aligned, when the line is absent): dimmed bone, underlined, the same size and face as that line, never amber and never louder than the dimmed buttons, 48 to touch. It opens `/app`, which the host sends on to the Android file (`docs/dev/deploy-vercel.md`, "Android app download"). No banner, no dialog, no other words. In that browser 01 is (its own allowance in `screen_states.dart`, as the practice states have).
+  - The app's download (22 November 2026): in an Android browser only (the web build on Android; never inside the Android app, on iOS or a desktop, and on no other screen), one quiet link `JoinCopy.getApp` on the `JoinCopy.online` row, right-aligned (alone on that row, right-aligned, when the line is absent): dimmed bone, underlined, the same size and face as that line, never amber and never louder than the dimmed buttons, 48 to touch. It opens `/app`, which the host sends on to the Android file (`docs/dev/deploy-vercel.md`, "Android app download"). No banner, no dialog, no other words. In that browser 01 is (its own allowance in `screen_states.dart`, as the practice states have).
 - **Pass:** "Type my name."
 
 **01b Scan** (the camera 01's scan action opens; a place of 01 with its own Back rule: Back, the glyph or the phone's, closes it to 01, as it was)
 - **One thing / loudest:** the camera, in a paper window with the viewfinder's four corners, the village faint behind the empty upper half; nothing to read while it looks.
-- **Copy:** none while it looks (a Back glyph; a light glyph where the camera has one: Android; the web has none). Where the camera cannot be used (permission refused, no camera, a page that may not use one): the window shows a shuttered window cut from paper (the camera is off), one line "The camera is off.", and an amber "Type the code", which closes the scanner and opens 01's code field, focused. Screen reader: "Scan the code", "Looking for the table's code", "Back", "Light".
+- **Copy:** none while it looks (a Back glyph; a light glyph where the camera has one: Android; the web has none). Where the camera cannot be used (permission refused, no camera, a page that may not use one): the window shows a shuttered window cut from paper (the camera is off), one line `ScanCopy.cameraOff`, and an amber `ScanCopy.typeCode`, which closes the scanner and opens 01's code field, focused. Screen reader: `ScanCopy.scan`, `ScanCopy.looking`, `ScanCopy.back`, `ScanCopy.light`.
 - **Reads:** a table's link (`<origin>/join/<code>`, any origin) or a bare code, in any case and with spaces, in the server's alphabet and length (six of the capitals and digits without 0, O, I, 1 and L). Anything else is ignored, silently. The camera is never touched before the tap and stops the moment the screen leaves (a code read, Back, the app moving on or to the background).
 - **A code read:** the camera stops, the code stands in the window at once (no fade through an empty window) and the corners snap in round it, and the join starts the same frame, by the same path as typing the code (no beat is waited out). With no name typed yet, 01 is back with the code in its field and the name field asking. A refused join leaves the scanner for 01 with its banner and the code still in its field (a typed join the same). The scanner belongs to the 01 that opened it: leaving 01 ends it, and the camera starts only on a tap, never when 01 is built.
 - **Pass:** "Type the code."
 
 **02 Table**
-- **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`. Two blocks: the QR code with "Scan to join" on it (its label only), and, past a hairline, the code with its own label "Code" (01's word for it) and Share. An app build that knows no web address has no QR code: no "Scan to join", the code block alone.
-- **Locked until:** "Start the game" (the owner, 23 November 2026: "Just say 'Start the game' or whatever"; it said "Deal to {n}", which the owner read as a dimmed button with no reason) unlocks exactly when the server says the deal would go (`deal.ok`). Until then the one main button says what to do and a tap does it, never the same words dimmed, the reasons in the order the host can act on them: "Need 3 players" at an open table under three and "Need {n} more" at a table set for a number with {n} places empty (outlined; a tap shares the table's link; the number always the phone's current one), then, when the deck holds the wrong number of cards, "Add 1 card" / "Remove 2 cards" (amber; a tap opens 03; the server's current `need`). Players come before the deck: a host alone with a big deck reads "Need 3 players". A refusal the phone cannot name leaves it live: the deal's own answer says why. While this phone's own change is on its way (under a second) it keeps "Start the game", outlined.
-- **Copy (host):** "Scan to join" (the QR code's label); "Code" (the code's); quiet "Share" (a glyph); at a number "{d} of {n}" with a small empty circle for each place not taken (one wrapping line, so the deck and Leave stay in view), above the rows; with 3 or more here but fewer than the number, "Play with {n}" (one tap sets the number to who is here; with a deck of the host's own, the tap opens 03 with its count showing, never throwing the deck away); the set-up: the deck chip, "Talk {length}", every role in the deck face up with count badges in the deck builder's order, in balanced lines (no card alone on a line); a deck that does not fit is said once, by the one main button ("Add 1 card", "Remove 2 cards"), with no second count on 02, and "Edit" is hidden then (one way in); otherwise quiet "Edit"; amber "Start the game", or "Need 3 players", "Need {n} more" or the deck's fix (above); a quiet "Leave" at the main button's side, left of it (it asks first); "Leave" shows it is on its way at once. ("Start the game" is the owner's own, one over the earlier 13).
-- **Copy (guest):** "{host} deals"; the same card, the same "{d} of {n}" and empty places, the same set-up face up (a tap or a hold on a role reads it); quiet "Leave". Waiting is said by the shape, not a sentence (playtest, 21 November 2026: Leave read as the one thing to do): "{host} deals" at the headline size (32; was the hero title, 46: the owner, 22 November 2026, found the names too big), "Leave" a quiet underlined word right under the set-up (23 November 2026: not alone at the foot of an empty screen), no outlined button.
-- **The deck is always face up** (owner, 21 November 2026: "everybody should see what characters have been selected"): the roles the table would deal, for host and guests, in every state; no card arithmetic on 02 for a guest, and the host's one button says "Add 1 card" / "Remove 2 cards" when the deck is off (23 November 2026).
+- **One thing / loudest (host):** guests scan. Loudest is the QR code for `/join/{code}`. Two blocks: the QR code with `TableCopy.scan` on it (its label only), and, past a hairline, the code with its own label `JoinCopy.codeHint` (01's word for it) and Share. An app build that knows no web address has no QR code: no `TableCopy.scan`, the code block alone.
+- **Locked until:** `TableCopy.start` (the owner, 23 November 2026: "Just say 'Start the game' or whatever"; it said "Deal to {n}", which the owner read as a dimmed button with no reason) unlocks exactly when the server says the deal would go (`deal.ok`). Until then the one main button says what to do and a tap does it, never the same words dimmed, the reasons in the order the host can act on them: `TableCopy.needPlayers` at an open table under three and `TableCopy.needMore` at a table set for a number with {n} places empty (outlined; a tap shares the table's link; the number always the phone's current one), then, when the deck holds the wrong number of cards, `DeckCopy.addCard` / `DeckCopy.removeCards` (amber; a tap opens 03; the server's current `need`). Players come before the deck: a host alone with a big deck reads `TableCopy.needPlayers`. A refusal the phone cannot name leaves it live: the deal's own answer says why. While this phone's own change is on its way (under a second) it keeps `TableCopy.start`, outlined.
+- **Copy (host):** `TableCopy.scan` (the QR code's label); `JoinCopy.codeHint` (the code's); quiet `TableCopy.share` (a glyph); at a number `TableCopy.seated` with a small empty circle for each place not taken (one wrapping line, so the deck and Leave stay in view), above the rows; with 3 or more here but fewer than the number, `TableCopy.playWith` (one tap sets the number to who is here; with a deck of the host's own, the tap opens 03 with its count showing, never throwing the deck away); the set-up: the deck chip, `DeckCopy.talk` with its length, every role in the deck face up with count badges in the deck builder's order, in balanced lines (no card alone on a line); a deck that does not fit is said once, by the one main button (`DeckCopy.addCard`, `DeckCopy.removeCards`), with no second count on 02, and `TableCopy.editDeck` is hidden then (one way in); otherwise quiet `TableCopy.editDeck`; amber `TableCopy.start`, or `TableCopy.needPlayers`, `TableCopy.needMore` or the deck's fix (above); a quiet `CommonCopy.leave` at the main button's side, left of it (it asks first); `CommonCopy.leave` shows it is on its way at once. (`TableCopy.start` is the owner's own, one over the earlier 13).
+- **Copy (guest):** `TableCopy.hostDeals`; the same card, the same `TableCopy.seated` and empty places, the same set-up face up (a tap or a hold on a role reads it); quiet `CommonCopy.leave`. Waiting is said by the shape, not a sentence (playtest, 21 November 2026: Leave read as the one thing to do): `TableCopy.hostDeals` at the headline size (32; was the hero title, 46: the owner, 22 November 2026, found the names too big), `CommonCopy.leave` a quiet underlined word right under the set-up (23 November 2026: not alone at the foot of an empty screen), no outlined button.
+- **The deck is always face up** (owner, 21 November 2026: "everybody should see what characters have been selected"): the roles the table would deal, for host and guests, in every state; no card arithmetic on 02 for a guest, and the host's one button says `DeckCopy.addCard` / `DeckCopy.removeCards` when the deck is off (23 November 2026).
 - **Removed:** "Table code", "At the table", "5 players", "Host · You", "8 cards", "x2", "Change" (10, 12, 15).
 - **States:**
   - Your own row has a thicker outline.
   - A dropped member's token dims to 40%, with no words.
   - After a host handover, that phone switches to the host layout, with no words.
-  - A practice player's row (a seat the server plays, below at 03) has its own token, the thing it is named for (a teapot for Teapot), and "Practice" on the name's line in every row, quieter than "You" (the word alone, no outline; "You" stays the one outlined tag), for host and guests; it is never dimmed (no phone to drop) and counts in "{d} of {n}" and "Start the game" (a practice change on its way included). A table set for a number with fewer come shows "Play with {n}" beside them like any other: that state is 15 words, one over 14, its own allowance (the tag is one word, the same on each practice row), reached only by a host who held "Players".
+  - A practice player's row (a seat the server plays, below at 03) has its own token, the thing it is named for (a teapot for Teapot), and `TableCopy.practice` on the name's line in every row, quieter than `NightCopy.you` (the word alone, no outline; `NightCopy.you` stays the one outlined tag), for host and guests; it is never dimmed (no phone to drop) and counts in `TableCopy.seated` and `TableCopy.start` (a practice change on its way included). A table set for a number with fewer come shows `TableCopy.playWith` beside them like any other: that state is 15 words, one over 14, its own allowance (the tag is one word, the same on each practice row), reached only by a host who held `DeckCopy.players`.
 - **Pass:** guest says "Wait or scan"; host says "Show the code, then deal".
 
 **03 Tonight's game** (host; the set-up page, editable before anyone joins and until the deal; amended 21 November 2026 after the owner got stuck in the deck editor, and after review)
-- **One thing / loudest:** nothing is required; amber "Done".
-- **Locked until:** never locked, and always "Done" (amended 23 November 2026, after the owner left this page with 12 cards for 8 and found a dimmed button on 02; reworked after review): with the right number of cards "Done" leaves; with the wrong number the first "Done" or Back stays, brings the count line into view and gives it a short shake (reduced motion: a colour flash), and the second leaves, so the host is never trapped (the table's code, to let friends in, is on 02, and its button leads back). The count line says what to do, in the player's words and one face: "14 of 12 · Remove 2 cards", "10 of 11 · Add 1 card". A host who changed only a timer is never stuck, and a deck is always fixable in one tap (a chip, a card in or out, or the number). The server stays the authority (the deal refuses a deck that is not players + 3; `deal.need` and `deal.have` are its numbers): the phone only shows the distance. Discarding the changes is not offered (they are saved as they are made).
-- **Copy:** "Tonight's game"; "Players" with a stepper (within the server's range: never below who is here, never above what the table holds; "Any", an open table, only with an automatic deck) and, at a number, "{d} of {n}" with every seat drawn; chips "Simple", "Classic", "Chaos"; with a count to meet, the count line ("11 of 11", "14 of 12 · Remove 2 cards", "10 of 11 · Add 1 card") over a pip for each card needed (the cards over in the danger ink, no gap); every role face up in a grid (names exempt), a tap puts one in, a lit card's minus takes one out (spoken "Take one {role} out"); every length the server has, each its name and a stepper over its value, in this order: "Talk", "Vote", "Night", the Doppelganger's (the role's name; the row is there only while the deck holds a Doppelganger), "Look", "Night minimum", "Dropped phone", "Host away"; values "{n} s", "{n} min"; 0 is "No clock" for the talk and the vote (no deadline: it ends when everyone is ready) and "Off" for the rest. Under each name but Talk and Vote a caption of two or three words says what the timer is (the owner, 23 November 2026: "The timers aren't really explained"; caption face, full ink, set once, no help screen): Look "See your card", Night "Time to act", the Doppelganger's "Acts first", Night minimum "Shortest night", Dropped phone "Wait before skipping", Host away "Then another hosts". Button "Done"; with practice players switched on (hidden, below), "Practice" with a stepper under Players. **37 of 37 words (22 and the six captions' 15); the practice state (below) has its own allowance, 38, and the deck-does-not-fit state 43 (the count's line).**
-- **Removed:** the pace chips "Quick", "Normal", "Long" and their tiles (the owner: "I just need the things to be editable"), the face-down deck and "Edit" (the deck is always face up), "Use this deck" (now "Done").
+- **One thing / loudest:** nothing is required; amber `DeckCopy.done`.
+- **Locked until:** never locked, and always `DeckCopy.done` (amended 23 November 2026, after the owner left this page with 12 cards for 8 and found a dimmed button on 02; reworked after review): with the right number of cards `DeckCopy.done` leaves; with the wrong number the first `DeckCopy.done` or Back stays, brings the count line into view and gives it a short shake (reduced motion: a colour flash), and the second leaves, so the host is never trapped (the table's code, to let friends in, is on 02, and its button leads back). The count line (`DeckCopy.countFix`) says what to do, in the player's words and one face. A host who changed only a timer is never stuck, and a deck is always fixable in one tap (a chip, a card in or out, or the number). The server stays the authority (the deal refuses a deck that is not players + 3; `deal.need` and `deal.have` are its numbers): the phone only shows the distance. Discarding the changes is not offered (they are saved as they are made).
+- **Copy:** `DeckCopy.headline`; `DeckCopy.players` with a stepper (within the server's range: never below who is here, never above what the table holds; `DeckCopy.any`, an open table, only with an automatic deck) and, at a number, `TableCopy.seated` with every seat drawn; the three chips (`DeckCopy.chips`); with a count to meet, the count line (`DeckCopy.count`, or `DeckCopy.countFix` with the fix) over a pip for each card needed (the cards over in the danger ink, no gap); every role face up in a grid (names exempt), a tap puts one in, a lit card's minus takes one out (spoken `SpokenCopy.takeOut`); every length the server has, each its name and a stepper over its value, in this order: `DeckCopy.talk`, `DeckCopy.vote`, `DeckCopy.night`, the Doppelganger's (the role's name; the row is there only while the deck holds a Doppelganger), `DeckCopy.look`, `DeckCopy.nightMinimum`, `DeckCopy.droppedPhone`, `DeckCopy.hostAway`; values `CommonCopy.seconds`, `DeckCopy.minutes`; 0 is `DeckCopy.noClock` for the talk and the vote (no deadline: it ends when everyone is ready) and `DeckCopy.off` for the rest. Under each name but Talk and Vote a caption of two or three words says what the timer is (the owner, 23 November 2026: "The timers aren't really explained"; caption face, full ink, set once, no help screen): Look `DeckCopy.lookCaption`, Night `DeckCopy.nightCaption`, the Doppelganger's `DeckCopy.doppelgangerCaption`, Night minimum `DeckCopy.nightMinimumCaption`, Dropped phone `DeckCopy.droppedPhoneCaption`, Host away `DeckCopy.hostAwayCaption`. Button `DeckCopy.done`; with practice players switched on (hidden, below), `TableCopy.practice` with a stepper under Players. **37 of 37 words (22 and the six captions' 15); the practice state (below) has its own allowance, 38, and the deck-does-not-fit state 43 (the count's line).**
+- **Removed:** the pace chips "Quick", "Normal", "Long" and their tiles (the owner: "I just need the things to be editable"), the face-down deck and `TableCopy.editDeck` (the deck is always face up), "Use this deck" (now `DeckCopy.done`).
 - **States:**
   - The deck stays automatic (a chip) until a card is changed; then it is the host's own, from the cards shown, for the number (an open table takes who is here, at least 3), and no chip is selected. Tapping a chip returns it to automatic.
-  - Every change is saved as it is made; a new table shows the server's own lengths. What shows while a change is on its way is the server's state with only that change taken from the phone. A change the server refuses (the table moved under it) is dropped and the page read again, never "Not sent."
-  - No length the page offers can freeze a game: with "Dropped phone" at 0, Talk, Vote and Night each need a clock, and with any of them at 0, "Dropped phone" is at least 1 s (the server's rule; the steppers' ranges are the server's).
+  - Every change is saved as it is made; a new table shows the server's own lengths. What shows while a change is on its way is the server's state with only that change taken from the phone. A change the server refuses (the table moved under it) is dropped and the page read again, never `BannerCopy.notSent`.
+  - No length the page offers can freeze a game: with `DeckCopy.droppedPhone` at 0, Talk, Vote and Night each need a clock, and with any of them at 0, `DeckCopy.droppedPhone` is at least 1 s (the server's rule; the steppers' ranges are the server's).
   - Holding a portrait opens 03b.
   - Dealing without opening 03 stays three taps.
-  - **Practice players** (owner, 22 November 2026: "hidden enable so it's not visible to everyone"). Holding the word "Players" itself (not the room beside it) switches them on for this table; once on, a "Practice" stepper under Players (its name in the action face) sets how many sit, 0 to the most the server says may, and the row answers the hold at once. With none seated, holding "Players" again switches them off and the row goes; with some seated a hold does nothing (they are taken away one by one with the minus first), so a thumb resting on the word never removes everyone. Nothing on any screen offers or names the gesture, and a tap on "Players" does nothing. The word "Practice" is one more at a table set for a number: that state has its own allowance of 38, seen only by a host who held "Players"; every other state of 03 stays within 37. A practice change shares the settings' lane: it shows at once, Deal waits for it, and "Try again" never undoes a newer change. What to tell the owner: "On the set-up page, press and hold the word Players."
+  - **Practice players** (owner, 22 November 2026: "hidden enable so it's not visible to everyone"). Holding the word `DeckCopy.players` itself (not the room beside it) switches them on for this table; once on, a `TableCopy.practice` stepper under Players (its name in the action face) sets how many sit, 0 to the most the server says may, and the row answers the hold at once. With none seated, holding `DeckCopy.players` again switches them off and the row goes; with some seated a hold does nothing (they are taken away one by one with the minus first), so a thumb resting on the word never removes everyone. Nothing on any screen offers or names the gesture, and a tap on `DeckCopy.players` does nothing. The word `TableCopy.practice` is one more at a table set for a number: that state has its own allowance of 38, seen only by a host who held `DeckCopy.players`; every other state of 03 stays within 37. A practice change shares the settings' lane: it shows at once, Deal waits for it, and `BannerCopy.tryAgain` never undoes a newer change. What to tell the owner: "On the set-up page, press and hold the word Players."
 - **Pass:** "Set it for eight, then wait."
 
 **03b Role sheet**
 - **One thing / loudest:** read it; portrait and name.
-- **Copy:** the role text plus "Close".
+- **Copy:** the role text plus `RoleSheetCopy.close`.
 - **Removed:** "Take out of deck" (16), "Good with", "Acts at night".
 - **States:** opens by holding any role card (03, the 02 strip, the 08 strip).
 - **Pass:** "Read, then Close."
 
 **04 Your card**
 - **One thing / loudest:** hold the card; a face-down card at 60% of the screen height.
-- **Locked until:** "Ready" unlocks after a 0.8 s reveal; until then the button says "Look first" (23 November 2026: a locked button says what unlocks it).
-- **Copy:** "Your card"; "Hold" (as the cue); "Look first", then "Ready", then "Ready ✓"; pips "{d} of {n} ready" (playtest: a bare "1 of 5" read as cards). Held face: the role text.
+- **Locked until:** `CardCopy.ready` unlocks after a 0.8 s reveal; until then the button says `CardCopy.readyLocked` (23 November 2026: a locked button says what unlocks it).
+- **Copy:** `CardCopy.headline`; `CommonCopy.hold` (as the cue); `CardCopy.readyLocked`, then `CardCopy.ready`, then `CommonCopy.readyDone`; pips `CommonCopy.progress` (playtest: a bare "1 of 5" read as cards). Held face: the role text.
 - **Removed:**
   - The card arriving face up, and "Holding…" (3).
   - "I know my card" being loud (4).
@@ -325,40 +327,40 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 
 **05 Night, between**
 - **One thing / loudest:** wait; the candle.
-- **Copy:** "The village sleeps".
+- **Copy:** `CommonCopy.nightTitle`.
 - **Removed:** "Tap the cards…" (7). "Waiting for Dev…" (6). The 05 screen after a Choose: the board now stays.
 - **States:** shown only from a window's close until 07 has loaded, and on a cold start during the night while `/me` loads.
 - **Pass:** "Wait."
 
 **06 Night board**
-- **One thing / loudest:** hold "You", tap a card, then Choose; the board.
-- **Locked until:** Choose needs 1 or more picks and a 0.8 s hold of "You" in this window.
-- **Copy:** the board's title ("The village sleeps" for a sleeper, else the prompt's, see "The board's title" above); captions "You", "Left", "Middle", "Right", and "Center" on the strip (the Seer's board: "1 player", "or" and "2 center cards" instead); candle and number. Button: "Choose a card" (disabled), "Choose 1 more", then what will happen ("See Cleo", "Swap Ana, Ben") or the role's pass ("Skip", "Keep my card", "Choose for me": "You" alone picked), then "Chosen". "Hold" no longer appears on "You" (its card is face up; the hold lesson is 04's and My night's). Held face: role name, instruction, window-1 page.
-- **Layout (product owner, 20 November 2026):** the other players' cards in balanced rows; the player's own card ("You") is not among them but in front of them, on a paper place beside the table's three cards, in the same place and size on every phone.
-- **Own card face up (owner, 23 November 2026):** "I think on this screen show who the player is in their card, face up, so that they know their role. Keeping that face down makes no sense here." The "You" card shows the role this phone was DEALT (`your_role.original_role`: the card it already saw on 04), its portrait and its name on a slip of paper across the card's foot, above its token; the caption under it is still "You". Never a role the night changed: a Doppelganger who copied someone still shows the Doppelganger, and what the night told (a look, a swap, a copy) stays on the held face and in My night. The card is still the "do nothing" choice for every role that has one (a tap anywhere on its paper place picks it, lift and ring as before; the button says "Skip", "Keep my card" or "Choose for me"); the hold still opens the held face but takes no hold ring over the portrait. The screen is dressed up (paper, one lantern of light, the village behind the board): the title and the seconds on one banner with the candle inside the slip. No word is added (the role's name is the role's own). A screen reader speaks the dealt role for the own card ("You", then the role, as the hint on the card): a known and accepted consequence of showing it face up. The slip's name is set at the caption size with the text size (up to 1.6), smaller only to fit the card, never under 12 and never cut; while the card is held the slip is hidden under the held face.
+- **One thing / loudest:** hold `NightCopy.you`, tap a card, then Choose; the board.
+- **Locked until:** Choose needs 1 or more picks and a 0.8 s hold of `NightCopy.you` in this window.
+- **Copy:** the board's title (`CommonCopy.nightTitle` for a sleeper, else the prompt's, see "The board's title" above); captions `NightCopy.you`, `NightCopy.left`, `NightCopy.middle`, `NightCopy.right`, and `NightCopy.centerLabel` on the strip (the Seer's board: `NightCopy.seerSeats`, `NightCopy.seerOr` and `NightCopy.seerCenter` instead); candle and number. Button: `NightCopy.chooseNone` (disabled), `NightCopy.chooseMore`, then what will happen (`NightCopy.see`, `NightCopy.swap`) or the role's pass (`NightCopy.skip`, `NightCopy.keep`, `NightCopy.chooseForMe`: `NightCopy.you` alone picked), then `NightCopy.chosen`. `CommonCopy.hold` no longer appears on `NightCopy.you` (its card is face up; the hold lesson is 04's and My night's). Held face: role name, instruction, window-1 page.
+- **Layout (product owner, 20 November 2026):** the other players' cards in balanced rows; the player's own card (`NightCopy.you`) is not among them but in front of them, on a paper place beside the table's three cards, in the same place and size on every phone.
+- **Own card face up (owner, 23 November 2026):** "I think on this screen show who the player is in their card, face up, so that they know their role. Keeping that face down makes no sense here." The `NightCopy.you` card shows the role this phone was DEALT (`your_role.original_role`: the card it already saw on 04), its portrait and its name on a slip of paper across the card's foot, above its token; the caption under it is still `NightCopy.you`. Never a role the night changed: a Doppelganger who copied someone still shows the Doppelganger, and what the night told (a look, a swap, a copy) stays on the held face and in My night. The card is still the "do nothing" choice for every role that has one (a tap anywhere on its paper place picks it, lift and ring as before; the button says `NightCopy.skip`, `NightCopy.keep` or `NightCopy.chooseForMe`); the hold still opens the held face but takes no hold ring over the portrait. The screen is dressed up (paper, one lantern of light, the village behind the board): the title and the seconds on one banner with the candle inside the slip. No word is added (the role's name is the role's own). A screen reader speaks the dealt role for the own card (`NightCopy.you`, then the role, as the hint on the card): a known and accepted consequence of showing it face up. The slip's name is set at the caption size with the text size (up to 1.6), smaller only to fit the card, never under 12 and never cut; while the card is held the slip is hidden under the held face.
 - **Removed:**
   - The pre-selected Cleo (2).
   - "Your turn · Seer" and the role portrait (14).
   - "Do nothing tonight" (16): keeping your own card replaces it.
   - "Look at Cleo's card" (14).
-- **States:** see the window tables. Two center cards (11): "See Left, Right" shows exactly what will be sent.
+- **States:** see the window tables. Two center cards (11): the button (`NightCopy.see`) shows exactly what will be sent.
 - **Pass:** "Hold You, tap a card, Choose."
 
 **07 What you saw**
 - **One thing / loudest:** hold the card; a face-down card.
-- **Locked until:** "Done" unlocks after a 0.8 s reveal and 4 s since 07 opened.
-- **Copy:** "What you saw"; "Done". Held face: the 07 faces table.
-- **Removed:** "You looked at Cleo's card" (14). "Done" being loud before holding (4). Token pips (9).
+- **Locked until:** `DeckCopy.done` unlocks after a 0.8 s reveal and 4 s since 07 opened.
+- **Copy:** "What you saw"; `DeckCopy.done`. Held face: the 07 faces table.
+- **Removed:** "You looked at Cleo's card" (14). `DeckCopy.done` being loud before holding (4). Token pips (9).
 - **States:** see the "What you saw" table.
 - **Pass:** "Hold the card."
 
 **08 Talk**
-- **One thing / loudest:** talk. On the phone, the sun timer is loudest, then "My night".
-- **The square (owner's choice, 23 November 2026; overrides the lines below where they differ):** the clock (40) in a strip of night sky with the lantern; a board holding the deck in play (one pile per role, "2 Werewolves", the Werewolf team's red) and every player as a name tag with their sigil; "My night" sealed at the board's foot, its night shown on the board from the top ONLY WHILE HELD (no sheet; taught once by doing it: the seal stirs until the first hold; no words); "Ready to vote" is the screen's one amber action with the count under its words ("2 of 6 ready"), "Ready ✓" in navy once tapped, tapped again to take it back. No marks on the tags and no list of who is ready. "The village wakes" is spoken, not drawn. The night's ground, never the day's.
-- **Locked until:** "Ready to vote" is never locked.
-- **Copy:** "The village wakes"; timer digits (the unit "s" set smaller than the number); "My night"; deck strip; pips "{d} of {n} ready"; "Ready to vote", then "Ready ✓" (tap again to undo). My night is one picture, not pages: your card on top, what you touched below it (a face-up card is one you saw, a face-down card one you did not), threads between them, and one sentence ("You copied {name}, then saw 2 center cards."), the same on every phone. (the longest sentence is the Doppelganger's).
-- **Opening (playtest, 21 November 2026: "never saw my result"):** a phone whose night told it something (a result other than "You slept." or "You did nothing.", or the Doppelganger's copy) that the server has not had acknowledged opens the talk with My night UP, once, on the board (the square, above): every word on screen. The ack (`night-results/seen`) goes as it shows; the first touch anywhere (only that: it presses nothing), "Close" for a screen reader, or Back puts it away (changed 23 November 2026: it used to be a sheet over the screen). A phone that slept opens nothing; a restart after the ack opens nothing. No server change, no wait.
-- **My night is held, and shows on the board (owner, 23 November 2026: "The 'My night' thing seems like it floats: depending on where I tap it, it shows up in a different spot"; decided the same day, and sections 7 and 8 say the same):** press and hold the sealed note on the discussion screen, and the player's night shows on the board, from its top, in the same place wherever the note is held, ONLY WHILE HELD (it is not a sheet, and no tap opens it); the ack goes the first time it shows. The count of who is ready sits on the "Ready to vote" button, under its words. A screen reader, a switch or the keyboard activates the note instead: it shows until activated again, and is put away by a change of screen, another route over it or the app leaving the foreground. Nothing about it vibrates. The one rule for where extra information appears (a role's sheet) is in `lib/design_system/README.md`, "Where information a player asks for appears".
+- **One thing / loudest:** talk. On the phone, the sun timer is loudest, then `TalkCopy.myNight`.
+- **The square (owner's choice, 23 November 2026; overrides the lines below where they differ):** the clock (40) in a strip of night sky with the lantern; a board holding the deck in play (one pile per role (`TalkCopy.deckCount`), the Werewolf team's red) and every player as a name tag with their sigil; `TalkCopy.myNight` sealed at the board's foot, its night shown on the board from the top ONLY WHILE HELD (no sheet; taught once by doing it: the seal stirs until the first hold; no words); `TalkCopy.readyToVote` is the screen's one amber action with the count under its words (`CommonCopy.progress`), `CommonCopy.readyDone` in navy once tapped, tapped again to take it back. No marks on the tags and no list of who is ready. `TalkCopy.headline` is spoken, not drawn. The night's ground, never the day's.
+- **Locked until:** `TalkCopy.readyToVote` is never locked.
+- **Copy:** `TalkCopy.headline`; timer digits (`CommonCopy.seconds`, the unit set smaller than the number); `TalkCopy.myNight`; deck strip; pips `CommonCopy.progress`; `TalkCopy.readyToVote`, then `CommonCopy.readyDone` (tap again to undo). My night is one picture, not pages: your card on top, what you touched below it (a face-up card is one you saw, a face-down card one you did not), threads between them, and one sentence (`NightStoryCopy.copiedCenter`), the same on every phone. (the longest sentence is the Doppelganger's).
+- **Opening (playtest, 21 November 2026: "never saw my result"):** a phone whose night told it something (a result other than `NightCopy.slept` or `SawCopy.didNothing`, or the Doppelganger's copy) that the server has not had acknowledged opens the talk with My night UP, once, on the board (the square, above): every word on screen. The ack (`night-results/seen`) goes as it shows; the first touch anywhere (only that: it presses nothing), `RoleSheetCopy.close` for a screen reader, or Back puts it away (changed 23 November 2026: it used to be a sheet over the screen). A phone that slept opens nothing; a restart after the ack opens nothing. No server change, no wait.
+- **My night is held, and shows on the board (owner, 23 November 2026: "The 'My night' thing seems like it floats: depending on where I tap it, it shows up in a different spot"; decided the same day, and sections 7 and 8 say the same):** press and hold the sealed note on the discussion screen, and the player's night shows on the board, from its top, in the same place wherever the note is held, ONLY WHILE HELD (it is not a sheet, and no tap opens it); the ack goes the first time it shows. The count of who is ready sits on the `TalkCopy.readyToVote` button, under its words. A screen reader, a switch or the keyboard activates the note instead: it shows until activated again, and is put away by a change of screen, another route over it or the app leaving the foreground. Nothing about it vibrates. The one rule for where extra information appears (a role's sheet) is in `lib/design_system/README.md`, "Where information a player asks for appears".
 - **Deck:** in columns, sized to the room under My night (two at the acting size, then the caption size, then three; then the names alone): every chip whole and on screen at 320 wide, text x1 and x1.3, never under a fade. The large My night box only where the deck still fits under it.
 - **Removed:** "Left to talk", "Hold to peek", "In the deck tonight" (12). A loud ready button (4, 19). Tokens on the pips (9).
 - **States:**
@@ -370,39 +372,38 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 - **One thing / loudest:** pick a name; the rows.
 - **Shadow paper (24 November 2026; overrides the lines below where they differ):** the square's world: the vote's clock (its own size) in 08's strip of night sky with the lantern; a board with `VoteCopy.headline` at its top and every player as a slip of paper in seat order; your own name is never listed; the pick lifts with the paper mark; on the cobbles the one plaque with the count (`VoteCopy.progress`) under its words, where the pips were. The night's ground, never the day's; no bar under the clock.
 - **Locked until:** a pick is made: until then the plaque is the locked form and says `VoteCopy.pickName`; a tap on it nudges the names.
-- **Copy:** "Who dies today?"; "Pick a name", then "Lock in {name}" (with a padlock glyph), then "Locked"; "{d} of {n} locked" under the plaque's words; timer digits.
+- **Copy:** `VoteCopy.headline`; `VoteCopy.pickName`, then `VoteCopy.lockIn` (with a padlock glyph), then `VoteCopy.locked`; `VoteCopy.progress` under the plaque's words; timer digits.
 - **Removed:** the pre-selected Cleo (2). The red X (5); the blood fill too, until the owner brought it back for a locked vote only (22 November 2026: "B: red row and seal": the pick's row turns dried-blood red with the seal on 09; the count's killed rows stay outline-only). Tokens on the pips (9). "Seconds to choose" (12). The ink button (18). The host's "Don't wait".
 - **States:**
   - Your own row is never listed.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.
-  - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads "Locked". (Owner, 20 November 2026: a neighbour could already read "Lock in Cleo" before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
-  - A practice player's row carries "Practice" after the name, as on 02: "Who dies today?", "Lock in {name}", "{d} of {n} locked" and "Practice" are 8 of 8 words.
-  - The vote's length is the table's "Vote" (03; 2 min unless the host changes it).
+  - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads `VoteCopy.locked`. (Owner, 20 November 2026: a neighbour could already read `VoteCopy.lockIn` before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
+  - A practice player's row carries `TableCopy.practice` after the name, as on 02: `VoteCopy.headline`, `VoteCopy.lockIn`, `VoteCopy.progress` and `TableCopy.practice` are 8 of 8 words.
+  - The vote's length is the table's `DeckCopy.vote` (03; 2 min unless the host changes it).
 - **Pass:** "Tap a name, then Lock in."
 
 **10: the end board** (one screen since 23 November 2026)
 - **One thing / loudest:** who was hanged and whether you won, on one notice board; the reveal plays once on a
   phone that was in the game, and one touch settles it.
 - **Copy, layout, motion and states:** `docs/specs/frontend/end-board.md` (it wins for this screen): the banner's
-  two lines, the cards and vote tags, "What happened" replayed on the board, host "Edit deck" and the amber "Play
-  again", guest "Leave" and "{host} deals next.".
+  two lines, the cards and vote tags, `EndCopy.whatHappened` replayed on the board, host `EndCopy.editDeck` and the amber `EndCopy.playAgain`, guest `EndCopy.leave` and `EndCopy.hostDealsNext`.
 - **Requests:** as before: Play again, Edit deck (play again, then 03) and Leave are `Pending`: busy on the
-  control tapped, "Not sent." with "Try again" on the foot when no answer came, the server's reason when it refused.
-- **Pass:** host says "Play again"; guest says "Wait or Leave".
+  control tapped, `BannerCopy.notSent` with `BannerCopy.tryAgain` on the foot when no answer came, the server's reason when it refused.
+- **Pass:** host says `EndCopy.playAgain`; guest says "Wait or Leave".
 
 ### Banners and errors (6 words maximum each)
 
 | Situation | Copy |
 |---|---|
-| `lobby_not_found` | "No table with that code." |
-| `lobby_full` | "That table is full." |
-| `lobby_closed` | "That table is playing now." |
-| `already_in_lobby` | "You're at another table." + "Go there" |
-| The table was closed | "This table has closed." + "Go home" |
-| A request failed | "Not sent." + "Try again" |
-| This phone is offline, any phase | "One moment" (with "Try again" where a load is waiting on it) |
-| A wait that has lasted 5 s, nothing failed | "Still on its way." |
-| Storage was wiped mid-game | "You left this game." + "Go home" |
+| `lobby_not_found` | `BannerCopy.lobbyNotFound` |
+| `lobby_full` | `BannerCopy.lobbyFull` |
+| `lobby_closed` | `BannerCopy.lobbyClosed` |
+| `already_in_lobby` | `BannerCopy.alreadyInLobby` + `BannerCopy.goThere` |
+| The table was closed | `BannerCopy.tableClosed` + `BannerCopy.goHome` |
+| A request failed | `BannerCopy.notSent` + `BannerCopy.tryAgain` |
+| This phone is offline, any phase | `BannerCopy.offline` (with `BannerCopy.tryAgain` where a load is waiting on it) |
+| A wait that has lasted 5 s, nothing failed | `BannerCopy.slow` |
+| Storage was wiped mid-game | `BannerCopy.leftGame` + `BannerCopy.goHome` |
 
 ### Deck chips (each chip uses players + 3 cards; WW means 2 Werewolves; the server builds the deck at the deal)
 
@@ -427,9 +428,9 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 | §2: amber on the "primary button only" | One amber fill per screen, with a 2 px ink outline on day grounds. Selection uses lift plus an outline. |
 | §3.3: non-actors "get something to tap" | Every phone with a choice sends a `choose`; a phone with nothing to choose sends nothing and is not waited for (section 8). |
 | §4.5: night waiting screen | 05 only between a close and 07. |
-| §4.6: a "do nothing" choice | Picking "You": the button says what passing is for the role ("Skip", the Robber's "Keep my card", the Drunk's "Choose for me"), or any card that means nothing to your role. |
+| §4.6: a "do nothing" choice | Picking `NightCopy.you`: the button says what passing is for the role (`NightCopy.skip`, the Robber's `NightCopy.keep`, the Drunk's `NightCopy.chooseForMe`), or any card that means nothing to your role. |
 | §4.7: "Hides by itself" | Hold, a 5 s cap, and Done after a 0.8 s reveal and 4 s. |
-| §4.8 My night: "You slept through the night." and lit tokens | "You slept." and plain pips. |
+| §4.8 My night: "You slept through the night." and lit tokens | `NightCopy.slept` and plain pips. |
 | §4.10: voters as tokens | Voters by name. |
 | §4 type scale: "labels 12 uppercase, body 15 to 17" | Body 14, buttons 15, names 16, labels 12 (the owner's choice of 23 November 2026, `docs/design/type-audit.md`); no uppercase tracked labels on player screens. |
 | §4: pace "Double" | "Copy". Normal Copy becomes 15 s. |

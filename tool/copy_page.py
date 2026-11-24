@@ -12,7 +12,10 @@ old screen. Two things replace the quoting:
   when someone wants to read it, and GitHub attaches it to each run.
 - `--check-spec` (in `just check`): every copy class and key that a spec under
   docs/specs/frontend/ names in backticks (`TalkCopy`, `TalkCopy.ready`) exists.
-  A key renamed or removed fails here, with the line that names it.
+  A key renamed or removed fails here, with the line that names it. And section 3
+  of first-time-play.md never quotes the words of a key (a line in double quotes
+  that equals a key's words, or is one filled in: "See Cleo" for `NightCopy.see`):
+  it names the key, so a wording change is one edit, in the code.
 
 usage: tool/copy_page.py [--out <file>] | --check-spec
 """
@@ -31,6 +34,10 @@ MEMBER = re.compile(
 FUNCTION = re.compile(r"^\s+static\s+[\w<>?, ]+\s+(\w+)\s*\(")
 STRING = re.compile(r"""'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)\"""")
 NAMED = re.compile(r"`([A-Z]\w*Copy)(?:\.(\w+))?`")
+# Specs whose section may not repeat the words of a key: {file: heading start}.
+NO_QUOTES = {"first-time-play.md": "## 3."}
+QUOTED = re.compile(r'"([^"\n]+)"|“([^”\n]+)”')
+GAP = re.compile(r"\{\w+\}")
 # What a gap is filled with on the page, so a template reads as a sentence.
 EXAMPLES = {"n": "5", "d": "2", "name": "Cleo", "role": "Seer", "a": "Ana", "b": "Ben"}
 
@@ -165,16 +172,82 @@ def check_spec(classes: list[dict]) -> list[str]:
     return problems
 
 
+def key_words(classes: list[dict]) -> list[tuple[str, str, re.Pattern | None]]:
+    """[(`Class.key`, its words with gaps as `{}`, a pattern for it filled in)].
+    A template with fewer than 3 letters of its own ("{n} {roles}") would match
+    anything, so it has no pattern: only its exact words count."""
+    found = []
+    for item in classes:
+        for member in item["members"]:
+            for text in member["words"]:
+                if not re.search(r"[A-Za-z]", text):
+                    continue  # ", " between names: no words
+                parts = GAP.split(" ".join(text.split()))
+                letters = len(re.findall(r"[A-Za-z]", "".join(parts)))
+                filled = None
+                if len(parts) > 1 and letters >= 3:
+                    gap = r"(?:\{\w+\}|[^.:;{}]+)"
+                    filled = re.compile(gap.join(map(re.escape, parts)) + r"\Z")
+                key = f"{item['name']}.{member['name']}"
+                found.append((key, "{}".join(parts), filled))
+    return found
+
+
+def named_by(quoted: str, words: list) -> str | None:
+    """The key whose words `quoted` is: its exact words first, else filled in."""
+    shape = GAP.sub("{}", quoted)
+    for key, text, _ in words:
+        if text == shape:
+            return key
+    for key, _, filled in words:
+        if filled and filled.match(quoted):
+            return key
+    return None
+
+
+def section(text: str, start: str) -> list[tuple[int, str]]:
+    """(line number, line) for the lines of the `## ` section that begins with `start`."""
+    lines = []
+    inside = False
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.startswith("## "):
+            inside = line.startswith(start)
+        if inside:
+            lines.append((number, line))
+    return lines
+
+
+def check_quotes(classes: list[dict]) -> list[str]:
+    """One line per quote in a spec's no-quote section that repeats a key's words."""
+    words = key_words(classes)
+    problems = []
+    for name, start in NO_QUOTES.items():
+        spec = SPECS / name
+        if not spec.exists():
+            continue
+        for number, line in section(spec.read_text(), start):
+            for match in QUOTED.finditer(line):
+                quoted = " ".join((match.group(1) or match.group(2)).split())
+                key = named_by(quoted, words)
+                if key:
+                    problems.append(
+                        f'{spec.relative_to(ROOT)}:{number} quotes "{quoted}":'
+                        f" name `{key}` instead"
+                    )
+    return problems
+
+
 def main(argv: list[str]) -> int:
     classes = all_copy()
     if "--check-spec" in argv:
-        problems = check_spec(classes)
+        problems = check_spec(classes) + check_quotes(classes)
         for problem in problems:
             print(problem, file=sys.stderr)
         if problems:
             print(
-                "The spec names copy that is not in frontend/lib/design_system/copy/:"
-                " rename it in the spec, or put the key back.",
+                "The spec and the code disagree about words: a key it names must exist,"
+                " and a key's words are never quoted in it (name the key: the code is"
+                " the one home of the words).",
                 file=sys.stderr,
             )
         return 1 if problems else 0
