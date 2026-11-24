@@ -1,88 +1,59 @@
-# Status: where the rebuild stands
+# Status: where the work stands
 
-Current state only; history is `git log`. Update this file when something lands or the plan
-changes. "Branch and deployment" was last checked on 23 November 2026; the lists below were
-last gone through on 20 November, and what landed since is `git log` on main (#64 to #73).
+Current state only, and short: links, not copies. History is `git log` on main. The tracker is
+GitHub Issues (`docs/dev/running-the-work.md`); what needs the owner is on the owner's board
+(`docs/dev/owner-board.md`). Last gone through: 24 November 2026.
 
 ## Branch and deployment
 
 - Work lands on main by pull request, squash-merged when every GitHub check is green
   (`docs/dev/running-the-work.md`). Each session works on its own branch, started from main.
 - The server is LIVE on Vercel; every merge builds and migrates the shared database
-  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). Nobody watches deployments by hand (23 November 2026):
-  after every merge the "Deployed Check" workflow proves the live server and app work together
-  (`docs/dev/deploy-vercel.md`, "The check after each merge"). A red run on main means look now.
+  (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). After every merge the "Deployed Check"
+  workflow proves the live server and app work together (`docs/dev/deploy-vercel.md`, "The
+  check after each merge"). A red run on main opens an issue titled "main is red": look now.
+- Never roll back to a build from before core migration 0011 (commit e8f50b5, #81): it can
+  neither read nor write the lobby's members.
 
-## Merged
+## What is built
 
-- Server: one game flow (one `choose` per window, stage tokens, look stage, lock-in vote,
-  ready to vote, automatic decks, night timeline), tokens and seats, where-am-I, home extras.
-  The original per-role night (protocol 1), its endpoints' old requests, the per-role night
-  events, `wave_complete`, `vote_submitted`, `has_voted`, `your_role.has_acted` and the
-  lobby ready flag (endpoint, `player_ready`, `is_ready` in bodies) are deleted; a stored
-  `night_protocol` key on an older table is ignored, a lobby PATCH checks only the keys it
-  gives and the deal clamps stored timer values the server refuses today. Nothing writes
-  `night_protocol` or the lobby ready flag any more (23 November 2026). The ready column
-  itself is dropped (core migrations 0011 and 0012): never roll back to a build from before
-  0011 (commit e8f50b5, #81), which can neither read nor write the lobby's members.
-  Runs on Vercel (durable timers and presence rows).
-- Contract samples recorded from the real server, with drift, privacy and shape guards; the
-  protocol-1 samples are gone and the app's tests read every sample.
-- App: the Shadow paper skin and primitives (the only look); the first-time-play pieces (copy,
-  cues, hold to reveal, the night board); the data layer (`GameMe`, screen table,
-  one outbox, healing fetches), model-checked (`docs/dev/models/phone/`). With the screens
-  branch: 04 Your card, the night board, 08 Talk (with My night) and 09 Vote are rebuilt;
-  05 shows only while `/me/` loads; 04 is reachable. 01 Join, 02 Table and 03 Deck (+ 03b) are rebuilt and the old home and
-  lobby are deleted: every table is opened with `defaults: "v2"` and every build reaches the
-  table's shell (no dev-only gate).
-- App, end of the game: 10 The count and 11 Results rebuilt (the dead card is
-  the final card with its team, the dealt one before it when it moved; who won, every card,
-  the night folded into a strip that opens; play again, edit deck, leave); a restart lands on
-  10 or 11 as the phone left it.
-- App cleanup: the old game screens, the old night on the app side (the old notifier, state
-  and per-role prompt handling, the unplayable-game screen, the lenient lobby parsing,
-  `LobbyRoute`, `wave_complete`, the debug controller's `driveAs`) and the old look
-  (components, tokens, google_fonts, the analyze gate) are deleted; every game opens in the
-  table's shell. The game notifier is `LiveGameNotifier` (`live_game.dart`).
-- Tooling: screen gallery, cold-read pack, e2e harness (a free port per run, stopping only
-  its own backend; all 29 reference games through the choose API, 1, 4, 5, 8 and 21 through
-  the new screens; the backend replays the 29 through the API too), subagent model
-  guardrail, commit gate routed by path.
+The whole game, on the one look (Shadow paper): 01 Join, 02 Table, 03 Deck, 04 Your card, the
+night board, 08 Talk, 09 Vote, the end board, practice players, scanning and table links. The
+server runs one game flow on Vercel. What each part is and how it is held: `backend/CLAUDE.md`,
+`frontend/CLAUDE.md` and the READMEs they name; start a piece with `just brief`.
 
 ## Next, in order
 
-1. Rerun the cold-read playtest on the real screens (method in
-   `docs/dev/playtests/2026-11-19-mocks-cold-read.md`). A screen passes when 4 of 5 simulated
-   players name the right first action and nobody makes an unrecoverable mistake.
+1. The lobby's send queue: the gaps the model found (branch `lobby-lane-gaps`, in review).
+2. [#44](https://github.com/doodla/midnight-village/issues/44) the notes' giant lines: reflow them and switch the check on (the tool is merged, #181).
+3. [#16](https://github.com/doodla/midnight-village/issues/16) a late, lost request must not overwrite a newer tap: the phone sends `asked` (the server's half is live, #172).
+4. A notice's and a text action's words can only be a line of copy (the buttons are done, #165 and #167).
+5. [#33](https://github.com/doodla/midnight-village/issues/33) a few small sounds: on hold until the owner says why the four takes missed.
 
-## Open items
+## Waiting on the owner
 
-- A request whose answer was lost but which the server processes late can overtake a newer
-  tap of the same lane; closing it needs a per-phone sequence number on the server.
-- Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
-- 04 held, the Minion's face on a 320-wide phone: the role name (13.2 px) and its Night
-  line (15.1 px) fall under the reading floor (`just screens 320`, `04-your-card-held-minion`).
-- Countdowns follow the server's clock: the app reads the `Date` of every `/me/` answer and
-  counts from it with a stopwatch, never comparing its own clock with the server's
-  (`server_clock_countdown_test.dart`: a phone minutes ahead, behind or years off shows the
-  server's seconds). The live server sends `Date` and exposes it to the app (checked 24
-  November 2026). The limit: `Date` is in whole seconds and arrives after the network trip, so
-  two phones can show numbers about a second apart; closing that needs the server's time in
-  the `/me/` body.
-- 01 to 03: no rename (a new name on a device makes a new guest account). 03 is the set-up
-  page (players 3 to 10 or open, the deck face up, every length with its range; no pace
-  presets); the lobby body carries `deck_cards`, `lengths`, `length_ranges` and `deal.seats`.
-- Trying the game alone: practice players, switched on by holding "Players" on 03
-  (`docs/specs/onuw/solo-play-proposal.md`).
-- 01 scanning and links (built, not yet checked on a real phone or in the owner's app): the scan action on 01
-  (camera in the app on the web and Android), table links as `<origin>/join/<code>` paths, a native release
-  build that needs `PUBLIC_ORIGIN`, Android App Links with a committed PUBLIC signing key (sideloaded installs
-  only, to be replaced before any store release: `frontend/android/release-key/README.md`). Skin art for
-  Share is still the platform's glyph.
-- Renames made with the cleanup: the night module is `apps/onuw/choose_night.py`, the `_v2` samples have
-  plain names (`started_with_look`, `results_five`, `detail_*`, ...), the e2e runners are
-  `api_game_test.dart` and `ui_game_test.dart`, `ui_end_test.dart`, `ui_journey_test.dart`,
-  `ui_roles_test.dart`. Not renamed: `docs/specs/onuw/api-contract-v2.md` (linked from
-  many places) and the app's `defaults: "v2"` request value (the server accepts it).
-- Six sample looks were made for the owner (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2,
-  not in the repository). Parked by the owner: no other looks until Shadow paper is good.
+On the owner's board, not here. Today: how the hold on "My night", the reveal and the four
+screens changed on 23 and 24 November feel on a real phone; and why the four sound takes missed.
+
+## Open issues
+
+- [#8](https://github.com/doodla/midnight-village/issues/8) deck editor: make it obvious what a change to the deck does.
+- [#11](https://github.com/doodla/midnight-village/issues/11) the app takes too long to open.
+- [#12](https://github.com/doodla/midnight-village/issues/12) rerun the cold-read playtest on the real screens.
+- [#13](https://github.com/doodla/midnight-village/issues/13) small phones: night board and Minion card text too small to read.
+- [#24](https://github.com/doodla/midnight-village/issues/24) questions for the owner.
+- [#28](https://github.com/doodla/midnight-village/issues/28) polish passes, screen by screen.
+- [#34](https://github.com/doodla/midnight-village/issues/34) rename yourself while at a table.
+- [#41](https://github.com/doodla/midnight-village/issues/41) the first screens as a place: the village.
+
+## Known limits with no issue yet
+
+- Countdowns follow the server's clock (`server_clock_countdown_test.dart`), from a time in
+  whole seconds that arrives after the network trip: two phones can show numbers about a
+  second apart. Closing it needs the server's time in the `/me/` body.
+- Scanning and table links are built and not yet checked on a real phone; a native release
+  build needs `PUBLIC_ORIGIN`, and the committed Android signing key is public on purpose
+  (sideloaded installs only: `frontend/android/release-key/README.md`).
+- A lobby answer's number (`rev`, #179) and a request's tap time (`asked`, #172) are sent or
+  accepted by the server; the phone does not use them yet (items 1 and 3 above).
+- Other looks are parked by the owner until Shadow paper is good.

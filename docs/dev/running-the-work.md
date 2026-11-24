@@ -5,6 +5,11 @@ does that piece and reports; the rest of this page is not theirs to do.
 
 ## The shape of a piece
 
+GitHub Issues is the tracker: one issue for a piece, one pull request for an issue, and the pull
+request's description says "Closes #N" so the issue closes when it merges. `docs/dev/status.md`
+links to the issues and repeats nothing from them. What needs the owner's eyes or a decision
+goes on the owner's board (`docs/dev/owner-board.md`), never in an issue alone.
+
 1. One builder, in its own worktree with its own `DB_NAME`, gets a brief and builds one
    finished piece. The brief says `just brief <screen>` (or, for work that is not a screen,
    `just brief <area>`: `just brief` alone lists them) and the task: that command prints the

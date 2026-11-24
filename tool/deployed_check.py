@@ -16,10 +16,16 @@ hand. It uses only public addresses (no Vercel, database or Redis account):
    while that table is open, the app's own link to it (`/join/<code>`, what every
    QR code holds) answers 200 with the app's page: `/` is a file, so only a path
    like this one proves the host's rewrite works;
-5. both leave, always, even when a step failed or its answer was lost: each
+5. with `--sockets` (GitHub passes it): three guests sit at a table, two listen on
+   its socket, the host deals, plays the game through and plays again, and both
+   must hear the deal and the restart within seconds (tool/deployed_sockets.py).
+   Nothing else opens a socket against the live server, and the deal and a restart
+   reach the other phones no other way;
+6. everyone leaves, always, even when a step failed or its answer was lost: each
    guest asks the server where it sits and leaves that table (the last one out
    deletes it). What stays behind: two guest accounts named `Deploy check A` and
-   `Deploy check B`. They open no socket, so they never count in "N at tables".
+   `Deploy check B`, and with `--sockets` three more (`A`, `B`, `C`); its two
+   listeners count in "N at tables" for the seconds their sockets are open.
 
 Every answer must be JSON with the expected status: a page of HTML where JSON
 belongs (what a broken rewrite serves) fails the step that met it.
@@ -29,7 +35,7 @@ the page and opens it in a browser against no server; it never makes a request
 through the deployed routing. This one does, against what players are using.
 
 usage: tool/deployed_check.py --api https://<server> [--app https://<app>]
-                              [--commit <sha>] [--wait <seconds>]
+                              [--commit <sha>] [--wait <seconds>] [--sockets]
 Without --app the app steps are skipped (a local server, the backend's test).
 Exit 0 when everything holds; 1 with one line per failed step.
 """
@@ -311,7 +317,91 @@ def start_and_join(api, origin=None, on_table=None):
             raise Failed("; ".join(problems))
 
 
-def run(api, app=None, commit=None, wait=900, app_commit=None):
+_socket_leg = None
+
+
+def socket_leg():
+    """tool/deployed_sockets.py, loaded once from beside this file (no install, no path)."""
+    global _socket_leg
+    if _socket_leg is None:
+        import importlib.util
+        from pathlib import Path
+
+        spec = importlib.util.spec_from_file_location(
+            "deployed_sockets", Path(__file__).resolve().parent / "deployed_sockets.py"
+        )
+        _socket_leg = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_socket_leg)
+    return _socket_leg
+
+
+def deal_is_heard(api, origin=None, patience=90, say=print):
+    """The socket leg (tool/deployed_sockets.py): three guests, two listening on the
+    lobby's socket; the host deals and plays again, and both must hear each within
+    seconds. Everyone always leaves: a table in a game cannot be left, so leaving is
+    tried until the game (its lengths are short) has ended, for `patience` seconds."""
+    sockets = socket_leg()
+    guests = []
+
+    def request(what, method, path, want, token=None, body=None):
+        status, headers, raw = call(
+            method, f"{api}{path}", body=body, token=token, origin=origin
+        )
+        kind = headers.get("Content-Type", "")
+        if status not in want or "application/json" not in kind:
+            start = raw[:160].decode("utf-8", "replace").replace("\n", " ")
+            raise Failed(
+                f"{what}: {method} {path} answered {status}, wanted {want}. It began: {start!r}"
+            )
+        return status, json.loads(raw)
+
+    def guest(name):
+        made = request(
+            f"guest {name}",
+            "POST",
+            "/api/auth/guest/",
+            (201,),
+            body={"display_name": name},
+        )[1]
+        guests.append(made["access"])
+        return made["access"]
+
+    try:
+        sockets.deal_is_heard(request, api, origin, guest, say)
+    except sockets.SocketFailed as e:
+        raise Failed(str(e)) from e
+    finally:
+        problems, deadline = [], time.monotonic() + patience
+        for token in reversed(guests):
+            try:
+                while True:
+                    table = request(
+                        "where am I", "GET", "/api/me/table/", (200,), token
+                    )[1].get("table")
+                    if not table:
+                        break
+                    status, _ = request(
+                        "leave",
+                        "POST",
+                        f"/api/lobbies/{table['lobby_code']}/leave/",
+                        (200, 409),
+                        token,
+                        {},
+                    )
+                    if status == 200:
+                        break
+                    if time.monotonic() > deadline:
+                        raise Failed(
+                            f"table {table['lobby_code']} is still in a game after {patience} s: a guest is left seated"
+                        )
+                    time.sleep(2)  # the game ends by its own short timers
+            except Failed as e:
+                problems.append(str(e))
+        if problems and sys.exc_info()[0] is None:
+            raise Failed("; ".join(problems))
+
+
+def run(api, app=None, commit=None, wait=900, app_commit=None, sockets=False):
     """Every step in order; returns the list of failures (empty when all hold)."""
     api, app = api.rstrip("/"), (app or "").rstrip("/") or None
     steps = []
@@ -341,6 +431,13 @@ def run(api, app=None, commit=None, wait=900, app_commit=None):
             ),
         )
     )
+    if sockets:
+        steps.append(
+            (
+                "a deal and a restart are heard on the socket",
+                lambda: deal_is_heard(api, origin=app),
+            )
+        )
     failures = []
     for name, step in steps:
         try:
@@ -376,8 +473,20 @@ def main(argv=None):
     p.add_argument(
         "--wait", type=int, default=900, help="how long to wait for it, in seconds"
     )
+    p.add_argument(
+        "--sockets",
+        action="store_true",
+        help="also prove that a deal and a restart reach the other players' sockets",
+    )
     args = p.parse_args(argv)
-    failures = run(args.api, args.app, args.commit, args.wait, args.app_commit)
+    failures = run(
+        args.api,
+        args.app,
+        args.commit,
+        args.wait,
+        args.app_commit,
+        sockets=args.sockets,
+    )
     if failures:
         print(f"\nThe live game is NOT proven working: {len(failures)} step(s) failed.")
         return 1

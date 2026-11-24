@@ -75,6 +75,12 @@ class WorldTimer extends StatelessWidget {
   /// The candle picture's size in the panel (S05).
   static const candleSize = Size(66, 88);
 
+  /// The least line the compact number may be given (its [lineHeight]): the
+  /// unit ("s", at [ClockFigure.unitShare] of the number) still at the
+  /// reading floor. A quiet clock beside a screen's title (04) stands this
+  /// high; the night board's stands at its own size.
+  static const quietLine = ReadingFloor.act / ClockFigure.unitShare;
+
   /// Seconds as a clock: "19 s" under a minute, "4:12" from a minute.
   static String format(int seconds) {
     final s = seconds < 0 ? 0 : seconds;
@@ -145,8 +151,14 @@ class WorldTimer extends StatelessWidget {
     // The number's slot is as wide as the widest it can read in its form, its
     // right edge a gap from the candle, so nothing shifts as a ten turns into
     // a nine and nothing touches the flame or the wax.
-    final slot = _slot(numberStyle, number);
     final line = lineHeight ?? candleHeight;
+    // In a line lower than the number's own, the number is set smaller to
+    // fit it, and its slot with it (no room left empty beside the title).
+    final fit = math.min(
+      1.0,
+      line / (numberStyle.fontSize! * (numberStyle.height ?? 1)),
+    );
+    final slot = _slot(numberStyle, number) * fit;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,

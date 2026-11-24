@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../test_screens/screen_catalogue.dart';
 import '../helpers/screen_sweep.dart';
+import '../helpers/stage_clock.dart';
 import 'not_yet_swept.dart';
 
 /// How many parts the sweep runs in.
@@ -42,10 +43,19 @@ void runSweep(int shard) {
     final notYet = notYetSwept[entry.id];
     if (notYet != null && !_all) continue;
     testWidgets(entry.id, (tester) async {
+      final plan = entry.sweep;
       final problems = await sweepScreen(
         tester,
         entry.build!,
-        entry.sweep,
+        // Every state: a stage the server times shows its clock
+        // (stage_clock.dart).
+        SweepPlan(
+          main: plan.main,
+          mustSee: plan.mustSee,
+          apart: plan.apart,
+          rules: [...plan.rules, stageClockProblems],
+          whenOpened: plan.whenOpened,
+        ),
         settleFrames: entry.frames ?? 10,
       );
       if (_all) {
