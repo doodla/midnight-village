@@ -14,6 +14,7 @@ HOOKS = Path(__file__).resolve().parents[2] / "hooks"
 sys.path.insert(0, str(HOOKS))
 
 import git_guard  # noqa: E402
+import shell_text  # noqa: E402 (the guard's reading of shell text, beside it)
 
 HEREDOC_MESSAGE = """git commit -q -F - <<'EOF'
 docs(hooks): why the guard exists
@@ -337,7 +338,7 @@ class GitGuard(unittest.TestCase):
         """No clock here (a loaded machine is slow, not wrong): the two places that once
         did the same work again for every word are counted instead."""
         # one owner lookup per command, however many `<<` it carries (it was one per `<<`)
-        with mock.patch.object(git_guard, "first_word", wraps=git_guard.first_word) as owner:
+        with mock.patch.object(shell_text, "first_word", wraps=shell_text.first_word) as owner:
             git_guard.problems_with("git status <<A " * 5000, self.repo)
         self.assertLessEqual(owner.call_count, 2)
         # git's own commands are never looked up as aliases, and another name only once
