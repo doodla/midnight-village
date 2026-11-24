@@ -8,12 +8,4 @@ const notYetSwept = <String, String>{
   '06-night-board-follow-up':
       'on a 360x640 phone the held face of the copied role is not whole on '
       'the screen: it runs 24 px past the bottom edge',
-  // From main's rebuilt talk (08), which came in with the merge before the
-  // rules had been run on it.
-  '08-talk': _nightUp,
-  '08-talk-open-drunk': _nightUp,
 };
-
-const _nightUp =
-    'My night, up by itself as the talk opens, lies over Ready: the first '
-    'touch anywhere puts it away, so a finger on Ready only does that';

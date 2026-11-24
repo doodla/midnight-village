@@ -7,6 +7,7 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../core/router/back_policy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/night/night_story.dart';
+import '../../../../design_system/primitives/until_touched.dart';
 import '../../../../design_system/primitives/hold_to_reveal.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/primary_button.dart';
@@ -211,14 +212,16 @@ class _TalkViewState extends ConsumerState<TalkView> {
         children: [
           frame,
           Positioned.fill(
-            child: Semantics(
-              button: true,
-              label: RoleSheetCopy.close,
-              onTap: () => setState(() => _opened = false),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                excludeFromSemantics: true,
-                onTapDown: (_) => setState(() => _opened = false),
+            child: UntilTouched(
+              child: Semantics(
+                button: true,
+                label: RoleSheetCopy.close,
+                onTap: () => setState(() => _opened = false),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTapDown: (_) => setState(() => _opened = false),
+                ),
               ),
             ),
           ),
