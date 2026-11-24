@@ -152,6 +152,32 @@ void main() {
       await hold.up();
     });
 
+    testWidgets('follows the held card when the screen changes under the '
+        'finger, and stays whole on it', (tester) async {
+      // Opened on a tall phone, then the screen shrinks while held (a
+      // browser's bar, a turned phone): the card moves up, the face with it.
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_Harness().build());
+      final hold = await _press(tester);
+      await tester.pump(HoldToReveal.holdDelay);
+      for (final size in const [Size(360, 640), Size(360, 780)]) {
+        tester.view.physicalSize = size;
+        await tester.pump();
+        final face = tester.getRect(_face);
+        final screen = Offset.zero & size;
+        expect(screen.contains(face.topLeft), isTrue, reason: '$size $face');
+        expect(screen.contains(face.bottomRight), isTrue, reason: '$size');
+        expect(
+          face.bottom,
+          lessThanOrEqualTo(tester.getCenter(_card).dy - HoldToReveal.gap),
+          reason: 'never under the thumb at $size',
+        );
+      }
+      await hold.up();
+    });
+
     testWidgets('every showing shows every page at once, stacked: nothing '
         'waits behind a second hold', (tester) async {
       await tester.pumpWidget(_Harness(face: _myNight).build());
