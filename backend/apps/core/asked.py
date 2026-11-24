@@ -2,7 +2,9 @@
 A late, lost request must not overwrite a newer tap (issue #16).
 
 A phone may put ``"asked": <int>`` in a request: when the tap was made on that
-phone, in milliseconds, strictly increasing per phone. The server never compares
+phone, in milliseconds since the Unix epoch by the phone's own clock (never a
+count from app start, which would start again with the app), strictly increasing
+per phone, at most 2**53 - 1 (what every phone's JSON number holds exactly). The server never compares
 it with its own clock, only with the newest ``asked`` it applied for the same
 thing (a lane), kept as an entry ``[scope, asked]``:
 
@@ -27,6 +29,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 FIELD = "asked"
+MOST = 2**53 - 1
 STALE_CODE = "stale_request"
 STALE_DETAIL = "A newer tap from this phone already got there."
 BAD_DETAIL = "asked must be a whole number (when the phone was tapped)."
@@ -47,7 +50,7 @@ def read(data: Any) -> tuple[int | None, Response | None]:
     if not isinstance(data, dict) or FIELD not in data:
         return None, None
     asked = data[FIELD]
-    if type(asked) is not int or asked < 0:
+    if type(asked) is not int or not 0 <= asked <= MOST:
         return None, Response(
             {"detail": BAD_DETAIL, "code": "bad_request"},
             status=status.HTTP_400_BAD_REQUEST,

@@ -295,7 +295,7 @@ class TestPractice:
         assert "practice" not in table.settings()
         assert table.asked() == {"practice": [table.host.id, 9000]}
 
-    @pytest.mark.parametrize("bad", [None, True, -3, "1", 2.0])
+    @pytest.mark.parametrize("bad", [None, True, -3, "1", 2.0, 2**53])
     def test_a_bad_asked_is_bad_request(self, table, bad) -> None:
         reply = table.practice({"on": True, "asked": bad})
 

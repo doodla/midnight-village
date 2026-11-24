@@ -275,9 +275,6 @@ class VoteView(APIView):
         stage, stage_refusal = _stage_of(request)
         if stage_refusal is not None:
             return stage_refusal
-        asked, stage_refusal = ask.read(body)  # optional: the phone's tap time
-        if stage_refusal is not None:
-            return stage_refusal
 
         # Check player membership (403) before delegating to service
         if not PlayerRole.objects.filter(game=game, user=request.user).exists():
@@ -285,6 +282,9 @@ class VoteView(APIView):
                 {"detail": "You are not a player in this game."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        asked, asked_refusal = ask.read(body)  # optional: the phone's tap time
+        if asked_refusal is not None:
+            return asked_refusal
 
         try:
             errors = submit_vote(

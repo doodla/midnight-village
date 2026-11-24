@@ -319,8 +319,9 @@ its own resend as success and reads the table again.
 
 **A late request (`asked`).** A request whose answer was lost may still reach the server
 after a newer one from the same phone. So a settings `PATCH`, `practice`, `vote` and `ready`
-may carry `"asked": <int>`: when the tap was made on that phone, in milliseconds, always
-rising on that phone. The server never compares it with its own clock, only with the newest
+may carry `"asked": <int>`: when the tap was made, in milliseconds since 1 January 1970 by
+that phone's own clock (never a count from when the app opened: that starts again with the
+app), always rising on that phone, at most 2^53 - 1. The server never compares it with its own clock, only with the newest
 `asked` it applied for the same thing, and never between two people. A request older than
 that changes nothing: `409 {"detail": "A newer tap from this phone already got there.",
 "code": "stale_request", "newest": <int>}`, where `newest` is the stored `asked` it lost to

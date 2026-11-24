@@ -74,7 +74,8 @@ in as one and nothing a host sends can make a person one. That username is the o
   `lobby_not_found` (also for a game with no practice players), 409 `lobby_closed` once dealt.
   An optional `asked` works as the settings PATCH's, for the whole request under the one key
   `Lobby.asked["practice"]` (the PATCH strips `practice`, so it never writes that key): an
-  older one is 409 `stale_request`, checked after the refusals above.
+  older one is 409 `stale_request`, checked after `lobby_closed` and the host check and
+  before the count is tried (so a stale ask for too many is `stale_request`, not `lobby_full`).
 - They sit through `lobbies.add_member` like anyone (tokens, `seats`, `max_players`), named
   from a fixed list of village things (`NAMES`: "Scarecrow", "Teapot", ...; the first not
   taken at the table), so an older app that shows no tag still reads them as not people.
