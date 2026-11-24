@@ -5,9 +5,11 @@ check after a merge fails here first, on the pull request.
 """
 
 import importlib.util
+import json
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 
 import pytest
 from channels.testing import ChannelsLiveServerTestCase
@@ -31,7 +33,34 @@ deployed_sockets = deployed_check.socket_leg()
 pytestmark = [pytest.mark.integration]
 
 
+# The live server's rules for lengths, not this suite's relaxed ones: the check's
+# first run on the live server was refused a length the relaxed rules accept.
+@override_settings(ONUW_ALLOW_UNTIMED_NIGHT=False)
 class TheSocketLeg(ChannelsLiveServerTestCase):
+    def test_this_server_holds_the_live_rules_for_lengths(self):
+        made = deployed_check.call(
+            "POST",
+            f"{self.live_server_url}/api/auth/guest/",
+            body={"display_name": "Rules"},
+        )
+        token = json.loads(made[2])["access"]
+        table = deployed_check.call(
+            "POST",
+            f"{self.live_server_url}/api/lobbies/",
+            body={"game_type": "onuw", "defaults": "v2"},
+            token=token,
+        )
+        code = json.loads(table[2])["code"]
+
+        status, _, raw = deployed_check.call(
+            "PATCH",
+            f"{self.live_server_url}/api/lobbies/{code}/",
+            body={"settings": {"night_min_window_seconds": 0}},
+            token=token,
+        )
+
+        assert status == 400, raw
+
     def test_a_deal_and_a_restart_are_heard_and_no_table_is_left(self):
         said = []
 
