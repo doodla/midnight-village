@@ -446,7 +446,7 @@ void main() {
     await tapIn(tester, setup, _practiceRow(), Icons.add);
     expect(find.text(BannerCopy.notSent), findsOneWidget);
     expect(table.count, 0);
-    expect(practiceShown(tester), '0');
+    expect(practiceShown(tester), '1', reason: 'the screen shows what goes');
 
     each.answerEach(
       method: 'POST',
@@ -481,26 +481,32 @@ void main() {
         setup.http.answer('POST', request.path, table.body());
       },
     );
-    // 2 does not get through; then 0 does.
-    setup.http.answerEach(method: 'POST', path: path, answer: (_) {});
-    setup.http.answer('POST', path, 'Server Error', status: 503);
+    void losing() {
+      setup.http.answerEach(method: 'POST', path: path, answer: (_) {});
+      setup.http.answer('POST', path, 'Server Error', status: 503);
+    }
+
+    // 2 does not get through: it stays shown, with "Not sent.".
+    losing();
     await tapIn(tester, setup, _practiceRow(), Icons.add);
     expect(find.text(BannerCopy.notSent), findsOneWidget);
+    expect(practiceShown(tester), '2', reason: 'the screen shows what goes');
+    // The minus on the 2 shown: 1 gets through.
     answering();
     await tapIn(tester, setup, _practiceRow(), Icons.remove);
-    expect(table.count, 0);
+    expect(table.count, 1);
+    expect(find.text(BannerCopy.notSent), findsNothing);
     final sent = practiceSent(setup).length;
-    // "Try again" after it (the banner is shown again by a later loss).
-    setup.http.answerEach(method: 'POST', path: path, answer: (_) {});
-    setup.http.answer('POST', path, 'Server Error', status: 503);
-    await holdPlayers(tester); // off: does not get through either
-    await setup.settle(tester);
+    // 0 does not get through; Try again after it.
+    losing();
+    await tapIn(tester, setup, _practiceRow(), Icons.remove);
+    expect(find.text(BannerCopy.notSent), findsOneWidget);
     answering();
     await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
     await setup.settle(tester);
-    // Only the switch is sent again: the 2 was overtaken by the 0.
+    // Only the 0 is sent again: the 2 was overtaken by the newer counts.
     expect(practiceSent(setup).skip(sent + 1), [
-      {'on': false},
+      {'count': 0},
     ]);
     expect(table.count, 0);
   });

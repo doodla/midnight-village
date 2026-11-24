@@ -131,30 +131,60 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   bool _readWhenUp = false;
 
   /// The lobby state events act on: the snapshot being replayed on, else the
-  /// current state.
-  LobbyState? get _current => _working ?? state.value;
+  /// lobby under the screen.
+  LobbyState? get _current => _working ?? _base;
 
+  /// [next] is the lobby under the screen (in a replay, the snapshot replayed
+  /// on).
   void _set(LobbyState next) {
     if (_working != null) {
       _working = next;
     } else {
-      _show(next);
+      _putBase(next);
     }
   }
 
   /// The host's changes on the settings lane (settings and practice): what
-  /// is asked and not answered, the one out, the changes that got no answer
-  /// and the one "Try again" slot ([SettingsLane]; sent by [_LobbyTaps]).
-  /// What the screen shows is the server's lobby with ALL pending changes
-  /// over it ([SettingsLane.over]), as the server will apply them, so a tap
-  /// shows at once, an event or a refetch meanwhile never takes it back, and
-  /// nothing judged from the server's numbers (Deal, the seats, the practice
-  /// limit) goes around one ([LobbyState.pendingKeys]: `settling`).
+  /// is asked and not answered, the one out, the changes that got no answer,
+  /// the deal, and the newest server lobby shown ([SettingsLane]; sent by
+  /// [_LobbyTaps]). What the screen shows is the lobby under it ([_base])
+  /// with every change still to go over it ([SettingsLane.over]), as the
+  /// server will apply them, so a tap shows at once, an event or a refetch
+  /// meanwhile never takes it back, and nothing judged from the server's
+  /// numbers (Deal, the seats, the practice limit) goes around one
+  /// ([LobbyState.pendingKeys]: `settling`).
   @override
   SettingsLane _lane = SettingsLane.empty;
 
+  /// The server's lobby under the screen, the newest shown, with what only
+  /// this phone knows (the host lines, the deal's refusal, the game opened).
   @override
-  void _show(LobbyState server) => state = AsyncData(_lane.over(server));
+  LobbyState? _base;
+
+  @override
+  void _putBase(LobbyState base) {
+    _base = base;
+    state = AsyncData(_lane.over(base));
+  }
+
+  /// Whether a lobby the server sent is shown: not older than the newest
+  /// shown ([SettingsLane.admit], the server's `rev`).
+  bool _admit(LobbyState fresh) {
+    final (lane, shown) = _lane.admit(fresh.rev);
+    _lane = lane;
+    return shown;
+  }
+
+  /// A lobby the server sent (an answer, a `lobby_update`) under the screen,
+  /// unless it is older than the newest shown.
+  @override
+  void _showServer(LobbyState fresh) {
+    if (_admit(fresh)) {
+      _set(fresh);
+    } else if (_working == null) {
+      _showLane();
+    }
+  }
 
   /// The game ID from a `game_started` event. Consumers watch this to navigate.
   String? gameId;
@@ -175,14 +205,21 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     _connectWebSocket(code);
 
     // The start's or the join's answer is the lobby: no read before 02.
-    if (seed != null) return _replayBuffered(seed.lobby);
+    if (seed != null) return _first(seed.lobby);
 
     // Fetch initial lobby state
     final lobbyState = await service.fetchLobby(code);
 
     if (lobbyState.status == 'in_game') unawaited(_findRunningGame());
 
-    return _replayBuffered(lobbyState);
+    return _first(lobbyState);
+  }
+
+  /// The first lobby: the newest shown, with the events held meanwhile.
+  LobbyState _first(LobbyState lobby) {
+    _admit(lobby);
+    final base = _base = _replayBuffered(lobby);
+    return _lane.over(base);
   }
 
   /// Ends buffering and applies the held events, in order, on top of [base].
@@ -225,8 +262,6 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
             unawaited(refreshLobby());
           } else if (s == WebSocketConnectionState.disconnected ||
               s == WebSocketConnectionState.reconnecting) {
-            // What the socket had not delivered is lost with it.
-            _lane = _lane.socketDropped();
             wasDown = readOnDrop(s, refreshLobby);
           }
         });
@@ -238,8 +273,6 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   }
 
   void _handleWebSocketEvent(dynamic rawMessage) {
-    final arriving = _working == null;
-    if (arriving) _hear(rawMessage);
     if (_buffering) {
       _buffered.add(rawMessage);
       return;
@@ -281,20 +314,6 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     return null;
   }
 
-  /// A `lobby_update` as it arrives (held or not: the socket's order is the
-  /// server's): the lane learns which of its changes have had their update
-  /// ([SettingsLane.heard]).
-  void _hear(dynamic rawMessage) {
-    try {
-      final message = _decoded(rawMessage);
-      if (message?['type'] != 'lobby_update') return;
-      final data = message!['data'] as Map<String, dynamic>?;
-      if (data != null) _lane = _lane.heard(LobbyState.fromJson(data));
-    } catch (e) {
-      logger.d('Lobby update not read ($e)');
-    }
-  }
-
   /// Re-fetch full lobby state when player list changes.
   ///
   /// The `player_joined` and `player_left` events carry only their type:
@@ -328,14 +347,14 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     // on top of it.
     _buffering = true;
     _buffered.clear();
-    // While it is out, no answered change stops being laid over the screen
-    // (the read may be older than its answer).
-    _lane = _lane.readAsked();
     try {
       final newState = await ref.read(lobbyServiceProvider).fetchLobby(code);
       if (!ref.mounted) return;
-      _lane = _lane.serverShown();
-      _show(_replayBuffered(_adopt(newState)));
+      // A read older than the newest lobby shown (it crossed a newer answer
+      // or update) is not shown; the events held meanwhile still are.
+      final base = _base;
+      final read = _admit(newState) || base == null ? _adopt(newState) : base;
+      _putBase(_replayBuffered(read));
     } on NotFoundException {
       // The table is gone (its last member left).
       if (ref.mounted) _applyHeld(closed: true);
@@ -348,27 +367,26 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
       if (ref.mounted) _applyHeld();
     } finally {
       _buffering = false;
-      _lane = _lane.readEnded();
     }
   }
 
   /// A fetch failed: apply the events held meanwhile to the state we have.
   void _applyHeld({bool closed = false}) {
-    final current = state.value;
+    final current = _base;
     if (current == null) {
       _buffering = false;
       _buffered.clear();
       return;
     }
     final next = _replayBuffered(current);
-    _show(closed ? next.copyWith(tableClosed: true) : next);
+    _putBase(closed ? next.copyWith(tableClosed: true) : next);
   }
 
   /// A freshly fetched lobby, keeping what only this phone knows: the game it
   /// has been told to open and the host lines.
   @override
   LobbyState _adopt(LobbyState fresh) {
-    final current = state.value;
+    final current = _base;
     if (current == null) return fresh;
     final brief = current.briefHostNotice;
     return fresh.copyWith(
@@ -405,9 +423,9 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     if (brief) {
       _noticeTimer = Timer(kHostNoticeDuration, () {
         if (!ref.mounted) return;
-        final s = state.value;
+        final s = _base;
         if (s != null && s.briefHostNotice == change) {
-          state = AsyncData(s.copyWith(briefHostNotice: null));
+          _putBase(s.copyWith(briefHostNotice: null));
         }
       });
     }
@@ -422,14 +440,14 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
       return await call();
     } on ForbiddenException {
       await refreshLobby();
-      final s = state.value;
+      final s = _base;
       if (ref.mounted && s != null) {
-        state = AsyncData(s.copyWith(hostActionNotice: kNoLongerHostMessage));
+        _putBase(s.copyWith(hostActionNotice: kNoLongerHostMessage));
         _noticeTimer?.cancel();
         _noticeTimer = Timer(kHostNoticeDuration, () {
           if (!ref.mounted) return;
-          final c = state.value;
-          if (c != null) state = AsyncData(c.copyWith(hostActionNotice: null));
+          final c = _base;
+          if (c != null) _putBase(c.copyWith(hostActionNotice: null));
         });
       }
       throw const NoLongerHostException();
@@ -437,16 +455,16 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   }
 
   /// `lobby_update` carries the whole lobby body (a settings change, play
-  /// again): it is the server's lobby now, kept with what only this phone
-  /// knows and with its own changes still on their way merged over it.
+  /// again, someone's presence): the server's lobby now unless it is older
+  /// than the newest shown, kept with what only this phone knows and with
+  /// its own changes still on their way over it.
   void _onLobbyUpdate(Map<String, dynamic> message) {
     final current = _current;
     if (current == null) return;
     final data = message['data'] as Map<String, dynamic>?;
     if (data == null) return;
     final fresh = LobbyState.fromJson(data);
-    _lane = _lane.serverShown();
-    _set(
+    _showServer(
       fresh.copyWith(
         startedGameId: current.startedGameId,
         notSent: current.notSent,

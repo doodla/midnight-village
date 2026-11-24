@@ -229,6 +229,12 @@ abstract class LobbyState with _$LobbyState {
 
     /// This phone's practice change not answered yet. Frontend only.
     PracticeAsk? practiceAsk,
+
+    /// The server's revision of this lobby (`rev`): it rises with every
+    /// change the server tells anyone, so a lobby older than one already
+    /// shown is never shown (`SettingsLane.admit`). Null: a server from
+    /// before it (shown as it comes).
+    int? rev,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.

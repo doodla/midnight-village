@@ -366,8 +366,9 @@ void main() {
         expect(after.notSent, isFalse);
       });
 
-      test('a change that gets no answer is taken back and says "Not '
-          'sent."; Try again sends it again', () async {
+      test('a change that gets no answer stays shown and says "Not sent." '
+          '(the screen shows what Try again or Deal sends); Try again sends '
+          'it again', () async {
         container = createContainer();
         container.listen(lobbyProvider('ABC123'), (_, _) {});
         await container.read(lobbyProvider('ABC123').future);
@@ -380,7 +381,8 @@ void main() {
 
         final lobby = container.read(lobbyProvider('ABC123')).value!;
         expect(lobby.notSent, isTrue);
-        expect(lobby.table.raw.containsKey('discussion_seconds'), isFalse);
+        expect(lobby.table.raw['discussion_seconds'], 180);
+        expect(lobby.settling, isFalse, reason: 'lost, not pending');
 
         await notifier.retry();
         verify(
