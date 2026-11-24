@@ -96,7 +96,7 @@ class _Players extends StatelessWidget {
 /// What to do about [off] cards over (above 0) or under (below 0) what the
 /// deal needs, in the player's words ("Remove 2 cards", "Add 1 card"): the
 /// count's instruction on 03 and 02's one button.
-String deckFixWords(int off) => off > 0
+Words deckFixWords(int off) => off > 0
     ? (off == 1 ? DeckCopy.removeCard : DeckCopy.removeCards.fill({'n': off}))
     : (off == -1 ? DeckCopy.addCard : DeckCopy.addCards.fill({'n': -off}));
 

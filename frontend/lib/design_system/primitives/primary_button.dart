@@ -13,6 +13,9 @@ import 'paper_mark.dart';
 import 'paper_piece.dart';
 import 'secondary_button.dart' show BusyMark;
 
+// A caller that makes this button can name what its label is.
+export '../copy/copy.dart' show Words;
+
 /// The mocks' button sizes, shrunk with the type (the owner's type choice of
 /// 23 November 2026); a touch target is never under 48.
 enum ButtonSize {
@@ -207,7 +210,7 @@ class PrimaryButton extends StatefulWidget {
   /// every phone (a device's fallback font would draw its own).
   static const checkMark = ' ✓';
 
-  final String label;
+  final Words label;
   final VoidCallback? onPressed;
   final VoidCallback? onLockedTap;
 

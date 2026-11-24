@@ -1,6 +1,5 @@
-import 'template.dart';
+import 'package:flutter/foundation.dart';
 
-export 'story_copy.dart';
 part 'banner_copy.dart';
 part 'card_copy.dart';
 part 'common_copy.dart';
@@ -13,9 +12,12 @@ part 'role_sheet_copy.dart';
 part 'saw_copy.dart';
 part 'scan_copy.dart';
 part 'spoken_copy.dart';
+part 'story_copy.dart';
 part 'table_copy.dart';
 part 'talk_copy.dart';
+part 'template.dart';
 part 'vote_copy.dart';
+part 'words.dart';
 
 // Every word a player reads, keyed by screen and state: the final copy of
 // docs/specs/frontend/first-time-play.md, section 3. Nothing a player reads

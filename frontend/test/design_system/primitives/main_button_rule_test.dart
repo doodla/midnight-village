@@ -148,7 +148,10 @@ void main() {
         tester,
         const Column(
           children: [
-            PrimaryButton.waiting(label: 'Pick a name', reason: 'Pick first'),
+            PrimaryButton.waiting(
+              label: Words.forTest('Pick a name'),
+              reason: 'Pick first',
+            ),
             SecondaryButton.waiting(label: 'Join a table', reason: 'Working'),
           ],
         ),

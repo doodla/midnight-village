@@ -1,0 +1,7 @@
+# The gallery is test code (it draws screens for `just screens`), in a folder
+# the analyzer does not know as one: here a part may be given made-up words.
+include: ../analysis_options.yaml
+
+analyzer:
+  errors:
+    invalid_use_of_visible_for_testing_member: ignore

@@ -76,18 +76,23 @@ final List<PartSample> partsCatalogue = [
       state,
       (c) => switch (state) {
         PartState.locked => PrimaryButton.locked(
-          label: 'Ready',
+          label: Words.forTest('Ready'),
           onLockedTap: () {},
         ),
-        PartState.picked => const PrimaryButton.done(label: 'Locked'),
-        _ => PrimaryButton(label: 'Start the game', onPressed: () {}),
+        PartState.picked => const PrimaryButton.done(
+          label: Words.forTest('Locked'),
+        ),
+        _ => PrimaryButton(
+          label: Words.forTest('Start the game'),
+          onPressed: () {},
+        ),
       },
     ),
   PartSample(
     'PrimaryButton',
     PartState.locked,
     (c) => PrimaryButton.locked(
-      label: 'Choose a card',
+      label: Words.forTest('Choose a card'),
       onLockedTap: () {},
       slot: true,
     ),
@@ -95,13 +100,18 @@ final List<PartSample> partsCatalogue = [
   PartSample(
     'PrimaryButton',
     PartState.locked,
-    (c) =>
-        const PrimaryButton.waiting(label: 'Need 3 players', reason: 'Waiting'),
+    (c) => const PrimaryButton.waiting(
+      label: Words.forTest('Need 3 players'),
+      reason: 'Waiting',
+    ),
   ),
   PartSample(
     'PrimaryButton',
     PartState.rest,
-    (c) => PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {}),
+    (c) => PrimaryButton.quiet(
+      label: Words.forTest('Ready to vote'),
+      onPressed: () {},
+    ),
   ),
   for (final state in [
     PartState.rest,
@@ -406,7 +416,7 @@ final List<PartSample> partsCatalogue = [
       child: SheetScaffold(
         actions: [
           const Spacer(),
-          SheetClose(label: 'Close', onPressed: () {}),
+          SheetClose(label: Words.forTest('Close'), onPressed: () {}),
         ],
         child: const Text('Words on a sheet'),
       ),

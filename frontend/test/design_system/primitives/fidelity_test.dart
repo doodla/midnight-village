@@ -57,7 +57,11 @@ void main() {
         await _pump(
           tester,
           Center(
-            child: PrimaryButton(label: 'Go', onPressed: () {}, size: size),
+            child: PrimaryButton(
+              label: Words.forTest('Go'),
+              onPressed: () {},
+              size: size,
+            ),
           ),
         );
         final button = find.byType(PrimaryButton);

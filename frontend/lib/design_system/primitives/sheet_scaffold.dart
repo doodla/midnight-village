@@ -73,7 +73,7 @@ Future<T?> showSkinDialog<T>(
 class SheetClose extends StatelessWidget {
   const SheetClose({super.key, required this.label, required this.onPressed});
 
-  final String label;
+  final Words label;
   final VoidCallback onPressed;
 
   @override

@@ -621,7 +621,7 @@ void main() {
                 children: [
                   PrimaryButton(
                     key: const Key('primary'),
-                    label: 'Ready',
+                    label: Words.forTest('Ready'),
                     onPressed: () {},
                   ),
                   SecondaryButton(
@@ -631,7 +631,7 @@ void main() {
                   ),
                   PrimaryButton.quiet(
                     key: const Key('quiet'),
-                    label: 'Close',
+                    label: Words.forTest('Close'),
                     onPressed: () {},
                   ),
                   PrimaryButton.locked(

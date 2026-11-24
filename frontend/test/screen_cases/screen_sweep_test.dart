@@ -19,7 +19,7 @@ Widget _page(Widget body, {VoidCallback? onPressed}) => Column(
   mainAxisAlignment: MainAxisAlignment.end,
   children: [
     body,
-    PrimaryButton(label: 'Go', onPressed: onPressed ?? () {}),
+    PrimaryButton(label: Words.forTest('Go'), onPressed: onPressed ?? () {}),
   ],
 );
 
@@ -38,7 +38,11 @@ class _JumpyState extends State<_Jumpy> {
   @override
   Widget build(BuildContext context) => Listener(
     onPointerDown: (_) => setState(() => _down++),
-    child: PrimaryButton(key: ValueKey(_down), label: 'Go', onPressed: () {}),
+    child: PrimaryButton(
+      key: ValueKey(_down),
+      label: Words.forTest('Go'),
+      onPressed: () {},
+    ),
   );
 }
 
@@ -74,7 +78,7 @@ class _SettlesState extends State<_SettlesUnderTheFinger>
     onPointerDown: (_) => _sink.forward(from: 0),
     child: PrimaryButton(
       key: ValueKey(_settled),
-      label: 'Go',
+      label: Words.forTest('Go'),
       onPressed: () {},
     ),
   );
@@ -321,7 +325,7 @@ void main() {
           itemCount: 60,
           itemBuilder: (_, i) => i < 59
               ? const SizedBox(height: 60)
-              : PrimaryButton(label: 'Go', onPressed: () {}),
+              : PrimaryButton(label: Words.forTest('Go'), onPressed: () {}),
         ),
       ),
       const SweepPlan(),

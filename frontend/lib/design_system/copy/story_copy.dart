@@ -1,4 +1,4 @@
-import 'template.dart';
+part of 'copy.dart';
 
 // Part of the app's words (`copy.dart` exports it; its rules and budgets
 // read this file as they read that one): 08's My night, held.
@@ -8,22 +8,22 @@ import 'template.dart';
 /// each card. Slept, did nothing, the Troublemaker and no Werewolves are the
 /// night faces' own lines.
 abstract final class NightStoryCopy {
-  static const and = 'and';
+  static const and = Words._('and');
   static const seerPlayer = Template("{name}'s card was the {role}.");
-  static const seerCenter = 'You saw 2 center cards.';
+  static const seerCenter = Words._('You saw 2 center cards.');
   static const robbed = Template("You took {name}'s card, the {role}.");
   static const drunk = Template('You took the {pos} card, unseen.');
   static const now = Template('Your card is now the {role}.');
 
   /// The caption over the card a step gave you: it is yours now.
-  static const nowCard = 'Now';
+  static const nowCard = Words._('Now');
   static const still = Template('Your card is still the {role}.');
   static const werewolves = Template('You and {names} are the Werewolves.');
-  static const onlyWerewolf = 'You are the only Werewolf.';
+  static const onlyWerewolf = Words._('You are the only Werewolf.');
   static const minion = Template('{names} are the Werewolves.');
   static const minionOne = Template('{names} is the Werewolf.');
   static const masons = Template('You and {names} are the Masons.');
-  static const onlyMason = 'You are the only Mason.';
+  static const onlyMason = Words._('You are the only Mason.');
 
   /// The Doppelganger's: what she copied, then what her copy did at once.
   static const copied = Template('You copied {copied}, the {role}.');

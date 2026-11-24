@@ -24,7 +24,9 @@ void main() {
       final semantics = tester.ensureSemantics();
       await pumpSkinned(
         tester,
-        const PrimaryButton.done(label: 'Ready${PrimaryButton.checkMark}'),
+        const PrimaryButton.done(
+          label: Words.forTest('Ready${PrimaryButton.checkMark}'),
+        ),
       );
       expect(find.text('Ready'), findsOneWidget);
       expect(find.byIcon(Icons.check), findsOneWidget);
@@ -42,12 +44,12 @@ void main() {
             tester,
             enabled
                 ? PrimaryButton(
-                    label: 'Deal the cards',
+                    label: Words.forTest('Deal the cards'),
                     onPressed: () => taps++,
                     busy: busy,
                   )
                 : const PrimaryButton.waiting(
-                    label: 'Deal the cards',
+                    label: Words.forTest('Deal the cards'),
                     reason: 'Not yet',
                   ),
           );
@@ -69,7 +71,10 @@ void main() {
       var cue = 0;
       await pumpSkinned(
         tester,
-        PrimaryButton.locked(label: 'Ready', onLockedTap: () => cue++),
+        PrimaryButton.locked(
+          label: Words.forTest('Ready'),
+          onLockedTap: () => cue++,
+        ),
       );
       await pressLikeAFinger(tester, find.text('Ready'));
       expect(cue, 1);
@@ -93,21 +98,27 @@ void main() {
       }
 
       final night = await drawn(
-        PrimaryButton(label: 'Start game', onPressed: () {}),
+        PrimaryButton(label: Words.forTest('Start game'), onPressed: () {}),
         GroundKind.night,
       );
       expect(night.color, skin.night.accent);
       expect(night.border, isNull);
       final day = await drawn(
-        PrimaryButton(label: 'Lock in Cleo', onPressed: () {}),
+        PrimaryButton(label: Words.forTest('Lock in Cleo'), onPressed: () {}),
         GroundKind.day,
       );
       expect(day.color, skin.day.accent);
       expect((day.border! as Border).top.color, skin.day.accentEdge);
       for (final quiet in [
-        const PrimaryButton.waiting(label: 'Pick a name', reason: 'Pick first'),
-        PrimaryButton.locked(label: 'Ready', onLockedTap: () {}),
-        PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {}),
+        const PrimaryButton.waiting(
+          label: Words.forTest('Pick a name'),
+          reason: 'Pick first',
+        ),
+        PrimaryButton.locked(label: Words.forTest('Ready'), onLockedTap: () {}),
+        PrimaryButton.quiet(
+          label: Words.forTest('Ready to vote'),
+          onPressed: () {},
+        ),
       ]) {
         final outline = await drawn(quiet, GroundKind.day);
         expect(outline.color, isNull, reason: quiet.label);
@@ -115,7 +126,10 @@ void main() {
       }
       for (final ground in GroundKind.values) {
         for (final label in ['Chosen', 'Locked', 'Ready ✓']) {
-          final done = await drawn(PrimaryButton.done(label: label), ground);
+          final done = await drawn(
+            PrimaryButton.done(label: Words.forTest(label)),
+            ground,
+          );
           expect(done.color, isNull, reason: '$label: nothing to press');
           expect(done.border, isNull, reason: '$label: no gate outline');
           expect(find.byIcon(Icons.check), findsOneWidget, reason: label);
@@ -127,8 +141,8 @@ void main() {
     testWidgets('one form of "Ready ✓": the check before the word, both as '
         'done and as a toggle (still outlined: a button)', (tester) async {
       for (final button in [
-        const PrimaryButton.done(label: 'Ready ✓'),
-        PrimaryButton.quiet(label: 'Ready ✓', onPressed: () {}),
+        const PrimaryButton.done(label: Words.forTest('Ready ✓')),
+        PrimaryButton.quiet(label: Words.forTest('Ready ✓'), onPressed: () {}),
       ]) {
         await pumpSkinned(tester, button, ground: GroundKind.day);
         final check = tester.getCenter(find.byIcon(Icons.check));
@@ -146,7 +160,7 @@ void main() {
     testWidgets('it goes down while pressed and comes back up', (tester) async {
       await pumpSkinned(
         tester,
-        PrimaryButton(label: 'Deal the cards', onPressed: () {}),
+        PrimaryButton(label: Words.forTest('Deal the cards'), onPressed: () {}),
       );
       final rest = tester.getTopLeft(find.text('Deal the cards'));
 
@@ -170,7 +184,7 @@ void main() {
       await pumpSkinned(
         tester,
         const PrimaryButton.waiting(
-          label: 'Lock in Cleo',
+          label: Words.forTest('Lock in Cleo'),
           reason: 'Pick first',
         ),
       );
@@ -306,7 +320,9 @@ void main() {
                     PlayerRow(token: TokenId.crow, name: 'Player $i'),
                 ],
               ),
-              actions: [PrimaryButton(label: 'Deal', onPressed: () {})],
+              actions: [
+                PrimaryButton(label: Words.forTest('Deal'), onPressed: () {}),
+              ],
             ),
           ),
         ),
