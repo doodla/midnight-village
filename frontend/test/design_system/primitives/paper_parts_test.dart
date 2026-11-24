@@ -129,7 +129,7 @@ void main() {
             PaperBanner(child: (_) => const Text('Banner')),
             const PaperMarkCorner(shown: true, child: SizedBox(width: 20)),
             const Fanned(index: 0, count: 3, child: SizedBox(width: 20)),
-            const PrimaryButton(label: 'Go', onPressed: _noop),
+            const PrimaryButton(label: Words.forTest('Go'), onPressed: _noop),
           ],
         ),
       );
@@ -275,7 +275,7 @@ void main() {
         'PaperPiece), nothing in it but its label', (tester) async {
       await _pump(
         tester,
-        const PrimaryButton(label: 'Go', onPressed: _noop),
+        const PrimaryButton(label: Words.forTest('Go'), onPressed: _noop),
         dress: Dress.paper,
       );
       expect(find.byType(PaperPiece), findsOneWidget);
@@ -289,7 +289,7 @@ void main() {
     ) async {
       await _pump(
         tester,
-        const PrimaryButton.done(label: 'Ready'),
+        const PrimaryButton.done(label: Words.forTest('Ready')),
         dress: Dress.paper,
       );
       expect(find.byType(PaperMark), findsOneWidget);

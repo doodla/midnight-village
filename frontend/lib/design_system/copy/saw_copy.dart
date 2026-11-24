@@ -26,12 +26,12 @@ abstract final class SawCopy {
   /// "You copied {name}." too, and the talk's budget is 15.
   static const drunk = Template('You took {pos}, unseen.');
   static const werewolves = Template('Werewolves were: {names}.');
-  static const onlyYou = 'Only you.';
+  static const onlyYou = Words._('Only you.');
   static const centerLook = Template('{pos} was: {role}.');
-  static const noWerewolves = 'There were no Werewolves.';
+  static const noWerewolves = Words._('There were no Werewolves.');
   static const masons = Template('Masons were: {names}.');
 
   /// The player chose, and nothing they picked meant anything for their
   /// role (spec section 3, "Trade-off": "You did nothing.").
-  static const didNothing = 'You did nothing.';
+  static const didNothing = Words._('You did nothing.');
 }

@@ -257,7 +257,7 @@ class AtTableView extends StatelessWidget {
 
   /// The deal button's words, from the server's verdict ([DealState]): a
   /// button that cannot be taken says what to do, in place.
-  String _dealWords() => switch (DealState.of(lobby)) {
+  Words _dealWords() => switch (DealState.of(lobby)) {
     CanDeal() || CanDealSoon() || CannotDeal() => TableCopy.start,
     NeedPlayers() => TableCopy.needPlayers,
     WaitingFor(:final missing) => TableCopy.needMore.fill({'n': missing}),

@@ -4,7 +4,7 @@ part of 'copy.dart';
 /// The names are the players', never cut.
 abstract final class EndCopy {
   /// Line 1: who was hanged.
-  static const nobodyHanged = 'No one hanged.';
+  static const nobodyHanged = Words._('No one hanged.');
   static const hanged = Template('{names} hanged.');
 
   /// With the Hunter: the vote's dead, then the player the Hunter took.
@@ -14,40 +14,40 @@ abstract final class EndCopy {
   static const andThen = Template('{first} and {last}');
 
   /// Between the names of a list, before its last.
-  static const listComma = ', ';
+  static const listComma = Words._(', ');
 
   /// A number in place of the names, when the names will not fit.
   static const hangedCount = Template('{n} hanged.');
 
   /// Line 2 when you won.
-  static const youWinVillage = 'You and the village win.';
-  static const youWinWerewolves = 'You and the Werewolves win.';
-  static const youWinAlone = 'You win alone.';
+  static const youWinVillage = Words._('You and the village win.');
+  static const youWinWerewolves = Words._('You and the Werewolves win.');
+  static const youWinAlone = Words._('You win alone.');
 
   /// Line 2 when you lost.
-  static const youLoseVillage = 'You lose to the village.';
-  static const youLoseWerewolves = 'You lose to the Werewolves.';
-  static const youLoseTanner = 'The Tanner wins. You lose.';
+  static const youLoseVillage = Words._('You lose to the village.');
+  static const youLoseWerewolves = Words._('You lose to the Werewolves.');
+  static const youLoseTanner = Words._('The Tanner wins. You lose.');
 
   /// Line 2 when nobody won.
-  static const nobodyWins = 'Nobody wins.';
+  static const nobodyWins = Words._('Nobody wins.');
 
   /// Line 2 shortened, when the sentence will not fit three lines.
-  static const youWinShort = 'You win.';
-  static const youLoseShort = 'You lose.';
+  static const youWinShort = Words._('You win.');
+  static const youLoseShort = Words._('You lose.');
 
   /// The foot.
-  static const whatHappened = 'What happened';
+  static const whatHappened = Words._('What happened');
 
   /// The same on two lines, where one line leaves no room for the middle cards.
-  static const whatHappenedTwoLines = 'What\nhappened';
+  static const whatHappenedTwoLines = Words._('What\nhappened');
 
   /// While the night is replayed, the same scrap leads back to the result
   /// (two words; on two lines where one leaves no room).
-  static const backToResult = 'The result';
-  static const backToResultTwoLines = 'The\nresult';
-  static const editDeck = 'Edit deck';
-  static const playAgain = 'Play again';
+  static const backToResult = Words._('The result');
+  static const backToResultTwoLines = Words._('The\nresult');
+  static const editDeck = Words._('Edit deck');
+  static const playAgain = Words._('Play again');
   static const leave = CommonCopy.leave;
   static const hostDealsNext = Template('{host} deals next.');
 
@@ -60,13 +60,13 @@ abstract final class EndCopy {
   static const cardYou = Template('{name}, you.');
   static const cardPicked = Template("{name}, {hunter}'s pick.");
   static const wasRole = Template('{now}, was {dealt}.');
-  static const hangedWord = 'Hanged.';
+  static const hangedWord = Words._('Hanged.');
 
   /// The stamp that slams on the hanged in the reveal (12 pt capitals, the
   /// spec's one).
-  static const hangedStamp = 'HANGED';
-  static const diedWord = 'Died.';
-  static const wonWord = 'Won.';
+  static const hangedStamp = Words._('HANGED');
+  static const diedWord = Words._('Died.');
+  static const wonWord = Words._('Won.');
   static const votes = Template('Votes: {names}.');
   static const middle = Template('Middle cards: {roles}.');
 }
@@ -117,15 +117,15 @@ enum StoryAct {
 /// is replayed on the end board. Each leads with the role that acted and
 /// ends with what came of it; never a bare "Left", "Right" or "Middle".
 abstract final class StoryCopy {
-  static const dealt = 'The cards as dealt.';
+  static const dealt = Words._('The cards as dealt.');
 
   /// The first time only, on the board's lower edge: the board goes on
   /// (a cue, gone at the first step and never shown again on the device).
-  static const goOn = 'Go on';
+  static const goOn = Words._('Go on');
 
   /// The one who acted: their role, then their name.
   static const who = Template('{role} {name}');
-  static const loneWerewolf = 'Lone Werewolf';
+  static const loneWerewolf = Words._('Lone Werewolf');
   static const werewolves = Template('Werewolves {names} meet.');
   static const masons = Template('Masons {names} meet.');
   static const alone = Template('{who} is alone.');

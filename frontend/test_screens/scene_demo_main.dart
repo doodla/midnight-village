@@ -109,7 +109,9 @@ class _Table extends StatelessWidget {
           PaperCard(child: Text(name, style: context.skin.typography.body)),
       ],
     ),
-    actions: [PrimaryButton(label: 'Start game', onPressed: () {})],
+    actions: [
+      PrimaryButton(label: Words.forTest('Start game'), onPressed: () {}),
+    ],
   );
 }
 
@@ -137,7 +139,9 @@ class _Card extends StatelessWidget {
         ),
       ],
     ),
-    actions: [PrimaryButton.quiet(label: 'Ready', onPressed: () {})],
+    actions: [
+      PrimaryButton.quiet(label: Words.forTest('Ready'), onPressed: () {}),
+    ],
   );
 }
 
@@ -157,7 +161,12 @@ class _Board extends StatelessWidget {
           FaceDownCard(size: FaceDownSize.board, ownerName: name),
       ],
     ),
-    actions: [PrimaryButton.quiet(label: 'Choose a card', onPressed: () {})],
+    actions: [
+      PrimaryButton.quiet(
+        label: Words.forTest('Choose a card'),
+        onPressed: () {},
+      ),
+    ],
   );
 }
 
@@ -178,6 +187,11 @@ class _Talk extends StatelessWidget {
           PaperCard(child: Text(name, style: context.skin.typography.body)),
       ],
     ),
-    actions: [PrimaryButton.quiet(label: 'Ready to vote', onPressed: () {})],
+    actions: [
+      PrimaryButton.quiet(
+        label: Words.forTest('Ready to vote'),
+        onPressed: () {},
+      ),
+    ],
   );
 }

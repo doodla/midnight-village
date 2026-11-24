@@ -53,12 +53,12 @@ class _VoteChoiceState extends State<_VoteChoice> {
         ),
       if (_picked case final picked?)
         PrimaryButton(
-          label: 'Lock in $picked',
+          label: Words.forTest('Lock in $picked'),
           onPressed: () => widget.onLockIn(picked),
         )
       else
         const PrimaryButton.waiting(
-          label: 'Pick a player',
+          label: Words.forTest('Pick a player'),
           reason: 'Pick a player first',
         ),
     ],

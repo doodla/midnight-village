@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../../core/logging/app_logger.dart';
 import '../copy/copy.dart';
 import '../copy/role_text.dart';
-import '../copy/template.dart';
 import '../models/role.dart';
 
 // What a held face says (first-time play spec, sections 3, 7 and 8): pages
@@ -170,7 +169,7 @@ enum NightPrompt {
   final Template go;
 
   /// The button with "You" alone picked: what passing is, for this role.
-  final String pass;
+  final Words pass;
 
   /// The words this board adds above its seats and on the table's strip in
   /// place of "Center", with a rule saying "or" between them (the Seer's,

@@ -2,9 +2,9 @@ part of 'copy.dart';
 
 /// 08 Talk.
 abstract final class TalkCopy {
-  static const headline = 'The village wakes';
-  static const myNight = 'My night';
-  static const readyToVote = 'Ready to vote';
+  static const headline = Words._('The village wakes');
+  static const myNight = Words._('My night');
+  static const readyToVote = Words._('Ready to vote');
 
   /// My night's first page.
   static const dealt = Template('Dealt: {role}');

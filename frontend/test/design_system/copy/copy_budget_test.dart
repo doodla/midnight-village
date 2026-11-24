@@ -13,12 +13,13 @@ import 'screen_states.dart';
 // every line written in lib/design_system/copy/copy.dart, and every state of
 // every screen (screen_states.dart) as the words visible at once.
 
-/// copy.dart, every part it names and what it exports: read from the file's
-/// own directives, so a new part of the copy is held to the rules by being one.
+/// copy.dart and every part of words it names (`*_copy.dart`): read from the
+/// file's own directives, so a new part of the copy is held to the rules by
+/// being one. Its other parts hold no words (the `Words` and `Template` types).
 final _copyFiles = [
   'lib/design_system/copy/copy.dart',
   for (final named in RegExp(
-    r"^(?:part|export) '([^']+)';",
+    r"^(?:part|export) '([^']+_copy\.dart)';",
     multiLine: true,
   ).allMatches(File('lib/design_system/copy/copy.dart').readAsStringSync()))
     'lib/design_system/copy/${named.group(1)}',

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import '../copy/copy.dart';
-import '../copy/template.dart';
 import '../faces/face_content.dart';
 import '../faces/night_report.dart';
 import '../models/role.dart';

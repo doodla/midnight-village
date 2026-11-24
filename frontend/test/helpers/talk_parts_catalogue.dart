@@ -21,7 +21,7 @@ final List<PartSample> talkPartsCatalogue = [
     'PrimaryButton',
     PartState.rest,
     (c) => PrimaryButton(
-      label: 'Ready to vote',
+      label: Words.forTest('Ready to vote'),
       detail: '2 of 6 ready',
       onPressed: () {},
     ),
@@ -30,7 +30,7 @@ final List<PartSample> talkPartsCatalogue = [
     'PrimaryButton',
     PartState.rest,
     (c) => PrimaryButton.on(
-      label: 'Ready ✓',
+      label: Words.forTest('Ready ✓'),
       detail: '3 of 6 ready',
       onPressed: () {},
     ),
@@ -78,7 +78,7 @@ final List<PartSample> talkPartsCatalogue = [
       height: 120,
       child: SquareFoot(
         action: PrimaryButton(
-          label: 'Lock in Cleo',
+          label: Words.forTest('Lock in Cleo'),
           detail: '1 of 5 locked',
           onPressed: () {},
         ),
