@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/faces/face_content.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
+import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
@@ -175,6 +178,51 @@ void main() {
       const SweepPlan(),
     );
     expect(onTop, isEmpty);
+  });
+
+  testWidgets('what a hold shows may lie on a name; it must be whole on the '
+      'screen itself', (tester) async {
+    // The held face is there only while the finger is down: it is read over
+    // the screen, so it covers names by design (06, 08's My night).
+    Widget held({required double top}) => _page(
+      SizedBox(
+        width: 300,
+        height: 400,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Text('Ana'),
+            Positioned(
+              left: 0,
+              top: top,
+              width: 280,
+              height: 380,
+              child: HeldFace(
+                content: FaceContent.roleText(RoleId.villager),
+                page: 0,
+                fill: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    final over = await sweepScreen(
+      tester,
+      (t) => pumpSkinned(t, held(top: 0)),
+      const SweepPlan(),
+    );
+    expect(over.where((p) => p.contains('is covered')), isEmpty);
+    expect(over.where((p) => p.contains('held face')), isEmpty);
+    final off = await sweepScreen(
+      tester,
+      (t) => pumpSkinned(t, held(top: -2000)),
+      const SweepPlan(),
+    );
+    expect(
+      off.join('\n'),
+      contains('the held face is not whole on the screen'),
+    );
   });
 
   testWidgets('a tree that keeps its own text size is reported', (
