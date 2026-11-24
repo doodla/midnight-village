@@ -36,9 +36,11 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
     required String url,
     required TokenStorage tokenStorage,
     Duration initialBackoff = const Duration(seconds: 1),
-    Duration maxBackoff = const Duration(seconds: 30),
+    Duration maxBackoff = const Duration(seconds: 2),
+    Duration openTimeout = const Duration(seconds: 10),
     WebSocketChannelFactory? channelFactory,
   }) : _url = url,
+       _openTimeout = openTimeout,
        _tokenStorage = tokenStorage,
        _initialBackoff = initialBackoff,
        _maxBackoff = maxBackoff,
@@ -48,13 +50,32 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
   final String _url;
   final TokenStorage _tokenStorage;
   final Duration _initialBackoff;
+
+  /// The longest wait between two attempts. Short on purpose: nothing else
+  /// brings a socket back (a resume and the healing reads go over HTTP), and
+  /// after a deploy the server gives phones seconds, not half a minute, to be
+  /// back before it counts them away. A table is a handful of phones, so there
+  /// is no crowd to hold off. (Until "connected" meant "open", the backoff was
+  /// reset on every attempt and a phone retried every second.)
   final Duration _maxBackoff;
+
+  /// The longest an opening connection is waited for before it counts as
+  /// failed and the next attempt is scheduled. It bounds a server that never
+  /// answers; a healthy one answers in a fraction of a second, and nothing
+  /// waits this out.
+  final Duration _openTimeout;
   final WebSocketChannelFactory _channelFactory;
+
+  /// Counts connection attempts, so what a superseded attempt hears late (its
+  /// channel closing, its opening failing) is not taken for the current one's.
+  int _attempt = 0;
+  final _firstOpen = Completer<void>();
 
   Duration _currentBackoff;
   bool _disposed = false;
 
   Timer? _reconnectTimer;
+  final _openTimers = <Timer>{};
   WebSocketChannelInterface? _currentChannel;
   StreamSubscription<dynamic>? _channelSubscription;
 
@@ -78,6 +99,13 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
   @override
   Stream<dynamic> get stream => _messageController.stream;
 
+  /// Completes the first time a connection is open, or at [dispose]; never
+  /// with an error (a failed opening is tried again, it is not the end). It
+  /// stays complete through later drops: [connectionState] says what the
+  /// socket is now.
+  @override
+  Future<void> get ready => _firstOpen.future;
+
   @override
   void send(dynamic data) => _currentChannel?.send(data);
 
@@ -93,10 +121,13 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
 
   /// Starts the initial connection attempt.
   ///
-  /// Emits [WebSocketConnectionState.connecting] immediately. If the factory
-  /// fails, begins the backoff reconnect loop automatically.
+  /// Emits [WebSocketConnectionState.connecting] immediately, and
+  /// [WebSocketConnectionState.connected] when the server has accepted the
+  /// connection. If it cannot be opened, begins the backoff reconnect loop.
   Future<void> connect() async {
     if (_disposed) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _currentBackoff = _initialBackoff;
     await _doConnect(isReconnect: false);
   }
@@ -108,8 +139,13 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    if (!_firstOpen.isCompleted) _firstOpen.complete();
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    for (final timer in _openTimers) {
+      timer.cancel();
+    }
+    _openTimers.clear();
     unawaited(_channelSubscription?.cancel() ?? Future.value());
     _channelSubscription = null;
     unawaited(_currentChannel?.close() ?? Future.value());
@@ -130,39 +166,87 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
     if (_disposed) return;
 
     final uri = _buildUri(token);
+    final attempt = ++_attempt;
+    var over = false;
 
+    // This attempt's connection is gone (it never opened, or it closed): once.
+    void lost() {
+      if (over || _disposed || attempt != _attempt) return;
+      over = true;
+      _onChannelClosed();
+    }
+
+    final WebSocketChannelInterface channel;
     try {
-      final channel = _channelFactory(uri);
-
-      unawaited(_channelSubscription?.cancel() ?? Future.value());
-      _channelSubscription = null;
-      _currentChannel = channel;
-      _currentBackoff = _initialBackoff; // reset backoff on successful connect
-
-      _emitState(WebSocketConnectionState.connected);
-
-      _channelSubscription = channel.stream.listen(
-        (event) {
-          if (!_disposed) _messageController.add(event);
-        },
-        onError: (Object _) {
-          if (!_disposed) _onChannelClosed();
-        },
-        onDone: () {
-          if (!_disposed) _onChannelClosed();
-        },
-        cancelOnError: false,
-      );
+      channel = _channelFactory(uri);
     } catch (e, stack) {
       logger.w('WebSocket connect failed', error: e, stackTrace: stack);
-      if (_disposed) return;
       if (!isReconnect) {
         // Emit disconnected once before entering the reconnect loop so
         // listeners see the full state transition.
         _emitState(WebSocketConnectionState.disconnected);
       }
       _scheduleReconnect();
+      return;
     }
+
+    unawaited(_channelSubscription?.cancel() ?? Future.value());
+    // An earlier attempt's channel is never left open behind this one: the
+    // server would hold a socket nobody listens to.
+    final earlier = _currentChannel;
+    if (earlier != null && !earlier.isClosed) unawaited(earlier.close());
+    _currentChannel = channel;
+    // Listened to from the start: nothing the server sends once the
+    // connection opens can arrive before there is a listener.
+    _channelSubscription = channel.stream.listen(
+      (event) {
+        if (!_disposed && attempt == _attempt) _messageController.add(event);
+      },
+      onError: (Object _) => lost(),
+      onDone: lost,
+      cancelOnError: false,
+    );
+
+    // Making the channel only STARTS the connection. "Connected" is said when
+    // the server has accepted it, and not before: whoever reads state again on
+    // "connected" must not read before the socket can hear what follows.
+    final opened = Completer<void>();
+    // Each attempt has its own timer: one that is superseded still gives up.
+    late final Timer giveUp;
+    giveUp = Timer(_openTimeout, () {
+      _openTimers.remove(giveUp);
+      if (!opened.isCompleted) {
+        opened.completeError(TimeoutException('not open in $_openTimeout'));
+      }
+    });
+    _openTimers.add(giveUp);
+    unawaited(
+      channel.ready.then(
+        (_) {
+          if (!opened.isCompleted) opened.complete();
+        },
+        onError: (Object e) {
+          if (!opened.isCompleted) opened.completeError(e);
+        },
+      ),
+    );
+    try {
+      await opened.future;
+    } catch (e) {
+      logger.w('WebSocket did not open', error: e);
+      if (!over && !_disposed && attempt == _attempt) {
+        unawaited(channel.close());
+        lost();
+      }
+      return;
+    } finally {
+      giveUp.cancel();
+      _openTimers.remove(giveUp);
+    }
+    if (over || _disposed || attempt != _attempt) return;
+    _currentBackoff = _initialBackoff; // an open connection resets the backoff
+    if (!_firstOpen.isCompleted) _firstOpen.complete();
+    _emitState(WebSocketConnectionState.connected);
   }
 
   void _onChannelClosed() {
@@ -221,6 +305,9 @@ class _LiveWebSocketChannel implements WebSocketChannelInterface {
 
   @override
   Stream<dynamic> get stream => _channel.stream;
+
+  @override
+  Future<void> get ready => _channel.ready;
 
   @override
   void send(dynamic data) => _channel.sink.add(data);

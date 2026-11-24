@@ -259,7 +259,7 @@ class LobbyNotifier extends _$LobbyNotifier {
             unawaited(refreshLobby());
           } else if (s == WebSocketConnectionState.disconnected ||
               s == WebSocketConnectionState.reconnecting) {
-            wasDown = true;
+            wasDown = readOnDrop(s, refreshLobby);
           }
         });
       }
