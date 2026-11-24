@@ -120,7 +120,7 @@ class SoundEngine {
   void play(Sfx cue) {
     _guard('play ${cue.name}', () {
       if (!_canSound) return;
-      final file = _set.cues[cue];
+      final file = _set.cues[cue] ?? _cueNamed(cue.name);
       if (file == null) return;
       final path = _pathOf(file);
       final clip = path == null ? null : _clips[path];
@@ -238,7 +238,7 @@ class SoundEngine {
     );
     if (old != null) {
       _dropOutgoing(now);
-      _backend.fadeOut(old, fade);
+      _backend.fadeOut(old, fade, at: at);
       _outgoing.add((old, at + fade));
     }
     _current = _backend.loop(
@@ -325,6 +325,13 @@ class SoundEngine {
       final clip = _clips.remove(oldest);
       if (clip != null) _guard('release', () => _backend.release(clip));
     }
+  }
+
+  SoundFile? _cueNamed(String name) {
+    for (final MapEntry(:key, :value) in _set.cues.entries) {
+      if (key.name == name) return value;
+    }
+    return null;
   }
 
   /// The first encoding of [file] this platform decodes.

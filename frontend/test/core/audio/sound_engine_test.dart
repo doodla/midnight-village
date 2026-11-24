@@ -98,6 +98,9 @@ void main() {
       engine.play(knock);
       // No microtask flushed: it fired synchronously.
       expect(backend.fired, [knockFile]);
+      // One made at run time is the same cue.
+      engine.play(Sfx(['kn', 'ock'].join()));
+      expect(backend.fired, [knockFile, knockFile]);
     });
   });
 
@@ -120,7 +123,7 @@ void main() {
       expect(night.at, closeTo(7.3 + lead, 1e-9));
       expect(night.offset, closeTo((7.3 + lead - table.at) % 4, 1e-9));
       expect(night.fadeIn, crossfade);
-      expect(table.fadedAt, 7.3);
+      expect(table.fadedAt, closeTo(7.3 + lead, 1e-9), reason: 'with the new');
       expect(table.fadeLength, crossfade);
       expect(engine.voices, 2);
 
@@ -169,7 +172,7 @@ void main() {
       final night = backend.loops.last;
       expect(engine.playing, ThemeVariant.night);
       expect(night.offset, closeTo((9.5 + lead - table.at) % 4, 1e-9));
-      expect(table.fadedAt, 9.5);
+      expect(table.fadedAt, closeTo(9.5 + lead, 1e-9));
     });
   });
 

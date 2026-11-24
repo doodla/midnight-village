@@ -182,25 +182,37 @@ class WebAudioBackend implements AudioBackend {
   }
 
   @override
-  void fadeOut(Voice voice, double seconds) {
+  void fadeOut(Voice voice, double seconds, {double? at}) {
     final context = _context;
     if (context == null) return;
     final (source, gain) =
         voice.native as (web.AudioBufferSourceNode, web.GainNode);
     final now = context.currentTime;
-    _ramp(gain.gain, now, 0, seconds);
+    final from = at == null || at < now ? now : at;
+    _ramp(gain.gain, now, 0, seconds, from: from);
     source.onended = ((web.Event _) {
       source.disconnect();
       gain.disconnect();
     }).toJS;
-    source.stop(now + seconds);
+    source.stop(from + seconds);
   }
 
-  static void _ramp(web.AudioParam param, double now, double to, double s) {
+  /// Ramps [param] from where it is to [to] over [s] seconds starting at
+  /// [from] (now by default), holding it until then.
+  static void _ramp(
+    web.AudioParam param,
+    double now,
+    double to,
+    double s, {
+    double? from,
+  }) {
+    final start = from ?? now;
+    final value = param.value;
     param
       ..cancelScheduledValues(now)
-      ..setValueAtTime(param.value, now)
-      ..linearRampToValueAtTime(to, now + s);
+      ..setValueAtTime(value, now);
+    if (start > now) param.setValueAtTime(value, start);
+    param.linearRampToValueAtTime(to, start + s);
   }
 
   static const _gestures = [

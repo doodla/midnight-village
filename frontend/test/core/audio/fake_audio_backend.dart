@@ -179,15 +179,16 @@ class FakeAudioBackend implements AudioBackend {
   }
 
   @override
-  void fadeOut(Voice voice, double seconds) {
+  void fadeOut(Voice voice, double seconds, {double? at}) {
     _maybeThrow();
     final l = voice.native as FakeLoop;
+    final from = at ?? clock;
     // A second fade (a cut mid-crossfade) wins only if it ends sooner.
-    if (l.fadedAt case final at? when at + l.fadeLength! <= clock + seconds) {
+    if (l.fadedAt case final t? when t + l.fadeLength! <= from + seconds) {
       return;
     }
     l
-      ..fadedAt = clock
+      ..fadedAt = from
       ..fadeLength = seconds;
   }
 

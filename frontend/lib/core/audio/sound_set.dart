@@ -5,8 +5,9 @@
 library;
 
 /// A short sound fired by a touch or a moment (a knock, a seal). Screens name
-/// one as `Sfx.knock` once it exists; none is chosen yet. Always const: two
-/// with the same name are then the same object (a const map's key).
+/// one as `Sfx.knock` once it exists; none is chosen yet. Const, so it can
+/// key a const [SoundSet]; the engine finds one made at run time by its
+/// [name].
 final class Sfx {
   const Sfx(this.name);
 
@@ -18,27 +19,20 @@ final class Sfx {
 
 /// One stage's version of the theme. The variants are the same piece in
 /// the same length (stems of one mix), so switching keeps the music in
-/// phase. The names are the stages a screen may ask for; which ones have a
-/// file is the [SoundSet]'s business. Always const, as [Sfx] is.
-final class ThemeVariant {
-  const ThemeVariant(this.name);
-
-  final String name;
-
+/// phase. These are the stages a screen may ask for; which ones have a file
+/// is the [SoundSet]'s business (data, not code).
+enum ThemeVariant {
   /// The lobby and the table (01 to 03, and between games).
-  static const table = ThemeVariant('table');
+  table,
 
   /// The deal to the last night window (04 to 06).
-  static const night = ThemeVariant('night');
+  night,
 
   /// The talk and the vote (08, 09).
-  static const vote = ThemeVariant('vote');
+  vote,
 
   /// The count and the results (10, 11).
-  static const reveal = ThemeVariant('reveal');
-
-  @override
-  String toString() => 'ThemeVariant($name)';
+  reveal,
 }
 
 /// One sound in the bundle, as one or more encodings of the same audio, in

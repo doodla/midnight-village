@@ -107,8 +107,10 @@ abstract interface class AudioBackend {
     LoopPoints? points,
   });
 
-  /// Ramps [voice] to silence over [seconds] and then stops and releases it.
-  void fadeOut(Voice voice, double seconds);
+  /// Ramps [voice] to silence over [seconds] from audio time [at] (now when
+  /// null), then stops and releases it. A crossfade gives both ramps the same
+  /// [at], so the two gains always sum to one.
+  void fadeOut(Voice voice, double seconds, {double? at});
 
   /// Calls [gesture] on every user gesture (a cheap listener for the life of
   /// the page) and [visible] when the page or app is hidden or shown.

@@ -54,7 +54,7 @@ class SilentBackend implements AudioBackend {
   }) => Voice(clip, variant);
 
   @override
-  void fadeOut(Voice voice, double seconds) {}
+  void fadeOut(Voice voice, double seconds, {double? at}) {}
 
   @override
   void listen({
