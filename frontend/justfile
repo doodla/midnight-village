@@ -37,9 +37,10 @@ test:
     flutter test --dart-define=ENV=dev --exclude-tags e2e
 
 # The widget tests without the golden ones (GitHub runs those as their own job,
-# `just flutter-test-golden`; on Linux `just test` runs both)
-test-widgets:
-    flutter test --dart-define=ENV=dev --exclude-tags golden
+# `just flutter-test-golden`; on Linux `just test` runs both). `just test-widgets 2 3` is
+# the second of three parts: GitHub runs the three side by side.
+test-widgets part="" of="":
+    flutter test --dart-define=ENV=dev --exclude-tags golden {{ if part == "" { "" } else { "--total-shards " + of + " --shard-index $((" + part + " - 1))" } }}
 
 # Run tests with coverage (excludes the live-backend e2e harness)
 test-cov:
