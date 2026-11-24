@@ -64,6 +64,12 @@ previous-build-check *args:
 guard-edits *args:
     @tool/guard_edits.py {{args}}
 
+# Give the disk back: a worktree gone quiet (no source change for hours, no process in it)
+# loses its build output; one whose branch is merged (its remote is gone) is removed when
+# nothing in it is uncommitted. `just tidy --dry-run` says what it would do (tool/tidy.py).
+tidy *args:
+    @tool/tidy.py --worktrees {{args}}
+
 # While building: the fast checks and only the tests this change can reach
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
 piece-check *args:

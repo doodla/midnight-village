@@ -40,6 +40,10 @@ worktree of the clone; the same script runs at the start of every Claude session
   (`uv run --group lint`), and the recipes that use the database write a missing
   `backend/.env` themselves (`tool/ensure_env.sh`, named after the folder). `setup_env.sh` is
   for choosing the name and installing everything up front.
+- **Quiet worktrees lose their build output**: one with no source change for three hours
+  and no process in it is cleared at the next session start (the files are made again by the
+  recipes). `just tidy` also removes a worktree whose pull request has merged, when nothing in
+  it is uncommitted (`just tidy --dry-run` to see first).
 - **Every test run has its own database**: pytest builds `test_<DB_NAME>_<process id>`
   (`backend/config/test_database.py`), so two runs side by side, in one checkout or in two,
   never share one (on one machine: the process id is what tells them apart). A run that was killed leaves its database behind; the next run drops it.

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# SessionStart hook (and tool/setup_env.sh): turns the commit gate on, and starts
-# Postgres when it is installed and down (it is down after every container restart).
+# SessionStart hook (and tool/setup_env.sh): turns the commit gate on, starts
+# Postgres when it is installed and down (it is down after every container restart),
+# and clears the build output of finished worktrees (tool/tidy.py).
 # Points git at the tracked hooks (`core.hooksPath` = .claude/hooks/git, shared by
 # every worktree of the clone) when it points anywhere else, and makes the hook
 # files executable. Silent on success, one plain line on failure, and it never
@@ -18,6 +19,11 @@ want=".claude/hooks/git"
   fi
   if command -v pg_isready >/dev/null && command -v service >/dev/null && ! pg_isready -q; then
     service postgresql start >/dev/null || true
+  fi
+  # Worktrees gone quiet (no source change for hours, no process in them) lose their build
+  # output, about a gigabyte each: in the background, so the session does not wait for it.
+  if [ -x "$root/tool/tidy.py" ]; then
+    (cd "$root" && tool/tidy.py --quiet >/dev/null 2>&1 &)
   fi
 } 2>/dev/null
 exit 0

@@ -20,7 +20,8 @@ table of "this test covers that file" to keep.
 - A frontend change this cannot map (pubspec, an asset, test settings) runs all
   the frontend tests, and says why.
 
-Screens are not rendered here: `just screens` stays a step of its own.
+- Screens: only the catalogue states that draw what changed, strict at 360 and
+  390 (tool/piece_screens.py works out which from each state's widget tree).
 
 usage: tool/piece_check.py [--list] [--far] [--base <ref>]
   --list   print what would run, run nothing
@@ -32,6 +33,7 @@ usage: tool/piece_check.py [--list] [--far] [--base <ref>]
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +46,16 @@ FRONTEND_ALL = (
     "frontend/assets/",
     "frontend/dart_test.yaml",
     "frontend/analysis_options.yaml",
+)
+# How many changed files are listed, and how many is "did this just merge main?".
+SHOWN_CHANGES = 12
+MANY_CHANGES = 60
+# A change under one of these can change what a screen looks like.
+SCREEN_INPUTS = (
+    "frontend/lib/",
+    "frontend/assets/",
+    "frontend/test_screens/",
+    "frontend/test/helpers/",
 )
 GUARDRAIL_PATHS = (
     ".claude/",
@@ -64,6 +76,12 @@ def git(*args: str) -> str:
 def changed_files(base: str | None) -> list[str]:
     """Paths that differ from the base (committed, staged or not, and new files)."""
     if base is None:
+        # main as it is now on the remote: with a stale copy, a branch that has
+        # merged main would count everything main gained as its own change
+        subprocess.run(
+            ["git", "-C", str(ROOT), "fetch", "--quiet", "--no-tags", "origin", "main"],
+            capture_output=True,
+        )
         try:
             base = git("merge-base", "origin/main", "HEAD").strip()
         except subprocess.CalledProcessError:
@@ -211,8 +229,26 @@ def plan(changed: list[str], everything: bool = False) -> list[tuple[str, str, l
                         "--dart-define=ENV=dev",
                         "--exclude-tags",
                         "e2e",
+                        # only failures: a passing run is one line, not a
+                        # progress line per test
+                        "--reporter",
+                        "failures-only",
                         *tests,
                     ],
+                )
+            )
+        drawn = [
+            c
+            for c in frontend
+            if c.startswith(SCREEN_INPUTS) or c in ("frontend/pubspec.yaml",)
+        ]
+        if drawn:
+            # which states is worked out when the step runs (tool/piece_screens.py)
+            steps.append(
+                (
+                    "the screen states this change can reach, strict at 360 and 390",
+                    ".",
+                    [sys.executable, "tool/piece_screens.py", *drawn],
                 )
             )
         generated = [
@@ -238,7 +274,21 @@ def main(argv: list[str]) -> int:
         print("piece-check: nothing changed against main.")
         return 0
     steps = plan(changed, everything="--far" in argv)
-    print(f"piece-check: {len(changed)} changed files, {len(steps)} steps")
+    # The plan first, always: what was seen and what will run, before any of it.
+    print(f"piece-check: {len(changed)} changed files against main:")
+    for name in changed[:SHOWN_CHANGES]:
+        print(f"    {name}")
+    if len(changed) > SHOWN_CHANGES:
+        print(f"    ... and {len(changed) - SHOWN_CHANGES} more")
+    if len(changed) > MANY_CHANGES:
+        print(
+            f"  ({len(changed)} is a lot for one piece: if this branch just merged main,"
+            " run `git fetch origin main` and try again; this compares with where the"
+            " branch left main.)"
+        )
+    print(f"piece-check: {len(steps)} steps:")
+    for number, (what, _, _) in enumerate(steps, 1):
+        print(f"  {number}. {what}")
     if "--list" in argv:
         for what, folder, command in steps:
             shown = " ".join(command)
@@ -246,19 +296,23 @@ def main(argv: list[str]) -> int:
                 f"  {what}\n    ({folder}) {shown[:300]}{' ...' if len(shown) > 300 else ''}"
             )
         return 0
-    failed = []
-    for what, folder, command in steps:
-        print(f"\n== {what}", flush=True)
-        if subprocess.run(command, cwd=ROOT / folder).returncode != 0:
-            failed.append(what)
+    results = []
+    for number, (what, folder, command) in enumerate(steps, 1):
+        print(f"\n== {number}/{len(steps)} {what}", flush=True)
+        started = time.monotonic()
+        ok = subprocess.run(command, cwd=ROOT / folder).returncode == 0
+        took = time.monotonic() - started
+        results.append((ok, what, took))
+        print(f"== {'ok' if ok else 'FAILED'} in {took:.0f} s: {what}", flush=True)
     print()
-    for what, _, _ in steps:
-        print(f"{'FAIL' if what in failed else 'ok  '} {what}")
-    if not failed:
+    for ok, what, took in results:
+        print(f"{'ok  ' if ok else 'FAIL'} {took:5.0f} s  {what}")
+    if all(ok for ok, _, _ in results):
         print(
             "\nThis is the fast check: GitHub runs the whole suite on the pull request."
         )
-    return 1 if failed else 0
+        return 0
+    return 1
 
 
 if __name__ == "__main__":
