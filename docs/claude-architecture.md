@@ -120,8 +120,8 @@ screen word for word, its catalogue states and parked faults, the files that dra
 their sizes, its tests, and the remote branches in the same files. `just handover <file>`
 (`tool/handover.py`, `frontend/tool/handover_sheet.py`) is the one way to hand over: it
 refuses work that is not committed, pushed and mergeable with main; runs the fast check's
-plan at both widths plus the harness, each result kept per commit so a second run carries
-on; draws every reached state beside main at 412x915 and 360x640 and puts the changed ones
+plan at both widths plus the harness, each result and each finished set of pictures kept per commit
+the moment it is done, so a run killed part way carries on when run again; draws every reached state beside main at 412x915 and 360x640 and puts the changed ones
 on contact sheets; and writes the hand-over file in one fixed shape
 (`guardrails/tests/test_handover.py`, `test_brief.py`). Every recipe of `frontend/` and
 `backend/` also exists at the root, and those folders fall back to the root's.

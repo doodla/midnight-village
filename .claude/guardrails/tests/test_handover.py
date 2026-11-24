@@ -229,6 +229,52 @@ class TheFile(unittest.TestCase):
 
 
 class OnlyOnThisCommit(unittest.TestCase):
+    def test_a_run_killed_part_way_keeps_what_it_finished(self):
+        """The first check is recorded the moment it ends, before the second
+        starts: a kill during the second loses only the second."""
+        import sys
+
+        tool, piece = load(REPO), load(REPO).tool("piece_check")
+        with tempfile.TemporaryDirectory() as tmp:
+            kept = Path(tmp) / "checks.json"
+            seen = Path(tmp) / "seen"
+            first = ("first", ".", [sys.executable, "-c", "pass"])
+            # the second step reads what is on disk while it runs
+            second = (
+                "second",
+                ".",
+                [sys.executable, "-c", f"import shutil; shutil.copy({str(kept)!r}, {str(seen)!r})"],
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                tool.run_checks([first, second], "a" * 40, piece, kept)
+            self.assertIn(" ".join(first[2]), seen.read_text())
+
+    def test_pictures_drawn_on_this_commit_are_not_drawn_again(self):
+        pictures = load(REPO).tool("handover_pictures")
+        drawn = []
+        pictures.draw = lambda checkout, states, w, h, out, what: drawn.append(what) or True
+        pictures.base_checkout = lambda base: Path("/nowhere")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            real_run = pictures.subprocess.run
+            pictures.subprocess.run = lambda *a, **k: type(
+                "Done", (), {"returncode": 0, "stdout": '{"changed": [], "new": [], "missing": [], "sheets": []}', "stderr": ""}
+            )()
+            try:
+                for size in pictures.SIZES:
+                    (out / "run-aaaaaaaaaaaa" / f"{size[0]}x{size[1]}").mkdir(parents=True)
+                with contextlib.redirect_stdout(io.StringIO()):
+                    pictures.pictures(["09-vote"], "base", out, "a" * 40)
+                    first = len(drawn)
+                    pictures.pictures(["09-vote"], "base", out, "a" * 40)
+                    self.assertEqual(first, 4)
+                    self.assertEqual(len(drawn), 4, "the second run drew nothing again")
+                    # another commit, or other states, is drawn afresh
+                    pictures.pictures(["09-vote", "08-talk"], "base", out, "a" * 40)
+                    self.assertEqual(len(drawn), 8)
+            finally:
+                pictures.subprocess.run = real_run
+
     def test_a_step_that_passed_on_this_commit_is_not_run_again(self):
         import sys
 
