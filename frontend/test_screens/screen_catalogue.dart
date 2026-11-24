@@ -15,6 +15,18 @@ import 'shell_fixtures.dart';
 import 'story_fixtures.dart';
 import 'table_fixtures.dart';
 
+part 'catalogue/pages_01.dart';
+part 'catalogue/pages_01b.dart';
+part 'catalogue/pages_02.dart';
+part 'catalogue/pages_03.dart';
+part 'catalogue/pages_03b.dart';
+part 'catalogue/pages_04.dart';
+part 'catalogue/pages_05.dart';
+part 'catalogue/pages_06.dart';
+part 'catalogue/pages_08.dart';
+part 'catalogue/pages_09.dart';
+part 'catalogue/pages_12.dart';
+
 /// One screen, or one state of a screen, in the gallery.
 class ScreenEntry {
   /// A screen the app has: [build] puts the app into that state.
@@ -75,250 +87,22 @@ class ScreenEntry {
   final double textScale;
 }
 
-/// Every screen and state, in the order of the design brief's table, then the
-/// component sheet. Adding a screen or a state is one entry here.
+/// Every screen and state, by screen (each screen's states are its own file,
+/// `catalogue/pages_<screen>.dart`), then the end board's pages and the component
+/// sheet. Adding a state is one entry in its screen's file; a new screen is a new
+/// file and one line here.
 final screenCatalogue = <ScreenEntry>[
-  // 01 to 03b through the app's routes (table_fixtures.dart).
-  // Home before 01: the saved account read back (then a try unanswered).
-  ..._rebuilt('01-home-reading-account', null, {
-    '': const _NoMain(_opening, pumpHomeReading),
-    '-unanswered': const _NoMain(_opening, pumpHomeUnanswered),
-    '-slow': const _NoMain(_opening, pumpHomeSlow),
-    '-seat-unknown': const _NoMain(_opening, pumpHomeSeatUnknown),
-  }),
-  // The opening in its first frame (no sign yet: an answer that comes now
-  // shows none).
-  ScreenEntry(
-    '01-home-reading-account-first-frame',
-    mock: null,
-    build: pumpHomeFirstFrame,
-    playerScreen: true,
-    frames: 1,
-    sweep: SweepPlan.noMainAction(_opening),
-  ),
-  // What 01's taps look like while they are on their way and when they fail.
-  ..._rebuilt('01-join', null, {
-    '-starting': const _NoMain(_onItsWay, pumpJoinStarting),
-    '-joining': const _NoMain(_onItsWay, pumpJoinJoining),
-    '-join-not-sent': pumpJoinNotSent,
-    '-start-not-sent': pumpStartNotSent,
-    '-no-table': pumpJoinRefused,
-    '-full': (tester) =>
-        pumpJoinRefused(tester, sample: 'join_full', status: 400),
-    '-playing': (tester) =>
-        pumpJoinRefused(tester, sample: 'join_closed', status: 400),
-  }),
-  ..._rebuilt('01-join', '01-join.png', {
-    '': pumpJoinFresh,
-    '-returning': pumpJoinReturning,
-    // The one plaque: Start a table until the code is whole, then Join.
-    '-code-open': pumpJoinCodeOpen,
-    '-code': pumpJoinCode,
-    '-link': pumpJoinLink,
-    '-link-named': pumpJoinLinkNamed,
-    '-link-elsewhere': const _NoMain(_elsewhere, pumpJoinLinkElsewhere),
-    '-closed': pumpJoinClosed,
-    '-keyboard': pumpJoinKeyboard,
-    '-android-web': pumpJoinAndroidWeb,
-    '-android-web-fresh': pumpJoinAndroidWebFresh,
-    '-android-web-keyboard': pumpJoinAndroidWebKeyboard,
-    '-android-web-x2': const _AtText(2.0, pumpJoinAndroidWeb),
-    '-x1.3': const _AtText(1.3, pumpJoinFresh),
-    '-x1.6': const _AtText(1.6, pumpJoinFresh),
-    '-code-x1.6': const _AtText(1.6, pumpJoinCode),
-    '-x2': const _AtText(2.0, pumpJoinFresh),
-  }),
-  // The scanner 01 opens (no mock: its pictures are the build's own).
-  ..._rebuilt('01b-scan', null, {
-    '': const _NoMain(
-      'the scanner looks for a code: nothing to press',
-      pumpScanLooking,
-    ),
-    '-found': const _NoMain('a code is found: the table opens', pumpScanFound),
-    '-refused': pumpScanRefused,
-    '-x1.3': const _AtText(1.3, pumpScanLooking),
-  }),
-  ..._rebuilt('02-table', '02-table.png', {
-    '': pumpTableHost,
-    '-4': pumpTableHostFour,
-    '-7-chaos': pumpTableHostChaos,
-    '-alone': pumpTableHostAlone,
-    '-9-long': pumpTableHostNine,
-    '-9-long-x1.6': const _AtText(1.6, pumpTableHostNine),
-    '-custom': pumpTableHostCustom,
-    '-custom-short': pumpTableHostMismatch,
-    '-dropped': pumpTableDropped,
-    '-guest': const _NoMain(_guest, pumpTableGuest),
-    '-handover': pumpTableHandover,
-    '-seats-alone': pumpTableSeatsAlone,
-    '-seats-3': pumpTableSeatsThree,
-    '-seats-3-guest': _NoMain(
-      _guest,
-      (tester) => pumpTableSeatsThree(tester, viewer: 'Ugo'),
-    ),
-    '-seats-4': pumpTableSeatsFour,
-    '-seats-4-guest': const _NoMain(_guest, pumpTableSeatsGuest),
-    '-seats-7': pumpTableSeatsSeven,
-    '-seats-lowered': pumpTableSeatsLowered,
-    '-blocked': pumpTableLowered,
-    '-blocked-guest': const _NoMain(_guest, pumpTableLoweredGuest),
-    '-seats-full': pumpTableSeatsFull,
-    '-practice': pumpTablePractice,
-    '-practice-guest': _NoMain(
-      _guest,
-      (tester) => pumpTablePractice(tester, viewer: 'Quin'),
-    ),
-    '-practice-short': pumpTablePracticeShort,
-    '-seats-x1.3': const _AtText(1.3, pumpTableSeatsAlone),
-    '-x1.3': const _AtText(1.3, pumpTableHost),
-    '-guest-x2': const _AtText(2.0, pumpTableGuest),
-  }),
-  // 02 while its table is read, and while it is not reachable; its taps
-  // while they are on their way and when they fail.
-  ..._rebuilt('02-table', null, {
-    '-waiting': const _NoMain(_waits, pumpTableWaiting),
-    '-offline': const _NoMain(_waits, pumpTableOffline),
-    '-dealing': const _NoMain(_onItsWay, pumpTableDealing),
-    '-deal-not-sent': pumpTableDealNotSent,
-    '-leaving': const _NoMain(_onItsWay, pumpTableLeaving),
-    '-leave-not-sent': const _NoMain(_guest, pumpTableLeaveNotSent),
-  }),
-  ..._rebuilt('03-deck', null, {
-    '-waiting': const _NoMain(_waits, pumpDeckWaiting),
-    '-offline': const _NoMain(_waits, pumpDeckOffline),
-  }),
-  ..._rebuilt('03-deck', '03-deck.png', {
-    '': pumpDeckChips,
-    '-chaos': pumpDeckChaos,
-    '-edit': pumpDeckEdit,
-    '-grid': pumpDeckGrid,
-    '-grid-short': pumpDeckGridShort,
-    '-grid-over': pumpDeckGridOver,
-    '-seats-8': pumpDeckSeats,
-    '-alone': pumpDeckAlone,
-    '-lengths': pumpDeckLengths,
-    '-lengths-doppelganger': pumpDeckLengthsDoppelganger,
-    '-practice': pumpDeckPractice,
-    '-practice-switched': pumpDeckPracticeSwitched,
-    '-x1.3': const _AtText(1.3, pumpDeckAlone),
-  }),
-  ..._rebuilt('03b-deck-role', '03b-deck-role-explained.png', {
-    '': const _NoMain(_sheet, pumpDeckRole),
-    // The Werewolf's card sheet with no game (the lunge), as a player sees it
-    // before a table is dealt.
-    '-werewolf-no-game': const _NoMain(_sheet, pumpDeckRoleWerewolf),
-  }),
-  // The Werewolf in a game, each of its three portraits (the gallery pins one
-  // for every other picture, so a missing or wrong one would hide behind it).
-  for (final wolf in WerewolfPortrait.values)
-    ..._rebuilt('06-night-board', '06-night-action.png', {
-      '-lone-werewolf-${wolf.name}': (tester) => _withWerewolf(
-        wolf,
-        () => pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
-      ),
-    }),
-  // 04 to the end board, through the real shell (shell_fixtures.dart,
-  // end_fixtures.dart).
-  ..._rebuilt('04-your-card', '04-your-card.png', {
-    '': pumpYourCard,
-    '-held': pumpYourCardHeld,
-    '-held-minion': pumpYourCardHeldMinion,
-    '-held-doppelganger': (tester) =>
-        pumpYourCardHeldAs(tester, 'Doppelganger'),
-    // The Werewolf's three portraits, each held on the card.
-    for (final wolf in WerewolfPortrait.values)
-      '-held-werewolf-${wolf.name}': (tester) =>
-          _withWerewolf(wolf, () => pumpYourCardHeldAs(tester, 'Werewolf')),
-    '-ready': const _NoMain(_done, pumpYourCardReady),
-    '-x1.3': const _AtText(1.3, pumpYourCard),
-    '-held-minion-x1.6': const _AtText(1.6, pumpYourCardHeldMinion),
-  }),
-  ..._rebuilt('04-your-card', null, {
-    '-waiting': const _NoMain(_waits, pumpYourCardWaiting),
-    '-wait-failing': const _NoMain(_waits, pumpYourCardWaitFailing),
-    '-not-sent': const _NoMain(_done, pumpYourCardNotSent),
-  }),
-  ..._rebuilt('05-night-loading', '05-night-waiting.png', {
-    '': const _NoMain(_waits, pumpNightLoading),
-  }),
-  ..._rebuilt('06-night-board', null, {'-offline': pumpNightOffline}),
-  ..._rebuilt('08-talk', null, {
-    '-waiting': const _NoMain(_waits, pumpTalkWaiting),
-    '-wait-failing': const _NoMain(_waits, pumpTalkWaitFailing),
-    '-offline': pumpTalkOffline,
-  }),
-  ..._rebuilt('09-vote', null, {
-    '-waiting': const _NoMain(_waits, pumpVoteWaiting),
-    '-not-sent': pumpVoteNotSent,
-    '-offline': const _NoMain(_waits, pumpVoteOffline),
-  }),
-  // The end board's live states, through the shell (end_fixtures.dart).
-  ..._rebuilt('12-end-shell', null, {
-    '-loading': const _NoMain(_waits, pumpResultsLoading),
-    '-playing-again': const _NoMain(_onItsWay, pumpResultsPlayingAgain),
-    '-leaving': const _NoMain(_onItsWay, pumpResultsLeaving),
-    '-not-sent': pumpResultsNotSent,
-    '-refused': pumpResultsRefused,
-  }),
-  ..._rebuilt('06-night-board', '06-night-action.png', {
-    '': pumpNightBoard,
-    '-sleeper': const _NoMain(
-      'nothing to do tonight: the board waits for the day',
-      pumpNightSleeper,
-    ),
-    '-picked': pumpNightPicked,
-    '-seer-center': pumpNightSeerCenter,
-    '-robber': (tester) => pumpNightAs(tester, 'me_choose_prompt_robber'),
-    '-troublemaker': (tester) =>
-        pumpNightAs(tester, 'me_choose_prompt_troublemaker'),
-    '-troublemaker-long': pumpNightTroublemakerLong,
-    '-lone-werewolf': (tester) =>
-        pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
-    '-doppelganger': (tester) =>
-        pumpNightAs(tester, 'me_choose_prompt_doppelganger_look'),
-    '-chosen': const _NoMain(_done, pumpNightChosen),
-    '-follow-up': pumpNightFollowUp,
-    '-3': pumpNightThree,
-    '-4': pumpNightFour,
-    '-9': pumpNightNine,
-    '-10-long': pumpNightTenLong,
-    '-10-long-x1.6': const _AtText(1.6, pumpNightTenLong),
-    '-x1.3': const _AtText(1.3, pumpNightBoard),
-  }),
-  ..._rebuilt('08-talk', '08-talk.png', {
-    '': pumpTalkOpen,
-    '-open-drunk': pumpTalkOpenDrunk,
-    '-open-x1.3': const _AtText(1.3, pumpTalkOpen),
-    '-put-away': pumpTalkPutAway,
-    '-slept': pumpTalkSlept,
-    '-held': pumpTalkHeld,
-    '-held-doppelganger': pumpTalkDoppelgangerHeld,
-    '-ready': pumpTalkReady,
-    '-not-sent': pumpTalkNotSent,
-    '-3': pumpTalkThree,
-    '-9': pumpTalkNine,
-    '-10-long': pumpTalkTenLong,
-    '-x1.3': const _AtText(1.3, pumpTalkPutAway),
-  }),
-  // My night held, every night's picture story (each a recorded talk:
-  // story_samples.dart).
-  ..._rebuilt('08-talk', '08-talk.png', {
-    for (final night in allNights.keys)
-      '-held-$night': (tester) => pumpTalkStory(tester, night),
-  }),
-  ..._rebuilt('09-vote', '09-vote.png', {
-    // "Pick a name" is the locked plaque: pressed, it nudges the slips.
-    '': (tester) => pumpVoteOpen(tester),
-    '-picked': pumpVotePicked,
-    '-locked': const _NoMain(_done, pumpVoteLocked),
-    '-restart-picked': pumpVoteRestartPicked,
-    '-restart-locked': const _NoMain(_done, pumpVoteRestartLocked),
-    '-3': pumpVoteThree,
-    '-10-long': (tester) => pumpVoteTenLong(tester),
-    '-10-long-x1.6': const _AtText(1.6, pumpVoteTenLong),
-    '-practice': pumpVotePractice,
-    '-x1.3': const _AtText(1.3, pumpVoteOpen),
-  }),
+  ..._pages01,
+  ..._pages01b,
+  ..._pages02,
+  ..._pages03,
+  ..._pages03b,
+  ..._pages04,
+  ..._pages05,
+  ..._pages06,
+  ..._pages08,
+  ..._pages09,
+  ..._pages12,
   ...endBoardEntries,
   ...endRevealEntries,
   ...endNightEntries,
