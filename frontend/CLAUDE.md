@@ -157,7 +157,8 @@ detail a few pixels long does not show on a contact sheet) and
 words or screens also runs `just test-harness` before its pull request (the commit gate does
 not; GitHub does, as "End-to-end Harness").
 
-A screen state is declared once, as a `ScreenEntry` in `test_screens/screen_catalogue.dart`:
+A screen state is declared once, as a `ScreenEntry` in its screen's file
+(`test_screens/catalogue/pages_<screen>.dart`, parts of `test_screens/screen_catalogue.dart`):
 from it come its page in `just screens` and the screen sweep in `just test`
 (`test/screen_cases/`: three phones, three text sizes, nothing cut, overflowing or lying on
 another piece, the main button reachable, labelled, 48 to touch and pressed by a finger; what
