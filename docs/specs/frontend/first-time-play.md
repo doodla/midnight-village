@@ -371,11 +371,12 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 
 **09 Vote**
 - **One thing / loudest:** pick a name; the rows.
-- **Locked until:** the button is disabled until a pick is made.
-- **Copy:** "Who dies today?"; "Pick a name", then "Lock in {name}" (with a padlock glyph), then "Locked"; pips "{d} of {n} locked"; timer digits and bar. **8 of 8 words.**
+- **Shadow paper (24 November 2026; overrides the lines below where they differ):** the square's world: the vote's clock (its own size) in 08's strip of night sky with the lantern; a board with `VoteCopy.headline` at its top and every player as a slip of paper in seat order; your own slip is there, sunk into the board with your wax seal, and is never a choice (no words say so); the pick lifts with the paper mark; on the cobbles the one plaque with the count (`VoteCopy.progress`) under its words, where the pips were. The night's ground, never the day's; no bar under the clock.
+- **Locked until:** a pick is made: until then the plaque is the locked form and says `VoteCopy.pickName`; a tap on it nudges the names.
+- **Copy:** "Who dies today?"; "Pick a name", then "Lock in {name}" (with a padlock glyph), then "Locked"; "{d} of {n} locked" under the plaque's words; timer digits. **8 of 8 words.**
 - **Removed:** the pre-selected Cleo (2). The red X (5); the blood fill too, until the owner brought it back for a locked vote only (22 November 2026: "B: red row and seal": the pick's row turns dried-blood red with the seal on 09; the count's killed rows stay outline-only). Tokens on the pips (9). "Seconds to choose" (12). The ink button (18). The host's "Don't wait".
 - **States:**
-  - Your own row is never listed.
+  - Your own row is shown in its seat (since 24 November 2026), sunk into the board, never a choice.
   - The picked row lifts and gets an ink outline. Tapping another row moves the pick.
   - After locking, the player's own pick stays lifted and outlined and the other rows dim; the button reads "Locked". (Owner, 20 November 2026: a neighbour could already read "Lock in Cleo" before the lock; hiding the pick afterwards only costs the player the sight of their own choice.)
   - A practice player's row carries "Practice" after the name, as on 02: "Who dies today?", "Lock in {name}", "{d} of {n} locked" and "Practice" are 8 of 8 words.

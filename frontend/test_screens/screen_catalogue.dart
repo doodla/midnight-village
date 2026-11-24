@@ -296,15 +296,16 @@ final screenCatalogue = <ScreenEntry>[
       '-held-$night': (tester) => pumpTalkStory(tester, night),
   }),
   ..._rebuilt('09-vote', '09-vote.png', {
-    '': const _NoMain(_pickAName, pumpVoteOpen),
+    // "Pick a name" is the locked plaque: pressed, it nudges the slips.
+    '': (tester) => pumpVoteOpen(tester),
     '-picked': pumpVotePicked,
     '-locked': const _NoMain(_done, pumpVoteLocked),
     '-restart-picked': pumpVoteRestartPicked,
     '-restart-locked': const _NoMain(_done, pumpVoteRestartLocked),
-    '-3': const _NoMain(_pickAName, pumpVoteThree),
-    '-10-long': const _NoMain(_pickAName, pumpVoteTenLong),
+    '-3': pumpVoteThree,
+    '-10-long': (tester) => pumpVoteTenLong(tester),
     '-10-long-x1.6': const _AtText(1.6, pumpVoteTenLong),
-    '-practice': const _NoMain(_pickAName, pumpVotePractice),
+    '-practice': pumpVotePractice,
     '-x1.3': const _AtText(1.3, pumpVoteOpen),
   }),
   ...endBoardEntries,
@@ -343,9 +344,6 @@ const _sheet = 'a sheet the player opened: Close, the scrim or Back close it';
 const _done =
     'done (ready, chosen or locked): it waits for the others; a send that '
     'failed is a quiet line with its own Try again';
-const _pickAName =
-    'the vote is a name picked: the button waits for one (the rows are the '
-    'action)';
 
 /// A state with no main action, saying [why] (a wait for the others, a
 /// lock): `SweepPlan.noMainAction`, the sweep's one opt-out.

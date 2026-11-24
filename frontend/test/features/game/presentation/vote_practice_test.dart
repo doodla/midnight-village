@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/design_system/primitives/player_row.dart';
+import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/primitives/you_tag.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
@@ -33,7 +33,6 @@ void main() {
           child: VoteView(
             me: GameMe.fromJson(recordedMe('me_voting_practice')),
             secondsLeft: 72,
-            remaining: null,
             onPick: picks.add,
             onLock: (_) {},
           ),
@@ -49,9 +48,12 @@ void main() {
     testWidgets('${phone.width.toInt()} wide: the practice players are '
         'tagged, the person is not', (tester) async {
       await pump(tester, phone);
-      final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
+      final rows = tester.widgetList<VoteSlip>(find.byType(VoteSlip));
       expect(
-        {for (final r in rows) r.name: r.practice},
+        {
+          for (final r in rows)
+            if (!r.you) r.name: r.practice,
+        },
         {'Pia': false, 'Scarecrow': true, 'Teapot': true},
       );
       expect(find.byType(PracticeTag), findsNWidgets(2));

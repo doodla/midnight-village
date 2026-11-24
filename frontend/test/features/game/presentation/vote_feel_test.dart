@@ -8,11 +8,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/feel/haptics.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
+import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/paper_seal.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/player_token.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
+import 'package:midnight_village/design_system/primitives/square_foot.dart';
+import 'package:midnight_village/design_system/primitives/tilted_paper.dart';
+import 'package:midnight_village/design_system/primitives/vote_slip.dart';
+import 'package:midnight_village/design_system/skin/dress.dart';
+import 'package:midnight_village/design_system/skin/dress_style.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
+import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
@@ -24,11 +31,12 @@ import '../../../helpers/shell_setup.dart';
 import '../../../helpers/sheet/sheet_data.dart' as sheet;
 import '../../../helpers/truncated_text.dart';
 
-// 09 choosing and locking (feel.md, "Vote (09)"): a finger on a row presses it
+// 09 choosing and locking (feel.md, "Vote (09)"): a finger on a slip sinks it
 // the frame it lands, a pick lifts it, a lock stamps a seal on it and turns its
-// paper dried-blood red while the others dim, a tick and a light knock go with
-// the pick and the lock (day only), reduce motion cuts every move, and a name
-// is whole at ten players on the narrowest phone.
+// paper dried-blood red while the others lie down and dim, a tick and a light
+// knock go with the pick and the lock (the vote is the day's, under its night
+// sky: `OpenDay`), reduce motion cuts every move, and a name is whole at ten
+// players on the narrowest phone.
 
 /// The vote as a phone holds it: a tap changes what it shows at once.
 class _Host extends StatefulWidget {
@@ -61,7 +69,6 @@ class _HostState extends State<_Host> {
     child: VoteView(
       me: _me,
       secondsLeft: _seconds,
-      remaining: null,
       accepts: widget.accepts,
       onPick: (id) {
         widget.onPick?.call(id);
@@ -106,74 +113,34 @@ Future<void> _pump(
         ),
       ),
     ),
-    ground: GroundKind.day,
   );
   await tester.pump();
 }
 
-Map<String, dynamic> _tableOf(int more, Map<String, String> rename) {
-  final me = sheet.tableOf(
-    sheet.recordedMe('me_voting_unpicked'),
-    add: more,
-    rename: rename,
-  );
-  final players = (me['players'] as List).cast<Map<String, dynamic>>();
-  // The seats added are seats this phone may vote for too.
-  for (final p in players.skip(5)) {
-    (me['vote_targets'] as List).add(p['player_id']);
-  }
-  return me;
-}
+/// Game 7 with [more] seats (each one this phone may vote for: `tableOf`).
+Map<String, dynamic> _tableOf(int more, Map<String, String> rename) => sheet
+    .tableOf(sheet.recordedMe('me_voting_unpicked'), add: more, rename: rename);
 
 Finder _row(String name) =>
-    find.ancestor(of: find.text(name), matching: find.byType(PlayerRow));
+    find.ancestor(of: find.text(name), matching: find.byType(VoteSlip));
 
-PlayerRow _rowOf(WidgetTester tester, String name) =>
-    tester.widget<PlayerRow>(_row(name));
+VoteSlip _rowOf(WidgetTester tester, String name) =>
+    tester.widget<VoteSlip>(_row(name));
 
-/// Where the row's paper is drawn (its dip and lift move it).
-double _paperTop(WidgetTester tester, String name) => tester
-    .getTopLeft(
-      find
-          .descendant(
-            of: find.descendant(
-              of: _row(name),
-              matching: find.byType(AnimatedContainer),
-            ),
-            matching: find.byType(DecoratedBox),
-          )
-          .first,
-    )
-    .dy;
+Finder _paper(String name) =>
+    find.descendant(of: _row(name), matching: find.byType(TiltedPaper)).first;
 
-BoxDecoration _paperOf(WidgetTester tester, String name) =>
-    tester
-            .widget<AnimatedContainer>(
-              find.descendant(
-                of: _row(name),
-                matching: find.byType(AnimatedContainer),
-              ),
-            )
-            .decoration!
-        as BoxDecoration;
+/// Where the slip's paper is drawn (a press sinks it, a pick lifts it).
+double _paperTop(WidgetTester tester, String name) =>
+    tester.getTopLeft(_paper(name)).dy;
 
-/// The colour the row's paper is painted in on this frame (the decoration
-/// the frame draws, not the one the row is going to).
+/// The colour the slip's paper is painted in on this frame.
 Color _paintedPaper(WidgetTester tester, String name) =>
-    (tester
-                .widgetList<DecoratedBox>(
-                  find.descendant(
-                    of: find.descendant(
-                      of: _row(name),
-                      matching: find.byType(AnimatedContainer),
-                    ),
-                    matching: find.byType(DecoratedBox),
-                  ),
-                )
-                .firstWhere((d) => d.position == DecorationPosition.background)
-                .decoration
-            as BoxDecoration)
+    (tester.widget<TiltedPaper>(_paper(name)).decoration as ShapeDecoration)
         .color!;
+
+Ground _groundOf(WidgetTester tester, String name) =>
+    tester.element(_paper(name)).ground;
 
 Rect _bounds(Iterable<Offset> points) {
   final xs = points.map((p) => p.dx), ys = points.map((p) => p.dy);
@@ -204,26 +171,27 @@ void main() {
   final unpicked = sheet.recordedMe('me_voting_unpicked');
   final cleo = sheet.cleo.name;
   final ben = sheet.fiveSeats[1].name;
+  final ana = sheet.fiveSeats.first.name;
 
   group('choosing', () {
-    testWidgets('a finger presses the row the frame it lands, and it comes '
+    testWidgets('a finger sinks the slip the frame it lands, and it comes '
         'back when the finger lifts', (tester) async {
       await _pump(tester, unpicked);
       final rest = _paperTop(tester, ben);
+      final other = _paperTop(tester, cleo);
       final finger = await tester.startGesture(tester.getCenter(_row(ben)));
       await tester.pump();
       await tester.pump(Motion.press);
-      expect(_paperTop(tester, ben), rest + PlayerRow.dip);
-      // Nothing else moves.
-      expect(_paperTop(tester, cleo), isNot(rest + PlayerRow.dip));
+      expect(_paperTop(tester, ben), greaterThan(rest), reason: 'sunk');
+      expect(_paperTop(tester, cleo), other, reason: 'nothing else moves');
       await finger.up();
       await tester.pump();
       await tester.pump(Motion.quick);
-      // It is the pick now: lifted, not at rest.
-      expect(_paperTop(tester, ben), rest - Space.xs);
+      // It is the pick now: lifted, above where it lay.
+      expect(_paperTop(tester, ben), lessThan(rest));
     });
 
-    testWidgets('sliding off a row cancels the press, with no pick', (
+    testWidgets('sliding off a slip cancels the press, with no pick', (
       tester,
     ) async {
       final picks = <int>[];
@@ -234,17 +202,23 @@ void main() {
       await finger.moveTo(tester.getCenter(find.byType(PrimaryButton).last));
       await tester.pump();
       await tester.pump(Motion.quick);
-      expect(_paperTop(tester, ben), rest, reason: 'off the row: not pressed');
+      expect(_paperTop(tester, ben), rest, reason: 'off the slip: not sunk');
       await finger.up();
       await tester.pump(Motion.quick);
       expect(_paperTop(tester, ben), rest);
       expect(picks, isEmpty);
     });
 
-    testWidgets('a tap picks: the row lifts and takes the outline, and a tap '
-        'on another moves the pick', (tester) async {
+    testWidgets('a tap picks: the slip lifts and wears the mark, and a tap '
+        'on another moves the pick; your own is shown and never a choice', (
+      tester,
+    ) async {
       final picks = <int>[];
       await _pump(tester, unpicked, onPick: picks.add);
+      expect(_rowOf(tester, ana).you, isTrue, reason: 'this phone, shown');
+      await plainTap(tester, _row(ana), why: 'your own slip is no button');
+      await tester.pump(Motion.quick);
+      expect(picks, isEmpty, reason: 'your own slip is not a choice');
       await pressLikeAFinger(tester, _row(cleo));
       await tester.pump(Motion.quick);
       expect(_rowOf(tester, cleo).picked, isTrue);
@@ -257,18 +231,35 @@ void main() {
       expect(picks, hasLength(2));
     });
 
-    testWidgets('reduce motion: the press is a tint, not a move; the pick '
-        'is at its place at once', (tester) async {
+    testWidgets('reduce motion: the pick is at its place in one frame', (
+      tester,
+    ) async {
       await _pump(tester, unpicked, reduce: true);
       final rest = _paperTop(tester, ben);
-      final plain = _paperOf(tester, ben).color;
       final finger = await tester.startGesture(tester.getCenter(_row(ben)));
       await tester.pump();
-      expect(_paperTop(tester, ben), rest);
-      expect(_paperOf(tester, ben).color, isNot(plain));
       await finger.up();
       await tester.pump();
-      expect(_paperTop(tester, ben), rest - Space.xs, reason: 'one frame');
+      expect(_paperTop(tester, ben), lessThan(rest), reason: 'one frame');
+    });
+
+    testWidgets('"Pick a name" is the locked plaque, and a tap on it nudges '
+        'the slips', (tester) async {
+      await _pump(tester, unpicked);
+      final plaque = tester.widget<PrimaryButton>(
+        find.byType(PrimaryButton).last,
+      );
+      expect(plaque.phase, ButtonPhase.locked);
+      expect(plaque.label, VoteCopy.pickName);
+      final rest = tester.getTopLeft(_paper(cleo)).dy;
+      await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
+      var moved = false;
+      for (var i = 0; i < 20 && !moved; i++) {
+        await tester.pump(const Duration(milliseconds: 30));
+        moved = tester.getTopLeft(_paper(cleo)).dy != rest;
+      }
+      expect(moved, isTrue, reason: 'the slips nudge');
+      await tester.pump(const Duration(seconds: 4));
     });
   });
 
@@ -297,7 +288,7 @@ void main() {
       expect(_rowOf(tester, cleo).sealed, isTrue);
       expect(_rowOf(tester, cleo).picked, isTrue, reason: 'stays lifted');
       // The lock turns the pick's paper dried-blood red.
-      expect(_paperOf(tester, cleo).color, const Color(0xFF80241E));
+      expect(_paintedPaper(tester, cleo), _groundOf(tester, cleo).danger);
       expect(_rowOf(tester, ben).dimmed, isTrue);
       expect(_rowOf(tester, ben).sealed, isFalse);
       expect(find.text(VoteCopy.locked), findsOneWidget);
@@ -340,7 +331,7 @@ void main() {
       await _pump(tester, unpicked, reduce: true);
       await lock(tester);
       await tester.pump();
-      expect(_paperOf(tester, cleo).color, const Color(0xFF80241E));
+      expect(_paintedPaper(tester, cleo), _groundOf(tester, cleo).danger);
       expect(
         tester
             .widget<AnimatedOpacity>(
@@ -406,10 +397,12 @@ void main() {
       );
     });
 
-    testWidgets('a tap on a dimmed row does nothing', (tester) async {
+    testWidgets('a tap on a dimmed slip does nothing', (tester) async {
       final picks = <int>[];
       await _pump(tester, unpicked, onPick: picks.add);
       await lock(tester);
+      // The others lie down (from the lock's frame), then are still.
+      await tester.pump(Motion.settle);
       await tester.pump(Motion.settle);
       picks.clear();
       final rest = _paperTop(tester, ben);
@@ -430,7 +423,7 @@ void main() {
       PlayerRowSize.grand,
     ]) {
       for (final name in [sheet.cleo.name, 'Rosalind Fairweather-Okonkwo']) {
-        testWidgets('${size.name}, "$name": stays inside the token at rest '
+        testWidgets('${size.name}, "$name": stays inside the sigil at rest '
             'and never touches the name while it lands', (tester) async {
           tester.view.physicalSize = const Size(360, 400);
           tester.view.devicePixelRatio = 1;
@@ -439,41 +432,33 @@ void main() {
           var sealed = false;
           await pumpSkinned(
             tester,
-            StatefulBuilder(
-              builder: (context, set) {
-                flip = set;
-                return Padding(
-                  padding: const EdgeInsets.all(Space.gutter),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: PlayerRow(
-                      token: sheet.cleo.token,
-                      name: name,
-                      size: size,
-                      picked: true,
-                      sealed: sealed,
+            DressScope(
+              dress: Dress.paper,
+              child: StatefulBuilder(
+                builder: (context, set) {
+                  flip = set;
+                  return Padding(
+                    padding: const EdgeInsets.all(Space.gutter),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: VoteSlip(
+                        token: sheet.cleo.token,
+                        name: name,
+                        size: size,
+                        picked: true,
+                        sealed: sealed,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-            ground: GroundKind.day,
           );
           await tester.pump();
           flip(() => sealed = true);
           Rect nameBox() => tester.getRect(find.text(name));
           Rect token() => tester.getRect(find.byType(PlayerToken));
-          Rect paper() => tester.getRect(
-            find
-                .descendant(
-                  of: find.descendant(
-                    of: find.byType(PlayerRow),
-                    matching: find.byType(AnimatedContainer),
-                  ),
-                  matching: find.byType(DecoratedBox),
-                )
-                .at(1),
-          );
+          Rect paper() => tester.getRect(find.byType(TiltedPaper).first);
           var frames = 0;
           for (var t = 0; t <= Motion.settle.inMilliseconds; t += 17) {
             await tester.pump(
@@ -486,7 +471,6 @@ void main() {
               reason: 'frame $frames: $seal against the name ${nameBox()}',
             );
             expect(seal.overlaps(nameBox()), isFalse, reason: 'frame $frames');
-            // Not below the paper (the lift lowers nothing, it raises).
             expect(
               seal.bottom,
               lessThanOrEqualTo(paper().bottom),
@@ -495,7 +479,7 @@ void main() {
             frames++;
           }
           expect(frames, greaterThan(10));
-          // At rest: the disc, tilt and shadow all inside the token.
+          // At rest: the disc, tilt and shadow all inside the sigil.
           final seal = _sealBox(tester);
           final at = token();
           expect(seal.left, greaterThanOrEqualTo(at.left));
@@ -531,12 +515,15 @@ void main() {
         expect(row.sealed, isFalse, reason: '${seat.name} not sealed');
         expect(row.dimmed, isFalse, reason: '${seat.name} not dimmed');
         expect(row.onTap, isNotNull, reason: '${seat.name} can be tapped');
-        expect(_paintedPaper(tester, seat.name), const Color(0xFFE9E2D0));
+        expect(
+          _paintedPaper(tester, seat.name),
+          PaperPiece.fillOf(tester.element(_paper(seat.name)), PaperPart.scrap),
+        );
       }
       expect(find.text(VoteCopy.locked), findsNothing);
     }
 
-    testWidgets('refused by the server: the rows are choosable again, no '
+    testWidgets('refused by the server: the slips are choosable again, no '
         'seal, no fill', (tester) async {
       final s = await picked(tester);
       s.answerPost('/vote/', 'game/vote_self', status: 400);
@@ -573,10 +560,15 @@ void main() {
     };
 
     for (final locked in [false, true]) {
-      testWidgets('ten players at 360 wide: every name whole, nothing '
-          'overflows${locked ? ', locked' : ''}', (tester) async {
-        await _pump(tester, _tableOf(5, long));
-        await pressLikeAFinger(tester, _row('Rosalind Fairweather-Okonkwo'));
+      testWidgets('ten players at 360 x 640: every name whole, nothing '
+          'overflows, the plaque on screen${locked ? ', locked' : ''}', (
+        tester,
+      ) async {
+        await _pump(tester, _tableOf(5, long), phone: const Size(360, 640));
+        final far = _row('Rosalind Fairweather-Okonkwo');
+        await tester.ensureVisible(far);
+        await tester.pumpAndSettle();
+        await pressLikeAFinger(tester, far);
         await tester.pump(Motion.quick);
         if (locked) {
           await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
@@ -585,28 +577,30 @@ void main() {
         for (final name in long.values) {
           expect(_row(name), findsOneWidget, reason: name);
         }
+        final plaque = tester.getRect(find.byType(PrimaryButton).last);
+        expect(plaque.bottom, lessThanOrEqualTo(640), reason: 'on screen');
         expect(truncatedText(tester), isEmpty);
         expect(tester.takeException(), isNull);
       });
     }
 
-    testWidgets('five at 360 wide: the rows use the room, no empty foot', (
+    testWidgets('five at 360 wide: the slips use the board, no empty foot', (
       tester,
     ) async {
       await _pump(tester, unpicked);
       final last = tester.getRect(_row(sheet.fiveSeats.last.name)).bottom;
-      final pips = tester.getTopLeft(find.textContaining('locked')).dy;
-      // The rows are capped at VoteRows.maxRowHeight, so on a tall phone the
-      // rest of the room is shared above and below them: the last row ends
-      // within two gaps of the count under the rows.
-      expect(pips - last, lessThan(Space.xxl + Space.xl));
+      final foot = tester.getTopLeft(find.byType(SquareFoot)).dy;
+      // The slips are capped at VoteRows.maxRowHeight, so on a tall phone the
+      // rest of the room is shared above and below them: the last slip ends
+      // within two gaps of the board's foot.
+      expect(foot - last, lessThan(Space.xxl + Space.xl));
       expect(tester.takeException(), isNull);
     });
   });
 
-  group('the rows share the room', () {
+  group('the slips share the room', () {
     for (final players in [2, 3, 4, 6, 10]) {
-      testWidgets('$players at 360 wide: no row past the cap, none past '
+      testWidgets('$players at 360 wide: no slip past the cap, none past '
           '30% of its size, the rest of the room above and below', (
         tester,
       ) async {
@@ -620,14 +614,11 @@ void main() {
           me['vote_targets'] = targets.take(players).toList();
         }
         await _pump(tester, me);
-        final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
+        final rows = tester.widgetList<VoteSlip>(find.byType(VoteSlip));
         expect(rows, isNotEmpty);
-        final heights = [
-          for (final row in rows)
-            tester.getSize(find.byWidget(row)).height - Space.xs,
-        ];
-        for (final (i, row) in rows.indexed) {
-          expect(heights[i], lessThanOrEqualTo(VoteRows.maxRowHeight + 0.5));
+        for (final row in rows) {
+          final height = tester.getSize(find.byWidget(row)).height;
+          expect(height, lessThanOrEqualTo(VoteRows.maxRowHeight + 0.5));
           expect(
             row.stretch,
             lessThanOrEqualTo(row.size.height * VoteRows.maxStretch + 0.01),
