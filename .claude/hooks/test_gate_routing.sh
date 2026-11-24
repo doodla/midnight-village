@@ -51,6 +51,7 @@ mkdir -p "$R/backend" "$R/frontend/lib" "$R/docs" "$R/contract_samples" "$R/tool
 cp -r "$HOOKS" "$R/.claude/hooks"
 printf '#!/bin/sh\nexit 0\n' > "$R/tool/check_instruction_links.sh"; chmod +x "$R/tool/check_instruction_links.sh"
 cp "$REPO/tool/check_file_sizes.py" "$R/tool/check_file_sizes.py"
+cp "$REPO/tool/change_base.py" "$R/tool/change_base.py"
 echo a > "$R/backend/x.py"; echo b > "$R/frontend/lib/y.dart"; echo c > "$R/docs/z.md"
 (
   # the copied hooks hold a long file: it is in the first commit, so the size check (which
