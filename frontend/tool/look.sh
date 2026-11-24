@@ -12,6 +12,7 @@
 #   <state>-w<width>.png          before | after | what changed (changed pixels in red)
 #   after/<state>.png             the working tree's picture alone
 #   before/<state>.png            main's picture alone (absent for a new state)
+# Pictures of states looked at earlier stay (a state drawn again replaces its own).
 # "Before" is the commit this branch left main at, drawn in a checkout kept in
 # build/look/base (made once, reused while that commit stays the same).
 set -euo pipefail
@@ -24,8 +25,11 @@ for n in "$width" "$height"; do
   [[ "$n" =~ ^[1-9][0-9]*$ ]] || { echo "just look: width and height are whole numbers of points, got '$n'" >&2; exit 2; }
 done
 out=build/look
-rm -rf "$out/after" "$out/before"
-mkdir -p "$out"
+# This run draws into its own folder, so the pictures of states looked at
+# earlier are neither wiped nor compared again.
+run="$out/run"
+rm -rf "$run"
+mkdir -p "$out/after" "$out/before" "$run"
 
 draw() {  # draw <checkout's frontend folder> <where its pictures go>
   ( cd "$1" && flutter test test_screens/look_test.dart --reporter failures-only \
@@ -35,7 +39,7 @@ draw() {  # draw <checkout's frontend folder> <where its pictures go>
 }
 
 echo "look: drawing '$state' at ${width}x${height} from the working tree..."
-draw . "$PWD/$out/after"
+draw . "$PWD/$run/after"
 
 # Before: the commit this branch left main at.
 base="$(git merge-base origin/main HEAD 2>/dev/null || true)"
@@ -54,9 +58,13 @@ else
   # main may not have this file yet: it stands on its own, so the same one is used
   cp test_screens/look_test.dart "$held/frontend/test_screens/look_test.dart"
   echo "look: drawing it from main..."
-  if ! draw "$held/frontend" "$PWD/$out/before"; then
+  if ! draw "$held/frontend" "$PWD/$run/before"; then
     echo "look: main could not draw '$state' (a new state?): no 'before' picture."
   fi
 fi
 
-uv run --quiet --with pillow python tool/look_compare.py "$out" "$width"
+uv run --quiet --with pillow python tool/look_compare.py "$run" "$width" "$out"
+for side in after before; do
+  [ -d "$run/$side" ] && cp "$run/$side"/*.png "$out/$side/" 2>/dev/null || true
+done
+rm -rf "$run"
