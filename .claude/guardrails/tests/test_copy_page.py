@@ -85,9 +85,58 @@ class CopyPage(unittest.TestCase):
 
     def test_words_in_quotes_and_other_backticks_are_nobodys_business(self):
         self.assertEqual(
-            self.spec('The button says "Ready to vote" (`PrimaryButton`, `just screens`).\n'),
+            self.spec(
+                'The button says "Ready to vote" (`PrimaryButton`, `just screens`).\n'
+            ),
             [],
         )
+
+    def play(self, section_three: str) -> list[str]:
+        (self.tool.SPECS / "first-time-play.md").write_text(
+            '## 2. Cues\n\nThe cue says "Hold".\n\n## 3. Screens\n\n'
+            + section_three
+            + '\n## 4. Server\n\nIt says "Hold" too.\n'
+        )
+        return self.tool.check_quotes(self.tool.all_copy())
+
+    def test_a_quote_of_a_keys_words_in_section_three_fails_with_the_key(self):
+        problems = self.play('Line 5\nThe button says "Ready to vote".\n')
+        self.assertEqual(len(problems), 1)
+        self.assertIn("first-time-play.md:8", problems[0])
+        self.assertIn("name `TalkCopy.ready` instead", problems[0])
+
+    def test_a_key_filled_in_is_still_its_words(self):
+        self.assertIn("`CommonCopy.progress`", self.play('Pips "2 of 5 ready".\n')[0])
+        self.assertIn(
+            "`CommonCopy.progress`",
+            self.play("Pips \u201c{d} of {n} ready\u201d.\n")[0],
+        )
+
+    def test_the_exact_key_wins_over_a_template_it_also_fits(self):
+        self.assertIn("`CommonCopy.hold`", self.play('Say "Hold".\n')[0])
+
+    def test_section_three_naming_keys_or_quoting_other_words_passes(self):
+        self.assertEqual(
+            self.play(
+                'The button is `TalkCopy.ready`; the owner said "make it quieter".\n'
+            ),
+            [],
+        )
+
+    def test_words_outside_section_three_are_not_checked(self):
+        self.assertEqual(self.play("No quotes here.\n"), [])
+
+    def test_a_template_with_no_words_of_its_own_matches_only_itself(self):
+        # "{name}." must not make every sentence of one word a quote of it
+        self.assertEqual(self.play('Say "Hello." and "Cleo."\n'), [])
+
+    def test_check_spec_command_runs_both_checks(self):
+        (self.tool.SPECS / "first-time-play.md").write_text(
+            '## 3. Screens\n\nSay "Hold", see `TalkCopy.gone`.\n'
+        )
+        problems = self.tool.check_spec(self.tool.all_copy())
+        problems += self.tool.check_quotes(self.tool.all_copy())
+        self.assertEqual(len(problems), 2)
 
     def test_this_repos_copy_is_read_and_its_specs_name_only_what_exists(self):
         real = load(REPO)
@@ -95,6 +144,7 @@ class CopyPage(unittest.TestCase):
         names = {c["name"] for c in classes}
         self.assertTrue({"CommonCopy", "JoinCopy", "TalkCopy"} <= names)
         self.assertEqual(real.check_spec(classes), [])
+        self.assertEqual(real.check_quotes(classes), [])
 
 
 if __name__ == "__main__":
