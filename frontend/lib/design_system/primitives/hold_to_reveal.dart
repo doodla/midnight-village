@@ -123,8 +123,11 @@ class _HoldToRevealState extends State<HoldToReveal>
   final _portal = OverlayPortalController();
   _Shown? _shown;
 
-  /// Where the face is drawn above, in global coordinates.
-  var _anchor = Offset.zero;
+  /// Where the face is drawn above: the touch point as a share of the
+  /// cover's own box (its centre for a face shown with no touch). The face
+  /// follows the card, so a screen that changes under a held finger (a
+  /// browser's bar, a turned phone, the text size) never strands it.
+  var _anchor = const Offset(0.5, 0.5);
 
   /// How many times the face has been shown: which page is next.
   var _showings = 0;
@@ -206,18 +209,18 @@ class _HoldToRevealState extends State<HoldToReveal>
     _counts = null;
   }
 
-  /// The middle of the cover, for a face shown with no touch.
-  Offset get _coverCentre {
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return Offset.zero;
-    return box.localToGlobal(box.size.center(Offset.zero));
+  /// [touch], in the cover's own box, as a share of its size.
+  Offset _shareOf(Offset touch) {
+    final size = context.size;
+    if (size == null || size.isEmpty) return const Offset(0.5, 0.5);
+    return Offset(touch.dx / size.width, touch.dy / size.height);
   }
 
   void _activate() {
     if (_shown == _Shown.activated) {
       _hide();
     } else {
-      _show(_Shown.activated, _coverCentre);
+      _show(_Shown.activated, const Offset(0.5, 0.5));
     }
   }
 
@@ -266,7 +269,7 @@ class _HoldToRevealState extends State<HoldToReveal>
             onInvoke: (_) => _activate(),
           ),
         },
-        child: OverlayPortal(
+        child: OverlayPortal.overlayChildLayoutBuilder(
           controller: _portal,
           overlayChildBuilder: widget.inPlace || widget.away ? _nothing : _face,
           child: Container(
@@ -311,8 +314,10 @@ class _HoldToRevealState extends State<HoldToReveal>
                           duration: HoldToReveal.holdDelay,
                         ),
                         (recognizer) => recognizer
-                          ..onLongPressStart = ((details) =>
-                              _show(_Shown.held, details.globalPosition))
+                          ..onLongPressStart = ((details) => _show(
+                            _Shown.held,
+                            _shareOf(details.localPosition),
+                          ))
                           ..onLongPressEnd = ((_) => _release())
                           ..onLongPressCancel = _release,
                       ),
@@ -330,7 +335,8 @@ class _HoldToRevealState extends State<HoldToReveal>
     );
   }
 
-  static Widget _nothing(BuildContext context) => const SizedBox.shrink();
+  static Widget _nothing(BuildContext context, OverlayChildLayoutInfo _) =>
+      const SizedBox.shrink();
 
   /// In place: the card turns over like paper ([PaperFlip]): the cover is
   /// its back, in its own box, and the face its other side. The cover
@@ -351,19 +357,30 @@ class _HoldToRevealState extends State<HoldToReveal>
 
   /// The face, in the overlay, above the touch point, as tall as its words
   /// and portrait need and the room there allows (below it, clear of the
-  /// thumb, when there is more room below).
-  Widget _face(BuildContext context) {
+  /// thumb, when there is more room below). Placed at layout, from where the
+  /// held card is in that frame, and never past the screen's edges: the face
+  /// is always whole on screen.
+  Widget _face(BuildContext context, OverlayChildLayoutInfo info) {
     // The portal stays open once used; while hidden it holds nothing.
     if (!_visible) return const SizedBox.shrink();
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final screen = overlay.size;
+    final screen = info.overlaySize;
     final padding = MediaQuery.paddingOf(context);
     final width = HeldFace.widthFor(screen.width);
-    final touch = overlay.globalToLocal(_anchor);
+    final touch = MatrixUtils.transformPoint(
+      info.childPaintTransform,
+      Offset(
+        _anchor.dx * info.childSize.width,
+        _anchor.dy * info.childSize.height,
+      ),
+    );
     final top = padding.top + Space.sm;
     final bottom = screen.height - padding.bottom - Space.sm;
-    final roomAbove = touch.dy - HoldToReveal.gap - top;
-    final roomBelow = bottom - (touch.dy + HoldToReveal.thumb);
+    // The face's lower edge above the touch, its upper edge below the thumb,
+    // each kept inside the screen.
+    final aboveEnds = math.min(touch.dy - HoldToReveal.gap, bottom);
+    final belowStarts = math.max(touch.dy + HoldToReveal.thumb, top);
+    final roomAbove = aboveEnds - top;
+    final roomBelow = bottom - belowStarts;
     final double x = (touch.dx - width / 2).clamp(
       Space.gutter,
       math.max(Space.gutter, screen.width - Space.gutter - width),
@@ -380,18 +397,18 @@ class _HoldToRevealState extends State<HoldToReveal>
         ),
       ),
     );
-    return roomAbove >= roomBelow
-        ? Positioned(
+    return Stack(
+      children: [
+        if (roomAbove >= roomBelow)
+          Positioned(
             left: x,
             width: width,
-            bottom: screen.height - (touch.dy - HoldToReveal.gap),
+            bottom: screen.height - aboveEnds,
             child: face,
           )
-        : Positioned(
-            left: x,
-            width: width,
-            top: touch.dy + HoldToReveal.thumb,
-            child: face,
-          );
+        else
+          Positioned(left: x, width: width, top: belowStarts, child: face),
+      ],
+    );
   }
 }
