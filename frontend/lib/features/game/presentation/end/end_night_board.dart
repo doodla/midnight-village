@@ -57,7 +57,7 @@ class NightBoard extends StatelessWidget {
       deal: night.opening,
     );
     final docked = laid.docked, lifted = laid.lifted, links = laid.links;
-    final level = laid.level;
+    final lantern = laid.lantern;
     Rect at(Rect r, int id) => r.shift(origin + (docked[id] ?? Offset.zero));
     // The cards lifted to the window's edge for the step lie in front.
     final cards = [
@@ -92,8 +92,8 @@ class NightBoard extends StatelessWidget {
               ),
             ),
             Positioned(
-              left: plan.lantern.left + origin.dx,
-              top: plan.lantern.top + origin.dy,
+              left: plan.lantern.left + origin.dx + lantern.dx,
+              top: plan.lantern.top + origin.dy + lantern.dy,
               // Out: its panes dark in the night's ground.
               child: ExcludeSemantics(
                 child: ColorFiltered(
@@ -110,11 +110,7 @@ class NightBoard extends StatelessWidget {
                 rect: at(c.rect, c.id),
                 child: KeyedSubtree(
                   key: night.placeKey(PlayerPlace(c.id)),
-                  child: _card(
-                    night,
-                    c,
-                    level: level && docked.containsKey(c.id),
-                  ),
+                  child: _card(night, c),
                 ),
               ),
             for (final c in cards)
@@ -156,19 +152,19 @@ class NightBoard extends StatelessWidget {
 
   /// A card at this step: the face it shows, turning to the new one as the
   /// step moves it; at the night's opening turning first from the result.
-  Widget _card(EndNight night, EndCard c, {bool level = false}) {
+  Widget _card(EndNight night, EndCard c) {
     final before = night.before.players[c.id];
     final after = night.after.players[c.id];
     if (before == null || after == null) return const SizedBox.shrink();
     final box = Offset.zero & c.rect.size;
     Widget face = before == after
-        ? _face(c, after, level: level)
+        ? _face(c, after)
         : RevealTurn(
             driver: night.driver,
             value: night.moveTurn,
             backAt: box,
-            back: ExcludeSemantics(child: _face(c, before, level: level)),
-            face: _face(c, after, level: level),
+            back: ExcludeSemantics(child: _face(c, before)),
+            face: _face(c, after),
           );
     if (night.opening) {
       face = RevealTurn(
@@ -208,7 +204,7 @@ class NightBoard extends StatelessWidget {
     );
   }
 
-  Widget _face(EndCard c, StoryFace f, {bool level = false}) => BoardCard(
+  Widget _face(EndCard c, StoryFace f) => BoardCard(
     name: c.name,
     role: f.face,
     strip: f.strip.displayName,
@@ -216,7 +212,7 @@ class NightBoard extends StatelessWidget {
     size: c.rect.size,
     portraitWidth: c.portraitWidth,
     rect: c.rect,
-    angle: level ? 0 : c.angle,
+    angle: c.angle,
     headerHeight: c.header,
     stripHeight: c.stripHeight,
     semantics: [

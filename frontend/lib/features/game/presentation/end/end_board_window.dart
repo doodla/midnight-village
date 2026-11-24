@@ -16,6 +16,7 @@ import '../../domain/end_night_view.dart';
 import '../../domain/end_reveal.dart';
 import 'end_cards.dart';
 import 'end_night.dart';
+import 'end_night_links.dart';
 import 'end_reveal.dart';
 
 // The end board's window (split from end_board_view.dart): the board itself,
@@ -108,17 +109,32 @@ class _EndBoardWindowState extends State<EndBoardWindow> {
       return;
     }
     if (!scrolled) return;
-    final position = c.position;
-    final to = nightViewOf(
+    final want = nightStepOf(
       widget.plan,
-      nightPlayersOf(widget.plan, night!),
+      night!.current,
+      players: nightPlayersOf(widget.plan, night),
+      origin: Offset.zero,
       deal: night.opening,
-    ).scroll.clamp(position.minScrollExtent, position.maxScrollExtent);
-    if (to == position.pixels) return;
-    if (night.cut) {
-      c.jumpTo(to);
+    ).scroll;
+    void go() {
+      if (!c.hasClients || _shown != shown) return;
+      final position = c.position;
+      final to = want.clamp(position.minScrollExtent, position.maxScrollExtent);
+      if (to == position.pixels) return;
+      if (night.cut) {
+        c.jumpTo(to);
+      } else {
+        unawaited(
+          c.animateTo(to, duration: Motion.settle, curve: Motion.curve),
+        );
+      }
+    }
+
+    // A step that opens the board scrolls once the room is laid out.
+    if (want > c.position.maxScrollExtent + 0.5) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => go());
     } else {
-      unawaited(c.animateTo(to, duration: Motion.settle, curve: Motion.curve));
+      go();
     }
   }
 
@@ -300,7 +316,17 @@ class _NightRoom extends StatelessWidget {
   final EndBoardPlan plan;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: EndNightScope.maybeOf(context)?.on ?? false ? nightRoomOf(plan) : 0,
-  );
+  Widget build(BuildContext context) {
+    final night = EndNightScope.maybeOf(context);
+    if (night == null || !night.on) return const SizedBox.shrink();
+    // And the room the step shown opens under the one who acted.
+    final opened = nightStepOf(
+      plan,
+      night.current,
+      players: nightPlayersOf(plan, night),
+      origin: Offset.zero,
+      deal: night.opening,
+    ).opened;
+    return SizedBox(height: nightRoomOf(plan) + opened);
+  }
 }
