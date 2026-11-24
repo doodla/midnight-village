@@ -237,9 +237,9 @@ class LobbyDetailView(RetrieveAPIView):
             # ``practice`` is set and cleared by the practice endpoint alone. A key
             # a newer tap of this user set is dropped; all dropped is 409.
             given = practice.strip_setting(given)
-            kept = ask.fresh(lobby.asked, given, request.user.id, asked)
-            if given and not kept:
-                return ask.stale_response()
+            kept, newest = ask.fresh(lobby.asked, given, request.user.id, asked)
+            if newest is not None and not kept:  # every key given was stale
+                return ask.stale_response(newest)
             given = kept
             merged = {**lobby.settings, **given}
             from apps.core import games
@@ -515,8 +515,11 @@ class LobbyPracticeView(APIView):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
-            if ask.is_stale(lobby.asked, practice.SETTING_KEY, request.user.id, asked):
-                return ask.stale_response()
+            newest = ask.newer(
+                lobby.asked, practice.SETTING_KEY, request.user.id, asked
+            )
+            if newest is not None:
+                return ask.stale_response(newest)
             cleared = (
                 practice.clear_elsewhere(request.user.id, keep=lobby)  # type: ignore[arg-type]
                 if switching_on

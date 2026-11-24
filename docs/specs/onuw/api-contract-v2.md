@@ -323,8 +323,20 @@ may carry `"asked": <int>`: when the tap was made on that phone, in milliseconds
 rising on that phone. The server never compares it with its own clock, only with the newest
 `asked` it applied for the same thing, and never between two people. A request older than
 that changes nothing: `409 {"detail": "A newer tap from this phone already got there.",
-"code": "stale_request"}`. An equal `asked` is the same tap sent again. Without `asked` a
-request works as before. `asked` that is not a whole number of 0 or more is `400 bad_request`.
+"code": "stale_request", "newest": <int>}`, where `newest` is the stored `asked` it lost to
+(for a `PATCH` whose every key lost, the largest of them); it is always the caller's own
+number, never another player's. An equal `asked` is the same tap sent again. Without `asked`
+a request works as before. `asked` that is not a whole number of 0 or more is `400
+bad_request`.
+
+A phone whose NEWEST tap is answered stale may send it again with an `asked` above `newest`
+(its clock is behind what the server holds); a phone that has sent something newer since
+just reads again.
+
+The limit: the server keys `asked` by player, not by phone. The same player on a second
+phone whose clock is behind the first's, or a phone whose clock was set back, is answered
+stale until it sends above `newest`: at a table that lasts the table's life, in a game until
+the stage ends.
 
 | Request | Compared with | When older |
 |---|---|---|

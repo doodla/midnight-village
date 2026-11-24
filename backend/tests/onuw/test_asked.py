@@ -30,10 +30,16 @@ from tests.onuw.test_resend import LONE, pid, send, to_talk, to_vote
 
 pytestmark = pytest.mark.integration
 
-STALE = {
-    "detail": "A newer tap from this phone already got there.",
-    "code": "stale_request",
-}
+
+def stale(newest: int) -> dict:
+    """The one stale body: ``newest`` is the requester's own stored ``asked``."""
+    return {
+        "detail": "A newer tap from this phone already got there.",
+        "code": "stale_request",
+        "newest": newest,
+    }
+
+
 NAMES = list(LONE)
 
 
@@ -102,7 +108,7 @@ class TestVote:
         late = vote(night, "seer", "robber", 1000)
 
         assert late.status_code == status.HTTP_409_CONFLICT
-        assert late.data == STALE
+        assert late.data == stale(2000)
         assert voted_for(night, "seer") == pid(night, "wolf")
         assert len(night.recorder.events) == events
         assert row(night, "seer").asked == {"vote": [stage_token(night.game), 2000]}
@@ -113,9 +119,34 @@ class TestVote:
 
         late = vote(night, "seer", "robber", 1000, lock=True)
 
-        assert late.data == STALE
+        assert late.data == stale(2000)
         assert row(night, "seer").has_acted is False
         assert voted_for(night, "seer") == pid(night, "wolf")
+
+    def test_a_stale_answer_names_only_the_players_own_number(self, voting) -> None:
+        """Each player's entry is on their own row: the Seer's stale answer
+        carries the Seer's number, never the Werewolf's larger one."""
+        night = voting
+        vote(night, "wolf", "seer", 10**12)
+        vote(night, "seer", "wolf", 2000)
+
+        late = vote(night, "seer", "robber", 1000)
+
+        assert late.data == stale(2000)
+
+    def test_a_phone_behind_gets_through_with_an_asked_above_newest(
+        self, voting
+    ) -> None:
+        """The way out the answer gives: the player's second phone (its clock
+        behind the first's) resends its newest tap above ``newest``."""
+        night = voting
+        vote(night, "seer", "wolf", 5_000_000)  # the first phone
+        behind = vote(night, "seer", "robber", 1000)  # the second, clock behind
+
+        again = vote(night, "seer", "robber", behind.data["newest"] + 1)
+
+        assert again.status_code == status.HTTP_200_OK
+        assert voted_for(night, "seer") == pid(night, "robber")
 
     def test_an_equal_asked_is_the_same_tap_sent_again(self, voting) -> None:
         night = voting
@@ -239,7 +270,7 @@ class TestReady:
         late = ready(night, "seer", True, 1000)
 
         assert late.status_code == status.HTTP_409_CONFLICT
-        assert late.data == STALE
+        assert late.data == stale(2000)
         assert row(night, "seer").phase_ready is False
         assert len(night.recorder.events) == events  # no progress sent
 
@@ -253,7 +284,7 @@ class TestReady:
 
         late = ready(night, "villager", True, 1000)
 
-        assert late.data == STALE
+        assert late.data == stale(2000)
         assert night.refresh().phase == Phase.DISCUSSION
 
     def test_the_same_value_still_moves_the_newest_asked(self, talking) -> None:
@@ -263,7 +294,7 @@ class TestReady:
         ready(night, "seer", False, 1000)
         ready(night, "seer", False, 3000)
 
-        assert ready(night, "seer", True, 2000).data == STALE
+        assert ready(night, "seer", True, 2000).data == stale(3000)
         assert row(night, "seer").phase_ready is False
 
     def test_an_equal_asked_answers_alike(self, talking) -> None:

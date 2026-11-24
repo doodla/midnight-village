@@ -26,10 +26,14 @@ pytestmark = pytest.mark.integration
 
 ABSENT = object()  # no "asked" in the body (an older phone)
 
-STALE = {
-    "detail": "A newer tap from this phone already got there.",
-    "code": "stale_request",
-}
+
+def stale(newest: int) -> dict:
+    """The one stale body: ``newest`` is the requester's own stored ``asked``."""
+    return {
+        "detail": "A newer tap from this phone already got there.",
+        "code": "stale_request",
+        "newest": newest,
+    }
 
 
 class Table:
@@ -105,7 +109,7 @@ class TestSettingsPatch:
         late = table.patch({"pace": "quick"}, asked=1000)
 
         assert late.status_code == status.HTTP_409_CONFLICT
-        assert late.data == STALE
+        assert late.data == stale(2000)
         assert table.settings()["pace"] == "long"
         assert len(table.sent) == sent  # no lobby_update
         assert table.asked() == {"pace": [table.host.id, 2000]}
@@ -140,13 +144,15 @@ class TestSettingsPatch:
         assert table.sent[-1]["data"]["settings"]["pace"] == "long"
 
     def test_every_key_stale_changes_nothing_and_sends_nothing(self, table) -> None:
-        table.patch({"pace": "long", "discussion_seconds": 60}, asked=3000)
+        """The answer names the largest stored ``asked`` among the keys it lost."""
+        table.patch({"pace": "long"}, asked=3000)
+        table.patch({"discussion_seconds": 60}, asked=3500)
         before = (table.settings(), table.asked(), len(table.sent))
 
         late = table.patch({"pace": "quick", "discussion_seconds": 120}, asked=2999)
 
         assert late.status_code == status.HTTP_409_CONFLICT
-        assert late.data["code"] == "stale_request"
+        assert late.data == stale(3500)
         assert (table.settings(), table.asked(), len(table.sent)) == before
 
     def test_validation_reads_only_what_is_left(self, table) -> None:
@@ -181,6 +187,24 @@ class TestSettingsPatch:
         assert reply.status_code == status.HTTP_200_OK
         assert table.settings()["pace"] == "quick"
         assert table.asked()["pace"] == [acting.id, 5]
+
+    def test_a_stale_answer_names_only_the_requesters_own_number(self, table) -> None:
+        """After a handover the owner's entries are never compared, so never
+        told: the acting host's stale answer carries the acting host's number."""
+        table.patch({"pace": "long", "discussion_seconds": 60}, asked=900_000)
+        acting = table.users[1]
+        Lobby.objects.filter(pk=table.lobby.pk).update(acting_host=acting)
+        table.patch({"discussion_seconds": 90}, asked=50, user=acting)
+
+        late = table.patch({"discussion_seconds": 120}, asked=40, user=acting)
+        mixed = table.patch(
+            {"pace": "quick", "discussion_seconds": 120}, asked=45, user=acting
+        )
+
+        assert late.data == stale(50)
+        assert mixed.status_code == status.HTTP_200_OK  # pace was the owner's
+        assert table.settings()["pace"] == "quick"
+        assert table.settings()["discussion_seconds"] == 90
 
     @pytest.mark.parametrize("bad", [None, True, False, -1, 1.5, "100", [1], {}])
     def test_an_asked_that_is_not_a_whole_number_is_bad_request(
@@ -235,7 +259,7 @@ class TestPractice:
         late = table.practice({"on": False, "asked": 1000})
 
         assert late.status_code == status.HTTP_409_CONFLICT
-        assert late.data == STALE
+        assert late.data == stale(2000)
         assert table.practice_count() == 3
         assert table.settings()["practice"] is True
         assert table.asked() == {"practice": [table.host.id, 2000]}

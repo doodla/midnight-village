@@ -1,4 +1,5 @@
 {
   "detail": "A newer tap from this phone already got there.",
-  "code": "stale_request"
+  "code": "stale_request",
+  "newest": 2000
 }

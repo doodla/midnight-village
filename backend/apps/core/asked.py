@@ -33,7 +33,12 @@ BAD_DETAIL = "asked must be a whole number (when the phone was tapped)."
 
 
 class StaleRequestError(Exception):
-    """A request tapped before one already applied: nothing changes."""
+    """A request tapped before one already applied: nothing changes. ``newest``
+    is the stored ``asked`` it lost to (the requester's own, for its own lane)."""
+
+    def __init__(self, newest: int) -> None:
+        super().__init__(newest)
+        self.newest = newest
 
 
 def read(data: Any) -> tuple[int | None, Response | None]:
@@ -50,30 +55,46 @@ def read(data: Any) -> tuple[int | None, Response | None]:
     return asked, None
 
 
-def stale_response() -> Response:
-    """409 ``stale_request``: the same body everywhere; nothing was changed."""
+def stale_response(newest: int) -> Response:
+    """409 ``stale_request``, the one body every stale refusal has; nothing was
+    changed. ``newest`` is the stored ``asked`` the request lost to: always the
+    requester's own number for its own lane (an entry of another user or another
+    stage is never compared, so never told), so a phone whose newest tap lost
+    (its clock is behind) can send it again with an ``asked`` above it."""
     return Response(
-        {"detail": STALE_DETAIL, "code": STALE_CODE},
+        {"detail": STALE_DETAIL, "code": STALE_CODE, "newest": newest},
         status=status.HTTP_409_CONFLICT,
     )
 
 
-def is_stale(entries: Any, lane: str, scope: Any, asked: int | None) -> bool:
-    """True when ``entries[lane]`` is ``[scope, newer]`` with ``newer > asked``."""
+def newer(entries: Any, lane: str, scope: Any, asked: int | None) -> int | None:
+    """The stored ``asked`` when ``entries[lane]`` is ``[scope, stored]`` with
+    ``stored > asked`` (the request is stale), else None."""
     if asked is None or not isinstance(entries, dict):
-        return False
+        return None
     entry = entries.get(lane)
     if not isinstance(entry, list) or len(entry) != 2:
-        return False
+        return None
     stored_scope, stored = entry
-    return stored_scope == scope and type(stored) is int and stored > asked
+    if stored_scope == scope and type(stored) is int and stored > asked:
+        return stored
+    return None
 
 
 def fresh(
     entries: Any, given: dict[str, Any], scope: Any, asked: int | None
-) -> dict[str, Any]:
-    """The keys of ``given`` that are not stale (all of them without ``asked``)."""
-    return {k: v for k, v in given.items() if not is_stale(entries, k, scope, asked)}
+) -> tuple[dict[str, Any], int | None]:
+    """The keys of ``given`` that are not stale (all of them without ``asked``),
+    and the largest stored ``asked`` among the stale ones (None if none is)."""
+    kept: dict[str, Any] = {}
+    lost: list[int] = []
+    for key, value in given.items():
+        stored = newer(entries, key, scope, asked)
+        if stored is None:
+            kept[key] = value
+        else:
+            lost.append(stored)
+    return kept, max(lost, default=None)
 
 
 def noted(

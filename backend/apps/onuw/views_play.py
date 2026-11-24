@@ -297,8 +297,8 @@ class VoteView(APIView):
             )
         except WrongStageError:
             return _wrong_stage()
-        except ask.StaleRequestError:
-            return ask.stale_response()
+        except ask.StaleRequestError as stale:
+            return ask.stale_response(stale.newest)
         except AlreadyActedError:
             return refuse(
                 "You have already locked in your vote.",
@@ -359,8 +359,8 @@ class ReadyView(APIView):
             errors = set_ready(game, request.user.id, ready, stage, asked)  # type: ignore[misc]
         except WrongStageError:
             return _wrong_stage()
-        except ask.StaleRequestError:
-            return ask.stale_response()
+        except ask.StaleRequestError as stale:
+            return ask.stale_response(stale.newest)
         if errors:
             return Response(
                 {

@@ -194,8 +194,9 @@ def submit_vote(
         game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
         if target_player_id not in game_player_ids:
             return [VOTE_BAD_TARGET]
-        if ask.is_stale(voter_pr.asked, "vote", stage, asked):
-            raise ask.StaleRequestError
+        newest = ask.newer(voter_pr.asked, "vote", stage, asked)
+        if newest is not None:
+            raise ask.StaleRequestError(newest)
 
         # pyrefly: ignore [missing-attribute]
         voter_pr.vote_target_id = target_player_id
@@ -286,8 +287,9 @@ def set_ready(
         pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
         if looking and not ready:
             return [READY_ONE_WAY]
-        if ask.is_stale(pr.asked, "ready", stage, asked):
-            raise ask.StaleRequestError
+        newest = ask.newer(pr.asked, "ready", stage, asked)
+        if newest is not None:
+            raise ask.StaleRequestError(newest)
 
         changed = ["phase_ready"] if pr.phase_ready != ready else []
         if asked is not None:
