@@ -157,6 +157,8 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
                 "host_name": event["host_name"],
                 "original_host_id": event["original_host_id"],
                 "reason": event["reason"],
+                # The table's ``rev`` (absent from an older instance's event).
+                **({"rev": event["rev"]} if "rev" in event else {}),
             }
         )
 

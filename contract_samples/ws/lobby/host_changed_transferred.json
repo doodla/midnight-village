@@ -3,5 +3,6 @@
   "host_id": 2,
   "host_name": "Ben",
   "original_host_id": 2,
-  "reason": "transferred"
+  "reason": "transferred",
+  "rev": 11
 }

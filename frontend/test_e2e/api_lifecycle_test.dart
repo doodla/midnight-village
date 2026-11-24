@@ -561,6 +561,8 @@ void main() {
         'host_name': 'Carol',
         'original_host_id': alice.userId,
         'reason': 'handover',
+        // the lobby's number at this change (the phone orders by it)
+        'rev': isA<int>(),
       });
       expect(
         await t
@@ -613,6 +615,8 @@ void main() {
         'host_name': 'Alice',
         'original_host_id': alice.userId,
         'reason': 'returned',
+        // the lobby's number at this change (the phone orders by it)
+        'rev': isA<int>(),
       });
       expect(
         await t
@@ -731,6 +735,8 @@ void main() {
         'host_name': 'Dave',
         'original_host_id': alice.userId,
         'reason': 'handover',
+        // the lobby's number at this change (the phone orders by it)
+        'rev': isA<int>(),
       });
       final lobby = await t.lobby(dave);
       expect((lobby['host'] as Map)['id'], dave.userId);

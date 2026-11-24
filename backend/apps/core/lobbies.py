@@ -8,6 +8,7 @@ from typing import Any
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from apps.core import games, presence, tokens
@@ -139,22 +140,45 @@ def connected_members(lobby: Lobby) -> set[int]:
     return connected
 
 
-def announce_lobby(lobby: Lobby) -> None:
-    """After commit, send the lobby body to the table (``lobby_update``), for a
-    table whose game opts in (``GameHooks.shows_table_extras``); nothing otherwise. The
-    body is built now, inside the caller's transaction."""
+def bump_rev(lobby: Lobby) -> int:
+    """Raise the table's ``rev`` by one and return it.
+
+    An UPDATE on the lobby row, so it takes (or waits for) the row lock: numbers
+    are handed out in commit order. Then the WHOLE row is read again under that
+    lock (``refresh_from_db()``, relation caches cleared too), so whatever is
+    built from ``lobby`` afterwards is the row's content at this number, never an
+    older copy the caller loaded: a body is never numbered ahead of its content.
+    A caller saves its changes BEFORE this (unsaved ones on ``lobby`` are lost).
+    Used by ``told_body``, and alone by a change the table hears about without a
+    lobby body (``host_changed``, the deal, a game's end)."""
+    Lobby.objects.filter(pk=lobby.pk).update(rev=F("rev") + 1)
+    lobby.refresh_from_db()
+    return lobby.rev
+
+
+def told_body(lobby: Lobby) -> dict[str, Any]:
+    """The ONE way to build a lobby body that is told to anyone because of a
+    change (an answer, a ``lobby_update``): "telling is the bump". Raises ``rev``
+    (``bump_rev``) and builds the body after it, inside the caller's transaction.
+    A request that answers and broadcasts calls it once and uses the body for
+    both. A plain read never calls it: it shows the ``rev`` of the row it loaded."""
     from apps.core.serializers import LobbySerializer
 
-    if not games.hooks_for(lobby).shows_table_extras(lobby):
-        return
-    send_after_commit(
-        [
-            (
-                f"lobby_{lobby.code}",
-                {"type": "lobby.update", "data": LobbySerializer(lobby).data},
-            )
-        ]
-    )
+    bump_rev(lobby)
+    return LobbySerializer(lobby).data
+
+
+def announce_lobby(lobby: Lobby) -> dict[str, Any]:
+    """Build the told body (``told_body``: one bump) and, after commit, send it to
+    the table (``lobby_update``) for a table whose game opts in
+    (``GameHooks.shows_table_extras``); nothing is sent otherwise. Returns the
+    body, for a request that also answers with it."""
+    data = told_body(lobby)
+    if games.hooks_for(lobby).shows_table_extras(lobby):
+        send_after_commit(
+            [(f"lobby_{lobby.code}", {"type": "lobby.update", "data": data})]
+        )
+    return data
 
 
 def ensure_tokens(lobby: Lobby, members: list[LobbyMember]) -> None:
@@ -185,14 +209,15 @@ class PlayAgainError(Exception):
         self.detail = detail
 
 
-def play_again(code: str, user_id: int) -> Lobby:
+def play_again(code: str, user_id: int) -> dict[str, Any]:
     """Reopen a lobby whose game has finished, for the host to deal again.
 
     Keeps the members and the lobby's settings (the deck); sets the lobby back
     to waiting so the host can deal straight away (anyone can still leave). Atomic. After commit, tells the old game's
     players (``play.again``) and the lobby screens (``lobby.update``). The old
-    game and its results are left untouched. A repeated request while the lobby
-    is already waiting is a no-op that returns the lobby.
+    game and its results are left untouched. Returns the lobby body: the told
+    one (``told_body``, the same as the ``lobby_update``), or for a repeated
+    request while the lobby is already waiting, a plain read (no bump).
 
     Raises PlayAgainError: 404 unknown lobby, 403 not the host, 409 the lobby's
     newest game is not finished.
@@ -210,20 +235,16 @@ def play_again(code: str, user_id: int) -> Lobby:
         if not hooks.newest_game_finished(lobby):
             raise PlayAgainError(409, "The game is not finished yet.")
         if lobby.status == Lobby.Status.WAITING:
-            return lobby  # Already reopened (a double tap).
+            return LobbySerializer(lobby).data  # Already reopened (a double tap).
 
         lobby.status = Lobby.Status.WAITING
         lobby.save(update_fields=["status", "updated_at"])
-        messages = [
-            (
-                f"lobby_{lobby.code}",
-                {"type": "lobby.update", "data": LobbySerializer(lobby).data},
-            )
-        ]
+        data = told_body(lobby)
+        messages = [(f"lobby_{lobby.code}", {"type": "lobby.update", "data": data})]
         game_group = hooks.newest_game_group(lobby)
         if game_group is not None:
             messages.insert(
                 0, (game_group, {"type": "play.again", "lobby_code": lobby.code})
             )
         send_after_commit(messages)
-    return lobby
+    return data

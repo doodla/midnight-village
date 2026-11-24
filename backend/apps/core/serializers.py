@@ -74,8 +74,11 @@ class LobbySerializer(serializers.ModelSerializer):
             "settings",
             "players",
             "created_at",
+            # Rises with every change told (``lobbies.told_body``); a read shows
+            # the number of the row it loaded.
+            "rev",
         ]
-        read_only_fields = ["code", "status", "created_at"]
+        read_only_fields = ["code", "status", "created_at", "rev"]
 
     def to_representation(self, instance: Lobby) -> dict:
         """The body. A table whose game opts in (``GameHooks.shows_table_extras``:

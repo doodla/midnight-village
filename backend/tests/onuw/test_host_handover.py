@@ -184,6 +184,7 @@ class TestHandoverInAGame:
             "host_name": public_name(night.users["seer"]),
             "original_host_id": uid(night, "wolf"),
             "reason": "handover",
+            "rev": lobby_of(night).rev,  # telling is the bump
         }
         assert sorted(host_events(night), key=lambda ge: ge[0]) == sorted(
             [(f"lobby_{code}", expected), (f"game_{night.game.id}", expected)],
@@ -1040,7 +1041,11 @@ class TestConsumersDriveHandover(TransactionTestCase):
             "original_host_id": host_user.id,
             "reason": "returned",
         }
-        assert await _next_of(lobby_ws, "host_changed") == expected
+        heard = await _next_of(lobby_ws, "host_changed")
+        # The table's number after the change (telling is the bump).
+        expected["rev"] = heard["rev"]
+        assert heard["rev"] >= 1
+        assert heard == expected
         assert await _next_of(game_ws, "host_changed") == expected
         for ws in (owner, lobby_ws, game_ws):
             await ws.disconnect()
