@@ -75,6 +75,10 @@ class Lobby(models.Model):
         db_default=models.Value({}, output_field=models.JSONField()),
         blank=True,
     )
+    # The lobby body's number: starts at 0 and only rises, by one each time a
+    # change is told (``lobbies.told_body``, ``lobbies.bump_rev``). A phone shows a
+    # body whose ``rev`` is equal to or higher than the newest it has shown.
+    rev = models.IntegerField(default=0, db_default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

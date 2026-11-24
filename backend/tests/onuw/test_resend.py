@@ -614,7 +614,9 @@ class TestLobbyRequestsResent:
             before = self.lobby_state(table)
             again = getattr(client, method)(url, body, format="json")
             assert first.status_code == again.status_code == status.HTTP_200_OK
-            assert first.data == again.data
+            # The same body, told again: one number higher (telling is the bump).
+            assert {**first.data, "rev": 0} == {**again.data, "rev": 0}
+            assert again.data["rev"] == first.data["rev"] + 1
             assert self.lobby_state(table) == before
 
 

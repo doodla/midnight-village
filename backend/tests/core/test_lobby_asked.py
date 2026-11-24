@@ -119,7 +119,9 @@ class TestSettingsPatch:
         again = table.patch({"pace": "quick"}, asked=1500)
 
         assert first.status_code == again.status_code == status.HTTP_200_OK
-        assert first.data == again.data
+        # The same body, told again: a higher ``rev`` (telling is the bump).
+        assert {**first.data, "rev": 0} == {**again.data, "rev": 0}
+        assert again.data["rev"] == first.data["rev"] + 1
         assert table.settings()["pace"] == "quick"
 
     def test_a_newer_tap_replaces_an_older_one(self, table) -> None:
@@ -269,7 +271,9 @@ class TestPractice:
         again = table.practice({"count": 1, "asked": 70})
 
         assert first.status_code == again.status_code == status.HTTP_200_OK
-        assert first.data == again.data
+        # The same body, told again: a higher ``rev`` (telling is the bump).
+        assert {**first.data, "rev": 0} == {**again.data, "rev": 0}
+        assert again.data["rev"] == first.data["rev"] + 1
         assert table.practice_count() == 1
 
     def test_a_practice_tap_and_a_settings_tap_never_shadow_each_other(

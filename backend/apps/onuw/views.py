@@ -24,7 +24,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core import timers
-from apps.core.lobbies import ensure_tokens
+from apps.core.lobbies import bump_rev, ensure_tokens
 from apps.core.models import Lobby
 
 from . import practice
@@ -162,6 +162,7 @@ class GameStartView(APIView):
         ensure_tokens(lobby, members)  # a member made before tokens existed
         lobby.status = Lobby.Status.IN_GAME
         lobby.save(update_fields=["status", "updated_at"])
+        bump_rev(lobby)  # the table's body changed (status, the dealt deck)
 
         game = Game.objects.create(
             lobby=lobby,

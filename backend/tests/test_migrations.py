@@ -350,3 +350,72 @@ class TestReadyColumnDropped:
             lobby_id=lobby.pk, user_id=users[3].pk
         )
         assert again.get_model("core", "LobbyMember").objects.count() == 4
+
+
+# Before and after the lobby's number (core 0014).
+REV_BEFORE = [("core", "0013_lobby_asked"), ("onuw", "0011_playerrole_asked")]
+REV_AFTER = [("core", "0014_lobby_rev"), ("onuw", "0011_playerrole_asked")]
+
+
+def insert_lobby_as_the_previous_build(code: str, host_id: int) -> None:
+    """A Lobby row as the build before 0014 writes it: every column but ``rev``."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO core_lobby (code, host_id, game_type, status, max_players,"
+            " settings, asked, created_at, updated_at)"
+            " VALUES (%s, %s, 'onuw', 'waiting', 10, '{}', '{}', now(), now())",
+            [code, host_id],
+        )
+
+
+class TestLobbyRev:
+    def seed(self, state) -> list[Any]:
+        users = [
+            state.get_model("core", "User").objects.create(username=f"v{i}")
+            for i in range(3)
+        ]
+        lobby = state.get_model("core", "Lobby")
+        for code, status in (("REV234", "waiting"), ("REV567", "finished")):
+            lobby.objects.create(
+                code=code, host=users[0], game_type="onuw", status=status
+            )
+        return users
+
+    def test_every_table_starts_at_0_and_both_builds_can_open_one(
+        self, migrator
+    ) -> None:
+        users = self.seed(migrator.apply(REV_BEFORE))
+        new = migrator.apply(REV_AFTER)
+
+        lobby = new.get_model("core", "Lobby")
+        assert sorted(lobby.objects.values_list("code", "rev")) == [
+            ("REV234", 0),
+            ("REV567", 0),
+        ]
+        lobby.objects.create(code="NEW234", host_id=users[1].pk, game_type="onuw")
+        # The previous build's INSERT leaves ``rev`` out: the database fills in 0.
+        insert_lobby_as_the_previous_build("OLD234", users[2].pk)
+        assert lobby.objects.get(code="NEW234").rev == 0
+        assert lobby.objects.get(code="OLD234").rev == 0
+
+    def test_back_and_forward_again(self, migrator) -> None:
+        users = self.seed(migrator.apply(REV_BEFORE))
+        migrator.apply(REV_AFTER)
+        connection.cursor().execute(
+            "UPDATE core_lobby SET rev = 5 WHERE code = 'REV234'"
+        )
+
+        back = migrator.apply(REV_BEFORE)
+        assert "rev" not in {
+            f.name for f in back.get_model("core", "Lobby")._meta.fields
+        }
+        insert_lobby_as_the_previous_build("OLD234", users[1].pk)
+
+        again = migrator.apply(REV_AFTER)
+        lobby = again.get_model("core", "Lobby")
+        # The column was dropped going back: every table starts again at 0.
+        assert sorted(lobby.objects.values_list("code", "rev")) == [
+            ("OLD234", 0),
+            ("REV234", 0),
+            ("REV567", 0),
+        ]

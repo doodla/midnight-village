@@ -231,6 +231,8 @@ class TestEveryoneIsTold:
             "host_name": public_name(new_owner),
             "original_host_id": new_owner.id,
             "reason": "transferred",
+            # Its own bump; the lobby_update that follows has the next number.
+            "rev": Lobby.objects.get(code=code).rev - 1,
         }
         events = [
             (g, e) for g, e in night.recorder.events if e["type"] == "host.changed"
