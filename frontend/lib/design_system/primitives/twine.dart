@@ -131,6 +131,8 @@ class TwinePainter extends CustomPainter {
     this.alpha = 1,
     this.head = false,
     this.tail = TwineEnd.none,
+    this.headSize = headLength,
+    this.dotSize = dotRadius,
     TwineEnd tip = TwineEnd.none,
   }) : tip = head ? TwineEnd.head : tip;
 
@@ -148,9 +150,14 @@ class TwinePainter extends CustomPainter {
   /// A dot's radius.
   static const dotRadius = 3.4;
 
-  /// The head's length along the thread and its width across.
+  /// The head's length along the thread and its width across (the
+  /// defaults: a twine's own, read at a card's size).
   static const headLength = 9.0;
-  static const headWidth = 9.0;
+
+  /// This twine's head, as long along the thread as it is wide across, and
+  /// its dots' radius.
+  final double headSize;
+  final double dotSize;
   final Color shadow;
 
   /// Which way the shadow leans (`PaperLight`'s lean): away from the light.
@@ -227,18 +234,18 @@ class TwinePainter extends CustomPainter {
 
   /// An end: a dot on [tip], or a filled triangle whose tip is [tip],
   /// turned along the thread's stretch from [back].
-  static void _end(Path path, TwineEnd end, Offset tip, Offset back) {
+  void _end(Path path, TwineEnd end, Offset tip, Offset back) {
     if (end == TwineEnd.none) return;
     if (end == TwineEnd.dot) {
-      path.addOval(Rect.fromCircle(center: tip, radius: dotRadius));
+      path.addOval(Rect.fromCircle(center: tip, radius: dotSize));
       return;
     }
     final along = tip - back;
     final length = along.distance;
     if (length == 0) return;
     final unit = along / length;
-    final normal = Offset(-unit.dy, unit.dx) * (headWidth / 2);
-    final base = tip - unit * headLength;
+    final normal = Offset(-unit.dy, unit.dx) * (headSize / 2);
+    final base = tip - unit * headSize;
     path.addPolygon([tip, base + normal, base - normal], true);
   }
 
@@ -272,7 +279,9 @@ class TwinePainter extends CustomPainter {
       alpha != old.alpha ||
       tip != old.tip ||
       tail != old.tail ||
-      width != old.width;
+      width != old.width ||
+      headSize != old.headSize ||
+      dotSize != old.dotSize;
 }
 
 /// A twine between cards, in the board's coordinates: paper thread in the

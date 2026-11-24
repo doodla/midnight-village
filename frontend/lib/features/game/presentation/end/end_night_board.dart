@@ -55,6 +55,7 @@ class NightBoard extends StatelessWidget {
       players: players,
       origin: origin,
       deal: night.opening,
+      head: context.skin.parts.linkHead,
     );
     final docked = laid.docked, lifted = laid.lifted, links = laid.links;
     final level = laid.level;

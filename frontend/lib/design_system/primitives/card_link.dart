@@ -128,7 +128,8 @@ class CardLink {
   /// The link from [a] to [b]: tied on each card's edge where the two face
   /// each other (never under anything in [avoid]: the other cards, every
   /// seal and tag), bending gently and as little as clears [avoid], inside
-  /// [frame]. Where nothing clears, the gentlest that stays off its own
+  /// [frame]; a move's thread runs at least four of its [head]s long where
+  /// it can. Where nothing clears, the gentlest that stays off its own
   /// cards, marked not [clear].
   factory CardLink.between(
     LaidCard a,
@@ -137,6 +138,7 @@ class CardLink {
     Iterable<Rect> avoid = const [],
     Rect? frame,
     double clearance = 3,
+    double head = TwinePainter.headLength,
   }) {
     final others = [for (final r in avoid) r.inflate(clearance)];
     final line = b.center - a.center;
@@ -146,7 +148,7 @@ class CardLink {
     if (normal.dy < 0 || (normal.dy == 0 && normal.dx < 0)) normal = -normal;
     // A move's two heads need room between them: a short link bows out
     // until its thread is this long, where it can.
-    final least = kind.moves ? TwinePainter.headLength * 4 : 0.0;
+    final least = kind.moves ? head * 4 : 0.0;
     TwineRoute? fallback;
     TwineRoute? short;
     for (final bow in bows) {

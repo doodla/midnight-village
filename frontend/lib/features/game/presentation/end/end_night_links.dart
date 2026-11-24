@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../design_system/primitives/card_link.dart';
 import '../../../../design_system/primitives/one_light.dart';
 import '../../../../design_system/primitives/twine.dart';
+import '../../../../design_system/skin/paper_parts.dart';
 import '../../../../design_system/skin/skin.dart';
 import '../../domain/end_board.dart';
 import '../../domain/end_board_cards.dart';
@@ -91,6 +92,7 @@ nightStepOf(
   required List<int> players,
   required Offset origin,
   bool deal = false,
+  double head = TwinePainter.headLength,
 }) {
   final view = nightViewOf(plan, players, deal: deal);
   final docked = {...view.docked};
@@ -98,6 +100,7 @@ nightStepOf(
   final lifted = nightLiftedOf(plan, step, docked: docked, scroll: view.scroll);
   List<NightLink> tie() => nightLinksOf(
     plan,
+    head: head,
     step,
     origin: origin,
     docked: docked,
@@ -173,6 +176,7 @@ List<NightLink> nightLinksOf(
   bool level = false,
   Map<int, Rect> lifted = const {},
   double scroll = 0,
+  double head = TwinePainter.headLength,
 }) {
   if (step == null) return const [];
   LaidCard laid(CardPlace place) => switch (place) {
@@ -211,6 +215,7 @@ List<NightLink> nightLinksOf(
               laid(t.to),
               kind: linkKindOf(step.kind),
               frame: frame,
+              head: head,
               avoid: [
                 plan.lantern.shift(origin),
                 ...seals,
@@ -260,6 +265,7 @@ class NightLinks extends StatelessWidget {
         shadow:
             ground.elevation.card.layers.firstOrNull?.color ?? ground.shadow,
         light: OneLight.maybeOf(context),
+        parts: context.skin.parts,
       ),
     );
   }
@@ -274,6 +280,7 @@ class _LinksPainter extends CustomPainter {
     required this.color,
     required this.shadow,
     required this.light,
+    required this.parts,
   }) : step = night.step ?? 0,
        super(repaint: night.clock);
 
@@ -283,6 +290,9 @@ class _LinksPainter extends CustomPainter {
   final Color color;
   final Color shadow;
   final OneLight? light;
+
+  /// The links' sizes (the skin's).
+  final PaperParts parts;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -302,6 +312,11 @@ class _LinksPainter extends CustomPainter {
         color: color,
         shadow: shadow,
         lean: light?.leanFor(full.bounds) ?? 0,
+        width: parts.linkWidth,
+        headSize: parts.linkHead,
+        dotSize: parts.linkDot,
+        dash: parts.linkDash,
+        gap: parts.linkGap,
       ).paint(canvas, size);
     }
   }
@@ -311,5 +326,6 @@ class _LinksPainter extends CustomPainter {
       old.step != step ||
       old.night != night ||
       old.links != links ||
-      old.color != color;
+      old.color != color ||
+      old.parts != parts;
 }
