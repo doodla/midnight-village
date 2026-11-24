@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../feel/atmo.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
@@ -441,54 +442,60 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           locked: dim,
           child: Material(
             type: MaterialType.transparency,
-            child: InkWell(
-              onTap: _onTap,
-              focusColor: onPaper ? Colors.transparent : null,
-              hoverColor: onPaper ? Colors.transparent : null,
-              onFocusChange: (value) => setState(() => _focused = value),
-              onHighlightChanged: (value) => setState(() {
+            child: PressAtOnce(
+              onPressed: (value) => setState(() {
                 _pressed = value;
                 if (value && !_rising) _duration = Motion.press;
               }),
-              highlightColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              borderRadius: radius,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Space.xl,
-                      vertical: Space.sm,
-                    ),
-                    child: Center(
-                      heightFactor: 1,
-                      widthFactor: 1,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: Space.md,
-                        children: [
-                          if (widget.icon case final icon?)
-                            Icon(icon, color: ink, size: style.fontSize),
-                          Flexible(
-                            child: _withDetail(
-                              _label(style.copyWith(color: ink)),
-                              ink,
+              child: InkWell(
+                onTap: _onTap,
+                focusColor: onPaper ? Colors.transparent : null,
+                hoverColor: onPaper ? Colors.transparent : null,
+                onFocusChange: (value) => setState(() => _focused = value),
+                onHighlightChanged: (value) => setState(() {
+                  _pressed = value;
+                  if (value && !_rising) _duration = Motion.press;
+                }),
+                highlightColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                borderRadius: radius,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.xl,
+                        vertical: Space.sm,
+                      ),
+                      child: Center(
+                        heightFactor: 1,
+                        widthFactor: 1,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: Space.md,
+                          children: [
+                            if (widget.icon case final icon?)
+                              Icon(icon, color: ink, size: style.fontSize),
+                            Flexible(
+                              child: _withDetail(
+                                _label(style.copyWith(color: ink)),
+                                ink,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  // Busy: the mark turns in the button's own end padding, so
-                  // the label keeps its place and its line (it never wraps
-                  // for the mark).
-                  if (widget.busy)
-                    PositionedDirectional(
-                      end: Space.sm,
-                      child: BusyMark(size: Space.xl, color: ink),
-                    ),
-                ],
+                    // Busy: the mark turns in the button's own end padding, so
+                    // the label keeps its place and its line (it never wraps
+                    // for the mark).
+                    if (widget.busy)
+                      PositionedDirectional(
+                        end: Space.sm,
+                        child: BusyMark(size: Space.xl, color: ink),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../feel/atmo.dart';
 import '../skin/dress.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
@@ -59,22 +60,25 @@ class _IconActionState extends State<IconAction> {
           dimension: IconAction.side,
           child: Material(
             type: MaterialType.transparency,
-            child: InkWell(
-              onTap: widget.onPressed,
-              onHighlightChanged: (v) => setState(() => _pressed = v),
-              onFocusChange: (v) => setState(() => _focused = v),
-              highlightColor: Colors.transparent,
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              borderRadius: BorderRadius.circular(context.skin.shape.radius),
-              child: AnimatedScale(
-                duration: Motion.press,
-                scale: _focused && !_pressed ? 1.12 : 1,
-                child: Icon(
-                  widget.icon,
-                  color: context.skin.paper.text.withValues(
-                    alpha: _pressed ? 0.6 : 1,
+            child: PressAtOnce(
+              onPressed: (v) => setState(() => _pressed = v),
+              child: InkWell(
+                onTap: widget.onPressed,
+                onHighlightChanged: (v) => setState(() => _pressed = v),
+                onFocusChange: (v) => setState(() => _focused = v),
+                highlightColor: Colors.transparent,
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                borderRadius: BorderRadius.circular(context.skin.shape.radius),
+                child: AnimatedScale(
+                  duration: Motion.press,
+                  scale: _focused && !_pressed ? 1.12 : 1,
+                  child: Icon(
+                    widget.icon,
+                    color: context.skin.paper.text.withValues(
+                      alpha: _pressed ? 0.6 : 1,
+                    ),
                   ),
                 ),
               ),

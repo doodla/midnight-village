@@ -1,3 +1,4 @@
+import '../feel/atmo_parts.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -146,7 +147,10 @@ class WorldTimer extends StatelessWidget {
     // the vote's and the talk's are drawn: the unit at a share of it), at its
     // own size whatever the text size.
     final numberStyle = context.skin.typography.timerSmall;
-    final candle = CandleGauge(share: share, height: candleHeight);
+    final candle = Carried(
+      tag: 'clock-candle',
+      child: CandleGauge(share: share, height: candleHeight),
+    );
     if (number == null) return candle;
     // The number's slot is as wide as the widest it can read in its form, its
     // right edge a gap from the candle, so nothing shifts as a ten turns into

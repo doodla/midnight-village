@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../design_system/feel/atmo_moments.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -209,20 +210,23 @@ class _TableShellState extends ConsumerState<TableShell>
     return Stack(
       children: [
         Positioned.fill(
-          child: SceneSwitcher<_Stage>(
-            stage: (key: key, screen: shown?.screen),
-            sceneBetween: _sceneBetween,
-            // Every card of the game, on every screen of it, has the game's one
-            // back; the screens that are not a game's (01 to 03) the fallback.
-            child: CardBackScope(
-              back: gameId == null
-                  ? null
-                  : ref.watch(gameCardBackProvider(gameId)),
-              child: WerewolfPortraitScope(
-                portrait: gameId == null
+          child: AtmoNightFall(
+            screen: shown?.screen.name,
+            child: SceneSwitcher<_Stage>(
+              stage: (key: key, screen: shown?.screen),
+              sceneBetween: _sceneBetween,
+              // Every card of the game, on every screen of it, has the game's one
+              // back; the screens that are not a game's (01 to 03) the fallback.
+              child: CardBackScope(
+                back: gameId == null
                     ? null
-                    : ref.watch(gameWerewolfPortraitProvider(gameId)),
-                child: screen,
+                    : ref.watch(gameCardBackProvider(gameId)),
+                child: WerewolfPortraitScope(
+                  portrait: gameId == null
+                      ? null
+                      : ref.watch(gameWerewolfPortraitProvider(gameId)),
+                  child: screen,
+                ),
               ),
             ),
           ),

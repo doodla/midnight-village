@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../../design_system/feel/atmo_parts.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -174,10 +175,12 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
               // The card takes the whole room between the title and the foot
               // (the face's portrait is as large as that allows).
               builder: (context, room) => Center(
-                child: _card(
-                  me,
-                  math.min(room.maxWidth, HeldFace.maxWidth),
-                  room.maxHeight,
+                child: AtmoDeal(
+                  child: _card(
+                    me,
+                    math.min(room.maxWidth, HeldFace.maxWidth),
+                    room.maxHeight,
+                  ),
                 ),
               ),
             ),
@@ -262,11 +265,14 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
       if (_revealedIn != me.stage) unawaited(_remember(me));
       if (mounted) setState(() => _revealedIn = me.stage);
     },
-    cover: (teaching) => FaceDownCard(
-      size: FaceDownSize.hero,
-      cardWidth: width,
-      cardHeight: height,
-      hold: teaching,
+    cover: (teaching) => Carried(
+      tag: 'your-card',
+      child: FaceDownCard(
+        size: FaceDownSize.hero,
+        cardWidth: width,
+        cardHeight: height,
+        hold: teaching,
+      ),
     ),
   );
 

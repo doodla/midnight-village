@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'paper_light.dart';
 
+import '../feel/atmo.dart';
+import '../feel/atmo_parts.dart';
+
 import '../skin/art_set.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
@@ -169,23 +172,30 @@ class CandleGauge extends StatelessWidget {
             // A dark nook in the village behind the stick, then a little warm
             // light on what is behind the flame.
             Positioned.fill(
-              child: CustomPaint(
-                painter: _GlowPainter(
-                  nook: at(
-                    Offset(
-                      cut.wick.dx,
-                      cut.stickTop +
-                          nookCentre * (cut.stickBottom - cut.stickTop),
+              child: Ambient(
+                effect: AtmoEffect.flame,
+                builder: (context, t, _) => CustomPaint(
+                  painter: _GlowPainter(
+                    nook: at(
+                      Offset(
+                        cut.wick.dx,
+                        cut.stickTop +
+                            nookCentre * (cut.stickBottom - cut.stickTop),
+                      ),
+                    ),
+                    nookRadius: nookRadius * width,
+                    nookColour: ground.ground,
+                    centre:
+                        flameBase -
+                        Offset(0, flameSize.height * fire * glowRise),
+                    radius:
+                        flameSize.width *
+                        (glowRadiusBase + glowRadiusGrow * fire) *
+                        (0.92 + 0.08 * flameLight(t)),
+                    colour: cut.light.withValues(
+                      alpha: (cut.light.a * flameLight(t)).clamp(0.0, 1.0),
                     ),
                   ),
-                  nookRadius: nookRadius * width,
-                  nookColour: ground.ground,
-                  centre:
-                      flameBase - Offset(0, flameSize.height * fire * glowRise),
-                  radius:
-                      flameSize.width *
-                      (glowRadiusBase + glowRadiusGrow * fire),
-                  colour: cut.light,
                 ),
               ),
             ),
@@ -238,9 +248,24 @@ class CandleGauge extends StatelessWidget {
                 key: const ValueKey(CandlePart.flame),
                 scale: fire,
                 alignment: Alignment.bottomCenter,
-                child: picture(cut.flame),
+                child: AtmoFlame(share: share, child: picture(cut.flame)),
               ),
             ),
+            if (AtmoCandleAir.any)
+              Positioned(
+                left: flameBase.dx - flameSize.height * 4,
+                top: flameBase.dy - flameSize.height * 5,
+                width: flameSize.height * 8,
+                height: flameSize.height * 6,
+                child: AtmoCandleAir(
+                  flame: Offset(
+                    flameSize.height * 4,
+                    flameSize.height * (5 - 0.5 * fire),
+                  ),
+                  light: cut.light.withValues(alpha: 1),
+                  flameHeight: flameSize.height,
+                ),
+              ),
             // The ledge it stands on, over the cut stem.
             Positioned(
               left: -width * ledgeReachLeft,

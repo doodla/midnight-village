@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../design_system/feel/atmo_moments.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -186,10 +187,13 @@ class _TalkViewState extends ConsumerState<TalkView> {
                   Expanded(
                     child: up
                         ? _panelOf(me)
-                        : SquareBoard(
-                            deck: me.deck,
-                            seats: me.seats,
-                            you: me.playerId,
+                        : Breeze(
+                            ready: me.progress?.done ?? 0,
+                            child: SquareBoard(
+                              deck: me.deck,
+                              seats: me.seats,
+                              you: me.playerId,
+                            ),
                           ),
                   ),
                   const SizedBox(height: Space.sm),

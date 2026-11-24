@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../feel/atmo.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
@@ -154,38 +155,41 @@ class _SecondaryButtonState extends State<SecondaryButton> {
         decoration: decoration,
         child: Material(
           type: MaterialType.transparency,
-          child: InkWell(
-            onTap: busy ? null : _onTap,
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            highlightColor: Colors.transparent,
-            borderRadius: radius,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.lg,
-                    vertical: Space.sm,
-                  ),
-                  child: Center(
-                    heightFactor: 1,
-                    widthFactor: 1,
-                    child: FitWords(
-                      widget.label,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      style: style,
+          child: PressAtOnce(
+            onPressed: (value) => setState(() => _pressed = value),
+            child: InkWell(
+              onTap: busy ? null : _onTap,
+              onHighlightChanged: (value) => setState(() => _pressed = value),
+              highlightColor: Colors.transparent,
+              borderRadius: radius,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.lg,
+                      vertical: Space.sm,
+                    ),
+                    child: Center(
+                      heightFactor: 1,
+                      widthFactor: 1,
+                      child: FitWords(
+                        widget.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: style,
+                      ),
                     ),
                   ),
-                ),
-                // Busy: the lantern burns in the button's own end padding,
-                // so the words stay where they are.
-                if (busy)
-                  PositionedDirectional(
-                    end: Space.smPlus,
-                    child: BusyMark(size: Space.xl, color: style.color),
-                  ),
-              ],
+                  // Busy: the lantern burns in the button's own end padding,
+                  // so the words stay where they are.
+                  if (busy)
+                    PositionedDirectional(
+                      end: Space.smPlus,
+                      child: BusyMark(size: Space.xl, color: style.color),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -229,42 +233,45 @@ class _SecondaryButtonState extends State<SecondaryButton> {
           enabled: enabled,
           child: Material(
             type: MaterialType.transparency,
-            child: InkWell(
-              onTap: busy ? null : _onTap,
-              onHighlightChanged: (value) => setState(() => _pressed = value),
-              onFocusChange: (value) => setState(() => _focused = value),
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              borderRadius: radius,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Space.lg,
-                      vertical: Space.sm,
-                    ),
-                    child: Center(
-                      heightFactor: 1,
-                      widthFactor: 1,
-                      child: FitWords(
-                        widget.label,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: style,
+            child: PressAtOnce(
+              onPressed: (value) => setState(() => _pressed = value),
+              child: InkWell(
+                onTap: busy ? null : _onTap,
+                onHighlightChanged: (value) => setState(() => _pressed = value),
+                onFocusChange: (value) => setState(() => _focused = value),
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                borderRadius: radius,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.lg,
+                        vertical: Space.sm,
+                      ),
+                      child: Center(
+                        heightFactor: 1,
+                        widthFactor: 1,
+                        child: FitWords(
+                          widget.label,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          style: style,
+                        ),
                       ),
                     ),
-                  ),
-                  // Busy: the lantern burns in the button's own end padding,
-                  // so the words stay where they are.
-                  if (busy)
-                    PositionedDirectional(
-                      end: Space.smPlus,
-                      child: BusyMark(size: Space.xl, color: style.color),
-                    ),
-                ],
+                    // Busy: the lantern burns in the button's own end padding,
+                    // so the words stay where they are.
+                    if (busy)
+                      PositionedDirectional(
+                        end: Space.smPlus,
+                        child: BusyMark(size: Space.xl, color: style.color),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

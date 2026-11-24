@@ -267,21 +267,24 @@ mixin _NightBoardPieces on ConsumerState<NightBoard> {
             child: wave(
               _fidget(
                 const SelfPick(),
-                FaceDownCard(
-                  size: FaceDownSize.board,
-                  cardWidth: layout.bandCard,
-                  nameSize: layout.nameSize,
-                  nameHeight: layout.youNameHeight,
-                  tapExtra: BoardLayout.bandPadding,
-                  owner: seat.token,
-                  ownerName: NightCopy.you,
-                  youName: true,
-                  selected: _picks.contains(const SelfPick()),
-                  semanticLabel: NightCopy.you,
-                  // Said after "You": which card it is.
-                  semanticHint: widget.dealt.displayName,
-                  face: widget.dealt,
-                  onTap: pick,
+                Carried(
+                  tag: 'your-card',
+                  child: FaceDownCard(
+                    size: FaceDownSize.board,
+                    cardWidth: layout.bandCard,
+                    nameSize: layout.nameSize,
+                    nameHeight: layout.youNameHeight,
+                    tapExtra: BoardLayout.bandPadding,
+                    owner: seat.token,
+                    ownerName: NightCopy.you,
+                    youName: true,
+                    selected: _picks.contains(const SelfPick()),
+                    semanticLabel: NightCopy.you,
+                    // Said after "You": which card it is.
+                    semanticHint: widget.dealt.displayName,
+                    face: widget.dealt,
+                    onTap: pick,
+                  ),
                 ),
               ),
             ),

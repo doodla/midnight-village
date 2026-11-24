@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../../design_system/feel/atmo_moments.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -117,10 +118,13 @@ class SquareBoard extends StatelessWidget {
               runSpacing: SquareMetrics.tagGap,
               children: [
                 for (final seat in seats)
-                  NameTag(
+                  SwayingTag(
                     name: seat.name,
-                    token: seat.token,
-                    you: seat.id == you,
+                    child: NameTag(
+                      name: seat.name,
+                      token: seat.token,
+                      you: seat.id == you,
+                    ),
                   ),
               ],
             ),

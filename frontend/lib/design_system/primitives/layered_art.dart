@@ -6,6 +6,9 @@ import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'scene_arrival.dart';
 
+import '../feel/atmo.dart';
+import '../feel/atmo_village.dart';
+
 /// Where a [LayeredScene]'s canvas lies in the box it is drawn in: the canvas
 /// scaled to cover the box and kept around the scene's focus, exactly as a
 /// flat picture is cropped by `ArtPicture`, so a layer sits where the flat
@@ -168,11 +171,15 @@ class LayeredArt extends StatelessWidget {
                   arrival: arrival,
                   clock: clock,
                   span: layer.span,
-                  child: Image(
-                    image: art.layer(id, layer).decodedFor(rect.size, ratio),
-                    fit: BoxFit.fill,
-                    gaplessPlayback: true,
-                    excludeFromSemantics: true,
+                  child: _drift(
+                    layer,
+                    geometry.scale,
+                    Image(
+                      image: art.layer(id, layer).decodedFor(rect.size, ratio),
+                      fit: BoxFit.fill,
+                      gaplessPlayback: true,
+                      excludeFromSemantics: true,
+                    ),
                   ),
                 ),
               );
@@ -208,6 +215,7 @@ class LayeredArt extends StatelessWidget {
                             ),
                           ),
                   );
+                  _atmoOver(entry, geometry, children);
                 case SceneSlot():
                   final builder = slots[entry.name];
                   if (builder != null) {
@@ -219,6 +227,17 @@ class LayeredArt extends StatelessWidget {
                   }
               }
             }
+            if (id == LayeredSceneId.nightVillage &&
+                Atmo.has(AtmoEffect.mist)) {
+              children.add(
+                Positioned.fill(
+                  child: AtmoMist(
+                    top: geometry.point(const Offset(0, 640)).dy,
+                    bottom: geometry.point(const Offset(0, 790)).dy,
+                  ),
+                ),
+              );
+            }
             return Stack(
               fit: StackFit.expand,
               clipBehavior: Clip.none,
@@ -228,6 +247,51 @@ class LayeredArt extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// PROTOTYPE: a cloud (and its shadows) drifting a few pixels, slowly.
+  Widget _drift(SceneLayer layer, double scale, Widget image) {
+    if (id != LayeredSceneId.nightVillage || !Atmo.has(AtmoEffect.clouds)) {
+      return image;
+    }
+    if (AtmoVillage.cloudDrift(layer.file, 1) == Offset.zero) return image;
+    // A shadow on the moon is painted inside the moon's own layer: no
+    // boundary of its own there.
+    final inMoon = layer.clipTo != null;
+    return Ambient(
+      effect: AtmoEffect.clouds,
+      child: inMoon ? image : RepaintBoundary(child: image),
+      builder: (context, t, child) => Transform.translate(
+        offset: AtmoVillage.cloudDrift(layer.file, t) * scale,
+        child: child,
+      ),
+    );
+  }
+
+  /// PROTOTYPE: what lives just over [layer]: the lit windows over the
+  /// plate, the moon's breathing light over the moon.
+  void _atmoOver(SceneLayer layer, SceneGeometry g, List<Widget> children) {
+    if (id != LayeredSceneId.nightVillage) return;
+    if (layer.file == 'moon' && Atmo.has(AtmoEffect.clouds)) {
+      children.add(
+        Positioned.fill(
+          child: AtmoMoonLight(
+            centre: g.point(const Offset(600, 177)),
+            radius: 230 * g.scale,
+          ),
+        ),
+      );
+    }
+    if (layer.file == 'village_plate' && Atmo.has(AtmoEffect.windows)) {
+      children.add(
+        Positioned.fill(
+          child: AtmoWindows(
+            toBox: (r) =>
+                Rect.fromPoints(g.point(r.topLeft), g.point(r.bottomRight)),
+          ),
+        ),
+      );
+    }
   }
 }
 
