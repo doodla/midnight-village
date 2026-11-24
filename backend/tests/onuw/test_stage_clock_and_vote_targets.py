@@ -23,6 +23,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
+from apps.core.wire import wire_time
 from apps.onuw import night_flow, recovery
 from apps.onuw.models import Phase
 from tests.onuw.stages import staged
@@ -101,7 +102,7 @@ def map_me(night: Night) -> list[dict[str, Any]]:
 
 
 def iso(moment: datetime) -> str:
-    return moment.isoformat()
+    return wire_time(moment)
 
 
 def deal(night: Night) -> None:

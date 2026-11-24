@@ -3,7 +3,7 @@
   "lobby_code": "T8NB6C",
   "phase": "night",
   "current_wave": 2,
-  "deadline": "2024-03-07T21:25:08+00:00",
+  "deadline": "2024-03-07T21:25:08Z",
   "your_role": {
     "original_role": "Minion"
   },
@@ -144,6 +144,6 @@
   "ready": null,
   "progress": null,
   "stage": "w2.000000000005",
-  "stage_started_at": "2024-03-07T21:24:38+00:00",
+  "stage_started_at": "2024-03-07T21:24:38Z",
   "vote_targets": null
 }

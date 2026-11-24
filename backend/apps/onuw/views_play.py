@@ -298,9 +298,9 @@ class VoteView(APIView):
                 status.HTTP_409_CONFLICT,
             )
         if errors:
-            # ``detail`` stays a list of messages, as it always was.
+            # One message, a string, as every other refusal's ``detail`` is.
             return refuse(
-                errors,
+                errors[0],
                 VOTE_ERROR_CODES.get(errors[0], "bad_request"),
                 status.HTTP_400_BAD_REQUEST,
             )

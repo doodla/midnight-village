@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.practice import is_practice
+from apps.core.wire import wire_time
 
 from . import presence
 from .models import Game, Phase, PlayerRole
@@ -148,7 +149,7 @@ class RecentGamesView(APIView):
             games.append(
                 {
                     "game_id": str(pr.game_id),  # type: ignore[attr-defined]
-                    "ended_at": pr.game.updated_at.isoformat(),
+                    "ended_at": wire_time(pr.game.updated_at),
                     "player_count": pr.player_count,  # type: ignore[attr-defined]
                     "winning_teams": list(pr.game.results.get("winning_teams", [])),
                     "you_won": outcomes.get(str(request.user.id)) == "win",

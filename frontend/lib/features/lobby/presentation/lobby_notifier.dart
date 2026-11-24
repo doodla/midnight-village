@@ -313,8 +313,8 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   /// Re-fetch full lobby state when player list changes.
   ///
-  /// The `player_joined` and `player_left` events carry only a username,
-  /// which is insufficient to construct the full player list. Re-fetching
+  /// The `player_joined` and `player_left` events carry only their type:
+  /// who is at the table is in the lobby body, read again here. Re-fetching
   /// keeps us consistent with the server (spec US3 AS7).
   Future<void> _onPlayerListChanged() => refreshLobby();
 

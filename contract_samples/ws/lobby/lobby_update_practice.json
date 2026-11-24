@@ -4,7 +4,6 @@
     "code": "F5HN2V",
     "host": {
       "id": 92,
-      "username": "00000000-0000-4000-8000-000000000092",
       "display_name": "Pia"
     },
     "original_host_id": 92,
@@ -22,7 +21,6 @@
       {
         "user": {
           "id": 92,
-          "username": "00000000-0000-4000-8000-000000000092",
           "display_name": "Pia"
         },
         "token": "antler",
@@ -32,7 +30,6 @@
       {
         "user": {
           "id": 95,
-          "username": "practice-00000000-0000-4000-9000-000000000095",
           "display_name": "Scarecrow"
         },
         "token": "scarecrow",
@@ -43,7 +40,6 @@
       {
         "user": {
           "id": 96,
-          "username": "practice-00000000-0000-4000-9000-000000000096",
           "display_name": "Teapot"
         },
         "token": "teapot",
@@ -54,7 +50,6 @@
       {
         "user": {
           "id": 97,
-          "username": "practice-00000000-0000-4000-9000-000000000097",
           "display_name": "Broom"
         },
         "token": "broom",

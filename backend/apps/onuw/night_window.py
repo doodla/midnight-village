@@ -18,6 +18,8 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.wire import wire_time
+
 from . import basics, readiness, turns
 from .engine.behaviors import get_doppelganger_followup_wave
 from .engine.night import (
@@ -200,7 +202,7 @@ def announce_window(game: Game, window: int) -> None:
                 {
                     "type": "night.window",
                     "window": window,
-                    "deadline": game.phase_deadline.isoformat()
+                    "deadline": wire_time(game.phase_deadline)
                     if game.phase_deadline
                     else None,
                 },
@@ -492,7 +494,7 @@ def transition_to_discussion(game: Game) -> None:
                 {
                     "type": "phase.change",
                     "phase": "discussion",
-                    "deadline": game.phase_deadline.isoformat()
+                    "deadline": wire_time(game.phase_deadline)
                     if game.phase_deadline
                     else None,
                 },

@@ -31,9 +31,9 @@ void main() {
       });
     });
 
-    test('lobby joins and leaves carry only a username', () {
-      expect(decode(GameEvents.playerJoined()).keys, {'type', 'username'});
-      expect(decode(GameEvents.playerLeft()).keys, {'type', 'username'});
+    test('lobby joins and leaves carry nothing but their type', () {
+      expect(decode(GameEvents.playerJoined()), {'type': 'player_joined'});
+      expect(decode(GameEvents.playerLeft()), {'type': 'player_left'});
     });
 
     test('lobbyUpdate carries the whole lobby with the new deck', () {

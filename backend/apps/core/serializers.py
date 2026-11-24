@@ -18,6 +18,22 @@ class UserBriefSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "display_name"]
 
 
+def without_usernames(body: dict) -> dict:
+    """The lobby body as it leaves the server: nobody's ``username``.
+
+    A guest's username is its account's id. Every member's went to everyone at
+    the table, and the app reads only ``id`` and ``display_name``. It is used
+    while the body is put together (practice players are told by it) and taken
+    out last, here, so no path can send it.
+    """
+    if isinstance(body.get("host"), dict):
+        body["host"].pop("username", None)
+    for entry in body.get("players") or []:
+        if isinstance(entry.get("user"), dict):
+            entry["user"].pop("username", None)
+    return body
+
+
 class LobbyMemberSerializer(serializers.ModelSerializer):
     """Serializer for lobby players."""
 
@@ -65,7 +81,7 @@ class LobbySerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         hooks = hooks_for(instance)
         if not hooks.shows_table_extras(instance):
-            return data
+            return without_usernames(data)
         extras = hooks.lobby_extras(instance)
         connected = connected_members(instance)
         for entry in data["players"]:
@@ -74,7 +90,7 @@ class LobbySerializer(serializers.ModelSerializer):
         # Practice players (``practice.body_extras``): marked, always here, and
         # ``practice`` for a table that uses them; nothing for one that never did.
         data.update(practice.body_extras(instance, data["players"]))
-        return data
+        return without_usernames(data)
 
     def get_host(self, lobby: Lobby) -> dict:
         return UserBriefSerializer(lobby.effective_host).data

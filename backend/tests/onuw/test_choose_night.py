@@ -18,6 +18,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
+from apps.core.wire import wire_time
 from apps.onuw import night_flow, night_window, turns
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
@@ -180,7 +181,7 @@ class TestOpening:
                 {
                     "type": "night.window",
                     "window": 2,
-                    "deadline": night.game.phase_deadline.isoformat(),
+                    "deadline": wire_time(night.game.phase_deadline),
                 },
             )
         ]

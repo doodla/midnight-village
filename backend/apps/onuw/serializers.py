@@ -7,6 +7,7 @@ from typing import Any
 from rest_framework import serializers
 
 from apps.core.practice import is_practice
+from apps.core.wire import wire_time
 
 from .models import Game, Phase, PlayerRole
 from .protocol import in_look_stage, stage_token
@@ -92,7 +93,7 @@ class GameMeSerializer(serializers.Serializer):
             return None
         if game.phase not in (Phase.NIGHT, Phase.DISCUSSION, Phase.VOTING):
             return None
-        return opened_at.isoformat()
+        return wire_time(opened_at)
 
     def _vote_targets(self, game: Game) -> list[int] | None:
         """While voting: the player ids the caller may vote for, in seat order
@@ -116,7 +117,7 @@ class GameMeSerializer(serializers.Serializer):
         remains for the current phase or wave.
         """
         if game.phase_deadline is not None:
-            return game.phase_deadline.isoformat()
+            return wire_time(game.phase_deadline)
         return None
 
     def get_host_id(self, game: Game) -> int:

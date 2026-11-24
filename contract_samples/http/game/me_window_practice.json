@@ -3,7 +3,7 @@
   "lobby_code": "F5HN2V",
   "phase": "night",
   "current_wave": 2,
-  "deadline": "2024-03-07T22:38:48+00:00",
+  "deadline": "2024-03-07T22:38:48Z",
   "your_role": {
     "original_role": "Seer"
   },
@@ -102,6 +102,6 @@
   "ready": null,
   "progress": null,
   "stage": "w2.000000000019",
-  "stage_started_at": "2024-03-07T22:38:18+00:00",
+  "stage_started_at": "2024-03-07T22:38:18Z",
   "vote_targets": null
 }

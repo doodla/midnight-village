@@ -2,7 +2,6 @@
   "code": "K7QX4M",
   "host": {
     "id": 1,
-    "username": "00000000-0000-4000-8000-000000000001",
     "display_name": "Ana"
   },
   "original_host_id": 1,
@@ -25,7 +24,6 @@
     {
       "user": {
         "id": 1,
-        "username": "00000000-0000-4000-8000-000000000001",
         "display_name": "Ana"
       },
       "token": "antler",
@@ -35,7 +33,6 @@
     {
       "user": {
         "id": 2,
-        "username": "00000000-0000-4000-8000-000000000002",
         "display_name": "Ben"
       },
       "token": "thorn",
@@ -45,7 +42,6 @@
     {
       "user": {
         "id": 3,
-        "username": "00000000-0000-4000-8000-000000000003",
         "display_name": "Cleo"
       },
       "token": "moth",
@@ -55,7 +51,6 @@
     {
       "user": {
         "id": 4,
-        "username": "00000000-0000-4000-8000-000000000004",
         "display_name": "Dev"
       },
       "token": "bell",
@@ -65,7 +60,6 @@
     {
       "user": {
         "id": 5,
-        "username": "00000000-0000-4000-8000-000000000005",
         "display_name": "Esme"
       },
       "token": "scythe",
@@ -75,7 +69,6 @@
     {
       "user": {
         "id": 6,
-        "username": "00000000-0000-4000-8000-000000000006",
         "display_name": "Fin"
       },
       "token": "key",

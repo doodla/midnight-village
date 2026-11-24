@@ -142,7 +142,8 @@ class TestLobbyWebSocket:
         # Receive the message
         response = await _next_event(communicator)
 
-        assert response["type"] == "player_joined"
-        assert response["username"] == player_username
+        # Who joined is read from the lobby body; the account's username is
+        # nobody else's to know, so the event names nobody.
+        assert response == {"type": "player_joined"}
 
         await communicator.disconnect()

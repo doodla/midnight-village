@@ -9,7 +9,7 @@ import 'contract/server_json.dart';
 /// Each starts from the recorded event (`contract_samples/ws/`) and lets a test
 /// choose its values; the result is checked against the samples. There is no
 /// factory for what the server never sends (a `phase_change` to the night, a
-/// results `votes` list, ids in `player_joined`).
+/// results `votes` list, anything but the type in `player_joined`).
 abstract final class GameEvents {
   static String _event(String sample, Map<String, dynamic> values) {
     final event = withValues(ContractSamples.map(sample), values);
@@ -97,16 +97,12 @@ abstract final class GameEvents {
   // Lobby socket
   // ---------------------------------------------------------------------------
 
-  /// Someone joined. The server sends only their username (a guest's is a
-  /// UUID), so the app reads the lobby again.
-  static String playerJoined({String username = _someone}) =>
-      _event('ws/lobby/player_joined', {'username': username});
+  /// Someone joined. The server sends nothing but the type, so the app reads
+  /// the lobby again.
+  static String playerJoined() => _event('ws/lobby/player_joined', {});
 
-  /// Someone left (username only, like [playerJoined]).
-  static String playerLeft({String username = _someone}) =>
-      _event('ws/lobby/player_left', {'username': username});
-
-  static const _someone = '00000000-0000-4000-8000-000000000009';
+  /// Someone left (the type only, like [playerJoined]).
+  static String playerLeft() => _event('ws/lobby/player_left', {});
 
   /// The lobby changed (the host set the deck, or play again): the whole lobby
   /// body, [serverLobby] with the deck [roleConfig].

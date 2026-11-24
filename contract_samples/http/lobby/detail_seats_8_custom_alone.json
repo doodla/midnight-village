@@ -2,7 +2,6 @@
   "code": "D3GL6S",
   "host": {
     "id": 83,
-    "username": "00000000-0000-4000-8000-000000000083",
     "display_name": "Tia"
   },
   "original_host_id": 83,
@@ -30,7 +29,6 @@
     {
       "user": {
         "id": 83,
-        "username": "00000000-0000-4000-8000-000000000083",
         "display_name": "Tia"
       },
       "token": "antler",

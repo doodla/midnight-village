@@ -2,7 +2,6 @@
   "code": "B7DH4Q",
   "host": {
     "id": 74,
-    "username": "00000000-0000-4000-8000-000000000074",
     "display_name": "Kai"
   },
   "original_host_id": 74,
@@ -28,7 +27,6 @@
     {
       "user": {
         "id": 74,
-        "username": "00000000-0000-4000-8000-000000000074",
         "display_name": "Kai"
       },
       "token": "hare",
@@ -38,7 +36,6 @@
     {
       "user": {
         "id": 75,
-        "username": "00000000-0000-4000-8000-000000000075",
         "display_name": "Lia"
       },
       "token": "thorn",
@@ -48,7 +45,6 @@
     {
       "user": {
         "id": 76,
-        "username": "00000000-0000-4000-8000-000000000076",
         "display_name": "Max"
       },
       "token": "antler",
@@ -58,7 +54,6 @@
     {
       "user": {
         "id": 77,
-        "username": "00000000-0000-4000-8000-000000000077",
         "display_name": "Noa"
       },
       "token": "key",
@@ -68,7 +63,6 @@
     {
       "user": {
         "id": 78,
-        "username": "00000000-0000-4000-8000-000000000078",
         "display_name": "Oli"
       },
       "token": "scythe",
@@ -78,7 +72,6 @@
     {
       "user": {
         "id": 79,
-        "username": "00000000-0000-4000-8000-000000000079",
         "display_name": "Pia"
       },
       "token": "crow",
@@ -88,7 +81,6 @@
     {
       "user": {
         "id": 80,
-        "username": "00000000-0000-4000-8000-000000000080",
         "display_name": "Rex"
       },
       "token": "moth",

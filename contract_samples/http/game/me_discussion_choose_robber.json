@@ -3,7 +3,7 @@
   "lobby_code": "R5ZD3H",
   "phase": "discussion",
   "current_wave": 0,
-  "deadline": "2024-03-07T21:20:38+00:00",
+  "deadline": "2024-03-07T21:20:38Z",
   "your_role": {
     "original_role": "Robber"
   },
@@ -84,6 +84,6 @@
     "needed": 5
   },
   "stage": "talk.000000000004",
-  "stage_started_at": "2024-03-07T21:15:38+00:00",
+  "stage_started_at": "2024-03-07T21:15:38Z",
   "vote_targets": null
 }

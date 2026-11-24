@@ -45,8 +45,7 @@ class TestLobbySocket:
         # The first thing the client gets is the known event: the unknown one was
         # neither forwarded nor allowed to close the socket.
         assert await communicator.receive_json_from(timeout=2) == {
-            "type": "player_joined",
-            "username": "x",
+            "type": "player_joined"
         }
         await communicator.send_json_to({"anything": 1})
         assert (await communicator.receive_json_from(timeout=2))["type"] == "error"

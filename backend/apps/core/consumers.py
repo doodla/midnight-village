@@ -10,6 +10,8 @@ from channels.consumer import get_handler_name
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
+from .serializers import without_usernames
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,27 +103,23 @@ class LobbyConsumer(TolerantJsonWebsocketConsumer):
     async def player_joined(self, event):
         """Handle player joined event."""
         await self.send_json(
-            {
-                "type": "player_joined",
-                "username": event["username"],
-            }
+            # Who joined is in the lobby body the phone reads next (its id and
+            # display name). The account's username is nobody else's to know.
+            {"type": "player_joined"}
         )
 
     async def player_left(self, event):
         """Handle player left event."""
-        await self.send_json(
-            {
-                "type": "player_left",
-                "username": event["username"],
-            }
-        )
+        await self.send_json({"type": "player_left"})
 
     async def lobby_update(self, event):
         """Handle generic lobby update."""
         await self.send_json(
             {
                 "type": "lobby_update",
-                "data": event["data"],
+                # An older server instance, during a deploy, still builds this
+                # body with usernames: they are taken out here too.
+                "data": without_usernames(event["data"]),
             }
         )
 

@@ -242,12 +242,8 @@ Map<String, dynamic> serverLobby({
   final sample = ContractSamples.map('http/lobby/detail_waiting');
   final member = _entry(sample, 'players');
   final user = (member['user'] as Map).cast<String, dynamic>();
-  Map<String, dynamic> userJson(Seat seat) => withValues(user, {
-    'id': seat.id,
-    'username':
-        '00000000-0000-4000-8000-${seat.id.toString().padLeft(12, '0')}',
-    'display_name': seat.name,
-  });
+  Map<String, dynamic> userJson(Seat seat) =>
+      withValues(user, {'id': seat.id, 'display_name': seat.name});
   final host = hostId ?? seats.first.id;
   final owner = originalHostId ?? host;
   final deckRoles =
