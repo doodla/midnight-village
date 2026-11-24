@@ -80,8 +80,7 @@ REST_FRAMEWORK = {
     **globals().get("REST_FRAMEWORK", {}),
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "1000/minute",
-        "user": "1000/minute",
+        "sign_up": "1000/minute",
         "online_stats": "1000/minute",
     },
 }

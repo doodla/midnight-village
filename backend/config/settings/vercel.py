@@ -56,6 +56,10 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 # oracle, fire-timer) answering 403.
 DEBUG = False
 
+# Vercel writes this header itself from the connection it received: the address the
+# request limits count by (apps/core/throttles.py takes it only as one valid address).
+CLIENT_ADDRESS_HEADER = "HTTP_X_VERCEL_FORWARDED_FOR"
+
 ALLOWED_HOSTS = _env_list("ALLOWED_HOSTS")
 for _host_var in ("VERCEL_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
     _host = os.environ.get(_host_var)
