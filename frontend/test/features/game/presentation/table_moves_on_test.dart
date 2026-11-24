@@ -195,19 +195,21 @@ void main() {
         lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
-      final reads = setup.count('GET', '/me/table/');
       final dealt = recordedMe('me_look_stage');
       _dealOnServer(setup, dealt);
+      // Where it sits cannot be read from now on: the event alone moves it.
+      // (The game's socket opening reads it, behind.)
+      final table = setup.http.hold(method: 'GET', path: '/me/table/');
 
       setup.event(_gameStarted(dealt));
       await tester.pump();
 
       expect(_inGame(tester), isTrue, reason: '${_screen(tester)}');
-      expect(setup.count('GET', '/me/table/'), reads);
       // The game's own `/me/` fills the dusk in.
       await setup.settle(tester);
       expect(_screen(tester), AppScreen.yourCard);
-      expect(setup.count('GET', '/me/table/'), reads);
+      setup.http.stopHolding(method: 'GET', path: '/me/table/');
+      table.releaseAll();
       expect(
         setup.count('GET', '/onuw/games/${dealt['game_id']}/me/'),
         isPositive,
@@ -294,6 +296,45 @@ void main() {
       await tester.pump(const Duration(seconds: 14));
 
       s.resume();
+      await tester.pump(_soon);
+      await tester.pump();
+
+      expect(s.screenOn(tester), AppScreen.table);
+      await s.close(tester);
+    });
+  });
+
+  group('an event said before a new screen\'s socket listened heals as it '
+      'opens', () {
+    testWidgets('a deal while 02\'s socket is still opening: in the game as '
+        'it opens, not on the slow poll', (tester) async {
+      final setup = await TableSetup.pump(
+        tester,
+        lobby: v2Lobby('detail_auto_deck_5'),
+        viewer: 'Ben',
+        reconnectingSocket: true,
+        slowLobbySocket: true,
+        healTiming: _phone,
+      );
+      expect(_screen(tester), AppScreen.table);
+      final dealt = recordedMe('me_look_stage');
+      _dealOnServer(setup, dealt);
+      setup.event(_gameStarted(dealt)); // nobody listens yet
+
+      setup.openLobbySocket();
+      await tester.pump(_soon);
+      await tester.pump();
+
+      expect(_inGame(tester), isTrue, reason: '${_screen(tester)}');
+      await setup.close(tester);
+    });
+
+    testWidgets('play again before the end board\'s socket is open: at 02 '
+        'as it opens', (tester) async {
+      final s = await _atTheEnd(tester);
+      _playAgainOnServer(s); // its event reached nobody
+
+      s.socket(connected: true); // the game's socket opens
       await tester.pump(_soon);
       await tester.pump();
 

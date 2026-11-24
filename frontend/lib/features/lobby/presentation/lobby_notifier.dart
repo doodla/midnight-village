@@ -135,8 +135,9 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   Future<void>? _refreshing;
   bool _refreshAgain = false;
 
-  /// Shown from a join's answer ([LobbySeed], not settled): read once more
-  /// when the socket is first up.
+  /// Read once more when the socket is first up (as when it comes back):
+  /// anything said before it listened. Not for a table just opened
+  /// ([LobbySeed] settled: only its host knows the code).
   bool _readWhenUp = false;
 
   /// The lobby state events act on: the snapshot being replayed on, else the
@@ -207,7 +208,7 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     _buffering = true;
     _buffered.clear();
     final seed = ref.read(lobbySeedProvider).take(code);
-    _readWhenUp = seed != null && !seed.settled;
+    _readWhenUp = seed?.settled != true;
     _connectWebSocket(code);
 
     ref.listen(appResumesProvider, (_, next) {
@@ -263,7 +264,9 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
             if (wasDown) ref.invalidate(myTableProvider);
             wasDown = false;
             _readWhenUp = false;
-            unawaited(refreshLobby());
+            // After the first read, if it is still out (it may have been
+            // answered before the socket listened).
+            unawaited(future.then((_) => refreshLobby(), onError: (_) {}));
           } else if (s == WebSocketConnectionState.disconnected ||
               s == WebSocketConnectionState.reconnecting) {
             wasDown = readOnDrop(s, refreshLobby);

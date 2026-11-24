@@ -121,6 +121,12 @@ class TableSetup {
   /// server's events meanwhile reach nobody ([event] drops them).
   Future<void> dropLobbySocket() => lobbyConnections.last.close();
 
+  /// With `slowLobbySocket`: the lobby socket's first connection is open
+  /// (the server listens to it) only from now on.
+  void openLobbySocket() => _firstOpens?.complete();
+  Completer<void>? _firstOpens;
+  final _open = <MockWebSocketChannel>{};
+
   /// The dealt game's `GET /me/` answers [me] (a recorded `/me/`; its
   /// `game_id` is the game's).
   void answerGame(Map<String, dynamic> me) =>
@@ -166,6 +172,10 @@ class TableSetup {
     /// The lobby's socket is the app's own [ReconnectingWebSocket] over
     /// fake connections, so a test can drop it ([dropLobbySocket]).
     bool reconnectingSocket = false,
+
+    /// With `reconnectingSocket`: its first connection opens only when the
+    /// test says ([openLobbySocket]); events meanwhile reach nobody.
+    bool slowLobbySocket = false,
 
     /// How the phone heals (the test's fast one unless given: a test of how
     /// long a miss lasts gives the phone's own, `const HealTiming()`).
@@ -231,14 +241,19 @@ class TableSetup {
     // guest account made through the mock server.
     final storage = _MemoryStorage();
     setup._reconnecting = reconnectingSocket;
+    if (slowLobbySocket) setup._firstOpens = Completer<void>();
     WebSocketChannelInterface lobbySocket(String code) {
       if (!reconnectingSocket) return setup.ws;
       final socket = ReconnectingWebSocket(
         url: 'ws://midnight.example/ws/lobby/$code/',
         tokenStorage: TokenStorage(storage: storage),
         channelFactory: (_) {
-          final connection = MockWebSocketChannel();
+          final opens = setup.lobbyConnections.isEmpty
+              ? setup._firstOpens?.future
+              : null;
+          final connection = MockWebSocketChannel(opens: opens);
           setup.lobbyConnections.add(connection);
+          unawaited(connection.ready.then((_) => setup._open.add(connection)));
           return connection;
         },
       );
@@ -353,7 +368,8 @@ class TableSetup {
   /// with `reconnectingSocket`, only while its connection is up.
   void event(Map<String, dynamic> event) {
     if (!_reconnecting) return ws.addServerEvent(event);
-    lobbyConnections.lastOrNull?.addServerEvent(event);
+    final live = lobbyConnections.lastOrNull;
+    if (live != null && _open.contains(live)) live.addServerEvent(event);
   }
 
   /// `PATCH /lobbies/<code>/` answers [body] (a recorded settings answer).

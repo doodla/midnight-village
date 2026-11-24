@@ -68,7 +68,10 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   Timer? _ackTimer;
   @override
   int _failedAcks = 0;
-  bool _wasDisconnected = false;
+
+  /// Down, or not up yet: the next "connected" reads everything again
+  /// (a socket that opens hears nothing said before it listened).
+  bool _wasDisconnected = true;
 
   bool _building = false;
   Future<void>? _loop;
@@ -343,7 +346,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
         table.status != TableStatus.waiting;
   }
 
-  /// Reconnect and resume: anything may have happened.
+  /// The socket opening or coming back, and resume: anything may have
+  /// happened.
   void _healEverything() {
     _invalidateTable();
     unawaited(refresh());
