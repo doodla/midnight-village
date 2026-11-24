@@ -5,6 +5,8 @@ Run with: python3 -m unittest discover -s .claude/guardrails/tests
 
 import importlib.util
 import re
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -25,6 +27,29 @@ def words(text: str) -> str:
     return re.sub(r"\s+", " ", " ".join(lines)).strip()
 
 
+# Run under a Python that has markdown-it: renders each note before and after.
+RENDER = """
+import importlib.util, re, sys
+from pathlib import Path
+from markdown_it import MarkdownIt
+
+root = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("doc_lines", root / "tool" / "doc_lines.py")
+tool = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tool)
+page = MarkdownIt("commonmark").enable("table")
+same = lambda text: re.sub(r"\\s+", " ", page.render(text)).strip()
+checked = 0
+for path in tool.tracked():
+    before = (root / path).read_text()
+    after = tool.reflowed(before)
+    checked += 1
+    if same(before) != same(after):
+        print("the page changes:", path)
+        sys.exit(1)
+print(checked, "notes rendered the same")
+"""
+
 SENTENCE = "The board never scrolls (`ScreenFrame(fitsHeight: true)`) and is laid out by `BoardLayout.solve`. "
 LONG = SENTENCE * 8
 
@@ -38,6 +63,18 @@ class Reflow(unittest.TestCase):
             before = (REPO / path).read_text()
             after = self.tool.reflowed(before)
             self.assertEqual(words(before), words(after), path)
+
+    @unittest.skipUnless(shutil.which("uv"), "uv fetches the Markdown renderer")
+    def test_every_tracked_note_renders_the_same_page(self):
+        """The rendered HTML of each note, before and after the reflow, is the
+        same (whitespace aside): what a reader sees does not change."""
+        ran = subprocess.run(
+            ["uv", "run", "--quiet", "--no-project", "--with", "markdown-it-py", "python", "-c", RENDER, str(REPO)],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(ran.returncode, 0, ran.stdout[-2000:] + ran.stderr[-2000:])
+        self.assertIn("rendered the same", ran.stdout)
 
     def test_a_long_paragraph_is_one_sentence_to_a_line(self):
         after = self.tool.reflowed(LONG.strip())
