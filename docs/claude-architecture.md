@@ -123,7 +123,9 @@ changed, strict at 360 and 390 (at 390 only when more than 60 states are reached
 `--both-widths`; `--no-screens` for a change to logic only): `tool/piece_screens.py` walks every catalogue state's widget
 tree (about a minute, reused until the app changes), reads which file declares each widget
 class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
-(`guardrails/tests/test_piece_check.py`). GitHub still runs everything.
+(`guardrails/tests/test_piece_check.py`). It is never silent: the plan gives each step's rough
+time and the total before anything runs, and a step that prints nothing says it is still
+running every 30 seconds. GitHub still runs everything.
 
 `guardrails/tests/test_checkout_whole.py` keeps a fresh checkout working as it stands: every
 shell script parses (`bash -n`), the lint and type tools in recipes and hooks are run as

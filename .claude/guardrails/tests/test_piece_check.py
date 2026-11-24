@@ -215,3 +215,58 @@ class ScreensThatDrawAChange(unittest.TestCase):
         self.assertTrue(any("screen states" in s for s in steps("frontend/lib/app.dart")))
         self.assertFalse(any("screen states" in s for s in steps("frontend/test/a_test.dart")))
         self.assertFalse(any("screen states" in s for s in steps("backend/apps/core/views.py")))
+
+
+class NeverSilent(unittest.TestCase):
+    """A builder's run "timed out at 500 s" having printed nothing: the plan says
+    what it will cost before it starts, and a quiet step says it is alive."""
+
+    def test_every_step_of_a_plan_has_a_guess_and_none_is_the_fallback(self):
+        tool = load(REPO)
+        changed = [
+            "backend/apps/core/views.py",
+            "backend/apps/core/migrations/0001_initial.py",
+            "frontend/lib/app.dart",
+            "frontend/pubspec.yaml",
+            "contract_samples/http/x.json",
+            "tool/piece_check.py",
+        ]
+        for what, _, command in tool.plan(changed):
+            known = "frontend test files" in what or any(
+                what.startswith(words) for words, _ in tool.GUESSES
+            )
+            self.assertTrue(known, f"no time guess for the step: {what}")
+            self.assertGreater(tool.guess(what, command), 0)
+
+    def test_a_selected_frontend_run_is_guessed_by_its_files(self):
+        tool = load(REPO)
+        few = tool.guess("3 frontend test files nearest the change", ["a_test.dart"] * 3)
+        many = tool.guess("30 frontend test files nearest the change", ["a_test.dart"] * 30)
+        self.assertGreater(many, few)
+
+    def test_a_quiet_step_says_it_is_still_running(self):
+        import contextlib
+        import io
+        import sys
+        import time
+
+        tool = load(REPO)
+        tool.HEARTBEAT = 0.2
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said):
+            code = tool.run_aloud(
+                [sys.executable, "-c", "import time; time.sleep(0.7)"],
+                REPO, "a quiet step", time.monotonic(),
+            )
+        self.assertEqual(code, 0)
+        self.assertIn("still running", said.getvalue())
+        self.assertIn("a quiet step", said.getvalue())
+
+    def test_a_failing_step_still_fails(self):
+        import sys
+        import time
+
+        tool = load(REPO)
+        code = tool.run_aloud([sys.executable, "-c", "raise SystemExit(3)"], REPO, "x", time.monotonic())
+        self.assertEqual(code, 3)
+
