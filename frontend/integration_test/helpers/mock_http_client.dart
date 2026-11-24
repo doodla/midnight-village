@@ -206,7 +206,22 @@ class _MockInterceptor extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     _requests.add(options);
     final key = '${options.method.toUpperCase()}:${options.path}';
-    _beforeAnswer[key]?.call(options);
+    try {
+      _beforeAnswer[key]?.call(options);
+    } catch (error, stack) {
+      // The test's own stand-in threw (an answer off contract, say). That is
+      // the test's failure, never a lost request the app quietly retries.
+      Zone.current.handleUncaughtError(error, stack);
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          error: error,
+          message: error.toString(),
+          type: DioExceptionType.unknown,
+        ),
+      );
+      return;
+    }
     final mock = _registry[key];
 
     if (mock != null) {

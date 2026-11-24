@@ -43,7 +43,9 @@ class ContractShape {
       if (opaque.contains(path)) return;
       if (value is Map) {
         final keys = {for (final k in value.keys) _key(path, k as String)};
-        required[path] = required[path]?.intersection(keys) ?? keys;
+        // A dictionary's entries (`*`) are never required: it may be empty.
+        final named = keys.difference(const {'*'});
+        required[path] = required[path]?.intersection(named) ?? named;
         value.forEach((k, v) => walk(v, _child(path, _key(path, k as String))));
       } else if (value is List) {
         for (final v in value) {
