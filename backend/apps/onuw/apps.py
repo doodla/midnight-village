@@ -14,11 +14,15 @@ class OnuwConfig(AppConfig):
         # Plug into the shared lobby (apps.core must not import this app).
         from apps.core import games, online, timers
 
-        from . import presence
+        from . import basics, practice, presence
         from .hooks import OnuwHooks
 
         games.register("onuw", OnuwHooks())
+        # The practice players act through the whole service: it is plugged into
+        # the bottom layer here, where nothing imports upwards.
+        # (looked up when called, so a test that replaces ``practice.drive`` reaches it)
+        basics.practice_driver = lambda game_id: practice.drive(game_id)
         online.register_online_source(presence.online_sockets)
-        # Modules that define this game's timer jobs / presence scope.
+        # The module that defines this game's timer jobs and registers its
+        # presence scope: the timers import it before any job runs.
         timers.register_job_module("apps.onuw.services")
-        timers.register_job_module("apps.onuw.presence")

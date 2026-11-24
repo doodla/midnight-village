@@ -2,8 +2,10 @@
 Who is connected to a GAME, from socket rows (``SocketPresence``).
 
 The generic machinery (staleness timeout, heartbeat, durable presence checks,
-lobby sockets) lives in ``apps.core.presence``; this module adds the game scope
-and re-exports the generic helpers so game code has one place to import from.
+lobby sockets) lives in ``apps.core.presence``; this module adds the game's reads
+(who is connected) and re-exports the generic helpers so game code has one place
+to import from. The game's presence CHECK is registered in ``services.py``, with
+the timer jobs.
 See ``apps/core/presence.py`` for the design (rows with heartbeats, a durable
 ``presence_check`` timer that notices silent deaths, nothing reset at start-up).
 """
@@ -13,7 +15,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.core import presence as _core
 from apps.core.presence import (  # noqa: F401  (re-exported)
     check_key,
     check_params,
@@ -60,18 +61,3 @@ def annotate(player_roles: list, game_id: Any) -> list:
     for pr in player_roles:
         pr.is_connected = pr.user_id in connected
     return player_roles
-
-
-def _check_game(scope_id: str, user_id: int) -> None:
-    """Scope checker of the durable presence check: a game socket may have died."""
-    from apps.core.effects import after_commit
-
-    from . import game_presence, services
-
-    if game_presence.check_game_presence(scope_id, user_id):
-        # Host handover has its own transaction and lock order (Lobby then
-        # LobbyMember): it runs only after this one has committed.
-        after_commit(lambda: services.report_game_presence(scope_id, user_id, False))
-
-
-_core.register_scope("game", _check_game)
