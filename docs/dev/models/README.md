@@ -30,6 +30,9 @@ requests, answers, lost messages, timers and restarts inside a small bound.
    the test is the guard.
 5. Keep the model here with a README: what it models, what it leaves out, what it found and
    the commit that fixed it.
+6. A rule the code breaks today and that nobody is fixing yet is a KNOWN gap: its run is a
+   `known_<name>.cfg` that the run script expects to break (so a clean run means nothing
+   changed), and the README gives its shortest trace in plain words.
 
 ## Models
 
@@ -37,3 +40,4 @@ requests, answers, lost messages, timers and restarts inside a small bound.
 |---|---|---|---|
 | `night2/` | Server: a whole protocol-2 game, three phones | A resent Doppelganger look read as her follow-up | `fb229fb` |
 | `phone/` | One phone: the night board and the talk-to-next-game lanes | F1-F6 (stuck fetches, turn read from `kind`, results never loaded, lost play again) | `303f1df` |
+| `phone/lobby/` | The host's phone in the lobby: the settings lane, reads, socket, the shared "Try again" | Known gaps: a read crossing an answer flicks a setting back; a new tap hides "Not sent."; a lost deal takes the one "Try again"; a late request overtakes (#16) | not yet (known gaps) |
