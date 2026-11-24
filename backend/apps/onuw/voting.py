@@ -14,6 +14,7 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core import asked as ask
 from apps.core import timers
 from apps.core.models import Lobby
 from apps.core.wire import wire_time
@@ -140,6 +141,7 @@ def submit_vote(
     *,
     lock: bool = True,
     stage: str | None = None,
+    asked: int | None = None,
 ) -> list[str]:
     """
     Pick (``lock=False``) or lock in (``lock=True``) a vote. Returns the list of
@@ -160,7 +162,9 @@ def submit_vote(
     the Game lock: a pick or lock for a stage that is over, a late lock after the
     reveal, raises ``WrongStageError`` and stores nothing), and a lock that repeats
     the stored locked vote (a resend whose answer was lost) succeeds again doing
-    nothing.
+    nothing. ``asked`` (the phone's tap time, ``apps.core.asked``) is checked
+    last, under the same locks: a pick or lock tapped before the newest one
+    applied in this stage raises ``StaleRequestError`` and stores nothing.
     """
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
@@ -190,15 +194,20 @@ def submit_vote(
         game_player_ids = set(game.player_roles.values_list("user_id", flat=True))
         if target_player_id not in game_player_ids:
             return [VOTE_BAD_TARGET]
+        newest = ask.newer(voter_pr.asked, "vote", stage, asked)
+        if newest is not None:
+            raise ask.StaleRequestError(newest)
 
         # pyrefly: ignore [missing-attribute]
         voter_pr.vote_target_id = target_player_id
+        voter_pr.asked = ask.noted(voter_pr.asked, ["vote"], stage, asked)
+        noted = [] if asked is None else ["asked"]
         if not lock:
-            voter_pr.save(update_fields=["vote_target"])
+            voter_pr.save(update_fields=["vote_target", *noted])
             return []
 
         voter_pr.has_acted = True
-        voter_pr.save(update_fields=["vote_target", "has_acted"])
+        voter_pr.save(update_fields=["vote_target", "has_acted", *noted])
         basics._send_after_commit(
             [(f"game_{game.id}", {"type": "progress", **readiness.vote_progress(game)})]
         )
@@ -245,7 +254,11 @@ READY_ERROR_CODES = {
 
 
 def set_ready(
-    game: Game, user_id: int, ready: bool, stage: str | None = None
+    game: Game,
+    user_id: int,
+    ready: bool,
+    stage: str | None = None,
+    asked: int | None = None,
 ) -> list[str]:
     """Mark the caller ready at the stage that asks for it. Returns the list of
     errors (empty = success); ``READY_ERROR_CODES`` maps them to codes.
@@ -257,7 +270,9 @@ def set_ready(
     lock, the stage re-checked, so a tap racing the host, the backstop or the
     talk's deadline moves on once. Every tap recounts ``needed`` and sends the
     count. The request names its ``stage`` (compared under the lock: a tap for a
-    stage that is over raises ``WrongStageError``).
+    stage that is over raises ``WrongStageError``). ``asked`` (the phone's tap
+    time, ``apps.core.asked``) is checked last, under the same locks: a tap made
+    before the newest one applied in this stage raises ``StaleRequestError``.
     """
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
@@ -272,10 +287,17 @@ def set_ready(
         pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
         if looking and not ready:
             return [READY_ONE_WAY]
+        newest = ask.newer(pr.asked, "ready", stage, asked)
+        if newest is not None:
+            raise ask.StaleRequestError(newest)
 
-        if pr.phase_ready != ready:
+        changed = ["phase_ready"] if pr.phase_ready != ready else []
+        if asked is not None:
+            changed.append("asked")
+        if changed:
             pr.phase_ready = ready
-            pr.save(update_fields=["phase_ready"])
+            pr.asked = ask.noted(pr.asked, ["ready"], stage, asked)
+            pr.save(update_fields=changed)
         progress = readiness.stage_progress(game)
         if progress is not None:  # looking or in the talk: both have a count
             basics._send_after_commit(

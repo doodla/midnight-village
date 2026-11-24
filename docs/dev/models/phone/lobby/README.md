@@ -94,6 +94,7 @@ joining, 1 deal tap, 2 faults.
 |---|---|
 | `PhoneLobby.tla` | The model; its header names the code it was read from. |
 | `lobby.cfg` | `NeverOlder`, 2 faults. |
+| `late.cfg` | `NeverOlder` with `LATE` and `FIX_ASKED` (the server's half of #16). |
 | `rule_a.cfg`, `rule_b.cfg`, `rule_b2.cfg`, `rule_c.cfg` | Gaps a, b, b2, c: their rules hold, 2 faults. |
 | `heal.cfg` | `FlickerHeals` and `Converges` with 1 fault. (`FlickerHeals` with 2 faults, once `known_heal`, needs no run of its own now: `NoFlickerBack` holds with 2 faults, so no key is ever shown older than its answer.) |
 | `known_*.cfg` | One KNOWN gap each: the run must still break its rule. |
@@ -113,7 +114,8 @@ the whole script: TLC 2026.11.19 (`tla2tools.jar` of the tlaplus v1.8.0 release)
 | `NoHiddenResend` | (b2, R1) "Try again" never sends a lost value after "Not sent." stopped showing for it | `rule_b2` | holds (8,897,725) |
 | `RetryCoversAll`, `DealAsShown` | (c, R2) "Try again" leaves nothing behind; what is dealt is what the screen showed at the tap | `rule_c` | holds (8,897,725) |
 | `FlickerHeals`, `Converges` | A key shown older than its answer is put right with nobody tapping; the screen ends where the server is or says "Not sent." | `heal` (1 fault) | hold (720,207) |
-| `NeverOlder` | With `LATE`: a lost request may reach the server after a newer one | `known_late` | KNOWN gap (#16) |
+| `NeverOlder` | With `LATE` and `FIX_ASKED`: the server drops a change older than the one it stored | `late` | holds (23,561,865) |
+| `NeverOlder` | With `LATE` alone: a lost request may reach the server after a newer one | `known_late` | KNOWN gap (#16) |
 | `Converges` | With 2 faults: a refusal and a failed read | `known_converge` | KNOWN gap |
 
 ## How the gaps closed (the traces that showed them)
@@ -148,3 +150,13 @@ whose own `lobby_update` never comes (applied while the socket was down, and the
 before its answer) stays laid until the next of the host's changes is heard or the socket
 drops: the screen shows the answer's value, which is the server's unless something else
 changed that key meanwhile.
+
+## #16, the server's half (`FIX_ASKED`)
+
+`FIX_ASKED` models what the server does once a change carries the time of its tap (`asked`):
+per key, a change older than the newest it applied for that key is dropped; when every key of
+a change is dropped it answers `409 stale_request`, stores nothing and broadcasts nothing (the
+phone reads again, as after any refusal). `late.cfg` (`LATE` and `FIX_ASKED`, 2 faults) holds
+`NeverOlder`; `known_late` (`LATE` alone) still breaks it, and is the phone of today, which
+sends no `asked` yet. When the phone sends it, `known_late` goes and `late.cfg` is the run.
+`runlobby.sh` runs both.

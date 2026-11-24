@@ -970,6 +970,14 @@
       "description": "Looking at your card cannot be undone."
     },
     {
+      "name": "http/game/ready_stale",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/ready/",
+      "status": 409,
+      "description": "A ready tapped before a newer one already applied in this stage: nothing changes."
+    },
+    {
       "name": "http/game/ready_talk",
       "kind": "http",
       "method": "POST",
@@ -1336,6 +1344,14 @@
       "path": "/onuw/games/{game_id}/vote/",
       "status": 400,
       "description": "A vote for yourself, with its code."
+    },
+    {
+      "name": "http/game/vote_stale",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/vote/",
+      "status": 409,
+      "description": "A pick tapped before a newer pick already applied: the newer pick stays."
     },
     {
       "name": "http/lobby/create_unknown_defaults",
@@ -1896,6 +1912,14 @@
       "path": "/lobbies/{code}/",
       "status": 200,
       "description": "Only seven came: the host lowers the number. The custom deck for eight no longer fits (`deal`: need 10, have 11) and is kept, not changed."
+    },
+    {
+      "name": "http/lobby/settings_stale",
+      "kind": "http",
+      "method": "PATCH",
+      "path": "/lobbies/{code}/",
+      "status": 409,
+      "description": "A settings change tapped before one already applied (`asked` older than the newest for every key it names): nothing changes, nobody hears."
     },
     {
       "name": "http/lobby/settings_updated",

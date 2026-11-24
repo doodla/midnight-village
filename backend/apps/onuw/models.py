@@ -146,6 +146,14 @@ class PlayerRole(models.Model):
         db_default=0,
         help_text="How many of the player's night results they have acknowledged",
     )
+    # pyrefly: ignore [no-matching-overload]  (the stubs lack JSONField db_default)
+    asked = models.JSONField(
+        default=dict,
+        db_default=Value({}, output_field=models.JSONField()),
+        blank=True,
+        help_text="The newest tap applied per lane: lane -> [stage, asked] "
+        "(apps.core.asked; lanes vote and ready)",
+    )
     disconnected_at = models.DateTimeField(
         null=True,
         blank=True,

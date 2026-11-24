@@ -9,7 +9,10 @@
 EXTENDS Naturals, FiniteSets, TLC
 
 CONSTANTS MaxFaults, MaxTaps, FIX_HEAL,
-          HOST_MOVES_ON  \* the host eventually plays again and deals (else the table may stay at the results)
+          HOST_MOVES_ON, \* the host eventually plays again and deals (else the table may stay at the results)
+          FIX_ASKED  \* a ready or a vote carries the time of its tap (`asked`) and the server answers
+                    \* 409 stale_request to one older than the newest it applied for that lane (#16,
+                    \* the server's half; the phone does not send it yet, so FALSE is today's phone)
 
 Lanes == {"ready", "vote"}
 NoTab == [status |-> "none", game |-> 0, phase |-> 0]
@@ -74,7 +77,7 @@ SDeal ==
   /\ UNCHANGED <<sv, sReady, sVote, sLocked, sLast, badOrder, reqs, reps, phoneVars, ev, taps, faults>>
 
 SProcess(r) ==
-  LET ok == r.st = sv /\ table.game = 1
+  LET ok == r.st = sv /\ table.game = 1 /\ ~(FIX_ASKED /\ r.tap < sLast[r.lane])
       ans == IF ~ok THEN "stale"
              ELSE IF r.lane = "vote" /\ sLocked THEN (IF r.lock /\ r.val = sVote THEN "taken" ELSE "stale")
              ELSE "taken"

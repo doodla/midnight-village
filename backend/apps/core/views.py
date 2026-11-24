@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from . import asked as ask
 from . import practice
 from .games import hooks_for, hooks_for_type
 from .lobbies import (
@@ -190,6 +191,7 @@ class LobbyDetailView(RetrieveAPIView):
         only its own keys cannot drop another screen's. The Lobby row is locked from
         the checks to the save (two host taps cannot interleave), the merged result
         is what the game's validator checks, and nothing is stored if it refuses.
+        An optional ``asked`` drops keys a newer tap set (``apps.core.asked``).
         """
         with transaction.atomic():
             try:
@@ -229,8 +231,16 @@ class LobbyDetailView(RetrieveAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # ``practice`` is set and cleared by the practice endpoint alone.
+            asked, refusal = ask.read(request.data)
+            if refusal is not None:
+                return refusal
+            # ``practice`` is set and cleared by the practice endpoint alone. A key
+            # a newer tap of this user set is dropped; all dropped is 409.
             given = practice.strip_setting(given)
+            kept, newest = ask.fresh(lobby.asked, given, request.user.id, asked)
+            if newest is not None and not kept:  # every key given was stale
+                return ask.stale_response(newest)
+            given = kept
             merged = {**lobby.settings, **given}
             from apps.core import games
 
@@ -247,7 +257,8 @@ class LobbyDetailView(RetrieveAPIView):
                 )
 
             lobby.settings = merged
-            lobby.save(update_fields=["settings", "updated_at"])
+            lobby.asked = ask.noted(lobby.asked, list(given), request.user.id, asked)
+            lobby.save(update_fields=["settings", "asked", "updated_at"])
             data = LobbySerializer(lobby).data
 
         channel_layer = get_channel_layer()
@@ -478,6 +489,9 @@ class LobbyPracticeView(APIView):
                 {"detail": "Send on (true or false) or count.", "code": "bad_request"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        asked, refusal = ask.read(body)
+        if refusal is not None:
+            return refusal
         switching_on = on is True or (on is None and bool(count))
         with transaction.atomic():
             # With the caller's other tables (pk order): switching on clears
@@ -501,6 +515,11 @@ class LobbyPracticeView(APIView):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
+            newest = ask.newer(
+                lobby.asked, practice.SETTING_KEY, request.user.id, asked
+            )
+            if newest is not None:
+                return ask.stale_response(newest)
             cleared = (
                 practice.clear_elsewhere(request.user.id, keep=lobby)  # type: ignore[arg-type]
                 if switching_on
@@ -513,6 +532,7 @@ class LobbyPracticeView(APIView):
                 return Response(
                     {"detail": exc.detail, "code": exc.code}, status=exc.status
                 )
+            practice.note_asked(lobby, request.user.id, asked)  # type: ignore[arg-type]
             data = LobbySerializer(lobby).data
             announce_lobby(lobby)
             for other in cleared:

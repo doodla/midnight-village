@@ -62,9 +62,13 @@ last gone through on 20 November, and what landed since is `git log` on main (#6
 - Ten long names on a 320-wide phone: the night board falls under the 14 px reading floor.
 - 04 held, the Minion's face on a 320-wide phone: the role name (13.2 px) and its Night
   line (15.1 px) fall under the reading floor (`just screens 320`, `04-your-card-held-minion`).
-- The server now sends `CORS_EXPOSE_HEADERS = ["Date"]` (base settings) and `/me/`
-  `stage_started_at`; the app does not read either yet (it times fetches by the phone's
-  clock). Nobody has checked that the live server sends it.
+- Countdowns follow the server's clock: the app reads the `Date` of every `/me/` answer and
+  counts from it with a stopwatch, never comparing its own clock with the server's
+  (`server_clock_countdown_test.dart`: a phone minutes ahead, behind or years off shows the
+  server's seconds). The live server sends `Date` and exposes it to the app (checked 24
+  November 2026). The limit: `Date` is in whole seconds and arrives after the network trip, so
+  two phones can show numbers about a second apart; closing that needs the server's time in
+  the `/me/` body.
 - 01 to 03: no rename (a new name on a device makes a new guest account). 03 is the set-up
   page (players 3 to 10 or open, the deck face up, every length with its range; no pace
   presets); the lobby body carries `deck_cards`, `lengths`, `length_ranges` and `deal.seats`.
