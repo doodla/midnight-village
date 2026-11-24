@@ -25,7 +25,6 @@ class SkinType {
     required this.screenTitle,
     required this.headline,
     required this.title,
-    required this.tally,
     required this.heading,
     required this.name,
     required this.nameSmall,
@@ -75,9 +74,6 @@ class SkinType {
 
   /// Names in the vote.
   final TextStyle title;
-
-  /// The number of votes at the end of a count row.
-  final TextStyle tally;
 
   /// Short headings inside a screen ("My night"), pace values, names in the
   /// count, a role's name on a held face.
@@ -146,7 +142,6 @@ class SkinType {
     'screenTitle': screenTitle,
     'headline': headline,
     'title': title,
-    'tally': tally,
     'heading': heading,
     'name': name,
     'nameSmall': nameSmall,

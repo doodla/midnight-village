@@ -211,7 +211,6 @@ final _type = SkinType(
   screenTitle: _gloock(24, height: 1.05, em: -0.01), // S05, S09 (mock 34)
   headline: _gloock(24, height: 1.05, em: -0.01), // S03, S03b (mock 32)
   title: _gloock(20, height: 1.15, em: -0.01), // S06, S09 (mock 26)
-  tally: _gloock(20, height: 1), // S10 (mock 28)
   heading: _gloock(20, height: 1), // S03 pace, S08 (mock 24)
   name: _gloock(16, height: 1.1), // every player's name (mocks 18 to 26)
   nameSmall: _gloock(14, height: 1.1), // S06 under a card (mock 18)

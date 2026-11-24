@@ -100,7 +100,6 @@ void main() {
       (PlayerRowSize.lobby, 38.0, 26.0, 10.0, 10.0), // S02
       (PlayerRowSize.compact, 48.0, 32.0, 12.0, 12.0), // S09 fallback
       (PlayerRowSize.large, 52.0, 38.0, 14.0, 16.0), // S09
-      (PlayerRowSize.count, 52.0, 34.0, 12.0, 14.0), // S10
     ]) {
       testWidgets(
         '${size.name}: $height tall, a $token token, $gap to the name, '
@@ -108,12 +107,7 @@ void main() {
         (tester) async {
           await _pump(
             tester,
-            PlayerRow(
-              token: TokenId.moth,
-              name: 'Cleo',
-              size: size,
-              trailing: const Tally(3),
-            ),
+            PlayerRow(token: TokenId.moth, name: 'Cleo', size: size),
             ground: GroundKind.day,
           );
           final row = tester.getRect(find.byType(PlayerRow));
@@ -121,28 +115,15 @@ void main() {
           expect(row.height, height);
           expect(tokenRect.width, token);
           expect(tester.getRect(find.text('Cleo')).left - tokenRect.right, gap);
-          expect(row.right - tester.getRect(find.text('3')).right, end);
+          // The name's column runs to the end padding.
+          final words = find.descendant(
+            of: find.byType(PlayerRow),
+            matching: find.byType(Column),
+          );
+          expect(row.right - tester.getRect(words.first).right, end);
         },
       );
     }
-
-    testWidgets('the trailing part keeps its own type (the tally is 20)', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        const PlayerRow(
-          token: TokenId.bell,
-          name: 'Dev',
-          size: PlayerRowSize.count,
-          trailing: Tally(3),
-        ),
-      );
-      final style = DefaultTextStyle.of(
-        tester.element(find.text('3')),
-      ).style.merge(tester.widget<Text>(find.text('3')).style);
-      expect(style.fontSize, 20);
-    });
   });
 
   testWidgets('a dropped member\'s token is dimmed to 0.4 in the idle ring', (

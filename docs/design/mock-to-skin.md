@@ -216,10 +216,10 @@ with no top picture or band starts `Space.screenTop` (40) down, plus the status 
 | Dead player's token 64, ring 2 danger line | `PlayerToken(size: TokenSize.band, ringColor: ground.dangerLine)` |
 | "The count" label; "Dev dies." 44 lh 0.95 | "The count" is **Cut** by the first-time play spec; `FitLine` in `type.heroVerdict` (hero line) |
 | "Accused · Voted by" | **Cut** by the first-time play spec ("Accused", "Voted by") |
-| Rows 64 tall, radius 32/6, padding 0 14 0 8, gap 12, token 48, Gloock 24 | `PlayerRow(size: PlayerRowSize.count)` (`type.heading`) |
+| Rows 64 tall, radius 32/6, padding 0 14 0 8, gap 12, token 48, Gloock 24 | **Removed** with the count screen (#148): the end board draws the votes |
 | Name column 62 wide | the name is `Expanded` instead, so long names fit; the voters still sit at the end |
-| Voters' tokens 34, gap 6 | The voters by name under the accused's: `PlayerRow(detail: "Ana, Ben, Cleo")` in `type.body` 16 |
-| Count Gloock 28, right-aligned | `Tally(n)` (`type.tally`) |
+| Voters' tokens 34, gap 6 | **Removed** with the count screen |
+| Count Gloock 28, right-aligned | **Removed** with the count screen |
 | The dead player's row: blood, 4,4 indigo | `picked: true` |
 | Dead card: paper, padding 10, gap 16, 0 5 paperEdge + 0 10 blood | `PaperCard(lift: PaperLift.heroSlab, padding: Space.smPlus)` (day heroSlab) |
 | Portrait 120 x 160, radius 3 | `RolePortrait(width: RolePortrait.count)` |

@@ -165,7 +165,7 @@ const inventory = <PartEntry>[
     'primitives/player_row.dart',
     plain: 'paper row with a ring when picked or your own',
     paper:
-        'a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag; Tally strokes are strips of paper with a shadow',
+        'a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag',
   ),
   PartEntry(
     'PlayerToken',

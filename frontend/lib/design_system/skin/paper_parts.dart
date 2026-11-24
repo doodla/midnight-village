@@ -50,8 +50,6 @@ class PaperParts {
     this.holdBandGap = 2,
     this.holdDrop = 2,
     this.holdArcAlpha = 0.5,
-    this.tallyDrop = 1.5,
-    this.tallyAlpha = 0.4,
     this.lanternCast = const Offset(0.07, 0.09),
     this.lanternHalo = 1.25,
     this.lanternHaloAlpha = 0.34,
@@ -206,10 +204,6 @@ class PaperParts {
   final double holdBandGap;
   final double holdDrop;
   final double holdArcAlpha;
-
-  /// A tally strip's shadow: how far it drops and its ink.
-  final double tallyDrop;
-  final double tallyAlpha;
 
   /// The paper lantern's shadow (of its width, sideways and down), the glow
   /// round it (its radius in widths) and how bright that is at most.

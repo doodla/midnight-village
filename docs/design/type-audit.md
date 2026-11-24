@@ -20,7 +20,7 @@ is the shipped value before the choice (a mock's number is never copied: a role 
 | heroRole | G | **46** | 46 | the role on your own card (unchanged) |
 | display | G | 28 | 36 | the dead player's role, "My night" large |
 | screenTitle / headline | G | 24 | 34 / 32 | the screen's question, "Tonight's deck" |
-| title / heading / tally | G | 20 | 26 / 24 / 28 | section lines, dialogs, stepper values, votes at a row's end |
+| title / heading | G | 20 | 26 / 24 | section lines, dialogs, stepper values |
 | **name** | G | **16** | 26, 24, 21, 18 | every player's name, in every row (the serif kept) |
 | nameSmall | G | 14 | 18 | a name under a card on the night board |
 | buttonLabel (large, regular, small) | F 700 | 15 | 21 / 20 / 19 (G) | primary button words |
