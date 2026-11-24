@@ -436,7 +436,10 @@ void main() {
 
         expect(find.byType(ScanView), findsNothing);
         expect(setup.scanners.single.disposed, isTrue);
-        expect(find.text(JoinCopy.codeHint), findsOneWidget);
+        expect(
+          find.widgetWithText(TextField, JoinCopy.codeHint),
+          findsOneWidget,
+        );
         final code = tester.widgetList<TextField>(find.byType(TextField)).last;
         expect(code.focusNode!.hasFocus, isTrue);
 

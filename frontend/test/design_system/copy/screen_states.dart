@@ -179,7 +179,18 @@ final screens = <String, Screen>{
           text(JoinCopy.online),
           text(last),
         ],
-        // "Join a table" gives way to the code and "Join".
+        // "Join a table" gives way to the code and, until the code is
+        // whole, "Join" locked, saying "Code"; "Start a table" the plaque.
+        'join a table opened, no code yet ($last)': [
+          headline(JoinCopy.title),
+          text(JoinCopy.nameHint),
+          button(JoinCopy.startTable),
+          text(JoinCopy.codeHint),
+          button(JoinCopy.codeHint),
+          text(JoinCopy.online),
+          text(last),
+        ],
+        // The code whole: "Join" the plaque, "Start a table" a scrap.
         'join a table opened ($last)': [
           headline(JoinCopy.title),
           text(JoinCopy.nameHint),

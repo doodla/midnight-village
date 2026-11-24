@@ -6,7 +6,6 @@ import 'package:midnight_village/core/host/app_download.dart';
 import 'package:midnight_village/core/router/routes.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
-import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/primitives/viewfinder.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
@@ -64,15 +63,17 @@ void main() {
         );
         final ink = tester.widget<Text>(_link).style!.color;
         final context = tester.element(_link);
-        // Dimmed bone, the lede's size and face (as "N at tables"), not full ink.
-        expect(ink, context.ground.quietText);
-        expect(ink, isNot(context.ground.text));
+        // 01 is dressed in paper: the kit's quiet action, plain serif words
+        // with no underline and no paper, never amber, never a button.
         expect(ink, isNot(context.ground.accent));
         expect(
-          tester.widget<Text>(_link).style!.fontSize,
-          tester.widget<Text>(find.textContaining('at tables')).style!.fontSize,
+          tester.widget<Text>(_link).style!.decoration,
+          isNot(TextDecoration.underline),
         );
-        expect(find.byType(PrimaryButton), findsNothing);
+        expect(
+          find.widgetWithText(PrimaryButton, JoinCopy.getApp),
+          findsNothing,
+        );
 
         // On the "at tables" row, at its right end.
         final line = find.textContaining('at tables');
@@ -94,7 +95,7 @@ void main() {
                   find
                       .ancestor(
                         of: find.text(JoinCopy.startTable),
-                        matching: find.byType(SecondaryButton),
+                        matching: find.byType(PrimaryButton),
                       )
                       .first,
                 )

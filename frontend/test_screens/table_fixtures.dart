@@ -237,7 +237,16 @@ Future<void> pumpJoinClosed(WidgetTester tester) async {
 Future<void> pumpJoinReturning(WidgetTester tester) =>
     TableSetup.pump(tester, signedInAs: 'Ben', lastWon: false);
 
-/// 01 with "Join a table" opened: the code and an amber "Join".
+/// 01 with "Join a table" opened and no code yet: "Join" locked, saying
+/// "Code"; "Start a table" still the amber plaque.
+Future<void> pumpJoinCodeOpen(WidgetTester tester) async {
+  await pumpJoinReturning(tester);
+  await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));
+  await tester.pump();
+}
+
+/// 01 with "Join a table" opened and the code typed: "Join" the amber
+/// plaque, "Start a table" a scrap.
 Future<void> pumpJoinCode(WidgetTester tester) async {
   await pumpJoinReturning(tester);
   await pressLikeAFinger(tester, find.text(JoinCopy.joinTable));

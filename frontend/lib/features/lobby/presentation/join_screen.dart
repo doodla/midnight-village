@@ -11,7 +11,7 @@ import '../../../design_system/copy/copy.dart';
 import '../../../design_system/layout/space.dart';
 import '../../../design_system/primitives/fit_line.dart';
 import '../../../design_system/primitives/notice.dart';
-import '../../../design_system/primitives/lantern_pool.dart';
+import '../../../design_system/primitives/mood.dart';
 import '../../../design_system/primitives/nudge.dart';
 import '../../../design_system/primitives/primary_button.dart';
 import '../../../design_system/primitives/screen_frame.dart';
@@ -20,6 +20,7 @@ import '../../../design_system/primitives/waiting_sign.dart';
 import '../../../design_system/primitives/skin_field.dart';
 import '../../../design_system/primitives/text_action.dart';
 import '../../../design_system/primitives/viewfinder.dart';
+import '../../../design_system/skin/dress.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
 import '../../auth/domain/auth_state.dart';
@@ -32,6 +33,7 @@ import 'scan/scan_view.dart';
 import '../../../design_system/primitives/rule.dart';
 
 part 'join_view.dart';
+part 'join_ways.dart';
 
 /// 01 Join (first-time play spec, section 3): a name first, then the way in.
 ///
@@ -144,10 +146,18 @@ class OpeningWait extends StatelessWidget {
   final VoidCallback? onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DressScope(
+    dress: JoinView.defaultDress,
+    child: Builder(builder: _build),
+  );
+
+  // Dressed as 01 is, so the opening does not change look under the form.
+  Widget _build(BuildContext context) {
     final skin = context.skin;
     return ScreenFrame(
       ground: GroundKind.night,
+      // Its one light is the lantern by the door in the picture.
+      mood: MoodKind.lantern,
       topArt: skin.art.streetDoor,
       topArtLayout: TopArtLayout.fill,
       body: Column(

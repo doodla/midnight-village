@@ -365,7 +365,29 @@ class _TopArt extends StatelessWidget {
   final double fadeFrom;
 
   @override
-  Widget build(BuildContext context) => Stack(
+  Widget build(BuildContext context) {
+    // Dressed up, the ground under the picture is the mood (a lit pool, a
+    // vignette), never one flat colour: the picture's own paper thins away
+    // into it, so no seam shows where the picture ends and the form lies on
+    // its foreground. Its own layer, painted once.
+    if (context.dress.isPaper && veil == 0) {
+      return RepaintBoundary(
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: [fadeFrom.clamp(0, 1), 1],
+            colors: [fadeTo, fadeTo.withValues(alpha: 0)],
+          ).createShader(rect),
+          child: picture,
+        ),
+      );
+    }
+    return _plain();
+  }
+
+  Widget _plain() => Stack(
     fit: StackFit.expand,
     children: [
       picture,

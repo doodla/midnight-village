@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
 
 import 'helpers/integration_test_helper.dart';
@@ -25,13 +26,25 @@ void main() {
         find.widgetWithText(SecondaryButton, label),
       );
       expect(way(JoinCopy.joinTable).onPressed, isNull);
-      expect(way(JoinCopy.startTable).onPressed, isNull);
+      // "Start a table" is the one amber plaque (no code typed): with no
+      // name a tap leads to the name; with one it starts a table.
+      final start = tester.widget<PrimaryButton>(
+        find.widgetWithText(PrimaryButton, JoinCopy.startTable),
+      );
+      expect(start.phase, ButtonPhase.ready);
 
       await tester.enterText(find.byType(TextField), 'TestPlayer');
       await tester.pumpAndSettle();
 
       expect(way(JoinCopy.joinTable).onPressed, isNotNull);
-      expect(way(JoinCopy.startTable).onPressed, isNotNull);
+      expect(
+        tester
+            .widget<PrimaryButton>(
+              find.widgetWithText(PrimaryButton, JoinCopy.startTable),
+            )
+            .phase,
+        ButtonPhase.ready,
+      );
       tester.expectRoute('/');
     },
   );

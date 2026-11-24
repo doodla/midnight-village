@@ -70,7 +70,9 @@ void main() {
 
       expect(find.text(JoinCopy.nameHint), findsOneWidget);
       expect(_onPressed(tester, JoinCopy.joinTable), isNull);
-      expect(_onPressed(tester, JoinCopy.startTable), isNull);
+      // Start a table is the one amber plaque; with no name a tap leads to
+      // the name and sends nothing (main_button_states_test.dart).
+      expect(tester.widget(_button(JoinCopy.startTable)), isA<PrimaryButton>());
       expect(find.text(JoinCopy.online.fill({'n': 23})), findsOneWidget);
       expect(find.text(JoinCopy.lastWon), findsNothing);
       expect(find.text(JoinCopy.lastLost), findsNothing);
@@ -181,18 +183,20 @@ void main() {
           .hasFocus;
 
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
-      // The name is there, the code is not: the tap goes to the code.
-      expect(_onPressed(tester, JoinCopy.join), isNull);
+      // The name is there, the code is not: Join is locked, saying "Code",
+      // and the tap goes to the code.
+      final locked = find.widgetWithText(PrimaryButton, JoinCopy.codeHint);
+      expect(tester.widget<PrimaryButton>(locked).phase, ButtonPhase.locked);
       await pressLikeAFinger(tester, find.byType(EditableText).first);
       await tester.pump();
       expect(focused(0), isTrue);
-      await _tap(tester, setup, find.text(JoinCopy.join));
+      await _tap(tester, setup, locked);
       expect(focused(1), isTrue, reason: 'the code field');
 
       // The name is gone: the tap goes to the name.
       await tester.enterText(find.byType(EditableText).first, '');
       await tester.pump();
-      await _tap(tester, setup, find.text(JoinCopy.join));
+      await _tap(tester, setup, locked);
       expect(focused(0), isTrue, reason: 'the name field');
       expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 0);
       await setup.close(tester);
@@ -214,7 +218,7 @@ void main() {
       setup.sitAt(table, 'Ben');
 
       await _tap(tester, setup, find.text(JoinCopy.joinTable));
-      expect(_onPressed(tester, JoinCopy.join), isNull);
+      expect(find.text(JoinCopy.join), findsNothing, reason: 'no code yet');
       await tester.enterText(find.byType(TextField).last, 'v9yc2j');
       await tester.pump();
       await _tap(tester, setup, find.text(JoinCopy.join));
@@ -326,7 +330,10 @@ void main() {
       expect(find.text(JoinCopy.join), findsOneWidget);
       expect(find.text(JoinCopy.joinTable), findsNothing);
       expect(find.text(JoinCopy.startTable), findsNothing);
-      expect(_onPressed(tester, JoinCopy.join), isNull);
+      // The one plaque; with no name a tap leads to the name, sending
+      // nothing.
+      await _tap(tester, setup, find.text(JoinCopy.join));
+      expect(setup.count('POST', '/lobbies/V9YC2J/join/'), 0);
       await setup.close(tester);
     });
 

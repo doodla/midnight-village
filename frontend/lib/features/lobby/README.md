@@ -39,8 +39,17 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   `/me/table/` names) and never asks for the table again (`LiveGameNotifier` acts only for a
   game `/me/table/` names). Seated with a working token: two requests, one round trip, then
   the screen (`test/features/app_open_test.dart` pins it); a renewal first makes it three.
-- **01** (`join_screen.dart`): the name is this device's own guest account's or empty and
-  focused; "Join a table" first, then "Start a table", locked until a name is typed; Enter in
+- **01** (`join_screen.dart`, its view `join_view.dart`, its two ways in and its foot
+  `join_ways.dart`): dressed in paper (`JoinView.defaultDress`, the lantern mood: the lit door
+  in the picture is its one light; `OpeningWait` is dressed the same, so the opening does not
+  change look under the form). **Exactly one amber plaque at any moment**
+  (`JoinView.plaqueOf`, `join_plaque_test.dart`): "Join" once the code field holds a whole
+  code (typed, scanned, or the link's), else "Start a table"; the other way in is a bone
+  scrap, or, beside a code not yet whole, Join in the kit's locked form saying "Code" (01's
+  own word for it). The two keep their places when the plaque moves; only the paper changes.
+  With no name the plaque still shows amber, and a tap takes the cursor to the name and nudges
+  it (nothing is sent). The name is this device's own guest account's or empty and
+  focused; "Join a table" first, then "Start a table", leading to the name until one is typed; Enter in
   the name opens the code (with a code, or from a link, it joins; never a table of one's own
   by accident); the online count and the last game under them. The village takes all the
   height the form leaves, the whole scene and never more (`TopArtLayout.fill`), so the form
