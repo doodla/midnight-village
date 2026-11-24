@@ -27,6 +27,8 @@ import 'package:midnight_village/design_system/skin/skin.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../../test_screens/shell_fixtures.dart';
+import '../../../test_screens/table_fixtures.dart'
+    show pumpJoinCode, pumpJoinCodeOpen, pumpJoinFresh;
 import '../../helpers/component_sheet.dart';
 import '../../helpers/parts_catalogue.dart';
 import '../../helpers/pump_skinned.dart';
@@ -82,6 +84,21 @@ final Map<String, Future<void> Function(WidgetTester)> paperScreens = {
   },
   'table, guest': (t) async {
     await _screen(t, const TablePage(guest: true));
+    await _settle(t);
+  },
+  '01, a new phone (Start the plaque)': (t) async {
+    _size(t);
+    await pumpJoinFresh(t);
+    await _settle(t);
+  },
+  '01, the code open (Join locked)': (t) async {
+    _size(t);
+    await pumpJoinCodeOpen(t);
+    await _settle(t);
+  },
+  '01, a code typed (Join the plaque)': (t) async {
+    _size(t);
+    await pumpJoinCode(t);
     await _settle(t);
   },
   'card back': (t) async {

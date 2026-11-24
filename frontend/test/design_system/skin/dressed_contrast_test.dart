@@ -15,6 +15,7 @@ import '../../helpers/shell_setup.dart';
 import '../../helpers/sheet/night_pages.dart';
 import '../../helpers/sheet/sheet_data.dart';
 import '../../helpers/sheet/table_pages.dart';
+import '../../../test_screens/table_fixtures.dart';
 
 // The dressed screens on a real phone, village and lights on: the contrast of
 // every run of text against the WORST pixel just round it (not the commonest
@@ -131,6 +132,31 @@ void main() {
           await _expectReadable(tester);
         },
       );
+    }
+
+    // 01 as the app builds it (it dresses itself up): every word measured
+    // with the village picture behind it.
+    for (final (name, pump) in [
+      ('01, a new phone', pumpJoinFresh),
+      ('01, a code typed', pumpJoinCode),
+      ('01, a refusal', pumpJoinRefused),
+      ('01, in an Android browser', pumpJoinAndroidWeb),
+    ]) {
+      testWidgets('$name at $size: every word keeps 7:1 on the worst pixel '
+          'round it, the picture behind', (tester) async {
+        tester.view.physicalSize = phone;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        Mood.forget();
+        final before = Mood.composed;
+        await pump(tester);
+        await _untilComposed(tester, before);
+        expect(
+          DressScope.of(tester.element(find.byType(ScreenFrame))),
+          Dress.paper,
+        );
+        await _expectReadable(tester);
+      });
     }
 
     // The real screen, as the app builds it (it dresses itself up).

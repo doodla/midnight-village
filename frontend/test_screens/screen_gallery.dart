@@ -10,8 +10,10 @@ import '../test/helpers/truncated_text.dart';
 import 'reading_floor.dart';
 import 'screen_catalogue.dart';
 
-/// Phone height of the mocks, in logical pixels.
-const screenHeight = 844.0;
+/// Phone height of the mocks, in logical pixels;
+/// `--dart-define=SCREENS_HEIGHT=640` draws a shorter phone (a look at the
+/// small phone the sweep holds; the pictures land in the same folder).
+const screenHeight = int.fromEnvironment('SCREENS_HEIGHT', defaultValue: 844);
 const _pixelRatio = 2.0;
 const _mocksDir = '../docs/design/mocks';
 
@@ -218,7 +220,7 @@ String summarize(
 }) {
   final out = StringBuffer()
     ..writeln(
-      'Screens at ${width}x${screenHeight.toInt()} '
+      'Screens at ${width}x$screenHeight '
       '(${strict ? 'strict' : 'findings reported, not failed'})',
     )
     ..writeln('Fonts: Gloock, Figtree and the icons are the real ones.');

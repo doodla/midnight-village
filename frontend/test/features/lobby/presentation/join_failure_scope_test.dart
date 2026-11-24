@@ -89,9 +89,10 @@ void main() {
     );
     await pressLikeAFinger(tester, find.text(JoinCopy.startTable));
     await tester.pump();
+    // Start a table is the amber plaque here (no code typed).
     final startButton = find.ancestor(
       of: find.text(JoinCopy.startTable),
-      matching: find.byType(SecondaryButton),
+      matching: find.byType(PrimaryButton),
     );
     expect(
       find.descendant(of: startButton, matching: find.byType(BusyMark)),

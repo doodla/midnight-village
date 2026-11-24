@@ -258,12 +258,12 @@ void main() {
       final platform = _Platform.listen(tester);
       final setup = await TableSetup.pump(tester, signedInAs: 'Ana');
       await _tap(tester, find.text(JoinCopy.joinTable));
-      expect(find.text(JoinCopy.codeHint), findsOneWidget);
+      expect(find.widgetWithText(TextField, JoinCopy.codeHint), findsOneWidget);
       expect(platform.appTakesBack, isTrue);
 
       await _back(tester);
       expect(platform.left, isFalse);
-      expect(find.text(JoinCopy.codeHint), findsNothing);
+      expect(find.widgetWithText(TextField, JoinCopy.codeHint), findsNothing);
       expect(find.text(JoinCopy.joinTable), findsOneWidget);
       expect(platform.appTakesBack, isFalse);
 
@@ -304,9 +304,9 @@ void main() {
       await _settled(tester);
 
       await _back(tester);
-      expect(find.text(JoinCopy.codeHint), findsOneWidget);
+      expect(find.widgetWithText(TextField, JoinCopy.codeHint), findsOneWidget);
       await _back(tester);
-      expect(find.text(JoinCopy.codeHint), findsNothing);
+      expect(find.widgetWithText(TextField, JoinCopy.codeHint), findsNothing);
       expect(platform.left, isFalse);
       await setup.close(tester);
     });
