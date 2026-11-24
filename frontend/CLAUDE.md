@@ -20,6 +20,7 @@ just analyze           # flutter analyze: fails on any issue
 just format-check      # dart format check of lib, test, test_screens
 just gen               # Riverpod code generation, after changing any provider
 just screens [width] [report|strict]  # every screen and the component sheet as PNGs beside the mocks
+just look <state> [width] [height]    # ONE state at a phone's real size and full resolution, main beside this change, changed pixels in red (default 412x915)
 just scene-frames      # the dusk and the dawn pumped to fixed times: frames and a strip each
 just loading-clips     # a tap going busy, a slow join, a failed send and its retry, a reconnect: looping WebPs
 just night-frames      # the night board's pick and candle, a frame per 17 ms
@@ -122,7 +123,9 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 - **No waits.** Nothing adds a wait, a minimum time or an assumed timer length: lengths come
   from the server's deadlines, which are the table's settings. "Ready to vote" is never
   locked.
-- **Words**: every player-facing string is in `lib/design_system/copy/copy.dart`, held to the
+- **Words**: every player-facing string is in `lib/design_system/copy/copy.dart` (read them
+  all on one page with `just copy-page` at the repo root; a spec names a copy class or key in
+  backticks, never the words, and `just check` fails a name that does not exist), held to the
   spec's budgets by `copy_budget_test.dart`; none in widgets.
 - **Names are never cut**: they wrap between words or are set smaller (`FitWords`, `FitLine`),
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
@@ -147,6 +150,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 Every screen (01 to 11) is built from the primitives, against its mock in
 `docs/design/mocks/` (`docs/design/mock-to-skin.md` maps every element), to the copy in
 `docs/specs/frontend/first-time-play.md`. A change to one is checked by eye with
+`just look <state>` (the state you changed, at a real phone's size, before beside after: a
+detail a few pixels long does not show on a contact sheet) and
 `just screens` at 320, 360 and 390 wide (`strict` must pass at 360 and 390: GitHub runs it as
 "Screens strict at 360" and "... at 390"), and you hand over before and after pictures. A change to
 words or screens also runs `just test-harness` before its pull request (the commit gate does

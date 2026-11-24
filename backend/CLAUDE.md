@@ -11,6 +11,7 @@ and keep it true.
 ```bash
 just test                       # pytest, then the migration tests (second pass)
 just test tests/onuw/test_x.py  # one file (first pass only)
+just test tests/onuw/test_x.py -v  # with each test's name (the run is quiet by default)
 just check                      # ruff lint + format-check, pyrefly, makemigrations --check
 just fix                        # auto-fix lint and format
 just samples                    # re-record contract_samples/ after a payload change
@@ -34,8 +35,9 @@ serves. Full rules: `docs/dev/deploy-vercel.md`, "Deploy-safe changes". In one l
   build's tests on the migrated database (`just previous-build-check`).
 - A column is removed in two pushes: first the model stops naming it and the database gets a
   default (state-only removal), then a later push drops it.
-- Every migration gets a case in `tests/test_migrations.py`; never add columns to the old
-  code's INSERTs in `tests/old_code.py`; a backfill touches only what it must.
+- A migration that moves or fills data gets a case in `tests/test_migrations.py` (a backfill
+  touches only what it must). That the previous build can still read and write is proved by
+  the previous-build check, not by a new frozen INSERT in `tests/old_code.py`.
 - Socket consumers extend `TolerantJsonWebsocketConsumer`, so old instances drop a new event type.
 
 ## Rules that have bitten

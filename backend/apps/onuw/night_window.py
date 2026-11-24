@@ -18,14 +18,14 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from . import basics, choose_night, readiness
+from . import basics, readiness, turns
 from .engine.behaviors import get_doppelganger_followup_wave
 from .engine.night import (
     get_required_actions_for_window,
     resolve_wave,
     resolve_window,
 )
-from .engine.roles import ActionType, get_role, window_for_order_group
+from .engine.roles import ActionType, get_role
 from .engine.state import ActionResult, GameState, NightAction
 from .models import Game, Phase, PlayerRole
 
@@ -189,6 +189,26 @@ def _restore_deadline_timer(game: Game) -> None:
     )
 
 
+def announce_window(game: Game, window: int) -> None:
+    """Tell the table a window opened with ONE group event, the same bytes for every
+    phone and nothing per player (each phone reads its prompt from ``GET /me/``).
+    The caller (``send_wave_prompts``) has set the deadline and the timer."""
+    basics._send_after_commit(
+        [
+            (
+                f"game_{game.id}",
+                {
+                    "type": "night.window",
+                    "window": window,
+                    "deadline": game.phase_deadline.isoformat()
+                    if game.phase_deadline
+                    else None,
+                },
+            )
+        ]
+    )
+
+
 def send_wave_prompts(game: Game, wave: int) -> None:
     """
     Open the timing of a night window and tell the table.
@@ -197,7 +217,7 @@ def send_wave_prompts(game: Game, wave: int) -> None:
     length is measured from here) and its deadline, then, once the transaction
     commits: schedules the window's one timer (night_wave_seconds, or exactly
     night_doppelganger_window_seconds for window 1) and sends the ONE group event
-    ``night.window`` (``choose_night.announce_window``): every phone reads its own prompt
+    ``night.window`` (``announce_window``): every phone reads its own prompt
     from ``GET /me/``. A timer of 0 seconds means no timer and no deadline.
     """
     seconds = _fixed_window_seconds(game, wave) or basics.get_timer_seconds(
@@ -217,7 +237,7 @@ def send_wave_prompts(game: Game, wave: int) -> None:
             "night_window",
             basics._window_job_params(game, wave),
         )
-    choose_night.announce_window(game, wave)
+    announce_window(game, wave)
 
 
 def _doppelganger_player_role(game: Game) -> PlayerRole | None:
@@ -290,7 +310,7 @@ def _collect_window_actions(game: Game, window: int) -> list[NightAction]:
             and data.get("role_acting_as") == role_acting_as
         ):
             action_type, targets = data.get("action_type"), data.get("targets", {})
-            if action_type is None and choose_night.chose_count(pr, window):
+            if action_type is None and turns.chose_count(pr, window):
                 # They chose, and nothing they picked means anything for their
                 # role. The role's timeout default applies (a Drunk is swapped by
                 # the server), silently: not an error.
@@ -374,7 +394,7 @@ def _determine_acting_role(pr: PlayerRole, wave: int) -> str | None:
     Decided from the DEALT card (original_role), never the card held now;
     a Doppelganger acts as the role she copied.
     """
-    return get_player_acting_role_for_wave(pr, wave)
+    return turns.get_player_acting_role_for_wave(pr, wave)
 
 
 def persist_wave_results(
@@ -481,34 +501,3 @@ def transition_to_discussion(game: Game) -> None:
         ]
     )
     basics._practice_after_commit(game)
-
-
-def get_player_acting_role_for_wave(pr: PlayerRole, wave: int) -> str | None:
-    """
-    Role this player acts as in the given night window, or None if they do
-    not act in it.
-
-    Decided from the DEALT card (original_role), never the card held now: the
-    player dealt the Seer wakes as the Seer whatever has been swapped since.
-
-    Window 1: the Doppelganger's look; once she has copied, her immediate
-    follow-up if the copied role has one (Seer, Robber, Troublemaker, Drunk,
-    Minion). Window 2: every other actor, plus a Doppelganger who copied
-    Werewolf, Mason or Insomniac.
-    """
-    dealt = pr.original_role
-    if dealt == "Doppelganger":
-        copied = pr.night_action_data.get("copied_role")
-        if wave == 1 and not copied:
-            return "Doppelganger"
-        if not copied:
-            return None
-        followup = get_doppelganger_followup_wave(copied)
-        if followup is not None and window_for_order_group(followup) == wave:
-            return copied
-        return None
-
-    order_group = get_role(dealt).wave
-    if order_group is not None and window_for_order_group(order_group) == wave:
-        return dealt
-    return None

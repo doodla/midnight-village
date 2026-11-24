@@ -40,12 +40,16 @@ lint = [
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py", "*_test.py"]
 pythonpath = ["../tool"]
+# Quiet on purpose: a passing run is a few lines, so a failure is what you see.
+# One file or test in detail: `just test <path> -v`.
 addopts = [
-    "-v",
+    "-q",
     "--strict-markers",
     "--nomigrations",
     "--cov=apps",
-    "--cov-report=term-missing:skip-covered",
+    # the table of uncovered lines is in htmlcov/ and coverage.xml; the terminal
+    # gets the one line that decides (the total against the floor)
+    "--cov-report=",
     "--cov-report=html",
     "--cov-report=xml",
     "--no-cov-on-fail",

@@ -37,12 +37,10 @@ void main() {
     return s;
   }
 
-  test('every recorded /me/ is listed with its screen', () {
-    expect(
-      meScreens.keys.toSet(),
-      meSamples().toSet(),
-      reason: 'a new /me/ sample needs its screen stated in sample_sets.dart',
-    );
+  test('every recorded /me/ has a screen its own stage names', () {
+    // `meScreens` reads each sample's phase and stage (sample_sets.dart) and
+    // throws for one that names no screen.
+    expect(meScreens.keys.toSet(), meSamples().toSet());
   });
 
   void everyMeMapsToItsScreen() {
