@@ -42,6 +42,7 @@ from apps.onuw import (
     night_flow,
     night_results,
     night_window,
+    turns,
 )
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
@@ -154,7 +155,7 @@ class Night:
         prompt's ``chosen``)."""
         game = Game.objects.get(id=self.game.id)
         pr = PlayerRole.objects.get(game=game, user=self.users[name])
-        return choose_night.chose_count(pr, game.current_wave)
+        return turns.chose_count(pr, game.current_wave)
 
     def choose(self, name: str, picks: list[dict[str, Any]] | None = None) -> Any:
         """``name``'s phone sends its ``choose`` for the open window, naming the
@@ -174,9 +175,7 @@ class Night:
         ``chooses_left`` is above 0; never for a phone with nothing to choose)."""
         game = Game.objects.get(id=self.game.id)
         pr = PlayerRole.objects.get(game=game, user=self.users[name])
-        return choose_night.turn_open(
-            basics.build_game_state(game), pr, game.current_wave
-        )
+        return turns.turn_open(basics.build_game_state(game), pr, game.current_wave)
 
     def post(
         self, name: str, action_type: str, targets: dict[str, Any] | None = None

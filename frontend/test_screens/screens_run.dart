@@ -64,7 +64,12 @@ void runScreens(int shard) {
         frames: entry.frames,
         textScale: entry.textScale,
       );
-      results[entry.id] = saveScreen(entry, capture, width: _width);
+      results[entry.id] = await saveScreen(
+        tester,
+        entry,
+        capture,
+        width: _width,
+      );
       // A screen that cannot be built always fails the run.
       if (capture.failure case final failure?) fail(failure);
       if (_strict) expect(capture.findings, isEmpty, reason: entry.id);

@@ -6,13 +6,9 @@ The game service is split into parts that can each be read whole, in layers: a p
 imports only the parts below it. An import upwards would mean the parts were not really
 separate.
 
-What this checks is the DIRECT imports between the layers. Three older modules beside
-them still close a loop when followed through, as they did when the service was one
-file (they load in any order; a review ran every first import): ``choose_night``
-(imported by ``readiness``, imports the night's layers), ``practice`` (imported inside
-one function of ``basics``, imports ``voting``) and ``presence`` (imported by
-``readiness``, imports ``game_presence`` inside a function). Untangling those is
-separate work; do not add a fourth.
+The whole of ``apps/onuw`` is also held free of import loops, counting the imports
+written inside functions: three older loops (through ``choose_night``, ``practice`` and
+``presence``) were untangled, and a new one fails here.
 """
 
 import ast
@@ -26,6 +22,7 @@ ONUW = Path(__file__).resolve().parents[2] / "apps" / "onuw"
 # The game service, bottom to top: each part imports only the ones before it.
 LAYERS = (
     "basics",
+    "turns",
     "readiness",
     "night_window",
     "night_flow",
@@ -81,3 +78,24 @@ def test_no_part_is_too_long_to_read_whole() -> None:
     for name in LAYERS + BESIDE:
         lines = len((ONUW / f"{name}.py").read_text().splitlines())
         assert lines <= 600, f"{name}.py is {lines} lines"
+
+
+def test_no_import_loop_anywhere_in_the_game_app() -> None:
+    """No two modules of ``apps/onuw`` import each other, directly or through others,
+    at the top of a file or inside a function."""
+    graph = {
+        path.stem: {m for m in imported_modules(path) if (ONUW / f"{m}.py").is_file()}
+        for path in sorted(ONUW.glob("*.py"))
+    }
+    loops = []
+    for start in graph:
+        seen, stack = set(), list(graph[start])
+        while stack:
+            here = stack.pop()
+            if here == start:
+                loops.append(start)
+                break
+            if here not in seen:
+                seen.add(here)
+                stack.extend(graph.get(here, ()))
+    assert loops == [], f"modules in an import loop: {sorted(loops)}"

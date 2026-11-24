@@ -51,16 +51,14 @@ from typing import Any
 
 from django.db import transaction
 
-from . import basics, night_flow, night_window, readiness
+from . import basics, night_flow, night_window, readiness, turns
 from .engine.choose import (
     build_choose_prompt,
-    chooses_left,
     interpret_choice,
     is_lone_werewolf,
     max_chooses,
     parse_picks,
 )
-from .engine.state import GameState
 from .models import Game, Phase, PlayerRole
 from .protocol import NIGHT_CHOOSE_STAGES, WrongStageError, require_stage
 
@@ -78,12 +76,6 @@ CHOOSE_ERROR_CODES = {
 
 
 # ── what a phone sends ──────────────────────────────────────────────────────
-
-
-def chose_count(pr: PlayerRole, window: int) -> int:
-    """How many ``choose`` the player has sent in the window."""
-    count = pr.night_action_data.get(f"chose_{window}", 0)
-    return count if type(count) is int else 0
 
 
 def submit_choose(
@@ -110,7 +102,7 @@ def submit_choose(
         window = game.current_wave  # 1 or 2: the stage check said so
         pr = PlayerRole.objects.select_for_update().get(game=game, user_id=user_id)
 
-        chosen = chose_count(pr, window)
+        chosen = turns.chose_count(pr, window)
         if answered < chosen:
             # Already taken: the same answer the original got, and nothing else
             # (no store, no reading, no close check), whoever sends it.
@@ -130,7 +122,7 @@ def submit_choose(
         if picks is None:
             return [CHOOSE_BAD_PICKS]
 
-        acting = night_window.get_player_acting_role_for_wave(pr, window)
+        acting = turns.get_player_acting_role_for_wave(pr, window)
         # One look: a Doppelganger who has not copied has had her look (her first
         # choose, whatever it held), so a later choose of hers reads as nothing.
         reads = acting is not None and not (acting == "Doppelganger" and chosen >= 1)
@@ -171,15 +163,6 @@ def submit_choose(
 # ── what a phone reads ──────────────────────────────────────────────────────
 
 
-def _prompt_role(pr: PlayerRole, window: int) -> str | None:
-    """The role the caller's prompt acts as: their acting role in the window, except
-    a Doppelganger whose one look is over (a second choose does nothing)."""
-    acting = night_window.get_player_acting_role_for_wave(pr, window)
-    if acting == "Doppelganger" and chose_count(pr, window) >= 1:
-        return None
-    return acting
-
-
 def prompt_for(game: Game, pr: PlayerRole) -> dict[str, Any] | None:
     """The prompt the caller reads from ``GET /me/`` in an open window: every player
     has one, shaped alike (``engine.choose.build_choose_prompt``)."""
@@ -190,64 +173,14 @@ def prompt_for(game: Game, pr: PlayerRole) -> dict[str, Any] | None:
         basics.build_game_state(game),
         pr.user_id,
         window,
-        _prompt_role(pr, window),
-        chose_count(pr, window),
-    )
-
-
-def turn_open(state: GameState, pr: PlayerRole, window: int) -> bool:
-    """The phone still has a choose to send in the window: its prompt's
-    ``chooses_left`` is above 0 (never for a phone with nothing to choose)."""
-    acting = _prompt_role(pr, window)
-    lone = acting == "Werewolf" and window == 2 and is_lone_werewolf(state, pr.user_id)
-    return chooses_left(window, acting, chose_count(pr, window), lone_werewolf=lone) > 0
-
-
-# ── opening and closing a window ────────────────────────────────────────────
-
-
-def announce_window(game: Game, window: int) -> None:
-    """Tell the table a window opened with ONE group event, the same bytes for every
-    phone and nothing per player (each phone reads its prompt from ``GET /me/``).
-    The caller (``night_window.send_wave_prompts``) has set the deadline and the timer."""
-    basics._send_after_commit(
-        [
-            (
-                f"game_{game.id}",
-                {
-                    "type": "night.window",
-                    "window": window,
-                    "deadline": game.phase_deadline.isoformat()
-                    if game.phase_deadline
-                    else None,
-                },
-            )
-        ]
-    )
-
-
-def ready_to_close(
-    state: GameState, prs: list[PlayerRole], window: int, grace: int, now: Any
-) -> bool:
-    """Every present phone with a choice has sent its choose (``turn_open`` is false
-    for it), so the stage ends the moment everyone has done their part. A phone with
-    nothing to choose is never waited for, nor is one gone past the grace period.
-    (Window 1 is fixed-length; this is only asked of it when its length was switched
-    off, in development, and then a Doppelganger who copied a role that chooses in
-    window 1 is also waited for until she has sent her follow-up.)"""
-    return all(
-        not turn_open(state, pr, window) or readiness._is_gone(pr, grace, now)
-        for pr in prs
+        turns.prompt_role(pr, window),
+        turns.chose_count(pr, window),
     )
 
 
 __all__ = [
     "CHOOSE_ERROR_CODES",
     "WrongStageError",
-    "announce_window",
-    "chose_count",
     "prompt_for",
-    "ready_to_close",
     "submit_choose",
-    "turn_open",
 ]

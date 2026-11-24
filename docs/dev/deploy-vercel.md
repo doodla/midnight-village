@@ -157,6 +157,20 @@ heartbeat, then the usual 25 s / 60 s).
 WebSocket connections close when the function reaches its max duration; the app already
 reconnects, which is a normal disconnect + connect to the presence rows.
 
+## Request limits
+
+Two requests are limited, both open to anyone without signing in: making a guest
+(`sign_up`, 60 a minute) and the players-online number (`online_stats`, 600 a minute).
+Nothing a table does in a game is limited. They are there to stop one runaway script
+filling the database with guests, not to police players: friends at a table share one
+address, so the allowance is several tables all retrying at once
+(`tests/core/test_request_limits.py` seats them). The count is per address, and the
+address is the one Vercel writes itself (`x-vercel-forwarded-for`). It counts only when it
+is exactly one valid address; anything else shares one allowance, so a made-up header
+buys nothing. An IPv6 caller is counted by network (/64). The count lives in each server
+instance's own memory, so under load the real ceiling is the allowance times the number
+of instances: good enough for its job, and no shared store is needed.
+
 ## Single process still assumed anywhere?
 
 Under `vercel_queue`: nothing. Under `memory` (dev, tests, harness, `just dev`): exactly one
@@ -346,6 +360,6 @@ The previous code serves while `migrate` runs on every deploy (every deployment 
 - **Every new NOT NULL column has a `db_default`** (and a Python `default`), because the old code's INSERTs omit it. A backfill touches only what it must (finished tables stay blank) and new code treats a blank value as "not backfilled yet" (a blank token is filled at the deal).
 - **A column is removed in two pushes.** The previous code's model still has the field, so every INSERT it makes names the column: drop it in one push and those INSERTs fail from the migration until the new build is promoted (every join, for `LobbyMember`). Push 1: take the field out of the model with `SeparateDatabaseAndState` (state only) and give the column a database default, so both builds can write (`core/migrations/0011_lobbymember_is_ready_left_to_the_database.py` is the pattern, with its test). Push 2, once push 1 is live: drop the column (`core/migrations/0012_lobbymember_drop_is_ready.py`, database only, with its test and a frozen INSERT in push 1's shape). After push 2 a build from before push 1 can neither read nor write that table (its model still selects the column, so every lobby page fails, not only a join): roll forward instead. Rollback floor today: commit e8f50b5 (#81), where `is_ready` left the model.
 - **The previous build is run against the new schema, on every pull request with a migration.** `just previous-build-check` (`tool/previous_build_check.sh`, a step of GitHub's "Backend Checks") checks out main, puts this change's migrations in it, builds a database from them and runs main's own tests on it. A migration the serving build cannot live with fails there (dropping `is_ready` in one push fails with "column is_ready does not exist" in every test that seats a player). It covers one step back, which is what a deploy does; a rollback further back is a decision, not a check.
-- **The migration test gains a case per migration.** `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then back and forward again. `just test` runs it as a second pass (`just test-migrations`, about 5 s); CI runs `just test`.
+- **A migration that moves or fills data gains a case in the migration test** (that the previous build can still read and write is the previous-build check's job, above; no new frozen INSERT is needed for it). `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then back and forward again. `just test` runs it as a second pass (`just test-migrations`, about 5 s); CI runs `just test`.
 - **A new socket event type reaches instances that have no handler:** consumers extend `core.consumers.TolerantJsonWebsocketConsumer`, which logs an unknown type at WARNING and drops it (and raises when `ONUW_STRICT_SOCKET_EVENTS` is true: test, development and harness settings, so a misspelled type in new code still fails the suite).
 - **Rolling back past practice players** (code without `apps/core/practice.py`) while practice tables exist: the old handover and owner-leaving code does not skip them, so it could hand a table to a practice account (and the old app would show them as people). Before such a rollback, close those tables (every `LobbyMember` whose username starts with `practice-`).
