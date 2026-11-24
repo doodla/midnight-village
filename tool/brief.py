@@ -34,6 +34,12 @@ SPECS = "docs/specs/frontend"
 FEEDBACK = "docs/dev/owner-feedback.md"
 PARKED = "frontend/test/screen_cases/not_yet_swept.dart"
 LIMIT = 600
+DESIGN_README = "frontend/lib/design_system/README.md"
+# What in a state's tree says a finger is down, or a sheet is open.
+HELD = {"HeldFace"}
+SHEET = {"SheetScaffold"}
+# Lines shown for one part before "and N more".
+PART_LINES = 6
 SCREEN_HEAD = re.compile(r"^\*\*(\d\d[a-z]?)(?: and (\d\d))?[ :]")
 COPY_CLASS = re.compile(r"\b([A-Z]\w*Copy)\.\w+")
 COMMANDS = """\
@@ -120,6 +126,78 @@ def said_by_owner(
             continue
         if line.strip() and any(p.search(line) for p in wanted):
             found.append((heading, number, line.strip()))
+    return found
+
+
+def state_line(state: str, mine: list[str], widgets: dict, kit: set[str]) -> str:
+    """A state, and what its tree says its fixture did: held, a sheet open, the
+    text size, and the parts it draws that the state it grows from does not."""
+    said = []
+    names = set(widgets[state])
+    if HELD & names or "-held" in state:
+        said.append("HELD (a finger is down and the held face or panel is drawn)")
+    if SHEET & names:
+        said.append("a SHEET is open")
+    scale = re.search(r"-x(\d(?:\.\d)?)$", state)
+    if scale:
+        said.append(f"text x{scale.group(1)}")
+    grows_from = max(
+        (other for other in mine if state.startswith(other + "-")), key=len, default=None
+    )
+    if grows_from:
+        more = sorted((names - set(widgets[grows_from])) & kit)
+        if more:
+            said.append(f"beyond {grows_from}: {', '.join(more[:8])}" + (" ..." if len(more) > 8 else ""))
+    return state + ("   <- " + "; ".join(said) if said else "")
+
+
+def parked_faults(text: str, mine: list[str]) -> list[str]:
+    """Each parked entry of `mine` whole (its reason runs over several lines), with
+    the text of a constant it names."""
+    lines, found = text.splitlines(), []
+    for i, line in enumerate(lines):
+        if not any(f"'{state}'" in line for state in mine):
+            continue
+        entry = [line.rstrip()]
+        j = i
+        while not lines[j].rstrip().endswith(",") and j + 1 < len(lines):
+            j += 1
+            entry.append(lines[j].rstrip())
+        named = re.search(r":\s*(_\w+),", " ".join(entry))
+        if named:
+            start = next((k for k, l in enumerate(lines) if l.startswith(f"const {named.group(1)} =")), None)
+            if start is not None:
+                k = start
+                while not lines[k].rstrip().endswith(";"):
+                    k += 1
+                entry.append("    where " + " ".join(l.strip() for l in lines[start : k + 1]))
+        found.append("\n".join(entry))
+    return found
+
+
+def part_rules(name: str, documents: list[Path]) -> list[tuple[str, str]]:
+    """(file:line, the line) for each line that names the part `name`, as its class
+    name or as its words ("HeldFace": "held face", "held-face")."""
+    words = re.sub(r"(?<!^)(?=[A-Z])", " ", name).lower().split()
+    wanted = re.compile(
+        rf"\b{re.escape(name)}\b|\b{'[ -]'.join(map(re.escape, words))}\b",
+        re.I if len(words) > 1 else 0,
+    )
+    found = []
+    for document in documents:
+        lines = document.read_text().splitlines()
+        for number, line in enumerate(lines, 1):
+            if not wanted.search(line):
+                continue
+            text = line.strip()
+            # a rule's heading line ("**The held-face frame** is ...:") carries its
+            # rule in the list under it: that list is the rule
+            if text.startswith("**") or text.endswith(":"):
+                under = number
+                while under < len(lines) and lines[under].lstrip().startswith(("- ", "* ")):
+                    text += "\n      " + lines[under].strip()
+                    under += 1
+            found.append((f"{document.relative_to(ROOT)}:{number}", text))
     return found
 
 
@@ -269,19 +347,45 @@ def main(argv: list[str]) -> int:
     print()
 
     print(f"## Catalogue states ({len(mine)})\n")
-    print("\n".join(f"  {s}" for s in mine) + "\n")
+    print("What a state draws beyond the plain one it grows from says what its fixture did.\n")
+    kit = {name for name, paths in owner.items() if not name.startswith("_")}
+    for state in mine:
+        print("  " + state_line(state, mine, widgets, kit))
+    print()
     parked = ROOT / PARKED
     if parked.is_file():
-        held = [
-            line.strip()
-            for line in parked.read_text().splitlines()
-            if any(f"'{s}'" in line for s in mine)
-        ]
-        print(
-            f"Parked faults ({PARKED}): "
-            + (f"{len(held)}\n" + "\n".join(f"  {h}" for h in held) if held else "none")
-            + "\n"
-        )
+        held = parked_faults(parked.read_text(), mine)
+        print(f"Parked faults ({PARKED}): " + (f"{len(held)}" if held else "none"))
+        print("".join(f"\n{entry}\n" for entry in held))
+
+    print("## Rules about the parts it draws\n")
+    special = sorted(
+        name
+        for name in {n for state in mine for n in widgets[state]} & kit
+        if any("/design_system/" in path for path in owner[name])
+        and len({screen_of(s) for s in states if name in widgets[s]}) <= max(3, every // 2)
+    )
+    print(
+        "Lines of the specs and of the design system's README that name a part this"
+        " screen draws and most screens do not (so a rule written in a general section"
+        " is not missed). Word for word; read around them.\n"
+    )
+    documents = [*sorted((ROOT / SPECS).glob("*.md")), ROOT / DESIGN_README]
+    for name in special:
+        found = part_rules(name, documents)
+        if not found:
+            continue
+        print(f"### {name}")
+        for where, line in found[:PART_LINES]:
+            print(f"  {where}  {line}")
+        if len(found) > PART_LINES:
+            print(f"  ... and {len(found) - PART_LINES} more lines name it (search for it).")
+        print()
+
+    print(f"## The design system's README about this screen ({DESIGN_README})\n")
+    noted = said_by_owner((ROOT / DESIGN_README).read_text(), numbers, [])
+    print("\n".join(f"  {number}: {line}" for _, number, line in noted) or "Nothing names it by number.")
+    print()
 
     print("## App files\n")
     print("Feature files that draw it:")
