@@ -18,9 +18,9 @@ A screen is **plain** (the look the game has today, exactly) unless it asks to b
 a preview or a test can wrap the app in a `DressScope` and see every screen dressed). The frame
 declares a `DressScope`; below it `context.skin` is the dressed skin (`Skin.dressedUp`: its
 colours, drops, one 5 px corner, angles, `skin.mood` and `skin.parts`; `skin/skins/shadow_paper_dress.dart`)
-and every shared part below reads `context.dress` for what it draws or leaves out. **Three screens
+and every shared part below reads `context.dress` for what it draws or leaves out. **Four screens
 are dressed up** (the owner, 23 November 2026: the table before the game, your card, the night
-board: each declares `DressScope(dress: widget.dress ?? Dress.paper)` above its frame, `dress:` is
+board; and 01, 24 November 2026, with the opening under it: each declares `DressScope(dress: widget.dress ?? Dress.paper)` above its frame, `dress:` is
 for a preview or a test); every other screen is plain, and the owner chooses the rest one by one. A sheet or dialog
 opened from a screen carries its dress (`showSkinSheet`). Every game-wide scope (ground, dress, card back, Werewolf portrait) reaches a sheet or dialog the same way: `GameScopes` (`skin/game_scopes.dart`) captures them at the opening context and wraps the route's content, `showSkinSheet`/`showSkinDialog` are the only openers (`game_scopes_test.dart` scans `lib` for `showModalBottomSheet`, `showDialog` and the like, and for `art.role(` in a screen); a new scope is added in that one file. A screen's own code, above its frame,
 reads `context.dress` too (the table, your card and the night board take `dress:` for a preview;
@@ -66,7 +66,9 @@ degrades to the plain one (a `PaperPin` takes no room, `PaperBanner` is its word
   the body's) draw it no more (`mood_test.dart` counts `Mood.composed` and `Mood.painted`). Memory is
   one screen-sized image per kept picture, at the device's ratio up to 2. For a frame or two before the
   village's layers are decoded (art is precached at start) the ground and lights are painted live.
-  A screen with a picture of its own (`topArt`, `topScene`) has no village in its mood. Bare words never
+  A screen with a picture of its own (`topArt`, `topScene`) has no village in its mood, and dressed up its picture's
+  own paper thins away into the mood (a mask on the picture's own layer, painted once) instead of fading to one flat
+  colour, so the lit ground shows no seam where the picture ends and the body lies on its foreground (01). Bare words never
   sit on the village: they sit on paper, on a `TextBacking`, or on the plain ground; `mood_test.dart`
   measures the ground and its lights (7:1) and `dressed_contrast_test.dart` the real screens at 360 x 780
   and 390 x 844 with the village on, against the worst pixel round each word.

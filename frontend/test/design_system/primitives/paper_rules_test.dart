@@ -89,16 +89,22 @@ final Map<String, Future<void> Function(WidgetTester)> paperScreens = {
   '01, a new phone (Start the plaque)': (t) async {
     _size(t);
     await pumpJoinFresh(t);
+    // The keyboard down: no caret handle (the platform's) on screen.
+    FocusManager.instance.primaryFocus?.unfocus();
     await _settle(t);
   },
   '01, the code open (Join locked)': (t) async {
     _size(t);
     await pumpJoinCodeOpen(t);
+    // The keyboard down: no caret handle (the platform's) on screen.
+    FocusManager.instance.primaryFocus?.unfocus();
     await _settle(t);
   },
   '01, a code typed (Join the plaque)': (t) async {
     _size(t);
     await pumpJoinCode(t);
+    // The keyboard down: no caret handle (the platform's) on screen.
+    FocusManager.instance.primaryFocus?.unfocus();
     await _settle(t);
   },
   'card back': (t) async {

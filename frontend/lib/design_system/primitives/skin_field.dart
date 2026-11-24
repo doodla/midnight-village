@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -69,6 +71,12 @@ class SkinField extends StatelessWidget {
     final style = _paper
         ? type.name.copyWith(color: skin.paper.text)
         : type.code.copyWith(color: ground.text);
+    final line = MediaQuery.textScalerOf(
+      context,
+    ).scale((style.fontSize ?? 0) * (style.height ?? 1));
+    final constraints = BoxConstraints(
+      minHeight: _paper ? paperHeight : codeHeight,
+    );
     final hintColor = _paper ? skin.paper.quietText : ground.quietText;
     final field = TextField(
       controller: controller,
@@ -96,16 +104,17 @@ class SkinField extends StatelessWidget {
         counterText: '',
         isDense: true,
         filled: false,
+        // The line of text is padded out to the paper's height, so the whole
+        // paper takes the finger, not only the line (and larger text grows
+        // it).
         contentPadding: EdgeInsets.symmetric(
           horizontal: _paper ? Space.lg : Space.mdPlus,
+          vertical: math.max(0, (constraints.minHeight - line) / 2),
         ),
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
       ),
-    );
-    final constraints = BoxConstraints(
-      minHeight: _paper ? paperHeight : codeHeight,
     );
     // Dressed up the field is a piece of paper (a bone scrap for the name, a
     // panel for the code), lifted while it has the focus: no outline.
