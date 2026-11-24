@@ -120,32 +120,14 @@ void main() {
     });
   });
 
-  group('rule 2: budgets, with rules 3 and 4 in each state', () {
+  group('rules 3 and 4 in each state', () {
     for (final MapEntry(key: name, value: screen) in screens.entries) {
-      test('$name: at most ${screen.budget} words', () {
+      test('$name: one headline, buttons of 1 to 3 words', () {
         expect(screen.states, isNotEmpty);
-        // A state with its own allowance is held to that ([stateAllowances]).
-        final allowed = stateAllowances[name] ?? const <String, int>{};
-        expect(
-          allowed.keys.where((s) => !screen.states.containsKey(s)),
-          isEmpty,
-          reason: 'an allowance names a state that is not listed',
-        );
-        int budgetOf(String state) => allowed[state] ?? screen.budget;
-        final totals = {
-          for (final MapEntry(key: state, value: lines)
-              in screen.states.entries)
-            state: lines.fold(0, (sum, l) => sum + wordCount(l.text)),
-        };
-        expect([
-          for (final MapEntry(:key, :value) in totals.entries)
-            if (value > budgetOf(key)) '$key: $value',
-        ], isEmpty);
         expect([
           for (final MapEntry(key: state, value: lines)
               in screen.states.entries)
-            for (final v in stateViolations(lines, budget: budgetOf(state)))
-              '$state: $v',
+            for (final v in stateViolations(lines)) '$state: $v',
         ], isEmpty);
       });
     }
@@ -182,10 +164,7 @@ void main() {
         contains('explains a gesture ("Tap")'),
       ]);
       expect(
-        stateViolations([
-          headline(BadCopy.headline),
-          button(BadCopy.button),
-        ], budget: 20),
+        stateViolations([headline(BadCopy.headline), button(BadCopy.button)]),
         [contains('headline'), contains('button "I know my role" is 4')],
       );
       expect(bannerViolations(BadCopy.banner, button: BadCopy.bannerButton), [
@@ -194,14 +173,14 @@ void main() {
       expect(spokenViolations(BadCopy.spoken), [contains('is 10 words')]);
     });
 
-    test('a state over its budget, or with two headlines, fails', () {
+    test('a state with two headlines fails', () {
       expect(
         stateViolations([
           headline(VoteCopy.headline),
           headline(TalkCopy.headline),
           button(VoteCopy.pickName),
-        ], budget: 8),
-        [contains('9 words for a budget of 8'), contains('2 headlines')],
+        ]),
+        [contains('2 headlines')],
       );
     });
 

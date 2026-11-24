@@ -88,8 +88,16 @@ def main(argv: list[str]) -> int:
         target = out / f"sheet-{number}.png"
         page.save(target)
         sheets.append(str(target))
+    # the states that show more words at once than main does (the first size drawn)
+    wordier = []
+    for state in states:
+        now, was = (run / sizes[0] / side / f"{state}.words" for side in ("after", "before"))
+        if now.is_file() and was.is_file() and int(now.read_text()) > int(was.read_text()):
+            wordier.append([state, int(was.read_text()), int(now.read_text())])
     print(
-        json.dumps({"changed": moved, "new": new, "missing": missing, "sheets": sheets})
+        json.dumps(
+            {"changed": moved, "new": new, "missing": missing, "sheets": sheets, "wordier": wordier}
+        )
     )
     return 0
 

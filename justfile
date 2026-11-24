@@ -59,10 +59,15 @@ test-guardrails:
 previous-build-check *args:
     @tool/previous_build_check.sh {{args}}
 
-# A pull request that edits a guard test says so, and why, in its description
-# (tool/guard_edits.py). Locally it only reminds; on GitHub (PR_BODY set) it fails.
+# A pull request that edits a guard test, or adds words a player reads, says so and why
+# in its description (tool/guard_edits.py, tool/words_added.py). Locally these only
+# remind; on GitHub (PR_BODY set) a missing line fails. Both run even when the first fails.
 guard-edits *args:
-    @tool/guard_edits.py {{args}}
+    #!/usr/bin/env bash
+    status=0
+    tool/guard_edits.py {{args}} || status=$?
+    tool/words_added.py {{args}} || status=$?
+    exit "$status"
 
 # Give the disk back: a worktree gone quiet (no source change for hours, no process in it)
 # loses its build output; one whose branch is merged (its remote is gone) is removed when
