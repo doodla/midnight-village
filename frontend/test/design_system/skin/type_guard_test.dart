@@ -71,12 +71,12 @@ const _sites = [
     'FitWords: a role set smaller until the words fit its room',
   ),
   _Site(
-    'design_system/primitives/face_down_card.dart',
+    'design_system/primitives/face_down_card_words.dart',
     'style: base.copyWith(fontSize: fontSize),',
     'a face-up card\'s role name measured at a size that fits its card',
   ),
   _Site(
-    'design_system/primitives/face_down_card.dart',
+    'design_system/primitives/face_down_card_words.dart',
     'final style = base.copyWith(fontSize: size);',
     'a face-up card\'s role name set to fit its card (never under 12)',
   ),
@@ -96,7 +96,7 @@ const _sites = [
     'the night panel\'s number scaled down to its room',
   ),
   _Site(
-    'design_system/primitives/face_down_card.dart',
+    'design_system/primitives/face_down_card_words.dart',
     'fontSize: widget.nameSize,',
     'the one name size the board solved for every card',
   ),
