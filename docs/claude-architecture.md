@@ -128,7 +128,8 @@ class, and follows a file that draws nothing to the files that use it. Nothing i
 `guardrails/tests/test_checkout_whole.py` keeps a fresh checkout working as it stands: every
 shell script parses (`bash -n`), the lint and type tools in recipes and hooks are run as
 `uv run --group lint <tool>` (the version in `uv.lock`, never one from PATH), and
-`tool/ensure_env.sh` writes a missing `backend/.env` and leaves an existing one alone.
+`tool/ensure_env.sh` writes a missing `backend/.env` and leaves an existing one alone
+(the harness's backend recipe calls it too, and reads what it wrote).
 
 The ruleset `docs/dev/main-ruleset.json` is what makes this the wall: a pull request on the
 default branch, squash merges only, every check above required (up to date with main not
