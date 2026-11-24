@@ -110,7 +110,7 @@ class _DeckScreenState extends ConsumerState<DeckScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final table = ref.watch(myTableProvider).value;
+    final table = ref.watch(myTableProvider.select((t) => t.value));
     final read = table == null
         ? null
         : ref.watch(lobbyProvider(table.lobbyCode));
