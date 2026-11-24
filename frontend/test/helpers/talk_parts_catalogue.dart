@@ -4,9 +4,11 @@ import 'package:midnight_village/design_system/primitives/deck_pile.dart';
 import 'package:midnight_village/design_system/primitives/name_tag.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
+import 'package:midnight_village/design_system/primitives/square_foot.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/primitives/story_card.dart';
 import 'package:midnight_village/design_system/primitives/twine.dart';
+import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 
 import 'parts_catalogue.dart';
@@ -42,6 +44,46 @@ final List<PartSample> talkPartsCatalogue = [
     'NameTag',
     PartState.picked,
     (c) => const NameTag(name: 'Rosa Maria', token: TokenId.key, you: true),
+  ),
+  // The vote's board (09) shares the square's parts.
+  PartSample(
+    'VoteSlip',
+    PartState.rest,
+    (c) => VoteSlip(token: TokenId.hare, name: 'Ben', onTap: () {}),
+  ),
+  PartSample(
+    'VoteSlip',
+    PartState.picked,
+    (c) => VoteSlip(
+      token: TokenId.spindle,
+      name: 'Cleo',
+      picked: true,
+      onTap: () {},
+    ),
+  ),
+  PartSample(
+    'VoteSlip',
+    PartState.picked,
+    (c) => const VoteSlip(
+      token: TokenId.spindle,
+      name: 'Cleo',
+      picked: true,
+      sealed: true,
+    ),
+  ),
+  PartSample(
+    'SquareFoot',
+    PartState.rest,
+    (c) => SizedBox(
+      height: 120,
+      child: SquareFoot(
+        action: PrimaryButton(
+          label: 'Lock in Cleo',
+          detail: '1 of 5 locked',
+          onPressed: () {},
+        ),
+      ),
+    ),
   ),
   PartSample(
     'DeckPile',

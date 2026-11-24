@@ -447,7 +447,23 @@ const inventory = <PartEntry>[
     'primitives/square_sky.dart',
     plain: 'the dawn\'s layers, the clock, the lantern\'s picture',
     paper:
-        'a strip of night sky over the dawn\'s far roofs and gallows under a veil of the night, the clock large in its middle, the wall lantern lit at its right, the board\'s roof along its foot',
+        'a strip of night sky over the dawn\'s far roofs and gallows under a veil of the night, the clock large in its middle (08\'s talk clock, or 09\'s larger vote clock: `SkyClock`), the wall lantern lit at its right, the board\'s roof along its foot',
+  ),
+  PartEntry(
+    'SquareFoot',
+    'primitives/square_foot.dart',
+    plain: 'the screen\'s one button, with a failed send\'s line above it',
+    paper:
+        'the cobbles under a day board (08, 09) and on them the screen\'s one plaque, no wider than the square\'s, a failed send\'s quiet line above it',
+  ),
+  PartEntry(
+    'VoteSlip',
+    'primitives/vote_slip.dart',
+    part: PaperPart.scrap,
+    plain:
+        'the vote\'s `PlayerRow` (picked: lift and outline; locked: red with a seal)',
+    paper:
+        'a player on the vote\'s board (09): a slip of bone paper laid on the felt, one soft shadow, no pin, the sigil a cut disc and the name in the name face (set smaller, never cut); pressed it sinks, picked it lifts with the navy-wax mark on its corner, locked it is cut in dried-blood red with the wax seal on its sigil (the owner\'s red row; the one red that is not a team\'s), the others lie down and dim',
   ),
   PartEntry(
     'EndLantern',

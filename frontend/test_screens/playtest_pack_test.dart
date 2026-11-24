@@ -169,11 +169,7 @@ Future<void> _pump(
     case PackScreen.vote || PackScreen.votePicked || PackScreen.voteLocked:
       await _pumpView(
         tester,
-        VotePage(
-          me: body,
-          secondsLeft: step.secondsLeft!,
-          remaining: 1 - step.share!,
-        ),
+        VotePage(me: body, secondsLeft: step.secondsLeft!),
         learned,
       );
       // A recorded pick or lock is the payload's own; else the phone taps.

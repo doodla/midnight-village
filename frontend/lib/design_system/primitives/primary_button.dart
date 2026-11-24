@@ -158,11 +158,11 @@ class PrimaryButton extends StatefulWidget {
     this.size = ButtonSize.regular,
     this.icon,
     this.slot = false,
+    this.detail,
   }) : onPressed = null,
        reason = null,
        busy = false,
        rises = false,
-       detail = null,
        _phase = ButtonPhase.locked;
 
   /// It acts, outlined: never the screen's amber.
@@ -185,6 +185,7 @@ class PrimaryButton extends StatefulWidget {
     super.key,
     required this.label,
     this.size = ButtonSize.regular,
+    this.detail,
   }) : onPressed = null,
        icon = null,
        onLockedTap = null,
@@ -192,7 +193,6 @@ class PrimaryButton extends StatefulWidget {
        busy = false,
        rises = false,
        slot = false,
-       detail = null,
        _phase = ButtonPhase.done;
 
   /// The regular minimum height.
@@ -225,8 +225,9 @@ class PrimaryButton extends StatefulWidget {
   /// A glyph before the label (the padlock of "Lock in Cleo").
   final IconData? icon;
 
-  /// A second line under the label, smaller (08's "2 of 6 ready"): it says
-  /// something true, so it is in the label's full ink.
+  /// A second line under the label, smaller (08's "2 of 6 ready", 09's "1 of
+  /// 5 locked", ready, locked or done): it says something true, so it is in
+  /// the label's full ink.
   final String? detail;
   final ButtonPhase _phase;
 

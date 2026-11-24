@@ -32,7 +32,10 @@ abstract final class Haptics {
       _day(context, HapticFeedback.mediumImpact);
 
   static void _day(BuildContext context, Future<void> Function() buzz) {
-    if (GroundScope.maybeOf(context) == GroundKind.night) return;
+    if (GroundScope.maybeOf(context) == GroundKind.night &&
+        !OpenDay.under(context)) {
+      return;
+    }
     _fire(buzz);
   }
 
@@ -43,4 +46,20 @@ abstract final class Haptics {
       // A platform without it: nothing to feel, nothing to report.
     }
   }
+}
+
+/// Below it the night's ground is the day's dress, not the night: the vote
+/// (09) is drawn under the square's night sky, but what is done on it is done
+/// openly at the table, so its pick ticks and its lock knocks. Only the
+/// vote's screen declares it; the night's screens never do, and nothing but
+/// [Haptics] reads it.
+class OpenDay extends InheritedWidget {
+  const OpenDay({super.key, required super.child});
+
+  /// Whether [context] is under an [OpenDay].
+  static bool under(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<OpenDay>() != null;
+
+  @override
+  bool updateShouldNotify(OpenDay old) => false;
 }

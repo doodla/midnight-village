@@ -68,17 +68,16 @@ class _TalkPageState extends State<TalkPage> {
 }
 
 /// 09: pick a name, then lock it in, as the app draws it ([VoteView]) on
-/// Ana's phone of game 7, its `/me/` as the vote opens. Your own row is never
-/// listed; once locked every row looks the same.
+/// Ana's phone of game 7, its `/me/` as the vote opens. Your own name is never
+/// listed; once locked the pick is red and sealed.
 class VotePage extends ConsumerStatefulWidget {
-  const VotePage({super.key, this.me, this.secondsLeft = 72, this.remaining});
+  const VotePage({super.key, this.me, this.secondsLeft = 72});
 
   /// The viewer's `/me/` as the vote opens: Ana's of game 7 when not given.
   final Map<String, dynamic>? me;
 
-  /// The vote's clock: its number, and how much of the bar is left.
+  /// The vote's clock.
   final int secondsLeft;
-  final double? remaining;
 
   @override
   ConsumerState<VotePage> createState() => _VotePageState();
@@ -96,7 +95,6 @@ class _VotePageState extends ConsumerState<VotePage> {
     return VoteView(
       me: vote == null ? _me : _me.withVote(vote),
       secondsLeft: widget.secondsLeft,
-      remaining: widget.remaining,
       onPick: (id) => setState(() => _vote = MyVote.local(id, locked: false)),
       onLock: (id) {
         setState(() => _vote = MyVote.local(id, locked: true));

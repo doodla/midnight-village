@@ -12,23 +12,34 @@ import 'sliced_art.dart';
 import 'band.dart';
 import 'world_timer.dart';
 
+/// Whose clock a [SquareSky] holds: the talk's (08, `timerTalk`) or the
+/// vote's (09, `timerVote`, the larger: the vote's time is the loudest thing
+/// on its screen).
+enum SkyClock { talk, vote }
+
 /// 08's band over the square: one strip of night sky over the far roofs and
 /// the gallows (the dawn's own layers, under a veil of the night so the clock
 /// is the loudest thing), the clock large in its middle, the wall lantern
 /// hung at its right (the square's one light), and the board's roof along
 /// its foot. With no deadline ([secondsLeft] null) there is no number. The
 /// screen's [title] is spoken, a header for a screen reader, and not drawn:
-/// the clock says it. It lays out the status bar's inset itself.
+/// the clock says it. It lays out the status bar's inset itself. The vote
+/// (09) hangs the same sky over its board with its own clock ([SkyClock.vote]:
+/// the vote's number, set smaller rather than pushed off, as ever).
 class SquareSky extends StatelessWidget {
   const SquareSky({
     super.key,
     required this.secondsLeft,
     required this.title,
     this.semanticLabel,
+    this.clock = SkyClock.talk,
   });
 
   final int? secondsLeft;
   final String title;
+
+  /// Whose clock it is: its type role.
+  final SkyClock clock;
 
   /// Read out instead of the number.
   final String? semanticLabel;
@@ -58,7 +69,10 @@ class SquareSky extends StatelessWidget {
     final screen = MediaQuery.sizeOf(context);
     final seconds = secondsLeft;
     final number = seconds == null ? null : WorldTimer.format(seconds);
-    final style = skin.typography.timerTalk.copyWith(color: ground.text);
+    final style = switch (clock) {
+      SkyClock.talk => skin.typography.timerTalk,
+      SkyClock.vote => skin.typography.timerVote,
+    }.copyWith(color: ground.text);
     final scaler = MediaQuery.textScalerOf(context);
     final line = (TextPainter(
       text: TextSpan(text: '0:00', style: style),

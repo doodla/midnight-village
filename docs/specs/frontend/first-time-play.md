@@ -374,8 +374,9 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
 
 **09 Vote**
 - **One thing / loudest:** pick a name; the rows.
-- **Locked until:** the button is disabled until a pick is made.
-- **Copy:** "Who dies today?"; "Pick a name", then "Lock in {name}" (with a padlock glyph), then "Locked"; pips "{d} of {n} locked"; timer digits and bar. **8 of 8 words.**
+- **Shadow paper (24 November 2026; overrides the lines below where they differ):** the square's world: the vote's clock (its own size) in 08's strip of night sky with the lantern; a board with `VoteCopy.headline` at its top and every player as a slip of paper in seat order; your own name is never listed; the pick lifts with the paper mark; on the cobbles the one plaque with the count (`VoteCopy.progress`) under its words, where the pips were. The night's ground, never the day's; no bar under the clock.
+- **Locked until:** a pick is made: until then the plaque is the locked form and says `VoteCopy.pickName`; a tap on it nudges the names.
+- **Copy:** "Who dies today?"; "Pick a name", then "Lock in {name}" (with a padlock glyph), then "Locked"; "{d} of {n} locked" under the plaque's words; timer digits. **8 of 8 words.**
 - **Removed:** the pre-selected Cleo (2). The red X (5); the blood fill too, until the owner brought it back for a locked vote only (22 November 2026: "B: red row and seal": the pick's row turns dried-blood red with the seal on 09; the count's killed rows stay outline-only). Tokens on the pips (9). "Seconds to choose" (12). The ink button (18). The host's "Don't wait".
 - **States:**
   - Your own row is never listed.

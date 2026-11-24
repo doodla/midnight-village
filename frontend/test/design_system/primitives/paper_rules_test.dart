@@ -135,6 +135,14 @@ final Map<String, Future<void> Function(WidgetTester)> paperScreens = {
     );
     await _settle(t);
   },
+  'vote': (t) async {
+    await _screen(t, const VotePage());
+    await _settle(t);
+  },
+  'vote, locked': (t) async {
+    await _screen(t, VotePage(me: recordedMe('me_voting_locked')));
+    await _settle(t);
+  },
   'deck page': (t) async {
     await _screen(t, const DeckPage());
     await _settle(t);

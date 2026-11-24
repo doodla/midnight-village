@@ -16,6 +16,7 @@ import 'package:midnight_village/design_system/primitives/player_token.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/sliced_art.dart';
 import 'package:midnight_village/design_system/primitives/vote_tag.dart';
+import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/primitives/you_seal.dart';
 
 import 'contract/contract_samples.dart';
@@ -66,6 +67,7 @@ Set<String> _treeNames() => {
           .byWidgetPredicate(
             (w) =>
                 w is PlayerRow ||
+                w is VoteSlip ||
                 w is BoardCard ||
                 w is BoardCardBack ||
                 w is VoteTag ||
@@ -73,7 +75,9 @@ Set<String> _treeNames() => {
           )
           .evaluate())
     if (switch (e.widget) {
-          PlayerRow(:final name) || VoteTag(:final name) => name,
+          PlayerRow(:final name) ||
+          VoteSlip(:final name) ||
+          VoteTag(:final name) => name,
           BoardCard(:final name) || BoardCardBack(:final name) => name,
           FaceDownCard(:final ownerName) => ownerName,
           _ => null,

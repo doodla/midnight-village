@@ -48,7 +48,6 @@ class _HostState extends State<_Host> {
     child: VoteView(
       me: _me,
       secondsLeft: 72,
-      remaining: 0.6,
       onPick: (id) =>
           setState(() => _me = _me.withVote(MyVote.local(id, locked: false))),
       onLock: (id) =>

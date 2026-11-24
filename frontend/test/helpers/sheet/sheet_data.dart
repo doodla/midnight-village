@@ -56,17 +56,19 @@ Map<String, dynamic> tableOf(
   Map<String, String> rename = const {},
 }) {
   final players = (me['players'] as List).cast<Map<String, dynamic>>();
-  // A night board's prompt offers every other player; the talk and the
-  // vote have none.
+  // A night board's prompt offers every other player; the talk has none;
+  // the vote offers every other player as its `vote_targets`.
   final targets =
       ((me['action_prompt'] as Map?)?['valid_targets'] as Map?)?['player_ids']
           as List?;
+  final votes = me['vote_targets'] as List?;
   final gone = {
     for (final p in players)
       if (leave.contains(p['display_name'])) p['player_id'],
   };
   players.removeWhere((p) => gone.contains(p['player_id']));
   targets?.removeWhere(gone.contains);
+  votes?.removeWhere(gone.contains);
   final unused = TokenId.people
       .map((t) => t.name)
       .where((t) => !players.any((p) => p['token'] == t))
@@ -82,6 +84,7 @@ Map<String, dynamic> tableOf(
       'seat': (last['seat'] as int) + 1,
     });
     targets?.add(id);
+    votes?.add(id);
   }
   for (final p in players) {
     p['display_name'] = rename[p['display_name']] ?? p['display_name'];

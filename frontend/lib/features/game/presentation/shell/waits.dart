@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/copy/copy.dart';
-import '../../../../design_system/primitives/band.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sliced_art.dart';
@@ -111,8 +110,8 @@ class TalkWait extends StatelessWidget {
   );
 }
 
-/// 09 while its `/me/` loads: the band with its headline and no number, and
-/// the wait where the names will be.
+/// 09 while its `/me/` loads: the vote's sky with no number yet, and the
+/// wait on the board, where the slips will be.
 class VoteWait extends StatelessWidget {
   const VoteWait({super.key, required this.failing, required this.onRetry});
 
@@ -121,17 +120,21 @@ class VoteWait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ScreenFrame(
-    ground: GroundKind.day,
-    fitsHeight: true,
-    topSlot: const TimerBand.bar(
+    ground: GroundKind.night,
+    dress: Dress.paper,
+    bleed: true,
+    topSlot: const SquareSky(
       secondsLeft: null,
-      remaining: null,
       title: VoteCopy.headline,
+      clock: SkyClock.vote,
     ),
-    // Hung from the band's lower edge.
-    body: Align(
-      alignment: Alignment.topCenter,
-      child: Waiting(failing: failing, onRetry: onRetry, centred: true),
+    fitsHeight: true,
+    minBodyHeight: context.skin.parts.squareLeastBody,
+    body: BoardFrame(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Waiting(failing: failing, onRetry: onRetry, centred: true),
+      ),
     ),
   );
 }

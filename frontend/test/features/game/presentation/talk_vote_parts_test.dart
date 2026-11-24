@@ -5,7 +5,9 @@ import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/fit_line.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
+import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/screen_frame.dart';
+import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
@@ -236,14 +238,12 @@ void main() {
               child: VoteView(
                 me: me,
                 secondsLeft: 72,
-                remaining: null,
                 onPick: (_) {},
                 onLock: (_) {},
               ),
             ),
           ),
         ),
-        ground: GroundKind.day,
       );
       await tester.pump();
     }
@@ -266,31 +266,33 @@ void main() {
             child: VoteView(
               me: three,
               secondsLeft: 72,
-              remaining: null,
               onPick: (_) {},
               onLock: (_) {},
             ),
           ),
         ),
-        ground: GroundKind.day,
       );
-      final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
-      // Three at 320 x 568: the room holds the grand rows, and what is left
-      // over is shared out between them, so the foot is not empty.
-      expect(rows.every((r) => r.size == PlayerRowSize.grand), isTrue);
+      final rows = tester.widgetList<VoteSlip>(find.byType(VoteSlip));
+      // Three at 320 x 568 (the sky and the board's frame take their share):
+      // the room holds the tall slips, and what is left over is shared out
+      // between them, so the board is not empty.
+      expect(rows.every((r) => r.size != PlayerRowSize.compact), isTrue);
       expect(find.byType(FadingScroll), findsNothing);
     });
 
-    testWidgets('ten long names on a 320 x 844 phone: every row on screen, '
-        'nothing scrolls', (tester) async {
+    testWidgets('ten long names on a 320 x 844 phone: every slip reached '
+        '(the board scrolls where they do not all fit), the plaque always '
+        'on screen', (tester) async {
       await pump(tester, const Size(320, 844), 1);
-      expect(find.byType(FadingScroll), findsNothing);
-      final pips = tester.getTopLeft(find.textContaining('locked')).dy;
-      for (final row in find.byType(PlayerRow).evaluate()) {
-        expect(
-          tester.getRect(find.byWidget(row.widget)).bottom,
-          lessThan(pips),
-        );
+      final plaque = find.byType(PrimaryButton).last;
+      for (final seat in VoteView.votable(me)) {
+        final slip = find.widgetWithText(VoteSlip, seat.name);
+        await tester.ensureVisible(slip);
+        await tester.pumpAndSettle();
+        final rect = tester.getRect(slip);
+        expect(rect.bottom, lessThan(tester.getTopLeft(plaque).dy));
+        expect(rect.top, greaterThanOrEqualTo(0), reason: seat.name);
+        expect(tester.getRect(plaque).bottom, lessThanOrEqualTo(844));
       }
       expect(tester.takeException(), isNull);
     });

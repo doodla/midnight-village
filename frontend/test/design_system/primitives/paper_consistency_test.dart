@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/deck_pile.dart';
 import 'package:midnight_village/design_system/primitives/story_card.dart';
 import 'package:midnight_village/design_system/primitives/twine.dart';
+import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
@@ -97,6 +98,11 @@ void main() {
         says: TableCopy.needPlayers,
         unlocked: null,
         why: 'what the table needs ("Need 3 players", "Add 1 card")',
+      ),
+      'features/game/presentation/shell/vote_screen.dart': (
+        says: VoteCopy.pickName,
+        unlocked: VoteCopy.lockIn.raw,
+        why: 'the pick it waits for; a tap nudges the slips',
       ),
       'features/lobby/presentation/join_ways.dart': (
         says: JoinCopy.codeHint,
@@ -211,7 +217,11 @@ void main() {
         // A card of the Werewolf team in the deck in play (08) is cut from
         // the team's red, as its tag is.
         // So is a face-up Werewolf-team card of a night's story (08, held).
+        // And the owner's one other red: a vote's slip once it is LOCKED
+        // (22 November 2026, "red row and seal"), never a slip at rest,
+        // picked or dimmed.
         if (w is TagChip ||
+            (w is VoteSlip && w.sealed) ||
             (w is DeckPile && w.role.team == TeamId.werewolf) ||
             (w is StoryCardFace && w.role?.team == TeamId.werewolf)) {
           found = true;

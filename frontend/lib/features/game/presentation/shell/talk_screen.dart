@@ -7,13 +7,13 @@ import '../../../../design_system/copy/copy.dart';
 import '../../../../core/router/back_policy.dart';
 import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/night/night_story.dart';
-import '../../../../design_system/primitives/board_pieces.dart';
 import '../../../../design_system/primitives/hold_to_reveal.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/primary_button.dart';
 import '../../../../design_system/primitives/screen_frame.dart';
 import '../../../../design_system/primitives/sealed_note.dart';
 import '../../../../design_system/primitives/sliced_art.dart';
+import '../../../../design_system/primitives/square_foot.dart';
 import '../../../../design_system/primitives/square_sky.dart';
 import '../../../../design_system/skin/dress.dart';
 import '../../../../design_system/skin/ground.dart';
@@ -275,39 +275,15 @@ class _TalkViewState extends ConsumerState<TalkView> {
             detail: count,
             onPressed: widget.onReady,
           );
-    return Stack(
-      children: [
-        const Positioned.fill(child: BoardFoot(height: double.infinity)),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.gutter,
-              Space.xl,
-              Space.gutter,
-              Space.xl,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              spacing: Space.sm,
-              children: [
-                if (widget.notSent && widget.onTryAgain != null)
-                  Notice(
-                    message: BannerCopy.notSent,
-                    action: BannerCopy.tryAgain,
-                    onAction: widget.onTryAgain,
-                  ),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: context.skin.parts.squareButtonWidest,
-                  ),
-                  child: SizedBox(width: double.infinity, child: button),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+    return SquareFoot(
+      notice: widget.notSent && widget.onTryAgain != null
+          ? Notice(
+              message: BannerCopy.notSent,
+              action: BannerCopy.tryAgain,
+              onAction: widget.onTryAgain,
+            )
+          : null,
+      action: button,
     );
   }
 }

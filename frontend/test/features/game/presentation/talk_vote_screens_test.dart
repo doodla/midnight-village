@@ -5,16 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
-import 'package:midnight_village/design_system/primitives/band.dart';
 import 'package:midnight_village/design_system/primitives/deck_pile.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/name_tag.dart';
-import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/primitives/sheet_scaffold.dart';
+import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/primitives/square_sky.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
@@ -46,9 +45,9 @@ List<Object?> _bodies(ShellSetup s, String endpoint) => [
       r.data,
 ];
 
-/// The vote row of [name].
-PlayerRow _row(WidgetTester tester, String name) =>
-    tester.widget<PlayerRow>(find.widgetWithText(PlayerRow, name));
+/// The vote's slip of [name].
+VoteSlip _row(WidgetTester tester, String name) =>
+    tester.widget<VoteSlip>(find.widgetWithText(VoteSlip, name));
 
 DateTime _before(Map<String, dynamic> me, int seconds) => DateTime.parse(
   me['deadline'] as String,
@@ -68,10 +67,10 @@ Future<void> _putAway(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// Locked on [name]: that row lifted and outlined, not dimmed; every other
-/// row dimmed and not picked.
+/// Locked on [name]: that slip lifted and sealed, not dimmed; every other
+/// slip dimmed and not picked.
 void _expectLockedOn(WidgetTester tester, String name) {
-  for (final row in tester.widgetList<PlayerRow>(find.byType(PlayerRow))) {
+  for (final row in tester.widgetList<VoteSlip>(find.byType(VoteSlip))) {
     final mine = row.name == name;
     expect(row.picked, mine, reason: row.name);
     expect(row.dimmed, !mine, reason: row.name);
@@ -438,12 +437,14 @@ void main() {
       await s.settle(tester);
       expect(find.byType(VoteScreen), findsOneWidget);
       expect(find.text(VoteCopy.headline), findsOneWidget);
-      expect(tester.widget<TimerBand>(find.byType(TimerBand)).secondsLeft, 14);
-      final rows = tester.widgetList<PlayerRow>(find.byType(PlayerRow));
+      final sky = tester.widget<SquareSky>(find.byType(SquareSky));
+      expect((sky.secondsLeft, sky.clock), (14, SkyClock.vote));
+      final rows = tester.widgetList<VoteSlip>(find.byType(VoteSlip));
+      // Every other player; this phone's own name is never listed.
       expect(rows.map((r) => r.name), ['Ben', 'Cleo', 'Dev', 'Esme']);
       expect(rows.any((r) => r.picked), isFalse, reason: 'nothing chosen');
       expect(_button(tester), VoteCopy.pickName);
-      expect(_phase(tester), ButtonPhase.waiting);
+      expect(_phase(tester), ButtonPhase.locked, reason: 'says what unlocks');
       expect(find.text('0 of 5 locked'), findsOneWidget);
 
       s.ws.addServerEvent(ContractSamples.map('ws/game/progress_vote'));
