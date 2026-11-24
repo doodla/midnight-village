@@ -57,6 +57,17 @@ class GuardEdits(unittest.TestCase):
             os.environ["PR_BODY"] = body
         return self.check.main(["--base", "main"])
 
+    def test_a_changed_picture_is_not_read_as_text(self):
+        """A golden PNG changed beside a guard: the check crashed decoding it."""
+        png = b"\x89PNG\r\n\x1a\n" + bytes(range(256)) * 4
+        (self.root / "test" / "goldens").mkdir(parents=True)
+        (self.root / "test" / "goldens" / "vote.png").write_bytes(png)
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "a golden")
+        self.git("branch", "-f", "main")
+        (self.root / "test" / "goldens" / "vote.png").write_bytes(png[::-1])
+        self.assertEqual(self.run_check("nothing about guards"), 0)
+
     def test_a_change_that_leaves_guards_alone_needs_nothing(self):
         self.put("test/plain_test.dart", "const x = 2;\n")
         self.assertEqual(self.run_check(""), 0)

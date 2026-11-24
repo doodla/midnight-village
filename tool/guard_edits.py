@@ -42,8 +42,10 @@ NEEDS = (
 
 
 def git(*args: str) -> str:
+    # A changed file may be a picture: never fail on bytes that are not text.
     return subprocess.run(
-        ["git", "-C", str(ROOT), *args], capture_output=True, text=True, check=True
+        ["git", "-C", str(ROOT), *args],
+        capture_output=True, text=True, errors="replace", check=True,
     ).stdout
 
 
@@ -56,6 +58,8 @@ def edited_guards(base: str) -> list[tuple[str, int, int]]:
     found = []
     for line in git("diff", "--numstat", "--no-renames", base).splitlines():
         added, removed, path = line.split("\t", 2)
+        if added == "-":
+            continue  # a binary file (git counts no lines): a guard is text
         try:
             before = git("show", f"{base}:{path}")
         except subprocess.CalledProcessError:
