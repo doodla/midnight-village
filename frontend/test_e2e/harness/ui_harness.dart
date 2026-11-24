@@ -135,10 +135,16 @@ class UiHarness {
           ),
         );
         unawaited(ws.connect());
+        // The newest socket for this table: a read made again makes a new one.
+        _lobbySockets[code] = ws;
         return ws;
       };
     }),
   ];
+
+  /// This phone's lobby socket by table code, the newest one ([readLobby]
+  /// waits for it to be open).
+  final _lobbySockets = <String, ReconnectingWebSocket>{};
 
   /// Drives the auth notifier to adopt [player]'s session (no refresh), then
   /// invalidates the game's providers so the prior socket is disposed and
@@ -193,8 +199,9 @@ class UiHarness {
   Future<void> readLobby(String code) async {
     await tester.runAsync(() async {
       await _readAgain(lobbyProvider(code));
-      // Let the server put the socket in the lobby's group.
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      // Wait until the lobby's socket is open: the server puts it in the
+      // lobby's group before it accepts the connection.
+      await _lobbySockets[code]?.ready.timeout(eventTimeout);
     });
     await tester.pump();
     await settle();
