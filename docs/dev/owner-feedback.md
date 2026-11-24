@@ -4,6 +4,12 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 24 November 2026, timers in the live game (verbatim)
+
+> there's no timer in some stages, even though there's one under the hood
+
+HANDLED (branch `your-card-clock`): the one stage the server timed with no clock on the phone was 04 Your card (the look stage, `card_look_seconds`); it jumped to the night when time ran out. Now 04 shows the time left in every state (before Ready, the card held open, after Ready, a restart): the night's candle and number, quiet, on the headline's banner, where the night board's clock stands. So it cannot happen again, every screen state the gallery draws is checked: a game screen whose `/me/` carries a deadline must draw a clock (`test/helpers/stage_clock.dart`, run by the screen sweep), and every timer the table can set is either a stage clock or on a short list of timers no phone counts down, each with why (the night's minimum window, a dropped phone's grace, the host's handover).
+
 ## 24 November 2026, 04 Your card in the live game (a screenshot of the Werewolf, verbatim)
 
 > can we scale the image so the whole thing sits and showed in the frame?
