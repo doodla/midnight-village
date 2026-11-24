@@ -118,3 +118,87 @@ class Plan(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScreensThatDrawAChange(unittest.TestCase):
+    """tool/piece_screens.py: from each state's widgets to the states a file reaches."""
+
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location(
+            "piece_screens", REPO / "tool" / "piece_screens.py"
+        )
+        self.screens = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.screens)
+        self.widgets = {
+            "01-join": ["App", "JoinView", "PrimaryButton"],
+            "02-table": ["App", "TableView", "PrimaryButton", "PlayerRow"],
+            "08-talk": ["App", "TalkScreen", "PlayerRow"],
+        }
+        self.owner = {
+            "App": {"frontend/lib/app.dart"},
+            "JoinView": {"frontend/lib/join_view.dart"},
+            "TableView": {"frontend/lib/table_view.dart"},
+            "TalkScreen": {"frontend/lib/talk_screen.dart"},
+            "PrimaryButton": {"frontend/lib/kit/button.dart"},
+            "PlayerRow": {"frontend/lib/kit/player_row.dart"},
+        }
+        # the lobby's notifier draws nothing: the table's view and the app import it
+        self.imported_by = {
+            "frontend/lib/lobby_notifier.dart": {"frontend/lib/table_view.dart"},
+            "frontend/lib/copy.dart": {
+                "frontend/lib/join_view.dart",
+                "frontend/lib/table_view.dart",
+                "frontend/lib/talk_screen.dart",
+            },
+            "frontend/lib/join_view.dart": {"frontend/lib/app.dart"},
+        }
+
+    def states(self, *changed):
+        return self.screens.states_for(
+            list(changed), self.widgets, self.owner, self.imported_by
+        )
+
+    def test_a_widgets_file_reaches_the_states_that_draw_it_and_no_others(self):
+        self.assertEqual(self.states("frontend/lib/join_view.dart"), ({"01-join"}, ""))
+        self.assertEqual(
+            self.states("frontend/lib/kit/player_row.dart"), ({"02-table", "08-talk"}, "")
+        )
+
+    def test_it_does_not_climb_to_the_app_which_every_state_draws(self):
+        states, _ = self.states("frontend/lib/join_view.dart")
+        self.assertNotIn("08-talk", states)
+
+    def test_a_file_that_draws_nothing_is_followed_to_the_files_that_use_it(self):
+        self.assertEqual(self.states("frontend/lib/lobby_notifier.dart"), ({"02-table"}, ""))
+        states, _ = self.states("frontend/lib/copy.dart")
+        self.assertEqual(states, {"01-join", "02-table", "08-talk"})
+
+    def test_a_change_no_state_draws_renders_nothing(self):
+        self.assertEqual(self.states("frontend/lib/unused.dart"), (set(), ""))
+        self.assertEqual(self.states("backend/apps/onuw/voting.py"), (set(), ""))
+
+    def test_what_cannot_be_mapped_renders_everything_and_says_why(self):
+        for path in (
+            "frontend/assets/skins/a.png",
+            "frontend/test_screens/screen_catalogue.dart",
+            "frontend/test/helpers/shell_setup.dart",
+            "frontend/pubspec.yaml",
+        ):
+            states, why = self.states(path)
+            self.assertIsNone(states, path)
+            self.assertIn(path, why)
+
+    def test_a_class_name_is_found_where_it_is_declared(self):
+        found = self.screens.DECLARED.findall(
+            "final class A {}\nabstract class B {}\nenum C { x }\nmixin D {}\n"
+            "  class NotTopLevel {}\nextension type E(int i) {}\n"
+        )
+        self.assertEqual(found, ["A", "B", "C", "D", "E"])
+
+    def test_the_plan_renders_screens_only_for_what_can_change_one(self):
+        def steps(*changed):
+            return [what for what, _, _ in load(REPO).plan(list(changed))]
+
+        self.assertTrue(any("screen states" in s for s in steps("frontend/lib/app.dart")))
+        self.assertFalse(any("screen states" in s for s in steps("frontend/test/a_test.dart")))
+        self.assertFalse(any("screen states" in s for s in steps("backend/apps/core/views.py")))

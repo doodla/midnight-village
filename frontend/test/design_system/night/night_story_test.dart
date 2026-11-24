@@ -1,339 +1,322 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/faces/night_report.dart';
+import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_story.dart';
 
+import '../../helpers/contract/contract_samples.dart';
+import '../../helpers/sheet/night_record.dart';
 import '../../helpers/sheet/story_samples.dart';
 
-// My night's picture story (08, held), from each phone's own night record:
-// every role and case, recorded where a game recorded it, else a recorded
-// talk edited off the contract (story_samples.dart). Cards read
-// "label:role" ("down" for face down); threads "kind from>to".
+// My night's picture story (08, held), judged by RULES a player would notice,
+// each read against the night's own record (night_record.dart, from the API
+// contract): which other cards, face up in which role, which names the one
+// sentence carries. Every night is a recorded talk `/me/`
+// (story_samples.dart), so no test names a player, a seat or a role of one
+// game: a different recorded game changes nothing here.
+
+/// A role as the server writes it ("Werewolf"), read from the enum's own
+/// name, not from the app's display words.
+extension on RoleId {
+  String get canonical => name[0].toUpperCase() + name.substring(1);
+}
 
 NightStory _story(String night) =>
     NightStory.of(NightReport.fromMe(allNights[night]!()));
 
-List<List<String>> _rows(NightStory s) => [
-  for (final row in s.rows) [for (final c in row) '$c'],
+NightRecord _record(String night) => NightRecord(allNights[night]!());
+
+/// A card as the record writes it: "Ben:Seer", "Left:down".
+String _card(StoryCard c) => card(c.label, c.role?.canonical);
+
+/// Every card but this phone's own.
+List<StoryCard> _othersOf(NightStory s) => [
+  for (final row in s.rows)
+    for (final c in row)
+      if (c.who != StoryWho.you) c,
 ];
 
-List<String> _links(NightStory s) => [for (final l in s.links) '$l'];
+/// The nights whose record satisfies [test], never none (a rule about nothing
+/// would pass for ever).
+List<String> _nights(bool Function(NightRecord r) test) {
+  final nights = [
+    for (final n in allNights.keys)
+      if (test(_record(n))) n,
+  ];
+  if (nights.isEmpty) throw StateError('a rule with no night to hold it');
+  return nights;
+}
 
-typedef _Want = ({
-  List<List<String>> rows,
-  List<String> links,
-  String line,
-  bool sleeps,
-});
+bool _acts(NightRecord r, String type) => r.acts.any((e) => e.type == type);
 
-_Want _want(
-  List<List<String>> rows,
-  List<String> links,
-  String line, {
-  bool sleeps = false,
-}) => (rows: rows, links: links, line: line, sleeps: sleeps);
+/// A night of a role dealt as itself (not a Doppelganger's copy).
+bool _own(NightRecord r, String type) => !r.isDoppelganger && _acts(r, type);
 
-const _you = '0.0';
-String _at(int row, int col) => '$row.$col';
+/// The names of a sentence, as the story marks them.
+List<String> _marked(NightStory s) => [
+  for (final p in s.line.parts)
+    if (p.name) p.text,
+];
 
-final _cases = <String, _Want>{
-  'troublemaker': _want(
-    [
-      ['You:troublemaker'],
-      ['Ana:down', 'Ben:down'],
-    ],
-    ['act $_you>${_at(1, 0)}+${_at(1, 1)}', 'swap ${_at(1, 0)}>${_at(1, 1)}'],
-    'You swapped Ana and Ben.',
-  ),
-  'seer': _want(
-    [
-      ['You:seer'],
-      ['Cleo:werewolf'],
-    ],
-    ['look $_you>${_at(1, 0)}'],
-    "Cleo's card was the Werewolf.",
-  ),
-  'seer-centre': _want(
-    [
-      ['You:seer'],
-      ['Left:villager', 'Middle:villager', 'Right:down'],
-    ],
-    ['look $_you>${_at(1, 0)}', 'look $_you>${_at(1, 1)}'],
-    'You saw 2 center cards.',
-  ),
-  'seer-skipped': _want(
-    [
-      ['You:seer'],
-    ],
-    [],
-    'You did nothing.',
-    sleeps: true,
-  ),
-  // The server records the same skip for a Seer who timed out as for one who
-  // chose nothing: the story is `seer-skipped`'s (and a test below says so).
-  'seer-timed-out': _want(
-    [
-      ['You:seer'],
-    ],
-    [],
-    'You did nothing.',
-    sleeps: true,
-  ),
-  'robber': _want(
-    [
-      ['You:robber'],
-      ['Ana:seer'],
-    ],
-    ['swap $_you>${_at(1, 0)}'],
-    "You took Ana's card, the Seer.",
-  ),
-  'werewolf-pair': _want(
-    [
-      ['You:werewolf'],
-      ['Ida:werewolf'],
-    ],
-    ['see $_you>${_at(1, 0)}'],
-    'You and Ida are the Werewolves.',
-  ),
-  'werewolf-lone-looked': _want(
-    [
-      ['You:werewolf'],
-      ['Left:werewolf', 'Middle:down', 'Right:down'],
-    ],
-    ['look $_you>${_at(1, 0)}'],
-    'You are the only Werewolf.',
-  ),
-  'werewolf-lone': _want(
-    [
-      ['You:werewolf'],
-    ],
-    [],
-    'You are the only Werewolf.',
-  ),
-  'minion': _want(
-    [
-      ['You:minion'],
-      ['Cleo:werewolf', 'Ida:werewolf'],
-    ],
-    ['look $_you>${_at(1, 0)}', 'look $_you>${_at(1, 1)}'],
-    'Cleo and Ida are the Werewolves.',
-  ),
-  'minion-none': _want(
-    [
-      ['You:minion'],
-    ],
-    [],
-    'There were no Werewolves.',
-  ),
-  'mason': _want(
-    [
-      ['You:mason'],
-      ['Fin:mason'],
-    ],
-    ['see $_you>${_at(1, 0)}'],
-    'You and Fin are the Masons.',
-  ),
-  'mason-alone': _want(
-    [
-      ['You:mason'],
-    ],
-    [],
-    'You are the only Mason.',
-  ),
-  'drunk': _want(
-    [
-      ['You:drunk'],
-      ['Left:down', 'Middle:down', 'Right:down'],
-    ],
-    ['swap $_you>${_at(1, 1)}'],
-    'You took the middle card, unseen.',
-  ),
-  'insomniac-same': _want(
-    [
-      ['You:insomniac'],
-      ['Now:insomniac'],
-    ],
-    ['look $_you>${_at(1, 0)}'],
-    'Your card is still the Insomniac.',
-  ),
-  'insomniac-changed': _want(
-    [
-      ['You:insomniac'],
-      ['Now:seer'],
-    ],
-    ['look $_you>${_at(1, 0)}'],
-    'Your card is now the Seer.',
-  ),
-  for (final role in ['villager', 'hunter', 'tanner'])
-    role: _want(
-      [
-        ['You:$role'],
-      ],
-      [],
-      'You slept.',
-      sleeps: true,
-    ),
-  'doppelganger-seer': _want(
-    [
-      ['You:doppelganger', 'Ben:seer'],
-      ['Left:villager', 'Middle:villager', 'Right:down'],
-    ],
-    [
-      'look $_you>${_at(0, 1)}',
-      'look $_you>${_at(1, 0)}',
-      'look $_you>${_at(1, 1)}',
-    ],
-    'You copied Ben, then saw 2 center cards.',
-  ),
-  'doppelganger-minion': _want(
-    [
-      ['You:doppelganger', 'Dev:minion'],
-      ['Cleo:werewolf', 'Esme:werewolf'],
-    ],
-    [
-      'look $_you>${_at(0, 1)}',
-      'look $_you>${_at(1, 0)}',
-      'look $_you>${_at(1, 1)}',
-    ],
-    'You copied Dev, then saw the Werewolves.',
-  ),
-  'doppelganger-troublemaker': _want(
-    [
-      ['You:doppelganger', 'Gus:troublemaker'],
-      ['Ben:down', 'Cleo:down'],
-    ],
-    [
-      'look $_you>${_at(0, 1)}',
-      'act $_you>${_at(1, 0)}+${_at(1, 1)}',
-      'swap ${_at(1, 0)}>${_at(1, 1)}',
-    ],
-    'You copied Gus, then swapped Ben and Cleo.',
-  ),
-  'doppelganger-robber': _want(
-    [
-      ['You:doppelganger', 'Gus:robber'],
-      ['Ana:seer'],
-    ],
-    ['look $_you>${_at(0, 1)}', 'swap $_you>${_at(1, 0)}'],
-    "You copied Gus, then took Ana's card.",
-  ),
-  'doppelganger-drunk': _want(
-    [
-      ['You:doppelganger', 'Gus:drunk'],
-      ['Left:down', 'Middle:down', 'Right:down'],
-    ],
-    ['look $_you>${_at(0, 1)}', 'swap $_you>${_at(1, 1)}'],
-    'You copied Gus, then took the middle card.',
-  ),
-  'doppelganger-werewolf': _want(
-    [
-      ['You:doppelganger', 'Ida:werewolf'],
-      ['Ida:werewolf'],
-    ],
-    ['look $_you>${_at(0, 1)}', 'see $_you>${_at(1, 0)}'],
-    'You copied Ida, the Werewolf.',
-  ),
-  'doppelganger-insomniac': _want(
-    [
-      ['You:doppelganger', 'Esme:insomniac'],
-      ['Now:doppelganger'],
-    ],
-    ['look $_you>${_at(0, 1)}', 'look $_you>${_at(1, 0)}'],
-    'You copied Esme, the Insomniac.',
-  ),
-  'doppelganger-villager': _want(
-    [
-      ['You:doppelganger', 'Fin:villager'],
-    ],
-    ['look $_you>${_at(0, 1)}'],
-    'You copied Fin, the Villager.',
-  ),
-  'doppelganger-nothing': _want(
-    [
-      ['You:doppelganger'],
-    ],
-    [],
-    'You did nothing.',
-    sleeps: true,
-  ),
-};
+bool _says(String text, String word) =>
+    RegExp('\\b${RegExp.escape(word)}\\b').hasMatch(text);
 
 void main() {
-  test('every night has its case, and every case its night', () {
-    expect(_cases.keys.toSet(), allNights.keys.toSet());
+  test('every recorded talk of a night is a night of the story', () {
+    final recorded = {
+      for (final s in ContractSamples.index)
+        if (s.isHttp &&
+            s.status == 200 &&
+            s.name.startsWith('http/game/me_discussion_choose_'))
+          s.name.substring('http/game/'.length),
+    };
+    expect(nightSamples.values.toSet().containsAll(recorded), isTrue);
   });
 
-  for (final MapEntry(key: night, value: want) in _cases.entries) {
-    final edited = editedNights.containsKey(night) ? ' (off the contract)' : '';
-    test('$night$edited: ${want.line}', () {
+  for (final night in allNights.keys) {
+    test('$night: this phone is on top as dealt, the other cards are what '
+        'the record shows', () {
       final story = _story(night);
-      expect(_rows(story), want.rows);
-      expect(_links(story), want.links);
-      expect(story.line.text, want.line);
-      expect(story.sleeps, want.sleeps);
+      final record = _record(night);
+      final you = story.cardAt(NightStory.youRef);
+      expect(you.who, StoryWho.you);
+      expect(you.label, 'You');
+      expect(you.faceUp, isTrue);
+      expect(you.role?.canonical, record.dealt);
+      expect(
+        [for (final c in _othersOf(story)) _card(c)]..sort(),
+        [...record.cards]..sort(),
+      );
+      expect(story.sleeps, record.sleeps);
     });
   }
 
-  test('a Seer who timed out has the story of one who chose nothing', () {
-    final timedOut = _story('seer-timed-out');
-    final skipped = _story('seer-skipped');
-    expect(_rows(timedOut), _rows(skipped));
-    expect(_links(timedOut), _links(skipped));
-    expect(timedOut.line.text, skipped.line.text);
-    expect(timedOut.sleeps, skipped.sleeps);
+  group('a look at a player', () {
+    for (final night in _nights((r) => _own(r, 'peek_player'))) {
+      test('$night: one other card, face up, the player and role the record '
+          'names', () {
+        final story = _story(night);
+        final look = _record(night).acts.single.info;
+        final others = _othersOf(story);
+        expect(others, hasLength(1));
+        expect(others.single.faceUp, isTrue);
+        expect(others.single.label, look['target_name']);
+        expect(others.single.role?.canonical, look['role']);
+        expect(story.line.text, contains(look['target_name'] as String));
+        expect(_says(story.line.text, look['role'] as String), isTrue);
+      });
+    }
   });
 
-  test('your own card is on top, as dealt, marked You', () {
+  group('a swap of two others (the Troublemaker)', () {
+    for (final night in _nights((r) => _own(r, 'swap_others'))) {
+      test('$night: exactly the two players the record names, both face '
+          'down, both in the sentence', () {
+        final story = _story(night);
+        final swap = _record(night).acts.single.info;
+        final pair = [swap['player1_name'], swap['player2_name']];
+        final others = _othersOf(story);
+        expect([for (final c in others) c.label], unorderedEquals(pair));
+        expect(others.every((c) => !c.faceUp), isTrue);
+        for (final name in pair) {
+          expect(story.line.text, contains(name as String));
+        }
+      });
+    }
+  });
+
+  group('the Insomniac', () {
+    final nights = _nights((r) => _own(r, 'insomniac'));
+    for (final night in nights) {
+      test('$night: one "Now" card, face up, in the role the record ends '
+          'on; the sentence says still or now', () {
+        final story = _story(night);
+        final record = _record(night);
+        final current = record.acts.single.info['current_role'] as String;
+        final others = _othersOf(story);
+        expect(others, hasLength(1));
+        expect(others.single.who, StoryWho.now);
+        expect(others.single.label, 'Now');
+        expect(others.single.role?.canonical, current);
+        final text = story.line.text;
+        expect(_says(text, current), isTrue);
+        expect(_says(text, current == record.dealt ? 'still' : 'now'), isTrue);
+      });
+    }
+
+    test('the recordings hold a card that stayed and one that changed', () {
+      expect(
+        {
+          for (final n in nights)
+            _record(n).acts.single.info['current_role'] == _record(n).dealt,
+        },
+        {true, false},
+      );
+    });
+  });
+
+  group('a Doppelganger', () {
+    for (final night in _nights((r) => r.isDoppelganger && r.copy != null)) {
+      test('$night: her copy sits beside her card, the player and role the '
+          'record names; the sentence opens on it', () {
+        final story = _story(night);
+        final record = _record(night);
+        expect(story.rows.first.first.who, StoryWho.you);
+        final copy = story.rows.first[1];
+        expect(copy.label, record.copiedName);
+        expect(copy.role?.canonical, record.copiedRole);
+        expect(story.line.text, startsWith('You copied ${record.copiedName}'));
+      });
+
+      test('$night: then her copy\'s own rule: its entries show the cards '
+          'they show for the role dealt', () {
+        final record = _record(night);
+        final rest = [for (final e in record.acts) ...record.cardsOf(e)];
+        final shown = [for (final c in _othersOf(_story(night))) _card(c)]
+          ..remove(card(record.copiedName!, record.copiedRole));
+        expect(shown..sort(), rest..sort());
+      });
+    }
+
+    test('one whose look timed out has the story of a sleeper', () {
+      for (final night in _nights((r) => r.isDoppelganger && r.copy == null)) {
+        final story = _story(night);
+        expect(story.rows, hasLength(1));
+        expect(story.sleeps, isTrue);
+        expect(story.line.text, isNot(contains('copied')));
+      }
+    });
+  });
+
+  group('cards moved unseen stay face down', () {
+    for (final night in _nights((r) => _acts(r, 'swap_others'))) {
+      test('$night: the players swapped are face down', () {
+        final swap = _record(
+          night,
+        ).acts.firstWhere((e) => e.type == 'swap_others').info;
+        for (final name in [swap['player1_name'], swap['player2_name']]) {
+          expect(
+            _othersOf(_story(night)).where((c) => c.label == name),
+            anyElement((StoryCard c) => !c.faceUp),
+            reason: '$name in $night',
+          );
+        }
+      });
+    }
+
+    for (final night in _nights((r) => _acts(r, 'swap_with_center'))) {
+      test('$night: the centre cards are all face down', () {
+        final centre = _othersOf(
+          _story(night),
+        ).where((c) => c.who == StoryWho.center);
+        expect(centre, hasLength(3));
+        expect(centre.every((c) => !c.faceUp), isTrue);
+      });
+    }
+  });
+
+  group('a centre look', () {
+    for (final night in _nights((r) => _acts(r, 'peek_center'))) {
+      test('$night: all three centre cards, face up only where the record '
+          'looked', () {
+        final look = _record(
+          night,
+        ).acts.firstWhere((e) => e.type == 'peek_center');
+        final at = (look.info['center_indices'] as List).cast<int>();
+        final centre = _othersOf(
+          _story(night),
+        ).where((c) => c.who == StoryWho.center).toList();
+        expect(centre.map((c) => c.label), ['Left', 'Middle', 'Right']);
+        expect(
+          [for (final c in centre) c.faceUp],
+          [for (var i = 0; i < 3; i++) at.contains(i)],
+        );
+      });
+    }
+  });
+
+  group('the one sentence', () {
     for (final night in allNights.keys) {
-      final you = _story(night).cardAt(NightStory.youRef);
-      expect(you.who, StoryWho.you, reason: night);
-      expect(you.faceUp, isTrue, reason: night);
+      test('$night: one sentence, with the names and roles the record '
+          'gives it, and no one else', () {
+        final story = _story(night);
+        final record = _record(night);
+        final text = story.line.text;
+        expect(RegExp(r'[.!?](\s|$)').allMatches(text), hasLength(1));
+        expect(text, endsWith('.'));
+        for (final name in record.sentenceNames) {
+          expect(_says(text, name), isTrue, reason: '$name in "$text"');
+        }
+        for (final role in record.sentenceRoles) {
+          expect(_says(text, role), isTrue, reason: '$role in "$text"');
+        }
+        // Nothing about anyone else's night: no player the record does not
+        // name, in the sentence or on a card.
+        final labels = story.rows.expand((r) => r).map((c) => c.label);
+        for (final other in record.table.where(
+          (n) => !record.names.contains(n),
+        )) {
+          expect(_says(text, other), isFalse, reason: '$other in "$text"');
+          expect(labels, isNot(contains(other)), reason: other);
+        }
+        expect(
+          _marked(story).toSet().difference({...record.names, ...record.table}),
+          isEmpty,
+        );
+        expect(story.line.parts.map((p) => p.text).join(), text);
+      });
     }
+
+    test('a team is named as names; the rest of the sentence is plain', () {
+      for (final night in _nights((r) => _own(r, 'see_team'))) {
+        final team = (_record(night).acts.single.info['teammate_names'] as List)
+            .cast<String>();
+        expect(_marked(_story(night)), team, reason: night);
+      }
+    });
   });
 
-  test('a story says nothing the record did not: a swapped player sees '
-      'only their own night', () {
-    // Game 7: Dev, the Troublemaker, swapped Ana and Ben; Ana's phone
-    // (the Seer) shows her look at Cleo, nothing of the swap.
-    final ana = _story('seer');
-    expect(ana.line.text, isNot(contains('swap')));
-    expect([for (final row in ana.rows) ...row].map((c) => c.label), [
-      'You',
-      'Cleo',
-    ]);
-  });
+  group('a story is this phone\'s night only', () {
+    test('a Seer\'s story says nothing of a swap made on their cards', () {
+      for (final night in _nights((r) => _own(r, 'peek_player'))) {
+        expect(_story(night).line.text, isNot(contains('swap')), reason: night);
+      }
+    });
 
-  test('the Troublemaker and the Drunk never see the cards they moved', () {
-    for (final night in ['troublemaker', 'drunk', 'doppelganger-drunk']) {
-      final moved = _story(night).rows.skip(1).expand((r) => r);
-      expect(moved.every((c) => !c.faceUp), isTrue, reason: night);
-    }
-  });
+    test('a Seer who timed out has the story of one who chose nothing', () {
+      for (final night in ['seer-timed-out', 'seer-skipped']) {
+        expect([for (final e in _record(night).entries) e.type], ['skip']);
+      }
+      expect(_story('seer-timed-out'), _story('seer-skipped'));
+    });
 
-  test("a Doppelganger's line opens on what she did, never on sleep", () {
-    for (final night in allNights.keys.where(
-      (n) => n.startsWith('doppelganger') && n != 'doppelganger-nothing',
-    )) {
-      expect(_story(night).line.text, startsWith('You copied'), reason: night);
-    }
-  });
-
-  test('names are marked as names; the rest is plain', () {
-    final parts = _story('minion').line.parts;
-    expect(
-      [
-        for (final p in parts)
-          if (p.name) p.text,
-      ],
-      ['Cleo', 'Ida'],
-    );
-    expect(parts.map((p) => p.text).join(), 'Cleo and Ida are the Werewolves.');
+    test('threads join cards the story has', () {
+      for (final night in allNights.keys) {
+        final story = _story(night);
+        for (final link in story.links) {
+          for (final ref in [link.from, link.to, ?link.pair]) {
+            expect(ref.row, inInclusiveRange(0, story.rows.length - 1));
+            expect(
+              ref.col,
+              inInclusiveRange(0, story.rows[ref.row].length - 1),
+              reason: '$night: $link',
+            );
+          }
+        }
+      }
+    });
   });
 
   test('a screen reader hears the sentence, then every card', () {
-    expect(
-      _story('troublemaker').spoken,
-      'You swapped Ana and Ben. You: Troublemaker. Ana: face down. '
-      'Ben: face down.',
-    );
+    for (final night in _nights((r) => _own(r, 'swap_others'))) {
+      final story = _story(night);
+      final record = _record(night);
+      final swap = record.acts.single.info;
+      expect(
+        story.spoken,
+        '${story.line.text} You: ${record.dealt}. '
+        '${swap['player1_name']}: face down. '
+        '${swap['player2_name']}: face down.',
+      );
+    }
   });
 }

@@ -11,6 +11,7 @@ and keep it true.
 ```bash
 just test                       # pytest, then the migration tests (second pass)
 just test tests/onuw/test_x.py  # one file (first pass only)
+just test tests/onuw/test_x.py -v  # with each test's name (the run is quiet by default)
 just check                      # ruff lint + format-check, pyrefly, makemigrations --check
 just fix                        # auto-fix lint and format
 just samples                    # re-record contract_samples/ after a payload change
