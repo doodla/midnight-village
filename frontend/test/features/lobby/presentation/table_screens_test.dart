@@ -646,8 +646,8 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('Deal deals, and the table is read again to open the game; '
-        'the dealt game is read at the same time, not after the table', (
+    testWidgets('Deal deals, and its answer opens the game: where the host '
+        'sits is not read again; the dealt game is read at once', (
       tester,
     ) async {
       final setup = await TableSetup.pump(
@@ -655,7 +655,6 @@ void main() {
         lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ana',
       );
-      final reads = setup.count('GET', '/me/table/');
       final started = ContractSamples.map('http/game/started_with_look');
       setup.http.answer(
         'POST',
@@ -670,9 +669,11 @@ void main() {
       await _tap(tester, setup, find.text(TableCopy.start));
 
       expect(setup.count('POST', '/onuw/lobbies/V9YC2J/start/'), 1);
-      expect(setup.count('GET', '/me/table/'), greaterThan(reads));
-      // The deal's answer names the game: its `/me/` is read from it, even
-      // while `/me/table/` (still waiting here) has not moved on.
+      // (02's slow poll, 50 ms here, may read while the finger is down.)
+      final paths = [for (final r in setup.http.requests) r.path];
+      final answered = paths.indexOf('/onuw/lobbies/V9YC2J/start/');
+      expect(paths.skip(answered), isNot(contains('/me/table/')));
+      // The deal's answer names the game: its `/me/` is read from it.
       expect(
         setup.count('GET', '/onuw/games/${started['game_id']}/me/'),
         isPositive,
@@ -711,9 +712,8 @@ void main() {
       await setup.close(tester);
     });
 
-    testWidgets('a guest\'s table is read again when the host deals', (
-      tester,
-    ) async {
+    testWidgets('a guest is in the game on the deal\'s event: where it sits '
+        'is not read again', (tester) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby('detail_auto_deck_5'),
@@ -729,7 +729,7 @@ void main() {
       });
       await setup.settle(tester);
 
-      expect(setup.count('GET', '/me/table/'), greaterThan(reads));
+      expect(setup.count('GET', '/me/table/'), reads);
       // The event names the game: a guest reads it at once too.
       expect(
         setup.count('GET', '/onuw/games/${dealt['game_id']}/me/'),

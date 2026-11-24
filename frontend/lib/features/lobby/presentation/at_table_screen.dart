@@ -70,8 +70,9 @@ part 'at_table_parts.dart';
 ///
 /// Everything shown is the lobby ([lobbyProvider]: its body, its socket,
 /// this phone's own changes merged over it), read until it answers ("One
-/// moment" meanwhile); which screen shows is `/me/table/`'s, read again here
-/// whenever the table moves on (the deal, a handover).
+/// moment" meanwhile); which screen shows is `/me/table/`'s: the deal puts
+/// this phone in the game at once (the lobby's seat), a handover reads it
+/// again.
 class AtTableScreen extends ConsumerStatefulWidget {
   const AtTableScreen({super.key});
 
@@ -163,11 +164,11 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     );
   }
 
-  /// What the lobby's changes mean beyond what it shows: a deal or a
-  /// handover moves `/me/table/` on, so it is read again. A deal names its
-  /// game (the deal's answer, or `game_started`): that game's `/me/` is read
-  /// at the same time, not after `/me/table/`, and the game's screen finds
-  /// it on its way.
+  /// What the lobby's changes mean beyond what it shows: a handover moves
+  /// `/me/table/` on, so it is read again. A deal names its game (the deal's
+  /// answer, or `game_started`) and has already put this phone in it
+  /// (`LobbyNotifier`: the seat, no read): that game's `/me/` is read from
+  /// the same moment, and the game's screen finds it on its way.
   void _follow(AsyncValue<LobbyState>? before, AsyncValue<LobbyState> now) {
     final lobby = now.value;
     if (lobby == null) return;
@@ -175,7 +176,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     final started = lobby.startedGameId;
     final moved = started != null && started != was?.startedGameId;
     final hostMoved = was != null && was.hostId != lobby.hostId;
-    if (moved || hostMoved) ref.invalidate(myTableProvider);
+    if (hostMoved) ref.invalidate(myTableProvider);
     if (moved) {
       _dealt?.close();
       _dealt = ref.listenManual(liveGameProvider(started), (_, _) {});

@@ -9,19 +9,19 @@ import 'package:midnight_village/features/lobby/presentation/at_table_screen.dar
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../helpers/contract/contract_samples.dart';
-import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/live_game_setup.dart' show recordedMe;
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/table_setup.dart';
 
 // The deal is a tap that leads to another screen: Deal is busy in the frame
-// of the tap and is not live again until `/me/table/` names the next screen,
-// not just until the deal's answer (the gap the audit found: Deal tappable
-// again between the answer and the dusk).
+// of the tap and is never live again before the next screen (the gap the
+// audit found: Deal tappable again between the answer and the dusk). The
+// deal's answer is where the host sits (`SeatSeed`): the answer itself names
+// the next screen, so there is no gap left to wait in.
 
 void main() {
-  testWidgets('Deal stays busy past the deal\'s answer until the next screen '
-      'is named; one request, never two', (tester) async {
+  testWidgets('Deal stays busy until its answer, which names the next screen '
+      'itself; one request, never two', (tester) async {
     final setup = await TableSetup.pump(
       tester,
       lobby: v2Lobby('detail_auto_deck_5'),
@@ -29,56 +29,51 @@ void main() {
       timesOut: false,
     );
     final started = ContractSamples.map('http/game/started_with_look');
-    setup.http.answer(
-      'POST',
-      '/onuw/lobbies/${setup.code}/start/',
-      started,
-      status: 201,
-    );
-    setup.answerGame(recordedMe('me_look_stage'));
     final start = '/onuw/lobbies/${setup.code}/start/';
+    setup.http.answer('POST', start, started, status: 201);
+    setup.answerGame(recordedMe('me_look_stage'));
     int starts() => setup.count('POST', start);
 
-    // The next screen's name is slow: /me/table/ is held from now on.
-    final table = setup.http.hold(method: 'GET', path: '/me/table/');
-    setup.http.answer(
-      'GET',
-      '/me/table/',
-      serverMyTable(
-        code: setup.code,
-        status: 'in_game',
-        isHost: true,
-        gameId: started['game_id'] as String,
-      ),
-    );
+    // The deal's answer is slow.
+    final answer = setup.http.hold(method: 'POST', path: start);
 
     PrimaryButton deal() =>
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last);
     await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
     await tester.pump();
     expect(deal().busy, isTrue, reason: 'busy in the frame of the tap');
-    await setup.settle(tester);
+    await tester.pump(const Duration(milliseconds: 40));
     expect(starts(), 1);
 
-    // The answer is in, the next screen is not named: still busy, and a
-    // tap sends nothing.
+    // No answer yet: still busy, and a tap sends nothing.
     expect(find.byType(AtTableScreen), findsOneWidget);
     expect(deal().busy, isTrue);
     await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
-    await setup.settle(tester);
+    await tester.pump(const Duration(milliseconds: 40));
     expect(starts(), 1);
 
-    setup.http.stopHolding(method: 'GET', path: '/me/table/');
-    table.releaseAll();
-    await setup.settle(tester);
+    setup.http.stopHolding(method: 'POST', path: start);
+    final atAnswer = setup.http.requests.length;
+    answer.releaseAll();
     final container = ProviderScope.containerOf(
       tester.element(find.byType(TableShell)),
     );
-    expect(
-      container.read(tableScreenProvider).value?.screen,
-      isNot(AppScreen.table),
-    );
+    AppScreen? screen() => container.read(tableScreenProvider).value?.screen;
+    // Frames only, no time passing (02's slow poll never comes due): the
+    // answer alone moves the screen.
+    for (var i = 0; i < 50 && screen() == AppScreen.table; i++) {
+      expect(deal().busy, isTrue, reason: 'never live again before the dusk');
+      await tester.pump(Duration.zero);
+    }
+    expect(screen(), isNot(AppScreen.table));
+    await setup.settle(tester);
     expect(find.text(BannerCopy.notSent), findsNothing);
+    expect(starts(), 1);
+    // Where the host sits is the answer: never read after it.
+    expect(
+      setup.http.requests.skip(atAnswer).map((r) => r.path),
+      isNot(contains('/me/table/')),
+    );
     await setup.close(tester);
   });
 }

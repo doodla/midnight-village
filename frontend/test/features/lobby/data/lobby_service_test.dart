@@ -169,30 +169,6 @@ void main() {
       );
     });
 
-    group('activeGameIdAt', () {
-      final running = ContractSamples.map('http/game/current_game_active');
-
-      Future<String?> lookUp(Map<String, dynamic> body) {
-        http.answer('GET', '/onuw/me/current-game/', body);
-        return service.activeGameIdAt('ABC123');
-      }
-
-      test('returns the game running at this table', () async {
-        expect(
-          await lookUp({...running, 'lobby_code': 'ABC123'}),
-          running['game_id'],
-        );
-      });
-
-      test('is null for another table or no game', () async {
-        expect(await lookUp(running), isNull);
-        expect(
-          await lookUp(ContractSamples.map('http/game/current_game_none')),
-          isNull,
-        );
-      });
-    });
-
     test('fetchLobby reads the table', () async {
       http.answer('GET', '/lobbies/ABC123/', _lobby());
 

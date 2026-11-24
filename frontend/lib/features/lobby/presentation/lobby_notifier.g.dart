@@ -164,8 +164,14 @@ String _$lobbyWebSocketFactoryHash() =>
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and puts this phone in the game at once
+/// ([seatFromServer]: the deal's answer or `game_started` is where it sits,
+/// no read before the dusk). Any lobby the server gives (the first read, a
+/// read again, `lobby_update`) that says the table is past waiting while
+/// this phone was told of no game reads `/me/table/` at once, which names
+/// the game: a `game_started` missed while the socket was down heals in one
+/// read, never on the slow poll. Coming back to the app or the socket
+/// coming back reads the lobby and `/me/table/` again at the same time.
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
@@ -188,8 +194,14 @@ const lobbyProvider = LobbyNotifierFamily._();
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and puts this phone in the game at once
+/// ([seatFromServer]: the deal's answer or `game_started` is where it sits,
+/// no read before the dusk). Any lobby the server gives (the first read, a
+/// read again, `lobby_update`) that says the table is past waiting while
+/// this phone was told of no game reads `/me/table/` at once, which names
+/// the game: a `game_started` missed while the socket was down heals in one
+/// read, never on the slow poll. Coming back to the app or the socket
+/// coming back reads the lobby and `/me/table/` again at the same time.
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 final class LobbyNotifierProvider
@@ -210,8 +222,14 @@ final class LobbyNotifierProvider
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
   /// A table runs several games one after another: every start sets a new
-  /// [LobbyState.startedGameId], and a lobby opened while a game is already
-  /// running (the start event came before the socket was up) looks the game up.
+  /// [LobbyState.startedGameId] and puts this phone in the game at once
+  /// ([seatFromServer]: the deal's answer or `game_started` is where it sits,
+  /// no read before the dusk). Any lobby the server gives (the first read, a
+  /// read again, `lobby_update`) that says the table is past waiting while
+  /// this phone was told of no game reads `/me/table/` at once, which names
+  /// the game: a `game_started` missed while the socket was down heals in one
+  /// read, never on the slow poll. Coming back to the app or the socket
+  /// coming back reads the lobby and `/me/table/` again at the same time.
   /// Its first read heals like every fetch a screen depends on: retried until
   /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
   const LobbyNotifierProvider._({
@@ -250,7 +268,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'dfc6df03d53249312f6d68efe6671df2029dad91';
+String _$lobbyNotifierHash() => r'e494f7852ddd412c484c45d3679b0dc02e23679a';
 
 /// Manages lobby state for a given lobby code.
 ///
@@ -268,8 +286,14 @@ String _$lobbyNotifierHash() => r'dfc6df03d53249312f6d68efe6671df2029dad91';
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and puts this phone in the game at once
+/// ([seatFromServer]: the deal's answer or `game_started` is where it sits,
+/// no read before the dusk). Any lobby the server gives (the first read, a
+/// read again, `lobby_update`) that says the table is past waiting while
+/// this phone was told of no game reads `/me/table/` at once, which names
+/// the game: a `game_started` missed while the socket was down heals in one
+/// read, never on the slow poll. Coming back to the app or the socket
+/// coming back reads the lobby and `/me/table/` again at the same time.
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
@@ -307,8 +331,14 @@ final class LobbyNotifierFamily extends $Family
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
   /// A table runs several games one after another: every start sets a new
-  /// [LobbyState.startedGameId], and a lobby opened while a game is already
-  /// running (the start event came before the socket was up) looks the game up.
+  /// [LobbyState.startedGameId] and puts this phone in the game at once
+  /// ([seatFromServer]: the deal's answer or `game_started` is where it sits,
+  /// no read before the dusk). Any lobby the server gives (the first read, a
+  /// read again, `lobby_update`) that says the table is past waiting while
+  /// this phone was told of no game reads `/me/table/` at once, which names
+  /// the game: a `game_started` missed while the socket was down heals in one
+  /// read, never on the slow poll. Coming back to the app or the socket
+  /// coming back reads the lobby and `/me/table/` again at the same time.
   /// Its first read heals like every fetch a screen depends on: retried until
   /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
@@ -335,8 +365,14 @@ final class LobbyNotifierFamily extends $Family
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and puts this phone in the game at once
+/// ([seatFromServer]: the deal's answer or `game_started` is where it sits,
+/// no read before the dusk). Any lobby the server gives (the first read, a
+/// read again, `lobby_update`) that says the table is past waiting while
+/// this phone was told of no game reads `/me/table/` at once, which names
+/// the game: a `game_started` missed while the socket was down heals in one
+/// read, never on the slow poll. Coming back to the app or the socket
+/// coming back reads the lobby and `/me/table/` again at the same time.
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 

@@ -378,6 +378,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
 
   /// One socket event (public for tests that drive events directly).
   void apply(GameEvent event) {
+    // Play again says where this phone sits: back at the table, at once.
+    if (event is TableMovedEvent && _seatBackAtTable()) return;
     if (state.value == null) {
       // The first fetch is out (or failed): it may predate this.
       if (event is! IgnoredEvent) unawaited(refresh());
@@ -422,6 +424,27 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
         unawaited(refresh());
       case IgnoredEvent():
     }
+  }
+
+  /// `play_again`: the table is waiting again, and `/me/table/` would say
+  /// so (this game still its newest, at its results). That seat is put
+  /// ([seatFromServer]: no read) and 02 follows from the event itself; its
+  /// lobby is read as it opens. Only where play again comes from: the end
+  /// board of this game (`/me/table/` names it, finished). Anywhere else
+  /// this phone is behind (it missed the end: read, never guess), and while
+  /// its own play again is out its answer seats it, with the lobby: false,
+  /// and the table is read as for any event.
+  bool _seatBackAtTable() {
+    if (_playingAgain || !_named) return false;
+    final table = ref.read(myTableProvider).value;
+    if (table?.status != TableStatus.finished) return false;
+    final viewer = switch (ref.read(authProvider)) {
+      AuthAuthenticated(:final user) => user.id,
+      _ => null,
+    };
+    if (table == null || viewer == null) return false;
+    seatFromServer(ref, viewer, table.backToWaiting());
+    return true;
   }
 
   @override

@@ -80,7 +80,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   code). The same answer is where the player sits (`MyTable.seatedAt`): `/me/table/` takes it
   as its next value without asking (`SeatSeed`, put and asked for together by
   `holdSeatFromAnswer`, which mounts and holds `/me/table/` at once; one slot, for one
-  account, taken by that one read; `seatFromAnswer` puts nothing while nothing holds
+  account, taken by that one read; `seatFromServer` puts nothing while nothing holds
   `/me/table/`, so a seed never waits and goes stale; `seat_seed_test.dart`). So Start is two
   requests in a row (the guest account, the table) and Join two (the account, the join);
   `already_in_lobby` names no seat, so `/me/table/` is read then, as after any failure. The
@@ -135,12 +135,21 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   "Can't leave now."); no answer (no connection, the client's 10 s wait run out, a 5xx):
   `/me/table/` decides, and only a phone the server still seats sees "Not sent." with "Try
   again". Off the table, `/me/table/` puts the phone at 01 (the last one out closes the
-  table). A guest: "{host} deals" at the hero title size over the same card. A deal, a
-  handover or a host change reads `/me/table/` again; a deal names its game (the deal's
-  answer for the host, `game_started` for a guest), and that game's `/me/` is read at the
-  same moment, not after `/me/table/` (one round trip after the deal's answer; taking the
-  seat from that `/me/` instead saves no round trip and, measured, no time). A table that is
-  gone says so with "Go home".
+  table). A guest: "{host} deals" at the hero title size over the same card. A handover or
+  a host change reads `/me/table/` again. A deal names its game (the deal's answer for the
+  host, `game_started` for every phone) and is where the phone sits: a new deal is always
+  at the night, so `/me/table/` takes that seat with no read (`seatFromServer`, from
+  `LobbyNotifier._applyStartedGame`) and the dusk starts on the answer or the event; the
+  game's `/me/` is read from the same moment and fills it in. A start the phone's table
+  already names (the event after the host's answer, a late event) changes nothing. A phone
+  that missed `game_started` heals in one read, never on the slow poll: any lobby the
+  server gives (the first read, a read again, `lobby_update`) that says the table is past
+  waiting while this phone knows no game reads `/me/table/` at once (`_askWhereIfMoved`,
+  once per change of the table's status), the socket coming back reads the lobby and
+  `/me/table/` together, and the app coming back reads them too (`myTableProvider` and the
+  lobby listen to `appResumesProvider`). Model: `docs/dev/models/phone/seat/`; tests:
+  `test/features/game/presentation/table_moves_on_test.dart`. A table that is gone says so
+  with "Go home".
 - **03 Tonight's game** (`deck_screen.dart`): the set-up page, the host's, editable before
   anyone comes and until the deal; every change is saved as it is made (shown at once, a
   merged PATCH, one at a time), so a restart finds it at the server. Top to bottom:

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +16,7 @@ import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:midnight_village/core/storage/user_storage.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
+import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_choice.dart';
@@ -108,6 +111,16 @@ class TableSetup {
   /// A dealt game's socket.
   final gameWs = MockWebSocketChannel();
 
+  /// With `reconnectingSocket`: every connection the lobby's socket made,
+  /// the last one the live one ([dropLobbySocket] closes it).
+  final lobbyConnections = <MockWebSocketChannel>[];
+  bool _reconnecting = false;
+
+  /// The lobby socket's connection is lost (`reconnectingSocket` only): the
+  /// app's own socket tries again after its backoff (a second), and the
+  /// server's events meanwhile reach nobody ([event] drops them).
+  Future<void> dropLobbySocket() => lobbyConnections.last.close();
+
   /// The dealt game's `GET /me/` answers [me] (a recorded `/me/`; its
   /// `game_id` is the game's).
   void answerGame(Map<String, dynamic> me) =>
@@ -149,6 +162,14 @@ class TableSetup {
     bool androidWeb = false,
     bool timesOut = true,
     AuthState? authState,
+
+    /// The lobby's socket is the app's own [ReconnectingWebSocket] over
+    /// fake connections, so a test can drop it ([dropLobbySocket]).
+    bool reconnectingSocket = false,
+
+    /// How the phone heals (the test's fast one unless given: a test of how
+    /// long a miss lasts gives the phone's own, `const HealTiming()`).
+    HealTiming healTiming = testHealTiming,
 
     /// The camera a tap on scan opens (a fake the test drives).
     FakeCodeScanner Function()? scanner,
@@ -209,6 +230,22 @@ class TableSetup {
     // The real sign-in: this device's storage (empty: never signed in), the
     // guest account made through the mock server.
     final storage = _MemoryStorage();
+    setup._reconnecting = reconnectingSocket;
+    WebSocketChannelInterface lobbySocket(String code) {
+      if (!reconnectingSocket) return setup.ws;
+      final socket = ReconnectingWebSocket(
+        url: 'ws://midnight.example/ws/lobby/$code/',
+        tokenStorage: TokenStorage(storage: storage),
+        channelFactory: (_) {
+          final connection = MockWebSocketChannel();
+          setup.lobbyConnections.add(connection);
+          return connection;
+        },
+      );
+      unawaited(socket.connect());
+      return socket;
+    }
+
     // The test's changes to the answers, before the first frame.
     before?.call(setup);
     final router = GoRouter(routes: $appRoutes, initialLocation: route);
@@ -231,7 +268,7 @@ class TableSetup {
           homeServiceProvider.overrideWithValue(
             HomeService(client: ApiClient(dio: http.dio)),
           ),
-          lobbyWebSocketFactoryProvider.overrideWithValue((_) => setup.ws),
+          lobbyWebSocketFactoryProvider.overrideWithValue(lobbySocket),
           // A dealt game's socket (its `/me/` is read from the deal on).
           gameWebSocketProvider.overrideWith((ref, id) => null),
           gameWebSocketStreamProvider.overrideWith(
@@ -251,7 +288,7 @@ class TableSetup {
             setup.scanners.add(camera);
             return camera;
           }),
-          healTimingProvider.overrideWithValue(testHealTiming),
+          healTimingProvider.overrideWithValue(healTiming),
           wakelockServiceProvider.overrideWithValue(FakeWakelockService()),
         ],
         child: Consumer(
@@ -312,8 +349,12 @@ class TableSetup {
     answerTable();
   }
 
-  /// The lobby socket brings [event] (a recorded event, values changed).
-  void event(Map<String, dynamic> event) => ws.addServerEvent(event);
+  /// The lobby socket brings [event] (a recorded event, values changed);
+  /// with `reconnectingSocket`, only while its connection is up.
+  void event(Map<String, dynamic> event) {
+    if (!_reconnecting) return ws.addServerEvent(event);
+    lobbyConnections.lastOrNull?.addServerEvent(event);
+  }
 
   /// `PATCH /lobbies/<code>/` answers [body] (a recorded settings answer).
   void answerPatch(Map<String, dynamic> body, {int status = 200}) =>
