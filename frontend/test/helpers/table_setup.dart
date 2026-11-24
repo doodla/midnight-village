@@ -316,8 +316,20 @@ class TableSetup {
   void event(Map<String, dynamic> event) => ws.addServerEvent(event);
 
   /// `PATCH /lobbies/<code>/` answers [body] (a recorded settings answer).
-  void answerPatch(Map<String, dynamic> body, {int status = 200}) =>
-      http.answer('PATCH', '/lobbies/$code/', body, status: status);
+  /// A taken change is numbered as the server numbers it, after the lobby
+  /// served before (`rev` only rises; [body] may be from an older recording).
+  void answerPatch(Map<String, dynamic> body, {int status = 200}) {
+    final served = (lobby?['rev'] as int?) ?? 0;
+    final rev = body['rev'] as int?;
+    http.answer(
+      'PATCH',
+      '/lobbies/$code/',
+      status == 200 && rev != null && rev <= served
+          ? withValues(body, {'rev': served + 1})
+          : body,
+      status: status,
+    );
+  }
 
   /// The bodies of every PATCH so far.
   List<Object?> get patches => [

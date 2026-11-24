@@ -90,6 +90,20 @@ class _Lane {
   /// Who hosts, as the server says.
   var hostId = 1;
 
+  /// The table's number (`rev`): it rises with every change the server
+  /// tells anyone, as `apps/core` numbers it.
+  var rev = 0;
+
+  /// When the table was opened (a new table at the same code: another).
+  String? createdAt;
+
+  /// Someone else changes the table (a presence change, a join, another
+  /// writer): [change] on the server's lobby, and its number rises.
+  void someoneElse([void Function()? change]) {
+    change?.call();
+    rev++;
+  }
+
   /// Every request the phone sent, in the order sent.
   final sent = <_Request>[];
 
@@ -151,10 +165,12 @@ class _Lane {
   }
 
   /// The server's lobby body now.
-  Map<String, dynamic> json() => withValues(
-    serverLobby(code: _code, hostId: hostId),
-    {'settings': Map<String, Object?>.of(settings)},
-  );
+  Map<String, dynamic> json() =>
+      withValues(serverLobby(code: _code, hostId: hostId), {
+        'settings': Map<String, Object?>.of(settings),
+        'rev': rev,
+        'created_at': ?createdAt,
+      });
 
   LobbyState lobby() => FromSample.lobby(json());
 
@@ -183,8 +199,10 @@ class _Lane {
     switch (r.what) {
       case 'PATCH':
         settings.addAll(r.body);
+        rev++;
         r.answer.complete(lobby());
       case 'PRACTICE':
+        rev++;
         r.answer.complete(lobby());
       case 'DEAL':
         r.answer.complete(
@@ -232,11 +250,23 @@ class _Lane {
 
   int get readsOut => reads.where((r) => !r.answer.isCompleted).length;
 
-  /// The server's `lobby_update` (the whole lobby body).
-  Future<void> lobbyUpdate() async {
+  /// The server's `lobby_update` (the whole lobby body): of the lobby now,
+  /// or [body], one sent earlier.
+  Future<void> lobbyUpdate([Map<String, dynamic>? body]) async {
     ws.addServerEvent(
       withValues(ContractSamples.map('ws/lobby/lobby_update'), {
-        'data': json(),
+        'data': body ?? json(),
+      }),
+    );
+    await _drain();
+  }
+
+  /// The server's `host_changed` (a handover) to [to], numbered [at].
+  Future<void> hostChanged(int to, {required int at}) async {
+    ws.addServerEvent(
+      withValues(ContractSamples.map('ws/lobby/host_changed_transferred'), {
+        'host_id': to,
+        'rev': at,
       }),
     );
     await _drain();
@@ -259,9 +289,6 @@ Future<void> _drain() async {
 
 String _patch(Map<String, Object?> body) => 'PATCH $body';
 
-/// A test that needs lobby bodies with `rev`: the server's half is not on
-/// main yet, and fixtures come only from `contract_samples/`.
-const _waitsForRev = 'waits for lobby bodies with rev in contract_samples/';
 String _practice(Map<String, Object?> body) => 'PRACTICE $body';
 
 void main() {
@@ -311,7 +338,7 @@ void main() {
       unawaited(t.notifier.setSeats(5));
       await _drain();
       // Meanwhile the server's lobby moves on another key.
-      t.settings['card_look_seconds'] = 360;
+      t.someoneElse(() => t.settings['card_look_seconds'] = 360);
       await t.lobbyUpdate();
 
       expect(t.shown.table.seats, 5, reason: 'the tap is not taken back');
@@ -374,7 +401,7 @@ void main() {
       unawaited(t.notifier.setSeats(5));
       unawaited(t.notifier.setLength('card_look_seconds', 300));
       await _drain();
-      t.hostId = 2;
+      t.someoneElse(() => t.hostId = 2);
       await t.forbid();
       expect(t.shown.hostId, 2);
       expect(t.shown.notSent, isFalse);
@@ -463,66 +490,54 @@ void main() {
 
   group('the model\'s gaps a, b, b2 and c, closed '
       '(docs/dev/models/phone/lobby/README.md)', () {
-    test(
-      '(a) NoFlickerBack, rule_a.cfg: a read that crosses an answer never '
-      'shows the old value',
-      skip: _waitsForRev,
-      () async {
-        final t = await _Lane.open();
-        t.holdReads = true;
-        unawaited(t.notifier.setSeats(5));
-        await _drain();
-        // Someone sits down: a read, served before the server applies 5.
-        t.ws.addServerEvent(GameEvents.playerJoined());
-        await _drain();
-        expect(t.readsOut, 1);
-        await t.take();
-        expect(t.shown.table.seats, 5, reason: 'the answer');
+    test('(a) NoFlickerBack, rule_a.cfg: a read that crosses an answer never '
+        'shows the old value', () async {
+      final t = await _Lane.open();
+      t.holdReads = true;
+      unawaited(t.notifier.setSeats(5));
+      await _drain();
+      // Someone sits down: a read, served before the server applies 5.
+      t.ws.addServerEvent(GameEvents.playerJoined());
+      await _drain();
+      expect(t.readsOut, 1);
+      await t.take();
+      expect(t.shown.table.seats, 5, reason: 'the answer');
 
-        await t.landRead();
-        // The read was asked before the answer: the answer stays over it.
-        expect(t.shown.table.seats, 5);
-        expect(t.shown.settling, isFalse, reason: 'answered: Deal is live');
+      await t.landRead();
+      // The read was asked before the answer: the answer stays over it.
+      expect(t.shown.table.seats, 5);
+      expect(t.shown.settling, isFalse, reason: 'answered: Deal is live');
 
-        await t.lobbyUpdate();
-        expect(t.shown.table.seats, 5);
-      },
-    );
+      await t.lobbyUpdate();
+      expect(t.shown.table.seats, 5);
+    });
 
-    test(
-      '(a) NoFlickerBack, rule_a.cfg: the socket alone: the first tap\'s '
-      'lobby_update after the second tap\'s answer never shows the first '
-      'count',
-      skip: _waitsForRev,
-      () async {
-        final t = await _Lane.open();
-        unawaited(t.notifier.setSeats(5));
-        unawaited(t.notifier.setSeats(6));
-        await _drain();
-        await t.take();
-        final first = t.json();
-        await t.take();
-        expect(t.shown.table.seats, 6);
-        t.ws.addServerEvent(
-          withValues(ContractSamples.map('ws/lobby/lobby_update'), {
-            'data': first,
-          }),
-        );
-        await _drain();
-        expect(
-          t.shown.table.seats,
-          6,
-          reason: 'the 5 is older than the answer',
-        );
-        // The second tap's own update: nothing older can come; the server's
-        // lobby shows as it is from here on.
-        await t.lobbyUpdate();
-        expect(t.shown.table.seats, 6);
-        t.settings['seats'] = 7;
-        await t.lobbyUpdate();
-        expect(t.shown.table.seats, 7);
-      },
-    );
+    test('(a) NoFlickerBack, rule_a.cfg: the socket alone: the first tap\'s '
+        'lobby_update after the second tap\'s answer never shows the first '
+        'count', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      unawaited(t.notifier.setSeats(6));
+      await _drain();
+      await t.take();
+      final first = t.json();
+      await t.take();
+      expect(t.shown.table.seats, 6);
+      t.ws.addServerEvent(
+        withValues(ContractSamples.map('ws/lobby/lobby_update'), {
+          'data': first,
+        }),
+      );
+      await _drain();
+      expect(t.shown.table.seats, 6, reason: 'the 5 is older than the answer');
+      // The second tap's own update: nothing older can come; the server's
+      // lobby shows as it is from here on.
+      await t.lobbyUpdate();
+      expect(t.shown.table.seats, 6);
+      t.someoneElse(() => t.settings['seats'] = 7);
+      await t.lobbyUpdate();
+      expect(t.shown.table.seats, 7);
+    });
 
     test('(b) LostFlagged, rule_b.cfg: a new tap on another key leaves "Not '
         'sent." while the lost change still waits for Try again', () async {
@@ -737,7 +752,7 @@ void main() {
       await _drain();
       await t.take();
       // Someone else writes the key (no lobby_update of it heard here).
-      t.settings['seats'] = 7;
+      t.someoneElse(() => t.settings['seats'] = 7);
       t.ws.addServerEvent(GameEvents.playerJoined());
       await _drain();
       expect(t.shown.table.seats, 7);
@@ -748,18 +763,33 @@ void main() {
       unawaited(t.notifier.retry());
       await _drain();
       await t.take();
-      t.settings['seats'] = 8;
+      t.someoneElse(() => t.settings['seats'] = 8);
       t.ws.addServerEvent(GameEvents.playerJoined());
       await _drain();
       expect(t.shown.table.seats, 8, reason: 'the resend holds nothing');
     });
 
-    test(
-      '(4) a stale lobby_update from someone else is never shown over a '
-      "newer answer",
-      skip: _waitsForRev,
-      () async {},
-    );
+    test('(4) a stale lobby_update from someone else is never taken for the '
+        "host's own: seats 4, taps 5 then 4; 4 stays", () async {
+      final t = await _Lane.open();
+      // A presence change, sent before 5 is applied.
+      t.someoneElse();
+      final presence = t.json();
+      unawaited(t.notifier.setSeats(5));
+      unawaited(t.notifier.setSeats(4));
+      await _drain();
+      await t.take();
+      final fives = t.json();
+      await t.lobbyUpdate(presence);
+      expect(t.shown.table.seats, 4, reason: 'the tap of 4 is on its way');
+      await t.take();
+      expect(t.shown.table.seats, 4);
+      // 5's own update, late: older than the answer shown.
+      await t.lobbyUpdate(fives);
+      expect(t.shown.table.seats, 4);
+      await t.lobbyUpdate(presence);
+      expect(t.shown.table.seats, 4);
+    });
 
     test('(5) after a 403 the phone is a guest\'s: no "Not sent.", nothing '
         'kept to send again or to deal', () async {
@@ -770,7 +800,7 @@ void main() {
       expect(t.shown.notSent, isTrue);
       final dealt = t.notifier.deal();
       await _drain();
-      t.hostId = 2;
+      t.someoneElse(() => t.hostId = 2);
       await t.forbid();
       expect(await dealt, isNull);
       expect(t.shown.hostId, 2);
@@ -807,11 +837,86 @@ void main() {
       t.holdReads = true;
       t.ws.addServerEvent(GameEvents.playerJoined());
       await _drain();
-      t.settings['seats'] = 7;
+      t.someoneElse(() => t.settings['seats'] = 7);
       await t.lobbyUpdate();
       expect(t.shown.table.seats, 4, reason: 'held until the read lands');
       await t.landRead();
       expect(t.shown.table.seats, 7);
+    });
+
+    test('rev: an equal number is shown, never skipped (presence and a '
+        'read crossing a write differ under one number)', () async {
+      final t = await _Lane.open();
+      t.settings['card_look_seconds'] = 360; // under the same number
+      await t.lobbyUpdate();
+      expect(t.shown.table.raw['card_look_seconds'], 360);
+    });
+
+    test('rev: a body with no number (a server from before it) is shown, '
+        'and leaves the newest number as it was', () async {
+      final t = await _Lane.open();
+      t.someoneElse(() => t.settings['seats'] = 6);
+      t.someoneElse();
+      await t.lobbyUpdate();
+      final older = withValues(t.json(), {'rev': 1});
+      t.settings['seats'] = 7;
+      // Off the contract of today on purpose: a server from before `rev`.
+      t.ws.addOffContractEvent(
+        withValues(ContractSamples.map('ws/lobby/lobby_update'), {
+          'data': Map.of(t.json())..remove('rev'),
+        }),
+      );
+      await _drain();
+      expect(t.shown.table.seats, 7, reason: 'no number: shown');
+      await t.lobbyUpdate(older);
+      expect(t.shown.table.seats, 7, reason: 'the newest is still 2');
+    });
+
+    test('rev: a host_changed lower than the newest shown never puts an '
+        'older host back; a newer one is shown at its number', () async {
+      final t = await _Lane.open();
+      t.someoneElse(() => t.hostId = 2); // the first handover, numbered 1
+      t.someoneElse(() => t.hostId = 1); // and back, numbered 2
+      t.ws.addServerEvent(GameEvents.playerJoined());
+      await _drain();
+      expect(t.shown.hostId, 1, reason: 'the read');
+      await t.hostChanged(2, at: 1); // the first handover's event, late
+      expect(t.shown.hostId, 1);
+      await t.hostChanged(2, at: 3);
+      expect(t.shown.hostId, 2);
+      // A lobby older than the host change is not shown after it.
+      t.settings['seats'] = 9;
+      await t.lobbyUpdate(withValues(t.json(), {'rev': 2}));
+      expect(t.shown.table.seats, 4);
+    });
+
+    test('rev: a new table at the same code starts again: its first, lower '
+        'number is shown', () async {
+      final t = await _Lane.open();
+      for (var i = 0; i < 5; i++) {
+        t.someoneElse();
+      }
+      await t.lobbyUpdate();
+      t
+        ..createdAt = '2026-11-24T21:00:00Z'
+        ..rev = 1
+        ..settings['seats'] = 6;
+      await t.lobbyUpdate();
+      expect(t.shown.table.seats, 6);
+    });
+
+    test('rev: the same change sent twice is answered twice, each one '
+        'higher: both shown, nothing stuck', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      unawaited(t.notifier.setSeats(5));
+      await _drain();
+      await t.take();
+      await t.take();
+      expect(t.rev, 2);
+      expect(t.shown.table.seats, 5);
+      expect(t.shown.settling, isFalse);
+      expect(t.shown.notSent, isFalse);
     });
   });
 }
