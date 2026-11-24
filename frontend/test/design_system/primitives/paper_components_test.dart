@@ -315,7 +315,10 @@ void main() {
   group('the inventory', () {
     final files = [
       for (final f in Directory('lib/design_system/primitives').listSync())
-        if (f is File && f.path.endsWith('.dart'))
+        // A part file is its library's: the library's line covers it.
+        if (f is File &&
+            f.path.endsWith('.dart') &&
+            !f.readAsStringSync().startsWith('part of '))
           'primitives/${f.uri.pathSegments.last}',
     ];
 
