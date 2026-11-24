@@ -85,7 +85,6 @@ class _Case {
     this.name, {
     required this.me,
     required this.screen,
-    required this.waitsForTheGame,
     this.lobby = false,
     this.results,
   });
@@ -95,10 +94,6 @@ class _Case {
   final Type screen;
 
   Finder get finder => find.byType(screen, skipOffstage: false);
-
-  /// A game that runs: the reload waits for the app to come back (or the next
-  /// phase); at a table before the deal and at the end it goes at once.
-  final bool waitsForTheGame;
 
   /// At a waiting table, not in a game.
   final bool lobby;
@@ -276,36 +271,22 @@ void main() {
 
   final seer = recordedMe('me_choose_prompt_seer');
   final cases = [
-    _Case(
-      'a waiting table (02)',
-      me: seer,
-      screen: AtTableView,
-      waitsForTheGame: false,
-      lobby: true,
-    ),
-    _Case(
-      'the night (the night board)',
-      me: seer,
-      screen: NightBoard,
-      waitsForTheGame: true,
-    ),
+    _Case('a waiting table (02)', me: seer, screen: AtTableView, lobby: true),
+    _Case('the night (the night board)', me: seer, screen: NightBoard),
     _Case(
       'the discussion (08)',
       me: recordedMe('me_talk_ready'),
       screen: TalkView,
-      waitsForTheGame: true,
     ),
     _Case(
       'the vote (09)',
       me: recordedMe('me_voting_unpicked'),
       screen: VoteView,
-      waitsForTheGame: true,
     ),
     _Case(
       'the results (the end board)',
       me: recordedMe('me_results'),
       screen: EndBoardView,
-      waitsForTheGame: true,
       results: recordedResults('results'),
     ),
   ];
@@ -340,15 +321,11 @@ void main() {
         // A new build goes live while the app is open: the slow look finds it.
         page.live = 'new';
         await tester.pump(const Duration(minutes: 5, seconds: 1));
-        if (c.waitsForTheGame) {
-          // A game that runs: not now ...
-          expect(page.reloads, isEmpty, reason: 'it waits for a moment');
-          // ... not at a phase change either, but when the app comes back.
-          await page.comeBack(tester);
-          await _until(tester, () => page.reloads.isNotEmpty);
-        } else {
-          await _until(tester, () => page.reloads.isNotEmpty);
-        }
+        // At the table or in a game: not now, and not at a screen change
+        // either, but when the app comes back after a while away.
+        expect(page.reloads, isEmpty, reason: 'it waits for a moment');
+        await page.comeBack(tester);
+        await _until(tester, () => page.reloads.isNotEmpty);
         expect(page.reloads, ['new']);
 
         // The reloaded page is the new build, opened cold: the same seat, the

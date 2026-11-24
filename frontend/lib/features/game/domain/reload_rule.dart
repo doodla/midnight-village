@@ -2,8 +2,9 @@ import '../../../core/update/new_build.dart' show Moment;
 import 'screen_table.dart';
 
 /// THE rule for when the app reloads itself to run a newer build (owner,
-/// 23 November 2026: an open app must not go on running old code). One
-/// place; `NewBuild` asks it and nothing else decides.
+/// 23 November 2026: an open app must not go on running old code; 24 November
+/// 2026: "Reload only when nobody waits"). One place; `NewBuild` asks it and
+/// nothing else decides.
 ///
 /// Never while the player has something on its way or half done: [busy] (a
 /// night action, a vote or any `playerRequest` in flight, a tap not sent yet)
@@ -11,16 +12,17 @@ import 'screen_table.dart';
 /// Otherwise, by what is shown ([place]: an [AppScreen], or one of
 /// `HomeGate`'s own names):
 ///
-/// - Where nothing is going on that a reload would lose, at once: 01 (its
-///   form is kept across the reload), a table before the deal (02, 03),
-///   "You're at another table.".
-/// - In a running game (your card 04, the night board 06, the talk 08, the
-///   vote 09, the end board, whose reveal plays as the results arrive) NEVER
-///   on a phase change or on the timer: a
-///   player must not enter the night or the vote with a cold reload inside a
-///   timed stage. Only when the app comes back (the tab visible again after
-///   being hidden for more than a few seconds: [Moment.resumed]); otherwise
-///   the reload waits for the results or the table.
+/// - On the first screen (01), at once: nobody waits there, and its form is
+///   kept across the reload.
+/// - On every other screen (the table 02 and the set-up page 03, "You're at
+///   another table.", and a running game: your card 04, the night board, the
+///   talk 08, the vote 09, the end board), NEVER because a screen changed or
+///   a build was learned of or on the timer: friends wait for a table, and a
+///   restart ("play again") must not stall on a full reload. Only when the
+///   app comes back after a while away (the tab visible again after being
+///   hidden for more than a few seconds, `NewBuild.awayFor`:
+///   [Moment.resumed]). A phone left open at the table across several games
+///   keeps the old build until then; the owner accepted that cost.
 /// - While the app is still finding out where it is (the opening): not yet;
 ///   the screen that follows is a moment.
 ///
@@ -35,14 +37,16 @@ bool mayReloadNow({
   if (busy || halfTyped) return false;
   final cameBack = moment == Moment.resumed;
   return switch (place) {
-    AppScreen.join || AppScreen.table || AppScreen.deck => true,
+    // The first screen (`HomeGate`'s own name for it is 'join').
+    AppScreen.join || 'join' => true,
+    AppScreen.table ||
+    AppScreen.deck ||
     AppScreen.yourCard ||
     AppScreen.nightBoard ||
     AppScreen.talk ||
     AppScreen.vote ||
-    AppScreen.end => cameBack,
-    // HomeGate's own names for what is not a table screen.
-    'join' || 'elsewhere' => true,
+    AppScreen.end ||
+    'elsewhere' => cameBack,
     _ => false,
   };
 }
