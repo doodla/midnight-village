@@ -324,12 +324,21 @@ against the two live addresses, from outside, with no account and no secret:
    server lets the app's origin call it (a CORS preflight).
 4. **A real Start and Join**: guest A is made, opens a table, guest B joins by its code, both
    read the table and see two players. Every answer must be JSON with the expected status.
-5. **Both leave, always**, also when a step failed or its answer was lost: each guest asks the
-   server where it sits and leaves that table; the last one out deletes it.
+5. **A deal and a restart heard on the socket** (`--sockets`, `tool/deployed_sockets.py`):
+   three more guests sit at a table, two listen on the lobby's socket, the host deals, and
+   both must hear `game_started` within 5 seconds. The game is played through by requests
+   (every length short), the host plays again, and both must hear the table reopen. The log
+   says how long each took. The deal and a restart reach the other phones only this way
+   (the rescue is a read every 15 seconds), and nothing else opens a socket on the live server.
+6. **Everyone leaves, always**, also when a step failed or its answer was lost: each guest asks
+   the server where it sits and leaves that table; the last one out deletes it. A table in a
+   game cannot be left, so after a failed socket step leaving is tried until the game has
+   ended by its own short timers (up to 90 seconds).
 
-**What it leaves in the live database**: two guest accounts per run, named `Deploy check A`
-and `Deploy check B`. They open no socket, so they never count in "N at tables". Nothing
-prunes them yet (to do with the server cleanups: guests with those names older than a day).
+**What it leaves in the live database**: five guest accounts per run, named `Deploy check A`,
+`B` and `C` (no table, no game). The two listeners count in "N at tables" for the seconds
+their sockets are open. Nothing prunes the guests yet (to do with the server cleanups: guests
+with those names older than a day).
 
 **When it fails**: the run "Deployed Check" is red on `main` (the Actions tab; GitHub emails
 whoever's merge started the failed run). The log has one line per step, `ok` or `FAIL`
@@ -344,12 +353,14 @@ November 2026 a routing change (#66) passed every check and broke the live app f
 half an hour, because API calls got the app's page back. No check that runs before the merge
 can see the deployed routing; this one makes real requests through it, minutes after.
 
-**What it does not prove**: a whole game (the deal, the night, timers through the queue,
-sockets through Redis). Start and Join only.
+**What it does not prove**: the phone's side of an event (that the screen moves when it is
+heard), the game's own socket (`/ws/onuw/...`), timers through the queue (the check moves
+every stage on by request), and a night action.
 
 `backend/tests/core/test_deployed_check.py` runs the same script against a local server on
 every pull request, so a change to the guest, table, join or leave answers that would break
-the check fails before the merge.
+the check fails before the merge. `backend/tests/core/test_deployed_sockets.py` does the same
+for the socket step, against a local server that serves sockets.
 
 ## Deploy-safe changes
 

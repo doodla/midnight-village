@@ -322,6 +322,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - "I know my card" being loud (4).
   - Token pips (9).
   - The host's "Don't wait": the 30 s backstop covers it.
+- **Clock:** the time left in the look stage, in every state (before Ready, the card held open, after Ready, a restart): the night's candle and number (`WorldTimer.candleCompact`, the server's `deadline`), quiet, on the headline's banner after `CardCopy.headline`, where 06's clock stands; it never covers the card or the button. No words of its own. A table that sets no look length has no look stage (24 November 2026, owner: "there's no timer in some stages, even though there's one under the hood": a stage the server times is a stage the phone counts down; `test/helpers/stage_clock.dart`).
 - **States:** see the look stage table; a phone still unrevealed when the night opens goes to 06 with the others.
 - **Pass:** "Hold the card."
 
