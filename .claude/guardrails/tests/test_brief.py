@@ -143,7 +143,7 @@ class FromTheSources(unittest.TestCase):
 
     def test_the_real_spec_has_a_section_for_every_screen_a_state_belongs_to(self):
         sections = self.tool.spec_sections((REPO / self.tool.SPEC).read_text())
-        for number in ("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"):
+        for number in ("01", "02", "03", "04", "05", "06", "07", "08", "09", "10"):
             self.assertIn(number, sections, f"no per-screen section for {number}")
 
 

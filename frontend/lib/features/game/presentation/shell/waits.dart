@@ -34,14 +34,10 @@ class GameWait extends StatelessWidget {
   );
 }
 
-/// Where the lanterns hang on a screen whose header is a picture laid as a
-/// backdrop (04's village, 10's dawn, 11's village): from the picture's lower
-/// edge, measured from the top of the body (the night's village ends higher
-/// than the day's).
-double hangsFromArt(LayeredSceneId scene) => switch (scene) {
-  LayeredSceneId.nightVillage => 322,
-  LayeredSceneId.dawnGallows => 440,
-};
+/// Where the lanterns hang on a screen whose header is the night's village
+/// laid as a backdrop (04 and the end board's wait): from the picture's lower
+/// edge, measured from the top of the body.
+const double hangsFromVillage = 322;
 
 /// 04 while its `/me/` loads: the frame the card is laid in, the headline
 /// and, where the card will be, the wait.
@@ -71,7 +67,7 @@ class CardWait extends StatelessWidget {
         ),
         // Hung from the village's lower edge, where the card will be.
         Positioned(
-          top: hangsFromArt(LayeredSceneId.nightVillage),
+          top: hangsFromVillage,
           left: 0,
           right: 0,
           child: Waiting(failing: failing, onRetry: onRetry, centred: true),
@@ -135,6 +131,35 @@ class VoteWait extends StatelessWidget {
         alignment: Alignment.topCenter,
         child: Waiting(failing: failing, onRetry: onRetry, centred: true),
       ),
+    ),
+  );
+}
+
+/// The end board before the results have loaded: the night's village as the
+/// header and the wait ([Waiting]: the lanterns, a plain line when it is
+/// slow, "One moment" while the fetch is failing; it is made again by itself
+/// until it succeeds), so the board arrives into a place.
+class EndWaiting extends StatelessWidget {
+  const EndWaiting({super.key, required this.failing});
+
+  final bool failing;
+
+  @override
+  Widget build(BuildContext context) => ScreenFrame(
+    ground: GroundKind.night,
+    topScene: LayeredSceneId.nightVillage,
+    topArtLayout: TopArtLayout.backdrop,
+    fitsHeight: true,
+    // Hung from the picture's lower edge.
+    body: Stack(
+      children: [
+        Positioned(
+          top: hangsFromVillage,
+          left: 0,
+          right: 0,
+          child: Waiting(failing: failing, centred: true),
+        ),
+      ],
     ),
   );
 }

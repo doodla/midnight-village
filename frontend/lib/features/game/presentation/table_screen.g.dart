@@ -42,7 +42,7 @@ final class LocalStepsNotifierProvider
 }
 
 String _$localStepsNotifierHash() =>
-    r'd1d172100dcbe0d922c2450076a11901f88f09ae';
+    r'4213280a4b28e7a2b741f03910a095f0e193bf74';
 
 abstract class _$LocalStepsNotifier extends $Notifier<StepRecord> {
   StepRecord build();

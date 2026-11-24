@@ -14,10 +14,14 @@ abstract final class RoleCopy {
   static const villageNoWerewolf = 'No Werewolf player: nobody dies.';
 
   // Tags. Never a role's own name (owner, 24 November 2026: "a double
-  // label"): the Werewolf team's is "Werewolf team" (`CountCopy.werewolfTeam`).
+  // label"): the Werewolf team's is "Werewolf team" (`RoleCopy.werewolfTeam`).
   static const village = 'Village';
   static const alone = 'Alone';
   static const copies = 'Copies';
+
+  /// The Werewolf team's tag beside the role's name, so it does not read as
+  /// the name twice.
+  static const werewolfTeam = Template('{role} team');
 
   static const werewolfNight = 'At dawn, see the other Werewolves.';
   static const werewolfAlone = 'Alone: you may see 1 center card.';

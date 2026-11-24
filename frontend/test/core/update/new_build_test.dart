@@ -96,13 +96,11 @@ void main() {
       halfTyped: typed,
     );
 
-    test('at once on the first screen, a table before the deal and the '
-        'results', () {
+    test('at once on the first screen and a table before the deal', () {
       for (final place in [
         AppScreen.join,
         AppScreen.table,
         AppScreen.deck,
-        AppScreen.results,
         'join',
         'elsewhere',
       ]) {
@@ -120,7 +118,6 @@ void main() {
         AppScreen.nightBoard,
         AppScreen.talk,
         AppScreen.vote,
-        AppScreen.count,
         AppScreen.end,
       ]) {
         expect(may(place, Moment.learned), isFalse, reason: '$place');
@@ -193,7 +190,7 @@ void main() {
           AppScreen.nightBoard,
           AppScreen.yourCard,
           AppScreen.talk,
-          AppScreen.count,
+          AppScreen.end,
         ]) {
           page.show(async, next);
         }
@@ -257,9 +254,9 @@ void main() {
         final page = _Page(live: 'new', place: AppScreen.vote)..build(async);
         page.watch.start();
         page.settle(async);
-        page.show(async, AppScreen.count);
+        page.show(async, AppScreen.end);
         expect(page.reloads, isEmpty);
-        page.show(async, AppScreen.results);
+        page.show(async, AppScreen.table);
         expect(page.reloads, ['new']);
       });
     });

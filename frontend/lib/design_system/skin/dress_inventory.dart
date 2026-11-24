@@ -281,7 +281,7 @@ const inventory = <PartEntry>[
         'a name plate: a cut-paper tag behind the words (paint only), the words in the tag\'s ink',
   ),
   PartEntry(
-    'Band / TimerBand',
+    'TimerBand',
     'primitives/band.dart',
     plain: 'a band with the clock, the sun or the bar',
     paper: 'the same band; the night board\'s sits on a banner',
@@ -482,7 +482,7 @@ const notAComponent = <String, String>{
   'primitives/screen_frame_layout.dart':
       'part of screen_frame.dart: how the screen lays its body out',
   'primitives/timer_band.dart':
-      'part of band.dart: `TimerBand` is in the Band / TimerBand row',
+      'part of band.dart: `TimerBand` is in the TimerBand row',
   'primitives/art_picture.dart': 'draws a picture of the art set',
   'primitives/art_precache.dart': 'decodes art ahead; draws nothing',
   'primitives/card_back_paper.dart':

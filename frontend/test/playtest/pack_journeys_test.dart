@@ -30,7 +30,7 @@ void main() {
       ];
       final dealt = [
         for (final step in drawn)
-          if (step.isMe || step.screen == PackScreen.count) step,
+          if (step.isMe || step.screen == PackScreen.end) step,
       ];
 
       test('is one viewer on every screen', () {
@@ -71,9 +71,7 @@ void main() {
       final game = dealt.isNotEmpty;
       test("the deck the talk shows is the game's deck", skip: !game, () {
         // Every card of the game: in a hand or in the center at the end.
-        final body = dealt
-            .firstWhere((s) => s.screen == PackScreen.count)
-            .body!;
+        final body = dealt.firstWhere((s) => s.screen == PackScreen.end).body!;
         final all = _count([
           for (final p in (body['players'] as List).cast<Map>())
             p['final_role'] as String,
@@ -121,7 +119,7 @@ void main() {
         skip: !game,
         () {
           final results = dealt
-              .firstWhere((s) => s.screen == PackScreen.count)
+              .firstWhere((s) => s.screen == PackScreen.end)
               .body!;
           final table = playersOf(results);
           final me = viewerIn(results, journey.viewer);

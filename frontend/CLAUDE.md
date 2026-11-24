@@ -26,7 +26,6 @@ just loading-clips     # a tap going busy, a slow join, a failed send and its re
 just night-frames      # the night board's pick and candle, a frame per 17 ms
 just vote-frames       # the vote's finger, pick and lock (the seal landing), a frame per 17 ms
 just vote-pictures     # the locked vote, the lock in four frames, the vote at several table sizes
-just count-pictures    # the count: one death, a tie, nobody, the moment in four frames, ten with long names
 just story-pictures    # My night held: every night's picture story (recorded or edited) at 360 x 640 and text 1.6
 just paper-parts       # every component in paper dress, every state (the parts page)
 just paper-components  # the table, your card, the night board and the card sheet, for before and after

@@ -20,9 +20,8 @@ import 'harness/ui_harness.dart';
 /// UI runner, the end of the game: the whole table plays a
 /// game through the API (the look, the night, the talk, the vote; the
 /// server's oracle says what happened), then one phone opens the rebuilt
-/// shell at the results and goes through the REAL widget tree: 10 The count,
-/// "See who won", 11 Results and, for the host, "Play again" back to the
-/// table. Kept apart from `ui_game_test.dart` (the phone's own night and
+/// shell at the results and goes through the REAL widget tree: the end board
+/// and, for the host, "Play again" back to the table. Kept apart from `ui_game_test.dart` (the phone's own night and
 /// talk) so each starts where its screens are reachable.
 ///
 /// Each game is one outcome the server can produce, with no recording in
@@ -41,7 +40,7 @@ void main() {
     await loadAppFonts();
   });
 
-  group('UI, from the count', () {
+  group('UI, the end board', () {
     testWidgets('the Hunter is voted out and takes a Werewolf: the village '
         'wins; the host plays again: a guest\'s phone goes to 02 by itself and '
         'every phone is told the table waits', (tester) async {

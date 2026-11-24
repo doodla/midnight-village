@@ -156,7 +156,7 @@ class ScreenFrame extends StatelessWidget {
   final double topArtExtra;
   final TopArtLayout topArtLayout;
 
-  /// A full-width part above the body (`TimerBand`, `Band`), under the status
+  /// A full-width part above the body (`TimerBand`), under the status
   /// bar; it lays out its own safe-area inset.
   final Widget? topSlot;
 

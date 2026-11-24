@@ -18,8 +18,7 @@ import '../test/helpers/outcome_samples.dart';
 import '../test/helpers/screen_sweep.dart';
 import 'screen_catalogue.dart';
 
-// The end board (the end-of-game screen that will replace 10 The count and 11
-// Results), static, for every outcome and player count: pages for `just
+// The end board (the end-of-game screen), static, for every outcome and player count: pages for `just
 // screens` (strict at 360 and 390) and the pictures beside the mock. Each is
 // the real `EndBoardView` on a recorded results body; the nine-player and
 // ten-player tables are the recordings widened (`widened`), and the viewer is

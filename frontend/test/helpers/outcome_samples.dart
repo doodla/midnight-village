@@ -4,7 +4,7 @@ import 'package:midnight_village/features/game/domain/game_outcome.dart';
 import 'contract/contract_samples.dart';
 import 'contract/contract_shape.dart';
 
-// The end of a game as 10 The count and 11 Results draw it, from the
+// The end of a game as the end board draws it, from the
 // recorded results bodies (contract_samples/http/game/results*.json):
 //
 // - `results`: six at the table; Fin, the Hunter, is voted out and takes

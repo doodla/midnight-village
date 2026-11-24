@@ -11,8 +11,6 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/design_system/primitives/paper_scrap.dart';
 import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart'
-    show EndWaiting;
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/waits.dart';
 import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';

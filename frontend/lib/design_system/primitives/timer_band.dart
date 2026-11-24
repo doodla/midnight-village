@@ -1,7 +1,7 @@
 part of 'band.dart';
 
 // The band that carries the vote's clock (`TimerBand`) and the clock's
-// figure. Part of band.dart: same library, so `Band`'s private shapes are shared.
+// figure. Part of band.dart: the same library.
 
 /// The vote's countdown, edge to edge at the top of the screen (put it in
 /// `ScreenFrame.topSlot`): a strip of night with the number, and a bar along

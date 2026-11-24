@@ -157,15 +157,6 @@ const _lengths = [
   DeckCopy.doppelgangerCaption,
 ];
 
-const _winners = [
-  ResultsCopy.villageWins,
-  ResultsCopy.werewolvesWin,
-  ResultsCopy.tannerWins,
-  ResultsCopy.villageAndTanner,
-  ResultsCopy.werewolvesAndTanner,
-  ResultsCopy.nobodyWins,
-];
-
 final screens = <String, Screen>{
   '01 Join': (
     budget: 14,
@@ -493,50 +484,6 @@ final screens = <String, Screen>{
       ],
     },
   ),
-  '10 The count': (
-    budget: 16,
-    states: {
-      'nobody dies': [
-        headline(CountCopy.nobodyDies),
-        text(CountCopy.nobodyGotTwo),
-        text(CountCopy.noVote),
-        button(CountCopy.seeWhoWon),
-      ],
-      // One, two (a tie) or three (a tie and the Hunter's pick) dead
-      // cards, each on any team.
-      for (final dies in [CountCopy.dies, CountCopy.die])
-        for (final hunter in [false, true])
-          for (final team in TeamId.values)
-            '$dies${hunter ? ' + Hunter' : ''}, ${team.name}': [
-              headline(dies),
-              if (hunter) text(CountCopy.huntersPick),
-              text(CountCopy.noVote),
-              ..._deadCards([
-                for (var i = 0; i < (dies == CountCopy.die ? 2 : 1); i++) team,
-                if (hunter) team,
-              ]),
-              button(CountCopy.seeWhoWon),
-            ],
-    },
-  ),
-  '11 Results': (
-    budget: 13,
-    states: {
-      for (final winner in _winners)
-        for (final you in [ResultsCopy.youWon, ResultsCopy.youLost]) ...{
-          'host: $winner, $you': [
-            ..._results(winner, you),
-            button(ResultsCopy.playAgain),
-            button(ResultsCopy.editDeck),
-          ],
-          'guest: $winner, $you': [
-            ..._results(winner, you),
-            text(ResultsCopy.hostDealsNext),
-            button(CommonCopy.leave),
-          ],
-        },
-    },
-  ),
   // The end board: the banner's two sentences (the whole line one and line
   // two of each outcome), the foot, and the slip of the Hunter's pick. The
   // names on cards, tags and strips are the players' and the roles', not
@@ -638,53 +585,6 @@ const _endYouLines = [
   EndCopy.nobodyWins,
 ];
 
-/// The dead players' cards on 10, every one moved: "Now" and "Dealt" are
-/// said on the first card only (the others show the same arrow), and each
-/// card has its team tag (a Doppelganger's caption is her role's name).
-List<Line> _deadCards(List<TeamId> teams) => [
-  text(CountCopy.now),
-  text(CountCopy.dealt),
-  for (final team in teams)
-    text(
-      team == TeamId.werewolf
-          ? '${CountCopy.werewolfTeam}'
-          : RoleText.teamTag(team),
-    ),
-];
-
-/// 11 above its buttons. The timeline's last row counts once ("Won" or
-/// "Died" under every player); its other rows are capped on their own
-/// ([timelineRows]).
-List<Line> _results(String winner, String you) => [
-  headline(winner),
-  text(you),
-  text(ResultsCopy.won),
-  text(ResultsCopy.copiedAs),
-  text(ResultsCopy.center),
-];
-
-/// 11's timeline rows, each capped at 3 words (copy rule 2).
-const timelineRowMax = 3;
-final timelineRows = <Object>[
-  TimelineCopy.copies,
-  TimelineCopy.seeEachOther,
-  TimelineCopy.wakesAlone,
-  TimelineCopy.minionSees,
-  TimelineCopy.minionSeesNone,
-  TimelineCopy.seerPlayer,
-  TimelineCopy.seerCenter,
-  TimelineCopy.loneWerewolf,
-  TimelineCopy.robber,
-  TimelineCopy.troublemaker,
-  TimelineCopy.drunk,
-  TimelineCopy.insomniac,
-  TimelineCopy.skip,
-  ResultsCopy.died,
-];
-
-/// The prefixes before a timeline row: role names only.
-final timelinePrefixes = [TimelineCopy.prefix, TimelineCopy.followUpPrefix];
-
 /// Every banner, with its button.
 final banners = <(String, String?)>[
   (BannerCopy.lobbyNotFound, null),
@@ -704,6 +604,10 @@ final banners = <(String, String?)>[
 
 /// Everything a screen reader says that no screen shows.
 final spoken = [
+  // Words on a card that no state above lists: the caption of the card a
+  // step gave you (My night, held), and the Werewolf team's tag.
+  NightStoryCopy.nowCard,
+  RoleCopy.werewolfTeam,
   // The end board's cards and middle, said by the screen reader.
   EndCopy.cardYou,
   EndCopy.cardPicked,
@@ -718,7 +622,6 @@ final spoken = [
   NightStoryCopy.cardDown,
   SpokenCopy.working,
   SpokenCopy.pickFirst,
-  ResultsCopy.nightSpoken,
   // A dimmed night card: a tap still switches the pick.
   NightCopy.switchesPick,
   // 01's scan glyph, and the viewfinder's: what it does, Back and the light.

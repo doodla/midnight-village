@@ -8,12 +8,10 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
 import 'package:midnight_village/features/game/presentation/end/end_reveal.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart'
-    show CountView, EndWaiting;
 import 'package:midnight_village/features/game/presentation/shell/end_screen.dart';
-import 'package:midnight_village/features/game/presentation/shell/results_screen.dart'
-    show ResultsView;
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/waits.dart'
+    show EndWaiting;
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/server_json.dart';
@@ -128,9 +126,6 @@ void main() {
         false,
       );
       expect(_driver(tester), isNull);
-      expect(find.text(CountCopy.seeWhoWon), findsNothing);
-      expect(find.byType(CountView), findsNothing);
-      expect(find.byType(ResultsView), findsNothing);
       await s.close(tester);
     });
 
