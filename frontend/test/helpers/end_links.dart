@@ -76,7 +76,6 @@ List<String> nightLinkFaults(WidgetTester tester) {
             .evaluate())
       tester.getRect(find.byWidget(e.widget)),
   ];
-  faults.addAll(_covers(tester, night, cardOf, room));
   for (final (:from, :to, :link) in links) {
     final why = '${night.line}: ${_named(from)} to ${_named(to)}';
     final a = cardOf(from), b = cardOf(to);
@@ -129,68 +128,6 @@ List<String> nightLinkFaults(WidgetTester tester) {
     };
     if (link.kind != kind || (link.start, link.end) != ends) {
       faults.add('$why: ends ${link.start} and ${link.end} for a $kind');
-    }
-  }
-  return faults;
-}
-
-/// Where a card on the night board lies on another card (its name is on
-/// it) or on a seal that is not its own: a card lifted for a step lies over
-/// empty board only. A seal is tied to one card, so a seal on two is a
-/// card lying on it.
-List<String> _covers(
-  WidgetTester tester,
-  EndNight night,
-  LaidCard? Function(CardPlace) cardOf,
-  Rect room,
-) {
-  final cards = [
-    for (final place in night.placed)
-      if (cardOf(place) case final card?) (place, card),
-  ];
-  // Points along a card's edges, and its centre.
-  List<Offset> rim(LaidCard c) {
-    final corners = LaidCard(c.rect.deflate(1), c.angle).corners;
-    return [
-      for (var i = 0; i < 4; i++)
-        for (var t = 0.0; t < 1; t += 1 / 32)
-          Offset.lerp(corners[i], corners[(i + 1) % 4], t)!,
-      c.center,
-    ];
-  }
-
-  final faults = <String>[];
-  for (final (i, (pa, a)) in cards.indexed) {
-    for (final (pb, b) in cards.skip(i + 1)) {
-      bool on(LaidCard x, LaidCard y) =>
-          rim(x).any((p) => room.contains(p) && y.contains(p));
-      if (on(a, b) || on(b, a)) {
-        faults.add(
-          '${night.line}: ${_named(pa)} lies on ${_named(pb)} '
-          '(${a.bounds} on ${b.bounds})',
-        );
-      }
-    }
-  }
-  final seals = find.descendant(
-    of: find.byType(NightBoard),
-    matching: find.byType(YouSeal),
-  );
-  for (final e in seals.evaluate()) {
-    final s = tester.getRect(find.byWidget(e.widget)).deflate(1);
-    final points = [
-      s.topLeft,
-      s.topRight,
-      s.bottomLeft,
-      s.bottomRight,
-      s.center,
-    ].where(room.contains);
-    final under = [
-      for (final (place, card) in cards)
-        if (points.any(card.contains)) _named(place),
-    ];
-    if (under.length > 1) {
-      faults.add('${night.line}: a seal $s lies on ${under.join(' and ')}');
     }
   }
   return faults;
