@@ -347,7 +347,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
       _healTimer?.cancel();
       return;
     }
-    ref.invalidate(myTableProvider);
+    askWhere(ref);
     _update((s) => s.copyWith(tableClosed: true));
     ref.read(joinFlowProvider.notifier).tableClosed();
   }

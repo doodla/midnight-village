@@ -17,6 +17,8 @@ import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:midnight_village/core/storage/user_storage.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
+import 'package:midnight_village/core/websocket/websocket_channel.dart'
+    show WebSocketConnectionState;
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_choice.dart';
@@ -177,6 +179,10 @@ class TableSetup {
     /// test says ([openLobbySocket]); events meanwhile reach nobody.
     bool slowLobbySocket = false,
 
+    /// A dealt game's socket never opens (the server refuses it to a phone
+    /// that is not a player); else it opens at once.
+    bool gameSocketRefused = false,
+
     /// How the phone heals (the test's fast one unless given: a test of how
     /// long a miss lasts gives the phone's own, `const HealTiming()`).
     HealTiming healTiming = testHealTiming,
@@ -289,6 +295,10 @@ class TableSetup {
           gameWebSocketStreamProvider.overrideWith(
             (ref, id) => setup.gameWs.stream,
           ),
+          if (gameSocketRefused)
+            gameConnectionStateProvider.overrideWith(
+              (ref, id) => const Stream<WebSocketConnectionState>.empty(),
+            ),
           // Without: an app build that knows no web address (no QR code).
           appOriginProvider.overrideWithValue(webAddress ? _webOrigin : null),
           appDownloadProvider.overrideWithValue(

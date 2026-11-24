@@ -303,6 +303,44 @@ void main() {
       await phone.close(tester);
     });
 
+    testWidgets('at a waiting table whose game has since started: the lobby '
+        'saying so does not ask where the phone sits a second time', (
+      tester,
+    ) async {
+      const code = 'K7QX4M';
+      final lobby = serverLobby(
+        code: code,
+        seats: [(id: _playerId, name: 'Ana'), (id: 2, name: 'Bo')],
+        hostId: _playerId,
+        status: 'in_game',
+      );
+      await _preferences(seat: code);
+      final phone = _Phone(MockHttpClient(), _signedIn(_goodToken));
+      phone.http
+        ..answer('GET', '/me/table/', tableOf(_me))
+        ..answer('GET', '/lobbies/$code/', lobby)
+        ..answer('GET', _mePath, _me);
+      final table = phone.http.hold(method: 'GET', path: '/me/table/');
+
+      await phone.open(tester);
+      await _until(tester, () => phone.sent.contains('GET /lobbies/$code/'));
+      for (var i = 0; i < 20; i++) {
+        await tester.pump();
+      }
+      expect(table.length, 1, reason: 'the lobby answered "in a game" first');
+
+      table.releaseAll();
+      await _until(
+        tester,
+        () => find.byType(YourCardScreen).evaluate().isNotEmpty,
+      );
+      expect(
+        phone.sent.takeWhile((r) => r != 'GET $_mePath'),
+        unorderedEquals(['GET /me/table/', 'GET /lobbies/$code/']),
+      );
+      await phone.close(tester);
+    });
+
     testWidgets('a seat the server no longer names is let go: its screen '
         'follows /me/table/', (tester) async {
       // This device was in an earlier game; the player has since left.

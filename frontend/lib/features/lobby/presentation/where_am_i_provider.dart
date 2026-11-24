@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ProviderSubscription;
+    show ProviderContainer, ProviderSubscription;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/healing/healing.dart';
@@ -36,6 +36,7 @@ part 'where_am_i_provider.g.dart';
 Future<MyTable?> myTable(Ref ref) async {
   final service = ref.watch(lobbyServiceProvider);
   ref.listen(appResumesProvider, (_, next) {
+    // askWhere's own rule, from inside: a new read.
     if (next.hasValue && ref.mounted) ref.invalidateSelf();
   });
   // This read is dropped when a newer one is asked for (a seat put, an
@@ -98,11 +99,48 @@ SeatSeed seatSeed(Ref ref) => SeatSeed();
 /// Only while `/me/table/` is mounted (a screen holds it), so the read that
 /// takes the seed is the one asked for here: a seed never waits for a later
 /// read and goes stale. Nothing mounted: nothing is put, and the next read
-/// asks the server.
+/// asks the server. A seat from an event is checked behind the screen
+/// that moved: the new screen's socket opening reads `/me/table/`
+/// ([askWhere]), and a game that refuses this player reads it too.
 void seatFromServer(Ref ref, int userId, MyTable seat) {
   if (!ref.exists(myTableProvider)) return;
   ref.read(seatSeedProvider)._put(userId, seat);
   ref.invalidate(myTableProvider);
+}
+
+/// THE way to ask where this player sits again, because something says the
+/// table may have moved on: every place that asks goes through it (resume,
+/// a socket opening or coming back, a lobby ahead of the phone, a host
+/// change, a game that is refused or behind, a seat to check), so one
+/// heal costs one `/me/table/` request before the screen moves. With
+/// [settledBy] it never restarts a read that already answers the question:
+/// a read out now is waited for (it is no slower than a new one) and judged
+/// by its answer, asked again only when the answer does not settle it (a
+/// lobby saying the table is in a game: a read out that names it is
+/// enough, an older poll that says "waiting" is not).
+/// Otherwise the read out is replaced by a new one (Riverpod keeps only the
+/// newest). Nothing holds `/me/table/`: nothing is asked.
+void askWhere(Ref ref, {bool Function(MyTable? table)? settledBy}) {
+  if (!ref.exists(myTableProvider)) return;
+  if (settledBy != null && ref.read(myTableProvider).isLoading) {
+    late final ProviderSubscription<AsyncValue<MyTable?>> out;
+    out = ref.listen(myTableProvider, (_, next) {
+      if (next.isLoading) return;
+      out.close();
+      if (next.hasValue && !settledBy(next.value)) {
+        ref.invalidate(myTableProvider);
+      }
+    });
+    return;
+  }
+  ref.invalidate(myTableProvider);
+}
+
+/// [askWhere] from a widget (no question to compare with: a host change).
+void askWhereIn(ProviderContainer container) {
+  if (container.exists(myTableProvider)) {
+    container.invalidate(myTableProvider);
+  }
 }
 
 /// [seatFromServer] where nothing may hold `/me/table/` yet (01 signed out,

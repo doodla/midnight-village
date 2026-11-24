@@ -8,8 +8,8 @@
 J=${TLA2TOOLS:?set TLA2TOOLS to the path of tla2tools.jar}
 cd "$(dirname "$0")" || exit 1
 out=$(mktemp -d)
-BREAKS="late stale noup today"
-names=${*:-"seat late stale noup today"}
+BREAKS="late stale noup leave today"
+names=${*:-"seat late stale noup leave today"}
 bad=0
 for n in $names; do
   s=$(date +%s)

@@ -142,6 +142,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
       // A game `/me/table/` does not name that answers "gone" is let go
       // quietly (a read ahead of the table's); anything else is read again.
       if (e is! NotFoundException || _named) _scheduleRetry();
+      // Refused: not a player of this game (a seat that was wrong).
+      if (e is ForbiddenException) _invalidateTable();
       rethrow;
     } finally {
       _building = false;
@@ -191,6 +193,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     } catch (e, stack) {
       if (!ref.mounted) return;
       logger.w('LiveGame: fetch failed', error: e);
+      if (e is ForbiddenException) _invalidateTable();
       final current = state.value;
       if (current == null) {
         state = AsyncError(e, stack);
@@ -330,7 +333,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
 
   /// Asks for `/me/table/` again, only for a game it names ([_named]).
   void _invalidateTable() {
-    if (_named) ref.invalidate(myTableProvider);
+    if (_named) askWhere(ref);
   }
 
   /// Whether `/me/table/` names this game. Until it does (a game read beside
@@ -359,6 +362,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     switch (connection) {
       case WebSocketConnectionState.connected when _wasDisconnected:
         _wasDisconnected = false;
+        // Up for the first time too: nothing said before it listened was
+        // heard. (After a seat from an event, this read confirms it.)
         _healEverything();
       case WebSocketConnectionState.disconnected ||
           WebSocketConnectionState.reconnecting:

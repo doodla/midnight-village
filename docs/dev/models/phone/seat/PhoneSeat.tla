@@ -1,197 +1,233 @@
 ----------------------------- MODULE PhoneSeat -----------------------------
 (* ONE guest phone and where it sits, from 02 through a game, play again and  *)
 (* the next deal: the events that move it (game_started on the lobby socket,  *)
-(* game_results and play_again on the game socket), /me/table/ reads, the     *)
-(* lobby's reads, the game's /me/, a socket that opens, drops and comes back, *)
-(* the app coming back. Modelled from branch start-lands-fast (on e48d802):   *)
-(* where_am_i_provider.dart (myTable, SeatSeed, seatFromServer),              *)
-(* lobby_notifier.dart (build, refreshLobby, _askWhereIfMoved,                *)
-(* _applyStartedGame, the connection listener), live_game.dart (apply,        *)
-(* _seatBackAtTable, _healEverything, _onConnection, _compareTable),          *)
-(* at_table_screen.dart (_follow).                                            *)
+(* game_results and play_again on the game socket), /me/table/ reads (all of  *)
+(* them asked through askWhere), the lobby's reads and the phone's own player *)
+(* list, the game's /me/ (refused to a phone not in the game), the phone      *)
+(* leaving, a socket that opens, drops and comes back, the phone asleep, the  *)
+(* app coming back. Modelled from branch start-lands-fast (on e48d802):       *)
+(* where_am_i_provider.dart (myTable, SeatSeed, seatFromServer, askWhere),    *)
+(* lobby_seat.dart and lobby_notifier.dart (build, refreshLobby, the          *)
+(* connection listener, _askWhereIfMoved, _applyStartedGame, _seatIn),        *)
+(* live_game.dart (apply, _seatBackAtTable, _onConnection, _compareTable,     *)
+(* the 403).                                                                  *)
 (*                                                                            *)
 (* The server's table is a version: 0 waiting, 1 game 1, 2 game 1 finished,   *)
-(* 3 waiting again (play again), 4 game 2. The phone holds one (tab).         *)
+(* 3 waiting again (play again), 4 game 2; NoTable once this phone has left.  *)
 EXTENDS Naturals, Sequences
 
 CONSTANTS
   FIX_SEED,    \* an event that says where the phone sits is its seat (no read)
   FIX_LATE,    \* ... unless the table the phone holds already names that game
-               \* (a late game_started: the phone is there or past it)
   FIX_HEAL,    \* a lobby read again saying "in a game", and the socket or the
-               \* app coming back at 02, read /me/table/ at once
-  FIX_UP,      \* a socket's first opening reads what was said before it
-               \* listened: at 02 the lobby (then FIX_HEAL's rule), at the end
-               \* /me/table/
-  DROP_STALE,  \* a /me/table/ read still out when a newer one is asked for is
+               \* app coming back at 02, ask /me/table/ at once
+  FIX_UP,      \* a socket's first opening reads what its screen depends on,
+               \* as a socket coming back does: /me/table/ (and 02 its lobby).
+               \* It is also what confirms a seat taken from an event: the
+               \* seat always opens a new socket.
+  FIX_403,     \* a /me/ refused (not a player) asks /me/table/
+  DROP_STALE,  \* a /me/table/ read out when a newer one is asked for is
                \* dropped (Riverpod keeps only the newest build's answer)
-  POLL,        \* the slow poll at 02 and at the end (15 s): the backstop
-  OPEN_INSTANT, \* a new screen's socket listens at once (no opening window):
-               \* isolates the misses this slice is about (a drop, a sleep)
-  MaxDrops, MaxResumes
+  MaxDrops, MaxResumes, MaxFails
 
-Kind(v) == CASE v \in {0, 3} -> "waiting" [] v \in {1, 4} -> "game" [] OTHER -> "finished"
+NoTable == 50
+Kind(v) == CASE v \in {0, 3} -> "waiting" [] v \in {1, 4} -> "game"
+             [] v = 2 -> "finished" [] OTHER -> "none"
 \* the socket the phone listens to at what it shows (one game's socket per game)
-Src(v) == IF Kind(v) = "waiting" THEN "lobby" ELSE IF v <= 2 THEN "game1" ELSE "game2"
-None == 99  \* (not a version)
-Sent == 98  \* (not a version)
+Src(v) == CASE Kind(v) = "waiting" -> "lobby" [] v \in {1, 2} -> "game1"
+               [] v = 4 -> "game2" [] OTHER -> "none"
+\* the game a table names (its newest game this player plays in): the game id
+GameOf(v) == CASE v \in {1, 2, 3} -> 1 [] v = 4 -> 2 [] OTHER -> 0
+None == 99       \* (not a version)
+Sent == 98
+Forbidden == 97  \* /me/ refused: not a player of this game
+LNone == [v |-> None, m |-> FALSE]   \* the lobby read: none out
+LSent == [v |-> Sent, m |-> FALSE]   \* ... out
 
 VARIABLES
   srv,      \* the server's table
+  member,   \* the server has this phone at the table
+  left,     \* it has left (once)
   up,       \* the phone's socket is connected (listened to by the server)
   opening,  \* ... and it is a new socket, not up yet for the first time
   chan,     \* events on their way to the phone, in order
   tab,      \* the table the phone shows (/me/table/'s held value)
-  reads,    \* /me/table/ reads out: [cur, v] (cur: the newest asked for;
-            \* v = Sent until served)
-  lq,       \* the lobby read: None, Sent, or the served version
-  lwhy,     \* why it was read: "mount" (02 opens) or "again" (reconnect, resume)
-  mq,       \* the game's /me/ read: None, Sent, or the served version
-  drops, resumes
+  reads,    \* /me/table/ reads out: [cur, v] (cur: the newest; v = Sent until served)
+  judge,    \* askWhere(settledBy:): the newest read out is judged when it lands
+  lq,       \* the lobby read: None, Sent, or what it was served: [v, m]
+  lwhy,     \* why it was read: "mount" (02 opens) or "again"
+  lmem,     \* the phone's own player list has it at the table
+  mq,       \* the game's /me/ read: None, Sent, Forbidden, or the served version
+  drops, resumes, fails
 
-vars == <<srv, up, opening, chan, tab, reads, lq, lwhy, mq, drops, resumes>>
+vars == <<srv, member, left, up, opening, chan, tab, reads, judge, lq, lwhy, lmem,
+          mq, drops, resumes, fails>>
+Truth == IF member THEN srv ELSE NoTable
 
 (* ---------------- the phone's moves ---------------- *)
-\* ref.invalidate(myTableProvider): a new read; with DROP_STALE the older is ignored
-\* (No counter of reads: only whether a read is the newest matters. With
-\* DROP_STALE an older read can change nothing, so it is let go at once; without
-\* it the older reads stay, marked not newest. This keeps the state space small.)
+\* (Reads are not numbered: only "newest or not" decides what the app does with
+\* an answer. With DROP_STALE an older read can change nothing and is let go.)
 Older == IF DROP_STALE THEN {} ELSE {[cur |-> FALSE, v |-> r.v] : r \in reads}
-ReadTable == reads' = Older \cup {[cur |-> TRUE, v |-> Sent]}
+NewRead == Older \cup {[cur |-> TRUE, v |-> Sent]}
+\* askWhere(ref): a new read replaces the one out
+Ask == reads' = NewRead /\ judge' = FALSE
+\* askWhere(settledBy: moved on): a read out now is judged when it lands
+AskJudged == IF \E r \in reads : r.cur THEN judge' = TRUE /\ UNCHANGED reads ELSE Ask
 \* What the phone shows becomes v. A screen on another socket opens it (not
-\* listened to until it is up) and reads at once: 02 its lobby, a game its /me/.
+\* listened to until up) and reads at once: 02 its lobby, a game its /me/.
 Show(v) == /\ tab' = v
-           /\ IF Src(v) # Src(tab) /\ ~OPEN_INSTANT THEN up' = FALSE /\ opening' = TRUE
+           /\ IF Src(v) # Src(tab) /\ Src(v) # "none" THEN up' = FALSE /\ opening' = TRUE
               ELSE UNCHANGED <<up, opening>>
            /\ IF Kind(v) = "waiting" /\ Kind(tab) # "waiting"
-              THEN lq' = Sent /\ lwhy' = "mount"
+              THEN lq' = LSent /\ lwhy' = "mount"
               ELSE UNCHANGED <<lq, lwhy>>
-           /\ IF Kind(v) # "waiting" /\ Src(v) # Src(tab) THEN mq' = Sent ELSE UNCHANGED mq
-\* seatFromServer: the seat is put and a read asked for that takes it (no request)
-Seed(v) == /\ reads' = Older /\ Show(v)
+           /\ IF Kind(v) \in {"game", "finished"} /\ Src(v) # Src(tab) THEN mq' = Sent
+              ELSE UNCHANGED mq
+\* seatFromServer: the seat is put; a read out is dropped
+Seed(v) == /\ reads' = Older /\ judge' = FALSE /\ Show(v)
 
 (* ---------------- server ---------------- *)
 \* an event reaches the phone only on a socket that is up and listened to
 Emit(src, v) == IF up /\ Src(tab) = src THEN chan' = Append(chan, [src |-> src, v |-> v])
                 ELSE UNCHANGED chan
-Ph == <<up, opening, tab, reads, lq, lwhy, mq, drops, resumes>>
+Ph == <<member, left, up, opening, tab, reads, judge, lq, lwhy, lmem, mq, drops, resumes, fails>>
 Deal == /\ Kind(srv) = "waiting" /\ srv' = srv + 1 /\ Emit("lobby", srv + 1) /\ UNCHANGED Ph
 End == /\ srv = 1 /\ srv' = 2 /\ Emit("game1", 2) /\ UNCHANGED Ph
 PlayAgain == /\ srv = 2 /\ srv' = 3 /\ Emit("game1", 3) /\ UNCHANGED Ph
+\* the player taps Leave at 02: answered, so the server has it off the table; the
+\* answer reads /me/table/ (settle), and player_left reads the lobby again
+Leave == /\ member /\ ~left /\ Kind(tab) = "waiting" /\ Kind(srv) = "waiting"
+         /\ member' = FALSE /\ left' = TRUE
+         /\ Ask /\ lq' = LSent /\ lwhy' = "again"
+         /\ UNCHANGED <<srv, up, opening, chan, tab, lmem, mq, drops, resumes, fails>>
 
 (* ---------------- events in ---------------- *)
 Deliver ==
   /\ chan # <<>>
   /\ LET e == Head(chan) IN
      /\ chan' = Tail(chan)
-     /\ IF e.src # Src(tab) THEN UNCHANGED <<up, opening, tab, reads, lq, lwhy, mq>> \* closed
-        ELSE IF e.src = "lobby"                                       \* game_started
-             THEN IF ~FIX_SEED THEN ReadTable /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>>
-                  ELSE IF FIX_LATE /\ tab >= e.v
-                       THEN UNCHANGED <<up, opening, tab, reads, lq, lwhy, mq>>
-                  ELSE Seed(e.v)
-        ELSE IF e.v = 3 /\ FIX_SEED /\ Kind(tab) = "finished"        \* play_again at the end
+     /\ IF e.src # Src(tab)
+        THEN UNCHANGED <<up, opening, tab, reads, judge, lq, lwhy, mq>>   \* that socket is closed
+        ELSE IF e.src = "lobby"                                        \* game_started
+             THEN IF ~FIX_SEED THEN Ask /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>>
+                  ELSE IF FIX_LATE /\ GameOf(tab) = GameOf(e.v)        \* _alreadyIn(id)
+                       THEN UNCHANGED <<up, opening, tab, reads, judge, lq, lwhy, mq>>
+                  ELSE IF lmem THEN Seed(e.v)                          \* seatedAt(own list)
+                  ELSE Ask /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>>
+        ELSE IF e.v = 3 /\ FIX_SEED /\ Kind(tab) = "finished"         \* play_again at the end
              THEN Seed(e.v)
-        ELSE ReadTable /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>> \* game_results; play_again elsewhere
-  /\ UNCHANGED <<srv, drops, resumes>>
+        ELSE Ask /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>>       \* game_results; play_again elsewhere
+  /\ UNCHANGED <<srv, member, left, lmem, drops, resumes, fails>>
 
 (* ---------------- reads ---------------- *)
 ServeTable == \E r \in reads :
-  /\ r.v = Sent /\ reads' = (reads \ {r}) \cup {[r EXCEPT !.v = srv]}
-  /\ UNCHANGED <<srv, up, opening, chan, tab, lq, lwhy, mq, drops, resumes>>
+  /\ r.v = Sent /\ reads' = (reads \ {r}) \cup {[r EXCEPT !.v = Truth]}
+  /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, judge, lq, lwhy, lmem, mq,
+                 drops, resumes, fails>>
+\* the newest read's answer is shown; judged (askWhere settledBy) and still
+\* "waiting": asked again
 ApplyTable == \E r \in reads :
-  /\ r.v # Sent /\ reads' = reads \ {r}
-  /\ IF r.cur \/ ~DROP_STALE THEN Show(r.v) ELSE UNCHANGED <<up, opening, tab, lq, lwhy, mq>>
-  /\ UNCHANGED <<srv, chan, drops, resumes>>
-ServeLobby == /\ lq = Sent /\ lq' = srv
-              /\ UNCHANGED <<srv, up, opening, chan, tab, reads, lwhy, mq, drops, resumes>>
+  /\ r.v # Sent
+  /\ IF r.cur \/ ~DROP_STALE
+     THEN /\ Show(r.v)
+          /\ IF r.cur /\ judge /\ Kind(r.v) = "waiting"
+             THEN /\ reads' = (IF DROP_STALE THEN {}
+                               ELSE {[cur |-> FALSE, v |-> x.v] : x \in reads \ {r}})
+                              \cup {[cur |-> TRUE, v |-> Sent]}
+                  /\ judge' = FALSE
+             ELSE reads' = reads \ {r} /\ judge' = (judge /\ ~r.cur)
+     ELSE reads' = reads \ {r} /\ UNCHANGED <<up, opening, tab, judge, lq, lwhy, mq>>
+  /\ UNCHANGED <<srv, member, left, chan, lmem, drops, resumes, fails>>
+ServeLobby == /\ lq = LSent /\ lq' = [v |-> srv, m |-> member]
+              /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, reads, judge, lwhy,
+                             lmem, mq, drops, resumes, fails>>
+\* a lobby read that fails: the phone keeps its own (older) player list
+LobbyFails == /\ lq = LSent /\ fails < MaxFails /\ fails' = fails + 1 /\ lq' = LNone
+              /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, reads, judge, lwhy,
+                             lmem, mq, drops, resumes>>
 \* the lobby says the table is past waiting and the phone knows no game of it:
-\* the first read (build) looked the game up even before (current-game, then
-\* the table); a read again does only with FIX_HEAL (_askWhereIfMoved)
+\* the first read (build) did so before too (current-game); a read again only
+\* with FIX_HEAL (_askWhereIfMoved)
 ApplyLobby ==
-  /\ lq \notin {None, Sent} /\ lq' = None /\ UNCHANGED lwhy
-  /\ IF Kind(tab) = "waiting" /\ Kind(lq) # "waiting" /\ (lwhy = "mount" \/ FIX_HEAL)
-     THEN ReadTable ELSE UNCHANGED reads
-  /\ UNCHANGED <<srv, up, opening, chan, tab, mq, drops, resumes>>
-\* the slow poll at a waiting table or a finished game (only while it is behind:
-\* a poll that would read the same answer changes nothing)
-Poll == /\ POLL /\ Kind(tab) # "game" /\ tab # srv /\ reads = {}
-        /\ ReadTable
-        /\ UNCHANGED <<srv, up, opening, chan, tab, lq, lwhy, mq, drops, resumes>>
-\* /me/ says the game is further on than the table the phone holds (its
-\* results, or the next deal: this game is over): the table is read
-\* (_compareTable). The phone's own game's later phases (deadlines, the
-\* stage's events) are the day model's (../day/), not this one's.
-ServeMe == /\ mq = Sent /\ mq' = srv
-           /\ UNCHANGED <<srv, up, opening, chan, tab, reads, lq, lwhy, drops, resumes>>
+  /\ lq \notin {LNone, LSent} /\ lq' = LNone /\ lmem' = lq.m /\ UNCHANGED lwhy
+  /\ IF Kind(tab) = "waiting" /\ Kind(lq.v) # "waiting" /\ (lwhy = "mount" \/ FIX_HEAL)
+     THEN AskJudged ELSE UNCHANGED <<reads, judge>>
+  /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, mq, drops, resumes, fails>>
+\* the game's /me/: refused to a phone not in the game; further on than the
+\* table the phone holds: the table is read (_compareTable)
+ServeMe == /\ mq = Sent
+           /\ mq' = IF ~member THEN Forbidden ELSE IF GameOf(tab) = 1 /\ srv > 2 THEN 2 ELSE srv
+           /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, reads, judge, lq, lwhy,
+                          lmem, drops, resumes, fails>>
 ApplyMe == /\ mq \notin {None, Sent} /\ mq' = None
-           /\ IF Kind(tab) = "game" /\ mq > tab THEN ReadTable ELSE UNCHANGED reads
-           /\ UNCHANGED <<srv, up, opening, chan, tab, lq, lwhy, drops, resumes>>
-\* in a game every stage has a deadline, and past it the phone reads until
-\* the stage changes (_armHealing, the day model's FIX_HEAL): abstracted here
-\* as a read of the table while the game the phone shows is behind
-GameHeals == /\ Kind(tab) = "game" /\ srv # tab /\ reads = {} /\ mq = None
-             /\ ReadTable
-             /\ UNCHANGED <<srv, up, opening, chan, tab, lq, lwhy, mq, drops, resumes>>
+           /\ IF mq = Forbidden THEN (IF FIX_403 THEN Ask ELSE UNCHANGED <<reads, judge>>)
+              ELSE IF Kind(tab) = "game" /\ mq > tab THEN Ask ELSE UNCHANGED <<reads, judge>>
+           /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lq, lwhy, lmem, drops,
+                          resumes, fails>>
+\* in a game every stage has a deadline, and past it the phone reads /me/ until
+\* the stage changes (the day model's FIX_HEAL): a player whose game is behind
+\* reads the table; a phone not in the game is refused every time
+GameHeals == /\ Kind(tab) = "game" /\ reads = {} /\ mq = None
+             /\ IF member THEN srv # tab ELSE FIX_403
+             /\ Ask
+             /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lq, lwhy, lmem, mq,
+                            drops, resumes, fails>>
 
 (* ---------------- the socket and the app ---------------- *)
 Drop == /\ up /\ drops < MaxDrops /\ drops' = drops + 1
         /\ up' = FALSE /\ chan' = <<>>
-        /\ UNCHANGED <<srv, opening, tab, reads, lq, lwhy, mq, resumes>>
-\* the socket is up. Back after a drop: at 02 the lobby is read again (and,
-\* FIX_HEAL, the table); in a game or at the end the game reads the table
-\* (_healEverything). Up for the first time: nothing before FIX_UP; with it,
-\* 02 reads its lobby again (_readWhenUp: its rule reads the table if the
-\* lobby has moved on) and a game reads its table (_onConnection).
-Back == /\ ~up /\ up' = TRUE /\ opening' = FALSE
+        /\ UNCHANGED <<srv, member, left, opening, tab, reads, judge, lq, lwhy, lmem, mq,
+                       resumes, fails>>
+\* the socket is up (a game's only for a player of it). Back after a drop: 02
+\* reads its lobby and asks the table; a game or the end asks the table. Up for
+\* the first time: the same with FIX_UP; before it, nothing.
+Back == /\ ~up /\ Src(tab) # "none" /\ (Src(tab) = "lobby" \/ member)
+        /\ up' = TRUE /\ opening' = FALSE
         /\ IF opening
-           THEN IF FIX_UP /\ Kind(tab) = "waiting"
-                THEN lq' = Sent /\ lwhy' = "again" /\ UNCHANGED reads
-                ELSE IF FIX_UP
-                THEN ReadTable /\ UNCHANGED <<lq, lwhy>>
-                ELSE UNCHANGED <<reads, lq, lwhy>>
+           THEN IF ~FIX_UP THEN UNCHANGED <<reads, judge, lq, lwhy>>
+                ELSE IF Kind(tab) = "waiting"
+                THEN lq' = LSent /\ lwhy' = "again" /\ Ask
+                ELSE Ask /\ UNCHANGED <<lq, lwhy>>
            ELSE IF Kind(tab) = "waiting"
-                THEN /\ lq' = Sent /\ lwhy' = "again"
-                     /\ IF FIX_HEAL THEN ReadTable ELSE UNCHANGED reads
-                ELSE ReadTable /\ UNCHANGED <<lq, lwhy>>
-        /\ UNCHANGED <<srv, chan, tab, mq, drops, resumes>>
-\* the app comes back: FIX_HEAL reads the table wherever it is (myTable
-\* listens to the resume) and the lobby at 02; before, only a game did
+                THEN /\ lq' = LSent /\ lwhy' = "again"
+                     /\ IF FIX_HEAL THEN Ask ELSE UNCHANGED <<reads, judge>>
+                ELSE Ask /\ UNCHANGED <<lq, lwhy>>
+        /\ UNCHANGED <<srv, member, left, chan, tab, lmem, mq, drops, resumes, fails>>
+\* the app comes back: FIX_HEAL asks the table wherever it is and reads the
+\* lobby at 02; before, only a game did
 Woken == /\ resumes' = resumes + 1
          /\ IF Kind(tab) = "waiting"
-            THEN IF FIX_HEAL THEN ReadTable /\ lq' = Sent /\ lwhy' = "again"
-                 ELSE UNCHANGED <<reads, lq, lwhy>>
-            ELSE ReadTable /\ UNCHANGED <<lq, lwhy>>
-\* the player leaves the app and comes back (nothing was missed)
+            THEN IF FIX_HEAL THEN Ask /\ lq' = LSent /\ lwhy' = "again"
+                 ELSE UNCHANGED <<reads, judge, lq, lwhy>>
+            ELSE Ask /\ UNCHANGED <<lq, lwhy>>
 Resume == /\ resumes < MaxResumes /\ Woken
-          /\ UNCHANGED <<srv, up, opening, chan, tab, mq, drops>>
+          /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lmem, mq, drops, fails>>
 \* the phone slept and is woken: the events its socket should have brought
 \* are lost (the socket looked open), then it comes back as Resume
 Sleep == /\ chan # <<>> /\ resumes < MaxResumes /\ chan' = <<>> /\ Woken
-         /\ UNCHANGED <<srv, up, opening, tab, mq, drops>>
+         /\ UNCHANGED <<srv, member, left, up, opening, tab, lmem, mq, drops, fails>>
 
-Done == srv = 4 /\ tab = 4 /\ chan = <<>> /\ reads = {} /\ lq = None /\ mq = None /\ up
-        /\ UNCHANGED vars
+Init == /\ srv = 0 /\ member = TRUE /\ left = FALSE /\ up = TRUE /\ opening = FALSE
+        /\ chan = <<>> /\ tab = 0 /\ reads = {} /\ judge = FALSE /\ lq = LNone
+        /\ lwhy = "mount" /\ lmem = TRUE /\ mq = None /\ drops = 0 /\ resumes = 0
+        /\ fails = 0
 
-Init == /\ srv = 0 /\ up = TRUE /\ opening = FALSE /\ chan = <<>> /\ tab = 0 
-        /\ reads = {} /\ lq = None /\ lwhy = "mount" /\ mq = None /\ drops = 0 /\ resumes = 0
-
-Next == \/ Deal \/ End \/ PlayAgain
-        \/ Deliver \/ ServeTable \/ ApplyTable \/ ServeLobby \/ ApplyLobby \/ Poll
+Next == \/ Deal \/ End \/ PlayAgain \/ Leave
+        \/ Deliver \/ ServeTable \/ ApplyTable \/ ServeLobby \/ LobbyFails \/ ApplyLobby
         \/ ServeMe \/ ApplyMe \/ GameHeals
-        \/ Drop \/ Back \/ Resume \/ Sleep \/ Done
+        \/ Drop \/ Back \/ Resume \/ Sleep
 
 \* the host moves on; the phone's own steps and a socket coming up are fair;
-\* a resume is the player's, never promised
+\* a resume, a leave and a failure are never promised
 Spec == Init /\ [][Next]_vars
         /\ WF_vars(Deal) /\ WF_vars(End) /\ WF_vars(PlayAgain)
         /\ WF_vars(Deliver) /\ WF_vars(ServeTable) /\ WF_vars(ApplyTable)
-        /\ WF_vars(ServeLobby) /\ WF_vars(ApplyLobby) /\ WF_vars(Back) /\ WF_vars(Poll)
+        /\ WF_vars(ServeLobby) /\ WF_vars(ApplyLobby) /\ WF_vars(Back)
         /\ WF_vars(ServeMe) /\ WF_vars(ApplyMe) /\ WF_vars(GameHeals)
 
 (* ---------------- rules ---------------- *)
 \* the screen never goes back to a table older than one it showed
 NeverBack == [][tab' >= tab]_vars
-\* the phone ends where the server is (without the slow poll when POLL = FALSE)
-Converges == <>[](tab = srv)
+\* the phone ends where the server is, with no slow poll (it is left out)
+Converges == <>[](tab = Truth)
 =============================================================================

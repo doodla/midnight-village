@@ -138,4 +138,57 @@ void main() {
       );
     });
   });
+
+  group('the seats the phone builds are what the server says', () {
+    test('a deal\'s seat (game_started on the lobby) is my_table_night', () {
+      final lobby = FromSample.lobby(
+        ContractSamples.map('http/lobby/detail_in_game'),
+      );
+      final server = FromSample.myTable(
+        ContractSamples.map('http/lobby/my_table_night'),
+      )!;
+      final ben = lobby.players.singleWhere((p) => p.displayName == 'Ben');
+
+      expect(
+        MyTable.seatedAt(
+          lobby,
+          viewerId: ben.id,
+          game: (id: server.gameId!, phase: GamePhase.night),
+        ),
+        server,
+      );
+    });
+
+    test(
+      'play again\'s seat from the end board is my_table_after_play_again',
+      () {
+        final atTheEnd = FromSample.myTable(
+          ContractSamples.map('http/lobby/my_table_results'),
+        )!;
+
+        expect(
+          atTheEnd.backToWaiting(),
+          FromSample.myTable(
+            ContractSamples.map('http/lobby/my_table_after_play_again'),
+          ),
+        );
+      },
+    );
+
+    test('every recorded start is at the night', () {
+      for (final name in const [
+        'started',
+        'started_auto_deck_5',
+        'started_auto_deck_9',
+        'started_nobody_ready',
+        'started_with_look',
+      ]) {
+        expect(
+          GamePhase.fromServer(ContractSamples.map('http/game/$name')['phase']),
+          GamePhase.night,
+          reason: name,
+        );
+      }
+    });
+  });
 }

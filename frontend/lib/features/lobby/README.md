@@ -76,7 +76,8 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   or a join by code (`already_in_lobby` is no refusal: the player is there), then the screen
   `/me/table/` names. The start's or the join's answer is the table's lobby (`LobbySeed`): 02
   shows it without reading it again. Every lobby is read once more when its socket is first
-  up (anything said before it listened: a join, a deal), as when it comes back; a table its
+  up (anything said before it listened: a join, a deal), with `/me/table/`, as when it
+  comes back; a table its
   host just started never (only its host knows the code). The same answer is where the player sits (`MyTable.seatedAt`): `/me/table/` takes it
   as its next value without asking (`SeatSeed`, put and asked for together by
   `holdSeatFromAnswer`, which mounts and holds `/me/table/` at once; one slot, for one
@@ -144,8 +145,9 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   already names (the event after the host's answer, a late event) changes nothing. A phone
   that missed `game_started` heals in one read, never on the slow poll: any lobby the
   server gives (the first read, a read again, `lobby_update`) that says the table is past
-  waiting while this phone knows no game reads `/me/table/` at once (`_askWhereIfMoved`,
-  once per change of the table's status), the socket coming back reads the lobby and
+  waiting while this phone knows no game asks `/me/table/` at once (`_askWhereIfMoved`
+  in `lobby_seat.dart`, once per change of the table's status; a read already out that
+  names the game answers it), the socket coming back reads the lobby and
   `/me/table/` together, and the app coming back reads them too (`myTableProvider` and the
   lobby listen to `appResumesProvider`). Model: `docs/dev/models/phone/seat/`; tests:
   `test/features/game/presentation/table_moves_on_test.dart`. A table that is gone says so

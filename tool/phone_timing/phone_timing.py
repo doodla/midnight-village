@@ -5,8 +5,12 @@ the host and a second guest are driven over the API. For each round it times, fr
 the host's request:
 
 - event: the socket event (`game_started`, `play_again`) reaching the guest's page;
-- screen: the guest's screen changing (its accessibility text), which is what a
-  player at the table sees.
+- screen: the guest's screen showing its content: the card screen with its button
+  (not the empty frame the dusk lands on), or 02 with "<host> deals".
+
+Rounds: `--rounds` with the socket connected, then `--missed` deals with the guest's
+sockets cut just before the deal (the app reconnects after its own backoff), which is
+the path a phone that slept or dropped its socket takes.
 
 The phone profile is the one the diagnosis of 24 November 2026 used: CPU 4x slower,
 150 ms added latency, 9 Mbit/s down, 3 up. Exits 1 when any round's step is over its
@@ -35,12 +39,28 @@ SEM_JS = """() => {
 PHONE = {"latency": 150, "down": 9e6 / 8, "up": 3e6 / 8, "cpu": 4}
 
 
-async def changed(page, before, since, timeout=30):
-    """Seconds from `since` until the guest's screen text differs from `before`."""
+# The page's sockets, kept so a round can cut them (the app's own reconnect then
+# runs as after a real drop).
+KEEP_SOCKETS = """
+window.__sockets = [];
+const Native = window.WebSocket;
+window.WebSocket = class extends Native {
+  constructor(...a) { super(...a); window.__sockets.push(this); }
+};
+"""
+CUT_SOCKETS = "() => window.__sockets.forEach(s => s.close())"
+
+# What a screen shows once it has its content (lib/design_system/copy/).
+CARD = ("Look first", "Ready")  # CardCopy.readyLocked, CardCopy.ready
+TABLE = ("Host deals",)  # TableCopy.hostDeals, for the host "Host"
+
+
+async def shows(page, markers, since, timeout=30):
+    """Seconds from `since` until the guest's screen shows one of `markers`."""
     end = time.monotonic() + timeout
     while time.monotonic() < end:
         text = await page.evaluate(SEM_JS)
-        if text != before and text.replace("|", "").replace("/", "").strip():
+        if any(m in text for m in markers):
             return time.monotonic() - since
         await asyncio.sleep(0.02)
     return None
@@ -57,7 +77,7 @@ async def run(args):
         api + "/lobbies/", json={"game_type": "onuw", "defaults": "v2"}, headers=hh
     ).json()["code"]
     # Short stages, so a round reaches the results quickly (the table's own settings).
-    c.patch(
+    r = c.patch(
         api + f"/lobbies/{code}/",
         json={
             "settings": {
@@ -71,14 +91,18 @@ async def run(args):
         },
         headers=hh,
     )
+    if r.status_code != 200:
+        print("the short stages were refused:", r.status_code, r.text[:300])
+        return 2
     c.post(api + f"/lobbies/{code}/join/", headers=oh)
 
-    rounds = {"deal": [], "play_again": []}
+    rounds = {"deal": [], "missed_deal": [], "play_again": []}
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             executable_path=args.chrome or None, args=["--no-sandbox"]
         )
         page = await browser.new_page(viewport={"width": 390, "height": 844})
+        await page.add_init_script(KEEP_SOCKETS)
         cdp = await page.context.new_cdp_session(page)
         await cdp.send("Network.enable")
         await cdp.send(
@@ -126,29 +150,32 @@ async def run(args):
                     return t - since
             return None
 
-        for n in range(args.rounds):
-            before = await page.evaluate(SEM_JS)
+        for n in range(args.rounds + args.missed):
+            missed = n >= args.rounds
             await asyncio.sleep(2)
+            if missed:
+                await page.evaluate(CUT_SOCKETS)
+                await asyncio.sleep(0.1)
             t = time.monotonic()
             r = c.post(api + f"/onuw/lobbies/{code}/start/", headers=hh, json={})
             if r.status_code != 201:
                 print("deal refused:", r.status_code, r.text[:300])
                 return 2
             game = r.json()["game_id"]
-            screen = await changed(page, before, t)
-            rounds["deal"].append(
-                {"event": event_after("game_started", t), "screen": screen}
-            )
+            screen = await shows(page, CARD, t)
+            step = {"screen": screen}
+            if not missed:
+                step["event"] = event_after("game_started", t)
+            rounds["missed_deal" if missed else "deal"].append(step)
             for _ in range(120):
                 me = c.get(api + f"/onuw/games/{game}/me/", headers=hh).json()
                 if me.get("phase") == "results":
                     break
                 await asyncio.sleep(1)
             await asyncio.sleep(4)
-            before = await page.evaluate(SEM_JS)
             t = time.monotonic()
             c.post(api + f"/lobbies/{code}/play-again/", headers=hh)
-            screen = await changed(page, before, t)
+            screen = await shows(page, TABLE, t)
             rounds["play_again"].append(
                 {"event": event_after("play_again", t), "screen": screen}
             )
@@ -157,6 +184,7 @@ async def run(args):
 
     budgets = {
         "deal": {"event": args.budget_event, "screen": args.budget_deal},
+        "missed_deal": {"screen": args.budget_missed},
         "play_again": {"event": args.budget_event, "screen": args.budget_again},
     }
     over = []
@@ -169,7 +197,18 @@ async def run(args):
                     limit = args.budget_first_deal
                 if seconds is None or seconds > limit:
                     over.append(f"{kind} round {i + 1}: {name} {seconds} s > {limit} s")
-    result = {"profile": PHONE, "budgets": budgets, "rounds": rounds, "over": over}
+    result = {
+        "profile": PHONE,
+        "budgets": budgets,
+        "rounds": rounds,
+        "over": over,
+        "note": (
+            "The connected deal is a guard against getting slower: start-lands-fast "
+            "did not make it faster (the card waits for /me/ and for drawing the "
+            "night either way). The missed deal is that piece's gain: on e48d802 "
+            "it waited for the 15 s poll."
+        ),
+    }
     print(json.dumps(result, indent=2))
     if args.out:
         with open(args.out, "w") as f:
@@ -183,7 +222,8 @@ def main():
         "--api", required=True, help="the backend, e.g. http://127.0.0.1:8791"
     )
     a.add_argument("--app", required=True, help="the served web build")
-    a.add_argument("--rounds", type=int, default=3)
+    a.add_argument("--rounds", type=int, default=3, help="deals, socket connected")
+    a.add_argument("--missed", type=int, default=2, help="deals, sockets cut")
     a.add_argument("--chrome", default="", help="a Chrome to use (else Playwright's)")
     a.add_argument("--budget-event", type=float, default=0.5)
     # Measured on start-lands-fast (24 November 2026, an idle machine): deal 2.69 s
@@ -191,6 +231,7 @@ def main():
     a.add_argument("--budget-first-deal", type=float, default=3.0)
     a.add_argument("--budget-deal", type=float, default=2.0)
     a.add_argument("--budget-again", type=float, default=1.3)
+    a.add_argument("--budget-missed", type=float, default=4.0)
     a.add_argument("--out", default="")
     sys.exit(asyncio.run(run(a.parse_args())))
 

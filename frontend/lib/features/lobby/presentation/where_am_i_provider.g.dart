@@ -90,7 +90,7 @@ final class MyTableProvider
   }
 }
 
-String _$myTableHash() => r'67d64014219e68cfd4e35c9c32a2dd602e974087';
+String _$myTableHash() => r'01cf409f7b0f656d28047805aee409373962b340';
 
 @ProviderFor(seatSeed)
 const seatSeedProvider = SeatSeedProvider._();

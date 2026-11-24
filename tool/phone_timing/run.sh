@@ -5,6 +5,7 @@
 # harness-serve`), builds the release web app for it, serves it, runs a headless
 # Chrome guest, and stops what it started. About five minutes, most of it the
 # build. Not in the required checks: it needs Chrome and a web build.
+# PHONE_TIMING_FRONTEND=<a frontend folder> times another build (main, to compare).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 rounds=${1:-3}
@@ -22,7 +23,7 @@ echo "[phone-timing] backend on $api_port"
 pids+=($!)
 
 echo "[phone-timing] building the web app (release) for it"
-(cd "$root/frontend" && flutter build web --release --dart-define=ENV=prod \
+(cd "${PHONE_TIMING_FRONTEND:-$root/frontend}" && flutter build web --release --dart-define=ENV=prod \
   --dart-define=API_ORIGIN="http://127.0.0.1:$api_port" --output "$work/web" > "$work/build.log" 2>&1) ||
   { tail -30 "$work/build.log"; exit 2; }
 

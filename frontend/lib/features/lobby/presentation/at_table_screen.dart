@@ -176,7 +176,9 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
     final started = lobby.startedGameId;
     final moved = started != null && started != was?.startedGameId;
     final hostMoved = was != null && was.hostId != lobby.hostId;
-    if (hostMoved) ref.invalidate(myTableProvider);
+    if (hostMoved) {
+      askWhereIn(ProviderScope.containerOf(context, listen: false));
+    }
     if (moved) {
       _dealt?.close();
       _dealt = ref.listenManual(liveGameProvider(started), (_, _) {});

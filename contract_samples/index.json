@@ -722,6 +722,14 @@
       "description": "/me/ in the look stage: night, window 0, the look deadline."
     },
     {
+      "name": "http/game/me_not_a_player",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 403,
+      "description": "/me/ asked for by someone who does not play in the game."
+    },
+    {
       "name": "http/game/me_not_found",
       "kind": "http",
       "method": "GET",
