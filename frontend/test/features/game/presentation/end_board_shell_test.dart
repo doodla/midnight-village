@@ -19,6 +19,7 @@ import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/outcome_samples.dart';
 import '../../../helpers/shell_setup.dart';
+import '../../../helpers/finger.dart';
 
 // The results phase through the real shell: the end board in place of 10 and
 // 11. A phone that opens at the results gets the settled board; one that was
@@ -81,13 +82,17 @@ EndRevealDriver? _driver(WidgetTester tester) {
   return tester.widget<EndRevealScope>(scope.first).driver;
 }
 
-/// A finger's press: down, a frame, up.
-Future<void> _press(WidgetTester tester, Finder target) async {
-  final gesture = await tester.startGesture(tester.getCenter(target.first));
-  await tester.pump();
-  await gesture.up();
-  await tester.pump();
-}
+/// A finger's press: down, frames drawn with the finger on the glass, up.
+/// [asItLifts] sets what the server says from the lift on: the board reads
+/// its table while the finger is down, as on a phone, so an answer that
+/// moves the table on is given when the tap lands, not before it (given
+/// before, the board is gone from under the finger, which is right, and the
+/// tap with it).
+Future<void> _press(
+  WidgetTester tester,
+  Finder target, {
+  void Function()? asItLifts,
+}) => pressLikeAFinger(tester, target.first, beforeLift: asItLifts);
 
 ProviderContainer _container(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(EndScreen)));
@@ -324,9 +329,15 @@ void main() {
         '/lobbies/${_code(s)}/play-again/',
         s.playedAgain(),
       );
-      s.answerTable(_waiting(s, host: true));
-      final from = s.http.requests.length;
-      await _press(tester, find.text(EndCopy.playAgain));
+      var from = 0;
+      await _press(
+        tester,
+        find.text(EndCopy.playAgain),
+        asItLifts: () {
+          s.answerTable(_waiting(s, host: true));
+          from = s.http.requests.length;
+        },
+      );
       await _until(tester, s, AppScreen.table);
       expect(s.screenOn(tester), AppScreen.table);
       expect(
@@ -345,8 +356,11 @@ void main() {
         '/lobbies/${_code(s)}/play-again/',
         s.playedAgain(),
       );
-      s.answerTable(_waiting(s, host: true));
-      await _press(tester, find.text(EndCopy.editDeck));
+      await _press(
+        tester,
+        find.text(EndCopy.editDeck),
+        asItLifts: () => s.answerTable(_waiting(s, host: true)),
+      );
       await s.settle(tester);
       expect(s.screenOn(tester), AppScreen.deck);
       await s.close(tester);
@@ -396,10 +410,13 @@ void main() {
           ContractSamples.load('http/lobby/$sample'),
           status: 404,
         );
-        s
-          ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
-          ..answerHome();
-        await _press(tester, find.text(tap));
+        await _press(
+          tester,
+          find.text(tap),
+          asItLifts: () => s
+            ..answerTable(ContractSamples.map('http/lobby/my_table_none'))
+            ..answerHome(),
+        );
         await s.settle(tester);
         expect(s.screenOn(tester), AppScreen.join);
         expect(find.text(BannerCopy.tableClosed), findsOneWidget);
@@ -440,7 +457,7 @@ void main() {
       expect(find.text(StoryCopy.dealt), findsOneWidget);
       expect(find.text(StoryCopy.goOn), findsOneWidget);
       final learned = _container(tester).read(learnedCuesProvider.notifier);
-      await tester.tapAt(const Offset(180, 300));
+      await pressAtLikeAFinger(tester, const Offset(180, 300));
       await s.settle(tester);
       expect(find.text(StoryCopy.goOn), findsNothing);
       expect(learned.state, contains(Cue.endStep));

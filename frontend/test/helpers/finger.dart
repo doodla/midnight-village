@@ -20,7 +20,7 @@ import 'package:midnight_village/design_system/primitives/text_action.dart';
 // started by the touch) rebuild the action under the finger, so the lift goes
 // to a detector that is gone. Every press of one of the kit's actions in a
 // test is [pressLikeAFinger]: [installFingerRule] fails a test whose finger
-// lifts off an action in the frame it went down. Nothing in the app is
+// lifts in the frame it went down, on anything that takes a tap. Nothing in the app is
 // changed for it: the rule watches the pointer and the tree.
 
 /// How long a finger rests on the glass in a test's press: a quick tap (the
@@ -139,40 +139,98 @@ Future<Touch?> pressAtLikeAFinger(
   return touch;
 }
 
-/// The actions every test's plain tap is held to today: the main and the
-/// secondary buttons. The kit's other actions ([isAction]: scraps, text and
-/// icon actions, presets, vote rows, night board cards, role cards) are
-/// pressed like a finger by the screen sweep but not yet held in every test:
-/// about 300 plain taps in the night board's, the end night's and the parts'
-/// tests count their frames from the tap, and moving them is its own change.
-bool heldToTheRule(Touch touch) =>
-    touch.action.widget is PrimaryButton ||
-    touch.action.widget is SecondaryButton;
+/// What takes a tap under [position]: the nearest named widget around a
+/// gesture detector that recognises a tap, front first; null when nothing
+/// there does. This is what a pressable IS, whatever it is called: a main
+/// button, a card, a scrap, a row, the layer that takes a tap anywhere, a
+/// part added tomorrow. No list of names.
+Widget? tapTakerAt(Offset position, {int viewId = 0}) {
+  final result = HitTestResult();
+  RendererBinding.instance.hitTestInView(result, position, viewId);
+  for (final entry in result.path) {
+    final target = entry.target;
+    if (target is! RenderObject) continue;
+    final creator = target.debugCreator;
+    if (creator is! DebugCreator) continue;
+    var takesTap = false;
+    Widget? named;
+    bool look(Element e) {
+      final widget = e.widget;
+      if (widget is RawGestureDetector &&
+          widget.gestures.keys.any((type) => '$type'.contains('Tap'))) {
+        takesTap = true;
+      } else if (takesTap &&
+          !_plumbing.contains(widget.runtimeType) &&
+          !'${widget.runtimeType}'.startsWith('_')) {
+        named = widget;
+      }
+      return named == null;
+    }
+
+    if (look(creator.element)) creator.element.visitAncestorElements(look);
+    if (takesTap) return named ?? creator.element.widget;
+  }
+  return null;
+}
+
+/// What sits between a detector and the part that owns it.
+const _plumbing = {
+  GestureDetector,
+  RawGestureDetector,
+  Listener,
+  Semantics,
+  RepaintBoundary,
+  MouseRegion,
+  Builder,
+};
+
+/// Test files whose plain taps are not converted yet, each with why. The
+/// rule lets their taps pass; `finger_rule_test.dart` fails an entry whose
+/// file no longer taps plainly, so the list only shrinks.
+const notYetHeld = {
+  'test/features/lobby/presentation/app_download_test.dart':
+      'the lobby\'s tests are being reworked with its send queue',
+  'test/features/lobby/presentation/deck_art_test.dart':
+      'the lobby\'s tests are being reworked with its send queue',
+};
 
 /// Installed for every test (flutter_test_config.dart): a finger that lifts
-/// off a main or secondary button ([heldToTheRule]) in the frame it went down
-/// (a plain `tester.tap`) fails the test, with how to press it instead. A tap
-/// a screen reader or a keyboard makes is not a finger's and is not held to
+/// in the frame it went down (a plain `tester.tap`) on ANYTHING that takes a
+/// tap ([tapTakerAt]) fails the test, with how to press it instead. A tap a
+/// screen reader or a keyboard makes is not a finger's and is not held to
 /// it. Nothing in the app is hooked for it: the rule watches the pointer.
 void installFingerRule() {
   var frames = 0;
-  final downs = <int, (int, Touch?)>{};
+  final downs = <int, (int, DateTime, Widget?, Offset)>{};
+  DateTime now() => TestWidgetsFlutterBinding.instance.clock.now();
   SchedulerBinding.instance.addPersistentFrameCallback((_) => frames++);
   GestureBinding.instance.pointerRouter.addGlobalRoute((event) {
     if (event is PointerDownEvent) {
-      downs[event.pointer] = (frames, Touch.at(event.position));
+      downs[event.pointer] = (
+        frames,
+        now(),
+        tapTakerAt(event.position),
+        event.position,
+      );
     } else if (event is PointerUpEvent || event is PointerCancelEvent) {
       final down = downs.remove(event.pointer);
       if (event is! PointerUpEvent || down == null || _plainOnPurpose) return;
-      final (at, touch) = down;
-      if (at != frames || touch == null || !heldToTheRule(touch)) return;
+      final (at, since, taker, from) = down;
+      // A frame drawn, or time passed with the finger down (a press a test
+      // wrote out by hand, on a part that had nothing to redraw): not instant.
+      if (at != frames || now() != since || taker == null) return;
+      // A finger that moved is a drag, not a tap.
+      if ((event.position - from).distance > kTouchSlop) return;
+      final stack = '${StackTrace.current}';
+      if (notYetHeld.keys.any(stack.contains)) return;
       throw FlutterError(
-        'An action (${touch.action.widget.runtimeType}) was pressed with no '
-        'frame between the finger going down and coming up (a plain '
+        'Something that takes a tap (${taker.runtimeType}) was pressed with '
+        'no frame between the finger going down and coming up (a plain '
         '`tester.tap`). On a real phone frames are drawn while the finger is '
-        'on the glass, and an action that settles an animation and rebuilds '
+        'on the glass, and a part that settles an animation and rebuilds '
         'in them loses the tap; `tester.tap` cannot see it. Press it with '
-        '`pressLikeAFinger(tester, finder)` (test/helpers/finger.dart).',
+        '`pressLikeAFinger(tester, finder)` or `pressAtLikeAFinger(tester, '
+        'point)` (test/helpers/finger.dart).',
       );
     }
   });

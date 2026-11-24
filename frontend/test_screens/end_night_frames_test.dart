@@ -11,6 +11,7 @@ import 'package:midnight_village/design_system/primitives/paper_scrap.dart';
 import '../test/helpers/end_board_pump.dart';
 import '../test/helpers/outcome_samples.dart';
 import 'end_night_pages.dart' show nightOf;
+import '../test/helpers/finger.dart';
 
 // What happened, filmed: the six-player game (`results`) stepped through at a
 // player's pace, a frame every 66 ms: the scrap tapped, each step played and
@@ -92,18 +93,18 @@ void main() {
       (w) => w is PaperScrap && w.label.replaceAll('\n', ' ') == label,
     );
     await film(const Duration(milliseconds: 600));
-    await tester.tap(scrap(EndCopy.whatHappened).first);
+    await pressLikeAFinger(tester, scrap(EndCopy.whatHappened).first);
     await tester.pump();
     final night = nightOf(tester);
     // The deal, then each step; a tap after the last is the result.
     for (var i = 0; i <= night.story!.steps.length; i++) {
       if (i > 0) {
-        await tester.tapAt(Offset(_width / 2, 330));
+        await pressAtLikeAFinger(tester, Offset(_width / 2, 330));
         await tester.pump();
       }
       await film(night.clock.duration! + _read);
     }
-    await tester.tapAt(Offset(_width / 2, 330));
+    await pressAtLikeAFinger(tester, Offset(_width / 2, 330));
     await tester.pump();
     await film(Motion.scene + const Duration(milliseconds: 900));
   });

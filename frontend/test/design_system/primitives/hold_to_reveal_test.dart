@@ -12,6 +12,7 @@ import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/sheet_data.dart';
+import '../../helpers/finger.dart';
 
 final _seer = FaceContent.roleText(RoleId.seer);
 
@@ -121,7 +122,7 @@ void main() {
     testWidgets('a quick tap does not flash the face', (tester) async {
       final h = _Harness();
       await tester.pumpWidget(h.build());
-      await tester.tap(_card);
+      await pressLikeAFinger(tester, _card);
       await tester.pump(const Duration(milliseconds: 500));
       expect(_face, findsNothing);
       expect(h.changes, isEmpty);
@@ -131,9 +132,9 @@ void main() {
         'second', (tester) async {
       final h = _Harness();
       await tester.pumpWidget(h.build());
-      await tester.tap(_card);
+      await pressLikeAFinger(tester, _card);
       await tester.pump(const Duration(milliseconds: 50));
-      await tester.tap(_card);
+      await pressLikeAFinger(tester, _card);
       await tester.pump();
       expect(_face, findsNothing);
       expect(h.revealed, 0);

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
@@ -355,6 +357,67 @@ void main() {
     expect(tester.takeException().toString(), contains('pressLikeAFinger'));
     await pressLikeAFinger(tester, find.byType(SecondaryButton));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a plain tap on anything that takes a tap fails the test: a part '
+      'nobody listed, and one made tomorrow', (tester) async {
+    var taps = 0;
+    await pumpSkinned(
+      tester,
+      // Not one of the kit's parts: only a detector that recognises a tap.
+      GestureDetector(
+        onTap: () => taps++,
+        child: const SizedBox(
+          width: 120,
+          height: 120,
+          child: ColoredBox(color: Color(0xFF000000)),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(GestureDetector));
+    expect(tester.takeException().toString(), contains('pressLikeAFinger'));
+    await pressLikeAFinger(tester, find.byType(GestureDetector));
+    expect(tester.takeException(), isNull);
+    expect(taps, 2, reason: 'the rule watches; it takes no tap away');
+  });
+
+  test('every file still let off the rule still taps plainly: the list only '
+      'shrinks', () {
+    for (final MapEntry(key: file, value: why) in notYetHeld.entries) {
+      expect(why, isNotEmpty);
+      expect(File(file).existsSync(), isTrue, reason: '$file is gone');
+      expect(
+        File(file).readAsStringSync(),
+        contains('tester.tap('),
+        reason: '$file no longer taps plainly: take it off `notYetHeld`',
+      );
+    }
+  });
+
+  testWidgets('a drag, a press with time on the glass, and a tap on what takes '
+      'none are not instant taps', (tester) async {
+    await pumpSkinned(
+      tester,
+      GestureDetector(
+        onTap: () {},
+        child: const SizedBox(
+          width: 200,
+          height: 200,
+          child: ColoredBox(color: Color(0xFF000000)),
+        ),
+      ),
+    );
+    await tester.drag(find.byType(GestureDetector), const Offset(0, 80));
+    expect(tester.takeException(), isNull, reason: 'the finger moved');
+    final finger = await tester.startGesture(
+      tester.getCenter(find.byType(GestureDetector)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    await finger.up();
+    expect(tester.takeException(), isNull, reason: 'time passed');
+    await pumpSkinned(tester, const Text('Waiting'));
+    await tester.tap(find.text('Waiting'));
+    expect(tester.takeException(), isNull, reason: 'nothing there takes a tap');
   });
 
   testWidgets('a state that says it shows a main button and shows none', (

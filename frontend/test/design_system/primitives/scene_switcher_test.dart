@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../helpers/frame_pixels.dart';
+import '../../helpers/finger.dart';
 
 /// A screen with one button where every screen has it; [taps] counts them.
 class _Screen extends StatelessWidget {
@@ -278,7 +279,7 @@ void main() {
           await tester.pump();
           if (at > 0) await tester.pump(ms * at);
           expect(find.byKey(Key('button-$from')), findsOneWidget);
-          await tester.tapAt(rest);
+          await pressAtLikeAFinger(tester, rest);
           await tester.pump();
           expect(taps[to], 1, reason: 'the new screen took the tap');
           expect(taps[from], isNull, reason: 'the old one is for the eyes');
@@ -323,7 +324,7 @@ void main() {
         expect(find.byKey(Key('button-$from')), findsNothing);
         expect(find.byKey(Key('button-$to')), findsOneWidget);
         // And a tap in it lands on the new screen too.
-        await tester.tap(find.byKey(Key('button-$to')));
+        await pressLikeAFinger(tester, find.byKey(Key('button-$to')));
         expect(taps[to], 1);
       });
     }

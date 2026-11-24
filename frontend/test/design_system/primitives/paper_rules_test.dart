@@ -36,6 +36,7 @@ import '../../helpers/sheet/day_pages.dart';
 import '../../helpers/sheet/night_pages.dart';
 import '../../helpers/sheet/sheet_data.dart';
 import '../../helpers/sheet/table_pages.dart';
+import '../../helpers/finger.dart';
 
 // The rules that keep paper one material, each over every paper screen and
 // every component in every state it has:
@@ -150,7 +151,7 @@ final Map<String, Future<void> Function(WidgetTester)> paperScreens = {
   'card-details sheet': (t) async {
     await _screen(t, const TablePage());
     await _settle(t);
-    await t.tap(find.byType(RoleCard).first);
+    await pressLikeAFinger(t, find.byType(RoleCard).first);
     await t.pump(const Duration(milliseconds: 600));
     await _settle(t);
   },
@@ -178,7 +179,7 @@ paperSheets = {
     open: (t) async {
       await _screen(t, const TablePage());
       await _settle(t);
-      await t.tap(find.byType(RoleCard).first);
+      await pressLikeAFinger(t, find.byType(RoleCard).first);
       await t.pump(const Duration(milliseconds: 600));
     },
   ),
@@ -188,7 +189,7 @@ paperSheets = {
     open: (t) async {
       await _screen(t, const TablePage());
       await _settle(t);
-      await t.tap(find.text(CommonCopy.leave));
+      await pressLikeAFinger(t, find.text(CommonCopy.leave));
       await t.pump(const Duration(milliseconds: 600));
     },
   ),
@@ -509,7 +510,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('open'));
+      await pressLikeAFinger(tester, find.text('open'));
       expect(tester.takeException(), isA<AssertionError>());
       expect(FrameMark.under(tester.element(find.text('open'))), isFalse);
     });

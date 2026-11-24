@@ -162,7 +162,10 @@ A screen state is declared once, as a `ScreenEntry` in its screen's file
 from it come its page in `just screens` and the screen sweep in `just test`
 (`test/screen_cases/`: three phones, three text sizes, nothing cut, overflowing or lying on
 another piece, the main button reachable, labelled, 48 to touch and pressed by a finger; what
-it must show, its pieces kept apart and its own rules in its `SweepPlan`). A test presses a
-main button with `pressLikeAFinger` (`test/helpers/finger.dart`); a plain `tester.tap` on one
-fails the test. Screen code adds no raw size and no sentence (`raw_values_test.dart`, against
+it must show, its pieces kept apart and its own rules in its `SweepPlan`). A test presses
+anything that takes a tap (a button, a card, a scrap, a row, the layer that takes a tap
+anywhere: whatever recognises one, no list of names) with `pressLikeAFinger` or
+`pressAtLikeAFinger` (`test/helpers/finger.dart`); a plain `tester.tap` on one fails the test.
+What the server answers because of the tap is set as the finger lifts (`beforeLift`), since
+the screen goes on reading while the finger is down. Screen code adds no raw size and no sentence (`raw_values_test.dart`, against
 origin/main).
