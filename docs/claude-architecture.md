@@ -97,7 +97,8 @@ that adds to a long file fails. Tests and generated code are not counted
 its top (no list: a new guard joins by carrying the line). `tool/guard_edits.py`
 (`just guard-edits`, a step of GitHub's "Backend Checks") fails a pull request that edits one
 unless its description has a line `- <file name>: <why>`; locally it only reminds
-(`guardrails/tests/test_guard_edits.py`). `just check` also lints `tool/` and the hooks for
+(`guardrails/tests/test_guard_edits.py`; a changed binary file, a golden picture, is never
+read: a guard is a text file). `just check` also lints `tool/` and the hooks for
 errors swallowed in silence (`just lint-tools` in `backend/`).
 
 **Disk.** Each worktree fills about a gigabyte of build output. `tool/tidy.py` clears it for
