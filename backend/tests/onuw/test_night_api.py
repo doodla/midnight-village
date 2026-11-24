@@ -13,7 +13,7 @@ import pytest
 from rest_framework import status
 
 from apps.core.models import Lobby, LobbyMember, User
-from apps.onuw import choose_night
+from apps.onuw import turns
 from apps.onuw.models import Game, Phase, PlayerRole
 from apps.onuw.protocol import stage_token
 
@@ -102,7 +102,7 @@ def _choose(api_client, game, user, picks=None, *, chosen=None):
     if chosen is None:
         fresh = Game.objects.get(id=game.id)
         pr = PlayerRole.objects.get(game=fresh, user=user)
-        chosen = choose_night.chose_count(pr, fresh.current_wave)
+        chosen = turns.chose_count(pr, fresh.current_wave)
     return api_client.post(
         _action_url(game.id),
         {

@@ -18,7 +18,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
-from apps.onuw import choose_night, night_flow, night_window
+from apps.onuw import night_flow, night_window, turns
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import current_stage, staged
 from tests.onuw.test_night_windows import Night
@@ -98,7 +98,7 @@ def chosen_now(night: Night, who: str) -> int:
     open window."""
     game = Game.objects.get(id=night.game.id)
     pr = PlayerRole.objects.get(game=game, user=night.users[who])
-    return choose_night.chose_count(pr, game.current_wave)
+    return turns.chose_count(pr, game.current_wave)
 
 
 def choose(night: Night, who: str, picks: Any = None, **body: Any) -> Any:
