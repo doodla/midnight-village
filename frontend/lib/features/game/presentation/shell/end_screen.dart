@@ -5,14 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/requests/player_request.dart';
 import '../../../../design_system/primitives/pending.dart';
-import '../../../../design_system/skin/ground.dart';
 import '../../../../design_system/teach/learned_store.dart';
 import '../../../lobby/domain/where_am_i.dart';
 import '../../../lobby/presentation/where_am_i_provider.dart';
 import '../end/end_board_view.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
-import 'count_screen.dart' show EndWaiting;
+import 'waits.dart' show EndWaiting;
 
 /// Which games' end boards this device has shown in this run, and which it
 /// saw being played: the reveal plays once per game result per device
@@ -124,10 +123,7 @@ class _EndScreenState extends ConsumerState<EndScreen> {
     final game = widget.game;
     final outcome = game?.outcome;
     if (game == null || outcome == null) {
-      return EndWaiting(
-        ground: GroundKind.night,
-        failing: game?.outcomeFailing ?? false,
-      );
+      return EndWaiting(failing: game?.outcomeFailing ?? false);
     }
     final me = game.me;
     final reveal = _reveal ??= ref

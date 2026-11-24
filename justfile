@@ -265,10 +265,6 @@ check-release *args:
 contact-sheet *args:
     {{frontend_just}} contact-sheet {{args}}
 
-# (frontend) sizes) into <folder>. Usage: just count-pictures [folder] [width]
-count-pictures *args:
-    {{frontend_just}} count-pictures {{args}}
-
 # (frontend) Usage: just end-night-frames [folder] [width]
 end-night-frames *args:
     {{frontend_just}} end-night-frames {{args}}

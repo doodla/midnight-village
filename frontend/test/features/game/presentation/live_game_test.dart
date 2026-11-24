@@ -713,27 +713,6 @@ void main() {
       await setup.settle();
       expect(setup.screen!.screen, AppScreen.table);
     });
-
-    test('who won: only for the finished game it was tapped in', () {
-      final results = FromSample.myTable(
-        ContractSamples.map('http/lobby/my_table_results'),
-      )!;
-      final record = StepRecord(wonIn: results.gameId);
-      expect(localStepsFor(record, results).countSeen, isTrue);
-      final again = FromSample.myTable(
-        ContractSamples.map('http/lobby/my_table_after_play_again'),
-      );
-      expect(localStepsFor(record, again).countSeen, isFalse);
-      final next = FromSample.myTable(
-        serverMyTable(
-          code: results.lobbyCode,
-          status: 'finished',
-          gameId: 'the-next-game',
-          phase: 'results',
-        ),
-      );
-      expect(localStepsFor(record, next).countSeen, isFalse);
-    });
   });
 
   group('the rest', () {

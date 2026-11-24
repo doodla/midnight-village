@@ -14,6 +14,9 @@ abstract final class NightStoryCopy {
   static const robbed = Template("You took {name}'s card, the {role}.");
   static const drunk = Template('You took the {pos} card, unseen.');
   static const now = Template('Your card is now the {role}.');
+
+  /// The caption over the card a step gave you: it is yours now.
+  static const nowCard = 'Now';
   static const still = Template('Your card is still the {role}.');
   static const werewolves = Template('You and {names} are the Werewolves.');
   static const onlyWerewolf = 'You are the only Werewolf.';

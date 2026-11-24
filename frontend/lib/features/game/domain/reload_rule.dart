@@ -12,10 +12,11 @@ import 'screen_table.dart';
 /// `HomeGate`'s own names):
 ///
 /// - Where nothing is going on that a reload would lose, at once: 01 (its
-///   form is kept across the reload), a table before the deal (02, 03), the
-///   results (11), "You're at another table.".
+///   form is kept across the reload), a table before the deal (02, 03),
+///   "You're at another table.".
 /// - In a running game (your card 04, the night board 06, the talk 08, the
-///   vote 09, the end board, whose reveal plays as the results arrive) NEVER on a phase change or on the timer: a
+///   vote 09, the end board, whose reveal plays as the results arrive) NEVER
+///   on a phase change or on the timer: a
 ///   player must not enter the night or the vote with a cold reload inside a
 ///   timed stage. Only when the app comes back (the tab visible again after
 ///   being hidden for more than a few seconds: [Moment.resumed]); otherwise
@@ -34,15 +35,11 @@ bool mayReloadNow({
   if (busy || halfTyped) return false;
   final cameBack = moment == Moment.resumed;
   return switch (place) {
-    AppScreen.join ||
-    AppScreen.table ||
-    AppScreen.deck ||
-    AppScreen.results => true,
+    AppScreen.join || AppScreen.table || AppScreen.deck => true,
     AppScreen.yourCard ||
     AppScreen.nightBoard ||
     AppScreen.talk ||
     AppScreen.vote ||
-    AppScreen.count ||
     AppScreen.end => cameBack,
     // HomeGate's own names for what is not a table screen.
     'join' || 'elsewhere' => true,

@@ -12,11 +12,9 @@ Status: decided. This spec covers how the app teaches a first-time player and ev
    - Screen-reader labels are not counted, but must be 8 words or fewer.
 2. **Budgets.** These were measured from the final copy in §3, as the most words visible at once.
 
-   | Screen | 01 | 01b | 02 | 03 | 03b | 04 | 05 | 06 | 07 | 08 | 09 | 10 | 11 |
-   |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-   | Budget | 14 | 7 | 7 | 15 | 30 | 34 | 3 | 24 | 8 | 15 | 8 | 16 | 13 |
-
-   On 11, each timeline row is also capped at 3 words.
+   | Screen | 01 | 01b | 02 | 03 | 03b | 04 | 05 | 06 | 07 | 08 | 09 | 10 |
+   |---|---|---|---|---|---|---|---|---|---|---|---|
+   | Budget | 14 | 7 | 7 | 15 | 30 | 34 | 3 | 24 | 8 | 15 | 8 | 16 |
 3. **Headlines.** One headline per screen, at most 5 words.
 4. **Buttons.**
    - A button label is 1 to 3 words: a verb, naming the person or card when there is one. A night button says what will happen with the picks ("See Cleo", "Swap Ana, Ben"), and a pass button is true for its role (rule 11).
@@ -227,7 +225,7 @@ Village Wins lines: **"A Werewolf dies."** / **"No Werewolf player: nobody dies.
 | Tanner | Alone | Sleep. | You die. | 11 (11) |
 | Doppelganger | Copies | Copy a player's role. Act as that role. | As the role you copy. | 21 (21) |
 
-**Team tags** on 10 and 11 come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf" ("Werewolf team" beside a role's name, as on 10), `neutral` → "Alone".
+**Team tags** on the end board come from the server's `team`: `village` → "Village", `werewolf` → "Werewolf" ("Werewolf team" beside a role's name), `neutral` → "Alone".
 
 **Where the team shows** (issue 37): the other Werewolves, the Minion's Werewolves and the other Mason are shown only at dawn, when the talk opens, in My night's picture story (your card, the cards you touched, the one sentence: "You and {names} are the Werewolves."; section 3, "Brief amendments": team shown only there), never at night; so these role texts say "At dawn", as the Insomniac's does, and a sleeper's night face says only "Nothing to do tonight." A lone Werewolf's center look is at night ("Alone at night").
 
@@ -386,8 +384,7 @@ Every face has exactly one portrait slot and at most 2 lines. Each line is a fac
   - The vote's length is the table's "Vote" (03; 2 min unless the host changes it).
 - **Pass:** "Tap a name, then Lock in."
 
-**10 and 11: the end board** (one screen since 23 November 2026; the count, "See who won" and the results are
-no longer shown)
+**10: the end board** (one screen since 23 November 2026)
 - **One thing / loudest:** who was hanged and whether you won, on one notice board; the reveal plays once on a
   phone that was in the game, and one touch settles it.
 - **Copy, layout, motion and states:** `docs/specs/frontend/end-board.md` (it wins for this screen): the banner's

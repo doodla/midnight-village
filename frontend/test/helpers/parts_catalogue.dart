@@ -442,7 +442,7 @@ final List<PartSample> partsCatalogue = [
     (c) => const TextBacking(child: Text('Words over the village')),
   ),
   PartSample(
-    'Band / TimerBand',
+    'TimerBand',
     PartState.rest,
     (c) => SizedBox(
       width: 260,

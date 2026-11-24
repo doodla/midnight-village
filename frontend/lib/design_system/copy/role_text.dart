@@ -115,7 +115,7 @@ class RoleText {
     RoleCopy.shared,
   ];
 
-  /// A team's tag on 10 and 11, from the server's `team`.
+  /// A team's tag on the end board, from the server's `team`.
   static String teamTag(TeamId team) => switch (team) {
     TeamId.village => RoleCopy.village,
     TeamId.werewolf => RoleId.werewolf.displayName,
@@ -125,7 +125,7 @@ class RoleText {
   /// A team's tag beside a role's name (a card, a sheet, the count): never
   /// the name twice, so the Werewolf team's reads "Werewolf team".
   static String teamLabel(TeamId team) => switch (team) {
-    TeamId.werewolf => CountCopy.werewolfTeam.fill({
+    TeamId.werewolf => RoleCopy.werewolfTeam.fill({
       'role': teamTag(TeamId.werewolf),
     }),
     _ => teamTag(team),

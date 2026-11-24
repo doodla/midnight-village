@@ -22,9 +22,9 @@ smaller "What happened" and "Edit deck" scraps, and more air between the scraps,
 
 | Today | File (under `frontend/lib/`) | Goes |
 |---|---|---|
-| 10 The count | `features/game/presentation/shell/count_screen.dart` (`CountScreen`, `CountView`; `EndWaiting` moves to the new screen) | deleted |
-| 11 Results | `features/game/presentation/shell/results_screen.dart` (`ResultsScreen`, `ResultsView`, `ResultsAct`) | deleted; its Play again / Edit deck / Leave logic (`Pending`, host or guest) moves to the new screen |
-| "See who won" | `features/game/presentation/table_screen.dart` (`StepRecord.wonPrefix`, `LocalStepsNotifier.seeWhoWon`), `features/game/domain/screen_table.dart` (`AppScreen.count`, `AppScreen.results`), `features/game/presentation/shell/table_shell.dart` (lines 274 to 279), `design_system/copy/copy.dart` (`CountCopy.seeWhoWon` and the rest of `CountCopy` and `ResultsCopy` that is no longer used) | removed; one `AppScreen.end` |
+| 10 The count | `features/game/presentation/shell/count_screen.dart` (`CountScreen`, `CountView`) | deleted (`EndWaiting` is in `shell/waits.dart`) |
+| 11 Results | `features/game/presentation/shell/results_screen.dart` (`ResultsScreen`, `ResultsView`, `ResultsAct`) | deleted; its Play again / Edit deck / Leave logic is the end board's |
+| "See who won" | the step, its device flag and `AppScreen.count` / `AppScreen.results` | removed; one `AppScreen.end` |
 
 The tests and harness words that go with them are in TICKETS.md, piece 5.
 

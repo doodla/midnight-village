@@ -50,10 +50,8 @@ enum PackScreen {
   votePicked,
   voteLocked,
 
-  /// 10 and 11 from the game's results; 11 scrolled to its end.
-  count,
-  results,
-  resultsEnd,
+  /// The end board, from the game's results.
+  end,
 }
 
 /// One screen of a journey: what it shows, the recorded payload it is drawn
@@ -151,9 +149,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.vote, 'http/game/me_voting_unpicked', 4),
       PackStep(PackScreen.votePicked, 'http/game/me_voting_picked', 20),
       PackStep(PackScreen.voteLocked, 'http/game/me_voting_locked', 24),
-      PackStep(PackScreen.count, _results),
-      PackStep(PackScreen.results, _results),
-      PackStep(PackScreen.resultsEnd, _results),
+      PackStep(PackScreen.end, _results),
     ],
   ),
   // Ben scans Ana's QR code; he is the Robber and takes Ana's card.
@@ -182,9 +178,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.vote, 'http/game/pack_vote_robber', 6),
       PackStep(PackScreen.votePicked, 'http/game/pack_vote_robber', 25),
       PackStep(PackScreen.voteLocked, 'http/game/pack_vote_robber', 28),
-      PackStep(PackScreen.count, _results),
-      PackStep(PackScreen.results, _results),
-      PackStep(PackScreen.resultsEnd, _results),
+      PackStep(PackScreen.end, _results),
     ],
   ),
   // Esme is a Villager: nothing to do at night.
@@ -208,9 +202,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.vote, 'http/game/pack_vote_villager', 5),
       PackStep(PackScreen.votePicked, 'http/game/pack_vote_villager', 30),
       PackStep(PackScreen.voteLocked, 'http/game/pack_vote_villager', 33),
-      PackStep(PackScreen.count, _results),
-      PackStep(PackScreen.results, _results),
-      PackStep(PackScreen.resultsEnd, _results),
+      PackStep(PackScreen.end, _results),
     ],
   ),
   // Ana's night, read closely: what "You" says, her pick, what she saw.
@@ -231,8 +223,7 @@ const packJourneys = <String, PackJourney>{
       PackStep(PackScreen.talkHeld, 'http/game/me_discussion_choose_seer', 9),
       PackStep(PackScreen.vote, 'http/game/me_voting_unpicked', 3),
       PackStep(PackScreen.votePicked, 'http/game/me_voting_picked', 22),
-      PackStep(PackScreen.count, _results),
-      PackStep(PackScreen.results, _results),
+      PackStep(PackScreen.end, _results),
     ],
   ),
   // Tia sets up a table for eight before anyone comes: the number, a deck

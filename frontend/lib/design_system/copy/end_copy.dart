@@ -1,7 +1,6 @@
 part of 'copy.dart';
 
-/// The end board (the end-of-game screen that replaces 10 The count and 11
-/// Results): the banner's two sentences, the foot's words, and the labels.
+/// The end board (the end-of-game screen): the banner's two sentences, the foot's words, and the labels.
 /// The names are the players', never cut.
 abstract final class EndCopy {
   /// Line 1: who was hanged.
@@ -47,10 +46,10 @@ abstract final class EndCopy {
   /// (two words; on two lines where one leaves no room).
   static const backToResult = 'The result';
   static const backToResultTwoLines = 'The\nresult';
-  static const editDeck = ResultsCopy.editDeck;
-  static const playAgain = ResultsCopy.playAgain;
+  static const editDeck = 'Edit deck';
+  static const playAgain = 'Play again';
   static const leave = CommonCopy.leave;
-  static const hostDealsNext = ResultsCopy.hostDealsNext;
+  static const hostDealsNext = Template('{host} deals next.');
 
   /// The slip the Hunter's pick hangs on.
   static const picked = Template("{hunter}'s pick");

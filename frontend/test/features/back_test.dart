@@ -60,8 +60,6 @@ const _owners = <AppScreen, BackRule>{
   AppScreen.nightBoard: BackRule.staysPut,
   AppScreen.talk: BackRule.staysPut,
   AppScreen.vote: BackRule.staysPut,
-  AppScreen.count: BackRule.staysPut,
-  AppScreen.results: BackRule.staysPut,
   AppScreen.end: BackRule.staysPut,
 };
 

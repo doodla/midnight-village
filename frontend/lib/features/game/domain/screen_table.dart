@@ -18,11 +18,9 @@ enum AppScreen {
   nightBoard('06', 'Night board'),
   talk('08', 'Talk'),
   vote('09', 'Vote'),
-  count('10', 'The count'),
-  results('11', 'Results'),
 
   /// The end board (`docs/specs/frontend/end-board.md`): the one screen of
-  /// the results phase, in place of 10 and 11 (which are no longer shown).
+  /// the results phase.
   end('10', 'End board');
 
   const AppScreen(this.number, this.briefName);
@@ -94,14 +92,11 @@ class TableView {
 
 /// What only this phone decides, inside one server state: the host opened
 /// the deck (03) from the table. The deck is lost on a restart (02).
-/// [countSeen] is the old step from the count (10) to who won (11); the
-/// results phase is the end board now, whatever it says.
 @immutable
 class LocalSteps {
-  const LocalSteps({this.editingDeck = false, this.countSeen = false});
+  const LocalSteps({this.editingDeck = false});
 
   final bool editingDeck;
-  final bool countSeen;
 }
 
 /// THE server state -> screen table: exactly one screen for what the server
@@ -177,7 +172,5 @@ BackRule backRuleFor(AppScreen screen) => switch (screen) {
   AppScreen.nightBoard ||
   AppScreen.talk ||
   AppScreen.vote ||
-  AppScreen.count ||
-  AppScreen.results ||
   AppScreen.end => BackRule.staysPut,
 };

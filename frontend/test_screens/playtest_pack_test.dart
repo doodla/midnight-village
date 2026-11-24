@@ -29,7 +29,7 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 
 import '../test/helpers/component_sheet.dart';
 import '../test/helpers/sheet/day_pages.dart';
-import '../test/helpers/sheet/end_pages.dart';
+import '../test/helpers/end_board_pump.dart';
 import '../test/helpers/sheet/night_pages.dart';
 import '../test/helpers/sheet/pack_journeys.dart';
 import '../test/helpers/sheet/sheet_data.dart';
@@ -181,33 +181,16 @@ Future<void> _pump(
           await tester.pump();
         }
       }
-    case PackScreen.count:
-      await _pumpView(
+    case PackScreen.end:
+      final seat = viewerIn(body!, journey.viewer);
+      await pumpEndBoardOn(
         tester,
-        CountPage(
-          game: EndGame.five,
-          viewerId: viewerIn(body!, journey.viewer),
+        body,
+        viewer: (body['players'] as List).cast<Map>().indexWhere(
+          (p) => p['player_id'] == seat,
         ),
-        learned,
+        host: journey.host,
       );
-    case PackScreen.results || PackScreen.resultsEnd:
-      await _pumpView(
-        tester,
-        ResultsPage(
-          viewer: viewer!,
-          game: EndGame.five,
-          guest: !journey.host,
-          viewerId: viewerIn(body!, journey.viewer),
-        ),
-        learned,
-      );
-      if (step.screen == PackScreen.resultsEnd) {
-        await tester.drag(
-          find.byType(Scrollable).first,
-          const Offset(0, -3000),
-        );
-        await tester.pumpAndSettle();
-      }
   }
   await tester.pump();
 }

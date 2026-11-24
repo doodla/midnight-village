@@ -7,7 +7,7 @@ import '../../../helpers/contract/contract_shape.dart';
 import '../../../helpers/contract/server_json.dart';
 
 /// The app's [GameResult] for the server's results body [resultsJson], read
-/// as 10 and 11 read it (`GET .../results/` through [GameOutcome]).
+/// as the end board reads it (`GET .../results/` through [GameOutcome]).
 Future<GameResult> _resultsFor(Map<String, dynamic> resultsJson) async {
   checkHttpBody('GET', '/onuw/games/g/results/', 200, resultsJson);
   return GameOutcome.fromJson(resultsJson).result;

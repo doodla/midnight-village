@@ -4,12 +4,10 @@ export 'story_copy.dart';
 part 'banner_copy.dart';
 part 'card_copy.dart';
 part 'common_copy.dart';
-part 'count_copy.dart';
 part 'deck_copy.dart';
 part 'end_copy.dart';
 part 'join_copy.dart';
 part 'night_copy.dart';
-part 'results_copy.dart';
 part 'role_copy.dart';
 part 'role_sheet_copy.dart';
 part 'saw_copy.dart';
@@ -17,7 +15,6 @@ part 'scan_copy.dart';
 part 'spoken_copy.dart';
 part 'table_copy.dart';
 part 'talk_copy.dart';
-part 'timeline_copy.dart';
 part 'vote_copy.dart';
 
 // Every word a player reads, keyed by screen and state: the final copy of

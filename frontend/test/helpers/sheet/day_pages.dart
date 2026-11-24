@@ -8,8 +8,7 @@ import 'package:midnight_village/features/game/presentation/shell/vote_screen.da
 import '../painted_text.dart' show BehindScrim;
 import 'sheet_data.dart';
 
-// 08 Talk and 09 Vote, to the first-time play spec (10 and 11:
-// end_pages.dart).
+// 08 Talk and 09 Vote, to the first-time play spec.
 
 /// 08: the talk, as the app draws it ([TalkView]) on the viewer's phone of
 /// game 7 or 8, its `/me/` in the talk. The sun is loudest, then My night; "Ready to vote" is outlined and

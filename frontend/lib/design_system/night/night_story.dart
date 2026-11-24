@@ -357,7 +357,7 @@ class _Piece {
       ),
       NewCardResult(:final role) => _Piece(
         [
-          [StoryCard._(StoryWho.now, CountCopy.now, role)],
+          [StoryCard._(StoryWho.now, NightStoryCopy.nowCard, role)],
         ],
         each(StoryLinkKind.look, 1),
         StoryLine._(role == dealt ? NightStoryCopy.still : NightStoryCopy.now, {

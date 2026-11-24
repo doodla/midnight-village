@@ -29,8 +29,6 @@ final _counted = [
   for (final screen in screens.values)
     for (final lines in screen.states.values)
       for (final line in lines) line.text,
-  for (final row in timelineRows) '$row',
-  for (final prefix in timelinePrefixes) '$prefix',
   for (final (banner, button) in banners) ...[banner, ?button],
   for (final label in spoken) '$label',
 ];
@@ -151,15 +149,6 @@ void main() {
         ], isEmpty);
       });
     }
-
-    test('11: each timeline row is 3 words at most; prefixes are names', () {
-      expect([
-        for (final row in timelineRows)
-          if (wordCount('$row') > timelineRowMax) '$row',
-        for (final prefix in timelinePrefixes)
-          if (wordCount('$prefix') > 0) '$prefix',
-      ], isEmpty);
-    });
   });
 
   test('banners: 6 words with their button', () {

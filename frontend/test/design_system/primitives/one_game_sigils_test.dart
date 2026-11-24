@@ -11,7 +11,6 @@ import '../../../test_screens/shell_fixtures.dart';
 import '../../helpers/component_sheet.dart';
 import '../../helpers/pump_skinned.dart';
 import '../../helpers/sheet/day_pages.dart';
-import '../../helpers/sheet/end_pages.dart';
 import '../../helpers/sheet/night_pages.dart';
 import '../../helpers/sheet/sheet_data.dart';
 import '../../helpers/sheet/table_pages.dart';
@@ -93,8 +92,6 @@ void main() {
         const TablePage(guest: true, lobby: gameSevenLobby),
     'the night board': () => const BoardPage(viewer: Viewer.seer),
     'the vote': () => const VotePage(),
-    'the count': () => CountPage(game: EndGame.five),
-    'the results': () => ResultsPage(viewer: Viewer.seer, game: EndGame.five),
   };
 
   for (final entry in screens.entries) {

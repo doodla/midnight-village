@@ -21,12 +21,7 @@ TableView tableDuring(GameMe me) => TableView.fromMyTable(
   ),
 );
 
-const _allLocal = [
-  LocalSteps(),
-  LocalSteps(editingDeck: true),
-  LocalSteps(countSeen: true),
-  LocalSteps(editingDeck: true, countSeen: true),
-];
+const _allLocal = [LocalSteps(), LocalSteps(editingDeck: true)];
 
 void main() {
   final reached = <AppScreen>{};
@@ -55,16 +50,8 @@ void main() {
         );
       }
     }
-    // At the results, the end board, whatever the old step to 11 says.
     final results = FromSample.gameMe(recordedMe('me_results'));
-    expect(
-      screen(
-        tableDuring(results),
-        me: results,
-        local: const LocalSteps(countSeen: true),
-      ),
-      AppScreen.end,
-    );
+    expect(screen(tableDuring(results), me: results), AppScreen.end);
   }
 
   void everyWhereAmIMapsToItsScreen() {
@@ -88,10 +75,6 @@ void main() {
     expect(of('discussion'), AppScreen.talk);
     expect(of('voting'), AppScreen.vote);
     expect(of('results'), AppScreen.end);
-    expect(
-      of('results', local: const LocalSteps(countSeen: true)),
-      AppScreen.end,
-    );
   }
 
   void everyLobbyBodyMapsToItsScreen() {
@@ -135,10 +118,7 @@ void main() {
     everyMeMapsToItsScreen();
     everyWhereAmIMapsToItsScreen();
     everyLobbyBodyMapsToItsScreen();
-    // 10 and 11 are no longer shown (the end board is); piece 5b deletes
-    // them.
-    final shown = AppScreen.values.toSet()
-      ..removeAll({AppScreen.count, AppScreen.results});
+    final shown = AppScreen.values.toSet();
     expect(
       reached,
       shown,

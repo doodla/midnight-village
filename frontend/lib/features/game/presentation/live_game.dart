@@ -71,7 +71,7 @@ class LiveGame {
   final bool fetchFailing;
 
   /// The last results fetch failed (it is being made again, with backoff):
-  /// 10 and 11 say "One moment" until [outcome] arrives.
+  /// The end board says "One moment" until [outcome] arrives.
   final bool outcomeFailing;
 
   /// What the screens show: `/me/` with this phone's taps on it. Everything
