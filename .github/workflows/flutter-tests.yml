@@ -225,6 +225,21 @@ jobs:
       - name: Screens, strict
         run: just screens ${{ matrix.width }} strict
 
+      # Every word a player reads, on one page made from the code (it is not
+      # committed): attached to the run so it can be read without running anything.
+      - name: The copy page
+        if: ${{ always() && matrix.width == 390 }}
+        working-directory: .
+        run: python3 tool/copy_page.py --out copy.md
+
+      - name: Upload the copy page
+        if: ${{ always() && matrix.width == 390 }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: copy-page
+          path: copy.md
+          retention-days: 30
+
       - name: Upload the screens
         if: failure()
         uses: actions/upload-artifact@v4

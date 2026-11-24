@@ -70,6 +70,11 @@ guard-edits *args:
 tidy *args:
     @tool/tidy.py --worktrees {{args}}
 
+# Every word a player reads on one page, made from the code: frontend/build/copy.md
+# (not committed; the code is the one home of the words). GitHub attaches it to each run.
+copy-page *args:
+    @tool/copy_page.py {{args}}
+
 # While building: the fast checks and only the tests this change can reach
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
 piece-check *args:
@@ -133,6 +138,7 @@ typecheck:
 check:
     {{backend_just}} check
     {{backend_just}} lint-tools
+    tool/copy_page.py --check-spec
     tool/check_instruction_links.sh
     tool/check_file_sizes.py
 
