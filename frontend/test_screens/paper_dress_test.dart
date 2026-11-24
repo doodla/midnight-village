@@ -36,6 +36,7 @@ import '../test/helpers/shell_setup.dart';
 import '../test/helpers/sheet/night_pages.dart';
 import '../test/helpers/sheet/sheet_data.dart';
 import '../test/helpers/sheet/table_pages.dart';
+import '../test/helpers/real_wait.dart';
 import 'shell_fixtures.dart';
 
 /// Where the pictures go: `--dart-define=PAPER_DRESS_DIR=/some/folder`.
@@ -61,9 +62,8 @@ Future<void> _save(WidgetTester tester, String name) async {
 }
 
 Future<void> _settle(WidgetTester tester) async {
-  await tester.runAsync(
-    () => Future<void>.delayed(const Duration(milliseconds: 900)),
-  );
+  // The mood's layers decode on real I/O: wait for the picture, not a time.
+  await untilMoodsArePainted(tester);
   await tester.runAsync(
     () => Future.wait([
       for (final e in find.byType(Image).evaluate())

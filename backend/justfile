@@ -39,6 +39,13 @@ harness-serve:
       port=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
     fi
     echo "[harness-serve] 127.0.0.1:$port"
+    # A fresh checkout (a new worktree) has no .env, and nothing in the environment
+    # says how to reach Postgres: write the local one (as `just test` does) and
+    # read it here, since just read .env before this recipe could write it.
+    if [ ! -f .env ] && [ -z "${DB_USER:-}" ]; then
+      ../tool/ensure_env.sh
+      set -a; . ./.env; set +a
+    fi
     # Runs on other ports share the throwaway database: one migrates at a time.
     if command -v flock >/dev/null; then exec 9>"${TMPDIR:-/tmp}/midnight_village_harness.lock"; flock 9; fi
     PGPASSWORD="${DB_PASSWORD:-}" createdb -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" ${DB_USER:+-U "$DB_USER"} midnight_village_harness 2>&1 | grep -v "already exists" || true

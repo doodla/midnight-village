@@ -9,6 +9,7 @@ import 'debug_oracle_diff.dart';
 import 'failure_report.dart';
 import 'live_table.dart';
 import 'scenario_dsl.dart';
+import 'time_budget.dart';
 
 /// Game timers for the harness: every night window closes as soon as every
 /// phone has chosen (`night_min_window_seconds` and
@@ -241,7 +242,7 @@ class ReferenceGameRunner {
   /// Polls the oracle until [phase] is reached (bounded; throws on expiry).
   Future<void> _waitForPhase(
     String phase, {
-    Duration timeout = const Duration(seconds: 10),
+    Duration timeout = eventTimeout,
   }) async {
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
