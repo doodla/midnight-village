@@ -104,7 +104,7 @@ void main() {
         'poll of /me/table/ reaches 02', () async {
       final me = recordedMe('me_results');
       final setup = await phone(me);
-      expect(setup.screen!.screen, AppScreen.count);
+      expect(setup.screen!.screen, AppScreen.end);
       // The host plays again: the table waits. The event never arrives.
       setup.answerTable(
         serverMyTable(

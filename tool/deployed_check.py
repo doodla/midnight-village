@@ -110,19 +110,23 @@ def live_commits(api, app):
     return server, page
 
 
-def no_deploy_message(commit, seconds, server, page, has_app):
-    """What to say when the merged commit never went live: each side on its own
-    line (Vercel builds, and skips, the server and the app separately)."""
+def no_deploy_message(commit, seconds, server, page, has_app, app_commit=None):
+    """What to say when a wanted build never went live: each side on its own line
+    (Vercel builds, and skips, the server and the app separately, and each is
+    deployed from its own branch, so each may be waiting for its own commit)."""
 
-    def side(name, serving):
-        if serving == commit:
-            return f"  {name}: deployed."
-        return f"  {name}: NO deploy arrived; still serving {serving[:10] or 'an unnamed build'}."
+    def side(name, serving, wanted):
+        if serving == wanted:
+            return f"  {name}: deployed ({wanted[:10]})."
+        return (
+            f"  {name}: NO deploy of {wanted[:10]} arrived;"
+            f" still serving {serving[:10] or 'an unnamed build'}."
+        )
 
-    lines = [f"no deployment of the merged commit {commit[:10]} after {seconds} s:"]
-    lines.append(side("server", server))
+    lines = [f"a build is not live after {seconds} s:"]
+    lines.append(side("server", server, commit))
     if has_app:
-        lines.append(side("app", page))
+        lines.append(side("app", page, app_commit or commit))
     lines.append(
         "  If nothing failed in Vercel's deployments list, this is its daily cap"
         " (100 deployments in 24 hours, two per merge): the next merge that gets"
@@ -131,15 +135,21 @@ def no_deploy_message(commit, seconds, server, page, has_app):
     return "\n".join(lines)
 
 
-def wait_for_commit(api, app, commit, seconds, sleep=time.sleep, clock=time.monotonic):
-    """Blocks until both addresses serve `commit`; Failed when they do not within `seconds`."""
+def wait_for_commit(
+    api, app, commit, seconds, sleep=time.sleep, clock=time.monotonic, app_commit=None
+):
+    """Blocks until the server serves `commit` and the app `app_commit` (the same
+    commit when not given); Failed when they do not within `seconds`."""
+    app_commit = app_commit or commit
     deadline = clock() + seconds
     while True:
         server, page = live_commits(api, app)
-        if server == commit and (not app or page == commit):
+        if server == commit and (not app or page == app_commit):
             return
         if clock() >= deadline:
-            raise Failed(no_deploy_message(commit, seconds, server, page, bool(app)))
+            raise Failed(
+                no_deploy_message(commit, seconds, server, page, bool(app), app_commit)
+            )
         sleep(10)
 
 
@@ -301,7 +311,7 @@ def start_and_join(api, origin=None, on_table=None):
             raise Failed("; ".join(problems))
 
 
-def run(api, app=None, commit=None, wait=900):
+def run(api, app=None, commit=None, wait=900, app_commit=None):
     """Every step in order; returns the list of failures (empty when all hold)."""
     api, app = api.rstrip("/"), (app or "").rstrip("/") or None
     steps = []
@@ -309,11 +319,11 @@ def run(api, app=None, commit=None, wait=900):
         steps.append(
             (
                 "the merged commit is live",
-                lambda: wait_for_commit(api, app, commit, wait),
+                lambda: wait_for_commit(api, app, commit, wait, app_commit=app_commit),
             )
         )
     steps.append(("the server's health", lambda: check_health(api)))
-    arrived = {"commit": commit}  # None once the wait has failed
+    arrived = {"commit": app_commit or commit}  # None once the wait has failed
     if app:
         steps.append(
             (
@@ -358,12 +368,16 @@ def main(argv=None):
     p.add_argument(
         "--app", help="the web app's origin; without it the app steps are skipped"
     )
-    p.add_argument("--commit", help="wait until both addresses serve this commit")
+    p.add_argument("--commit", help="wait until the server serves this commit")
+    p.add_argument(
+        "--app-commit",
+        help="wait until the app serves this one (default: the same as --commit)",
+    )
     p.add_argument(
         "--wait", type=int, default=900, help="how long to wait for it, in seconds"
     )
     args = p.parse_args(argv)
-    failures = run(args.api, args.app, args.commit, args.wait)
+    failures = run(args.api, args.app, args.commit, args.wait, args.app_commit)
     if failures:
         print(f"\nThe live game is NOT proven working: {len(failures)} step(s) failed.")
         return 1

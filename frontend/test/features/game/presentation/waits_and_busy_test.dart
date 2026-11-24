@@ -9,7 +9,10 @@ import 'package:midnight_village/design_system/primitives/secondary_button.dart'
 import 'package:midnight_village/design_system/primitives/waiting_sign.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
+import 'package:midnight_village/design_system/primitives/paper_scrap.dart';
+import 'package:midnight_village/features/game/presentation/end/end_board_view.dart';
+import 'package:midnight_village/features/game/presentation/shell/count_screen.dart'
+    show EndWaiting;
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/waits.dart';
 import 'package:midnight_village/features/lobby/presentation/at_table_screen.dart';
@@ -71,11 +74,6 @@ Future<ShellSetup> _end(
     },
   );
   await s.settle(tester);
-  for (var i = 0; i < 40; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-  await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
-  await s.settle(tester);
   return s;
 }
 
@@ -88,8 +86,8 @@ int _posts(ShellSetup s, String endpoint) => s.http.requests
     .length;
 
 void main() {
-  group('11: a tapped button is busy in its own frame, and not live again '
-      'until 02 is up', () {
+  group('the end board: a tapped control is busy in its own frame, and not '
+      'live again until 02 is up', () {
     testWidgets('Play again: its own button busy, the others dead, one '
         'request, busy until its answer puts the phone at 02', (tester) async {
       final s = await _end(tester);
@@ -108,7 +106,7 @@ void main() {
       final reads = s.http.hold(method: 'GET', path: '/me/table/');
       final answers = s.http.hold(method: 'POST', path: path);
 
-      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
       await tester.pump();
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).busy,
@@ -119,15 +117,15 @@ void main() {
       expect(_posts(s, 'play-again'), 1);
 
       // Sent, not answered: nothing is live.
-      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
-      await pressLikeAFinger(tester, find.text(ResultsCopy.editDeck));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.editDeck));
       await s.settle(tester);
       expect(_posts(s, 'play-again'), 1, reason: 'never sent twice');
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).busy,
         isTrue,
       );
-      expect(s.screenOn(tester), AppScreen.results);
+      expect(s.screenOn(tester), AppScreen.end);
 
       // The answer is the table and where this phone sits: 02 follows it,
       // waiting on no table read, and none is sent after it.
@@ -162,14 +160,19 @@ void main() {
         ContractSamples.load('http/lobby/play_again'),
       );
       s.http.hold(method: 'POST', path: path);
-      await pressLikeAFinger(tester, find.text(ResultsCopy.editDeck));
+      await pressLikeAFinger(tester, find.text(EndCopy.editDeck));
       await s.settle(tester);
       expect(
         find.descendant(
-          of: find.byType(SecondaryButton),
+          of: find.byType(PaperScrap),
           matching: find.byType(BusyMark),
         ),
         findsOneWidget,
+      );
+      // Play again is not silently dead: it says what it waits for.
+      expect(
+        tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).phase,
+        ButtonPhase.waiting,
       );
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).busy,
@@ -190,21 +193,21 @@ void main() {
         ContractSamples.load('http/lobby/play_again_not_finished'),
         status: 409,
       );
-      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.cannotDeal), findsOneWidget);
       expect(find.text(BannerCopy.tryAgain), findsNothing);
       expect(find.text(BannerCopy.notSent), findsNothing);
 
       s.http.answer('POST', path, 'Server Error', status: 503);
-      await pressLikeAFinger(tester, find.text(ResultsCopy.playAgain));
+      await pressLikeAFinger(tester, find.text(EndCopy.playAgain));
       await s.settle(tester);
       expect(find.text(BannerCopy.notSent), findsOneWidget);
       expect(find.text(BannerCopy.tryAgain), findsOneWidget);
       expect(_posts(s, 'play-again'), 2);
 
       // The table moves on by itself (someone else dealt): the phone is at
-      // 02, and what failed on 11 is not carried there.
+      // 02, and what failed on the end board is not carried there.
       s.answerLobby(_code(s));
       s.answerTable(
         serverMyTable(
@@ -242,7 +245,21 @@ void main() {
         ContractSamples.map('http/lobby/my_table_none'),
       );
       s.answerHome();
-      await pressLikeAFinger(tester, find.text(CommonCopy.leave));
+      final leave = find.text(EndCopy.leave);
+      await plainTap(
+        tester,
+        leave,
+        why: 'the busy mark is read in the frame of the tap',
+      );
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: find.byType(PaperScrap),
+          matching: find.byType(BusyMark),
+        ),
+        findsOneWidget,
+        reason: 'busy on the scrap itself, in the frame of the tap',
+      );
       await s.settle(tester);
       expect(find.byType(JoinScreen), findsOneWidget);
       expect(find.text(BannerCopy.notSent), findsNothing);
@@ -332,8 +349,8 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('10 and 11: the results being read is the screen\'s ground '
-        'and the waiting body', (tester) async {
+    testWidgets('the end board: the results being read is the screen\'s '
+        'ground and the waiting body', (tester) async {
       final results = recordedResults('results');
       late HeldReplies held;
       final s = await ShellSetup.pump(
@@ -352,7 +369,7 @@ void main() {
       expect(find.byType(Waiting), findsOneWidget);
       held.releaseAll();
       await s.settle(tester);
-      expect(find.byType(CountView), findsOneWidget);
+      expect(find.byType(EndBoardView), findsOneWidget);
       await s.close(tester);
     });
   });

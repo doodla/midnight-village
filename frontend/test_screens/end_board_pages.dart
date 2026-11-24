@@ -13,6 +13,7 @@ import 'package:midnight_village/features/game/presentation/end/end_board_view.d
 import 'package:midnight_village/features/game/presentation/end/end_foot.dart';
 
 import '../test/helpers/end_board_pump.dart';
+import '../test/helpers/end_board_rules.dart';
 import '../test/helpers/outcome_samples.dart';
 import '../test/helpers/screen_sweep.dart';
 import 'screen_catalogue.dart';
@@ -36,6 +37,7 @@ Future<void> pumpEndBoard(
   Size? screen,
   bool scrolled = false,
   bool top = false,
+  EndAct? busy,
 }) async {
   if (screen != null) {
     tester.view.physicalSize = screen * tester.view.devicePixelRatio;
@@ -49,6 +51,7 @@ Future<void> pumpEndBoard(
     host: host,
     scale: textScale,
     controller: controller,
+    busy: busy,
   );
   if (controller.hasClients && (scrolled || top)) {
     controller.jumpTo(scrolled ? controller.position.maxScrollExtent : 0);
@@ -107,6 +110,21 @@ final endBoardEntries = <ScreenEntry>[
         host: false,
       ),
     ),
+    // Edit deck on its way: busy on its scrap, Play again waiting (the shell's
+    // own pages show Play again, Leave, "Not sent." and a refusal).
+    (
+      '12-end-edit-deck-busy',
+      (t) => pumpEndBoard(
+        t,
+        recordedResults('results_five'),
+        busy: EndAct.editDeck,
+      ),
+    ),
+    // The six-player Hunter game seen by the Hunter (his seal beside the slip).
+    (
+      '12-end-hunter-phone',
+      (t) => pumpEndBoard(t, recordedResults('results'), viewer: 5),
+    ),
     (
       '12-end-werewolves-win',
       (t) => pumpEndBoard(t, recordedResults('results_werewolves_win')),
@@ -131,6 +149,15 @@ final endBoardEntries = <ScreenEntry>[
       playerScreen: true,
       sweep: switch (id) {
         '12-end-guest' => endBoardGuestSweep,
+        '12-end-edit-deck-busy' => SweepPlan(
+          main: const MainAction.none(
+            'Edit deck is on its way: Play again waits for it',
+          ),
+          mustSee: endBoardSweep.mustSee,
+          apart: endBoardSweep.apart,
+          rules: endBoardSweep.rules,
+          whenOpened: endBoardSweep.whenOpened,
+        ),
         // Scrolled after it opens: the hanged need not be in view.
         '12-end-ten-end' || '12-end-ten-top' => endBoardScrolledSweep,
         _ => endBoardSweep,
@@ -179,8 +206,13 @@ final endBoardSweep = SweepPlan(
     ),
     Apart.each('the foot', _footPieces),
   ],
-  rules: [_boardOnScreen, _footToTouch, _bannerHoldsItsWords],
-  whenOpened: [_hangedInView],
+  rules: [
+    _boardOnScreen,
+    _footToTouch,
+    _bannerHoldsItsWords,
+    _planKeepsTheRules,
+  ],
+  whenOpened: [_hangedInView, _planOpensByTheRule],
 );
 
 /// The board scrolled after it opens: every rule but the hanged in view.
@@ -188,7 +220,12 @@ final endBoardScrolledSweep = SweepPlan(
   main: endBoardSweep.main,
   mustSee: endBoardSweep.mustSee,
   apart: endBoardSweep.apart,
-  rules: [_boardOnScreen, _footToTouch, _bannerHoldsItsWords],
+  rules: [
+    _boardOnScreen,
+    _footToTouch,
+    _bannerHoldsItsWords,
+    _planKeepsTheRules,
+  ],
 );
 
 /// A guest's end board: the host deals next, no Play again.
@@ -271,4 +308,28 @@ List<String> _hangedInView(WidgetTester tester, Size screen) {
             when !seen.contains(r.topLeft) || !seen.contains(r.bottomRight))
           '${(e.widget as BoardCard).name} (hanged) is not in view: $r',
   ];
+}
+
+/// The plan the board drew, on the real fonts, keeps the same rules as the
+/// domain tests' stand-in measure (`end_board_rules.dart`): what hangs covers
+/// nothing, and six or fewer gave up nothing they could give.
+List<String> _planKeepsTheRules(WidgetTester tester, Size screen) {
+  final plan = tester.widget<EndBoardWindow>(find.byType(EndBoardWindow)).plan;
+  return [...coverFaults(plan), ..._failures(() => expectGaveUpNothing(plan))];
+}
+
+/// The board opens by the rule (`end_board_rules.dart`).
+List<String> _planOpensByTheRule(WidgetTester tester, Size screen) {
+  final plan = tester.widget<EndBoardWindow>(find.byType(EndBoardWindow)).plan;
+  return _failures(() => expectOpensByTheRule(plan));
+}
+
+/// What a rule written as an `expect` says when it fails; empty when it holds.
+List<String> _failures(void Function() rule) {
+  try {
+    rule();
+    return const [];
+  } on TestFailure catch (f) {
+    return [(f.message ?? 'failed').replaceAll('\n', ' ')];
+  }
 }

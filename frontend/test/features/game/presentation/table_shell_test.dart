@@ -12,9 +12,8 @@ import 'package:midnight_village/design_system/primitives/world_timer.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/end_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/night_screen.dart';
-import 'package:midnight_village/features/game/presentation/shell/results_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
@@ -53,7 +52,7 @@ void main() {
       'me_talk_ready': TalkScreen,
       'me_voting_unpicked': VoteScreen,
       'me_voting_locked': VoteScreen,
-      'me_results': CountScreen,
+      'me_results': EndScreen,
     };
     for (final MapEntry(key: sample, value: type) in cases.entries) {
       testWidgets('$sample: ${meScreens[sample]!.number}', (tester) async {
@@ -75,8 +74,7 @@ void main() {
       AppScreen.nightBoard: NightScreen,
       AppScreen.talk: TalkScreen,
       AppScreen.vote: VoteScreen,
-      AppScreen.count: CountScreen,
-      AppScreen.results: ResultsScreen,
+      AppScreen.end: EndScreen,
     };
     for (final MapEntry(key: sample, value: screen) in meScreens.entries) {
       testWidgets('$sample: the real ${screen.number}', (tester) async {

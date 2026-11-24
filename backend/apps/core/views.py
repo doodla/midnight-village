@@ -47,7 +47,8 @@ def health_check(request: Request) -> Response:
         Response: JSON response with status "ok" and the commit this build was made
         from (Vercel's ``VERCEL_GIT_COMMIT_SHA``; "" anywhere else). The commit is public
         (the repository is) and lets the check after each merge wait for the new build
-        (``tool/deployed_check.py``).
+        (``tool/deployed_check.py``). The server is built from the ``live-server``
+        branch, which moves only when what the server ships changed.
     """
     return Response(
         {"status": "ok", "commit": os.environ.get("VERCEL_GIT_COMMIT_SHA", "")},

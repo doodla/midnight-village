@@ -11,7 +11,7 @@ import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
-import 'package:midnight_village/features/game/presentation/shell/count_screen.dart';
+import 'package:midnight_village/features/game/presentation/shell/end_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
 import 'package:midnight_village/features/game/presentation/shell/your_card_screen.dart';
@@ -539,7 +539,7 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('vote to the count (no wipe, decided 22 Nov 2026)', (
+    testWidgets('vote to the end board (no wipe, decided 22 Nov 2026)', (
       tester,
     ) async {
       final results = recordedResults('results_doppelganger');
@@ -553,7 +553,7 @@ void main() {
       expect(find.byType(VoteScreen), findsOneWidget);
       s.answerMe(resultsMeFor(results, viewer: 'Ben', host: 'Ana'));
       s.resume();
-      await _begun(tester, find.byType(CountScreen));
+      await _begun(tester, find.byType(EndScreen));
       expect(find.byType(VoteScreen), findsOneWidget, reason: 'leaving');
       expect(_sceneArt, findsNothing);
       await tester.pump(Motion.settle + _ms * 3);

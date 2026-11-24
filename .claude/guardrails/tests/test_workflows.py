@@ -280,10 +280,25 @@ class WorkflowAfterMerge(unittest.TestCase):
         for name in names:
             self.assertNotIn(name, required)
 
-    def test_writes_nothing_and_holds_no_secret(self):
+    def test_its_one_write_is_moving_the_live_branches_and_it_holds_no_secret(self):
         self.assertRegex(self.code, r"(?m)^permissions:\s*\n  contents: read\s*$")
-        self.assertNotIn("write", self.code)
+        # the job may push (the two live branches); nothing else is granted
+        self.assertEqual(re.findall(r"(?m)^\s+(\S+): write\b", self.code), ["contents"])
         self.assertNotIn("secrets.", self.code)
+        self.assertNotRegex(self.code, r"\bgit push\b")  # only the script pushes
+        script = (ROOT / "tool" / "promote_live.py").read_text()
+        pushes = re.findall(r'"push",\s*"origin",\s*f?"([^"]+)"', script)
+        self.assertEqual(pushes, ["{head}:refs/heads/{branch}"])
+        self.assertEqual(
+            sorted(re.findall(r'"(live-[a-z]+)"', script)), ["live-app", "live-server"]
+        )
+
+    def test_vercel_deploys_each_project_from_its_live_branch_only(self):
+        for folder, branch in (("backend", "live-server"), ("frontend", "live-app")):
+            config = json.loads((ROOT / folder / "vercel.json").read_text())
+            self.assertEqual(
+                config["git"]["deploymentEnabled"], {branch: True, "**": False}, folder
+            )
 
     def test_its_one_job_has_a_name_a_time_limit_and_runs_only_on_main(self):
         jobs = jobs_of(self.text)
@@ -293,10 +308,13 @@ class WorkflowAfterMerge(unittest.TestCase):
         self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
         self.assertRegex(job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$")
 
-    def test_runs_the_script_for_the_merged_commit_against_the_live_addresses(self):
+    def test_moves_the_branches_then_checks_each_side_against_its_own_commit(self):
         self.assertTrue((ROOT / "tool" / "deployed_check.py").is_file())
-        self.assertIn("tool/deployed_check.py", self.code)
-        self.assertIn('--commit "$GITHUB_SHA"', self.code)
+        moved = self.code.index("tool/promote_live.py")
+        checked = self.code.index("tool/deployed_check.py")
+        self.assertLess(moved, checked)
+        self.assertIn("steps.live.outputs.server", self.code)
+        self.assertIn("steps.live.outputs.app", self.code)
         android = (ROOT / ".github" / "workflows" / PUBLISHING[0]).read_text()
         for name in ("API_ORIGIN", "PUBLIC_ORIGIN"):
             (line,) = re.findall(rf"(?m)^  {name}: \S+$", self.code)

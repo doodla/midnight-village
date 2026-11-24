@@ -187,8 +187,8 @@ void main() {
     await setup.close(tester);
   });
 
-  testWidgets('Play again at 11: the answer is the table and where the host '
-      'sits: 02 at once, nothing read after it (a failing /me/table/ is never '
+  testWidgets('Play again on the end board: the answer is the table and '
+      'where the host sits: 02 at once, nothing read after it (a failing /me/table/ is never '
       'asked), and the request is sent once', (tester) async {
     final results = recordedResults('results');
     final s = await ShellSetup.pump(
@@ -197,18 +197,13 @@ void main() {
       before: (s) => s.answerResults(results),
     );
     await s.settle(tester);
-    for (var i = 0; i < 40; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    await pressLikeAFinger(tester, find.text(CountCopy.seeWhoWon));
-    await s.settle(tester);
     final code = s.me['lobby_code'] as String;
     final path = '/lobbies/$code/play-again/';
     s.http.answer('POST', path, s.playedAgain());
     // `/me/table/` fails from the moment the play-again reaches the server:
     // before it, the table's slow poll (50 ms here, 15 s on a phone) would
-    // fail under the finger and show "One moment" on 11, which is another
-    // test's (read_failing on 11).
+    // fail under the finger and show "One moment" on the end board, which is
+    // another test's (read_failing on the end board).
     s.http.answerEach(
       method: 'POST',
       path: path,
@@ -220,7 +215,7 @@ void main() {
     var reads = 0;
     await pressLikeAFinger(
       tester,
-      find.text(ResultsCopy.playAgain),
+      find.text(EndCopy.playAgain),
       beforeLift: () =>
           reads = s.http.requests.where((r) => r.path == '/me/table/').length,
     );

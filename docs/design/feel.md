@@ -164,11 +164,11 @@ Decided 22 Nov 2026: everything is light except the dead card's flip, the one me
 | Name | Is | Fires |
 |---|---|---|
 | `tick` | `selectionClick`, light | A vote pick on 09, each time the pick moves. Taking back "Ready to vote" on 08 |
-| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer. 11 Results: once, when the result lands (every phone, the same instant). 10 when nobody dies: once, as the last mark is struck |
-| `thud` | `mediumImpact`, the one medium | The dead card landing face up (10): once per count, with several dead too, on every phone at the same moment. A tap that finishes the flip fires it once, as it lands. Wired in pass 4b (`light` too, once, when nobody dies) |
+| `light` | `lightImpact` | "Ready to vote" tapped (08). "Lock in {name}" tapped (09), on the tap, not on the answer. The end board when nobody is hanged: once, as the banner unrolls in the reveal |
+| `thud` | `mediumImpact`, the one medium | The end board's reveal: as each HANGED stamp lands (two deaths, two knocks), on every phone in the game. A touch that settles the reveal fires one if none had come; a phone that opens at the results feels nothing (`docs/specs/frontend/end-board.md`, section 9) |
 
-Decided 22 Nov 2026. Where: 08, 09, 10 and 11, the day. "Ready" means only 08's "Ready to vote"; 04's "Ready" is in the
-night and has none. 11 counts as a day screen although its ground is the night's.
+Decided 22 Nov 2026. Where: 08, 09 and the end board, the day. "Ready" means only 08's "Ready to vote"; 04's "Ready" is in the
+night and has none. The end board counts as a day screen although its ground is the night's.
 
 No exception at night. Decided 22 Nov 2026 and withdrawn 23 Nov 2026: `light` when your own
 card's face lands on 04 was built (`PaperFlip.onLanded` wired to `Haptics.light`), and the owner,

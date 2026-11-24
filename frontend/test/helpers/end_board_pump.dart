@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/pending.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 import 'package:midnight_village/features/game/domain/game_outcome.dart';
@@ -23,6 +24,8 @@ Future<void> pumpEndBoardOn(
   VoidCallback? onEditDeck,
   bool stepTaught = false,
   VoidCallback? onStepTaught,
+  EndAct? busy,
+  RequestFailure? failure,
 }) async {
   final outcome = GameOutcome.fromJson(results);
   await tester.pumpWidget(
@@ -41,7 +44,6 @@ Future<void> pumpEndBoardOn(
         viewerId: outcome.seats[viewer].id,
         isHost: host,
         hostName: host ? null : outcome.seats.first.name,
-        onWhatHappened: () {},
         onEditDeck: onEditDeck ?? () {},
         onPlayAgain: onPlayAgain ?? () {},
         onLeave: () {},
@@ -49,6 +51,9 @@ Future<void> pumpEndBoardOn(
         reveal: reveal,
         stepTaught: stepTaught,
         onStepTaught: onStepTaught,
+        busy: busy,
+        failure: failure,
+        onTryAgain: () {},
       ),
     ),
   );

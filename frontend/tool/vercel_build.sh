@@ -2,7 +2,8 @@
 # Builds the web app on Vercel (its build machines have no Flutter): fetches the pinned
 # Flutter, then builds for production against the server named by API_ORIGIN.
 # Vercel settings: root directory `frontend`, build command `bash tool/vercel_build.sh`,
-# output directory `build/web`, environment variable API_ORIGIN (https://<server host>).
+# output directory `build/web`, environment variable API_ORIGIN (https://<server host>),
+# production branch `live-app` (it moves only when what the app ships changed).
 set -euo pipefail
 FLUTTER_VERSION="3.38.10"
 : "${API_ORIGIN:?set API_ORIGIN to the server origin, e.g. https://midnight-village-anthelion.vercel.app}"

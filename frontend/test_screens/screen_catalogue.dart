@@ -213,7 +213,8 @@ final screenCatalogue = <ScreenEntry>[
         () => pumpNightAs(tester, 'me_choose_prompt_werewolf_lone'),
       ),
     }),
-  // 04 to 11, through the real shell (shell_fixtures.dart, end_fixtures.dart).
+  // 04 to the end board, through the real shell (shell_fixtures.dart,
+  // end_fixtures.dart).
   ..._rebuilt('04-your-card', '04-your-card.png', {
     '': pumpYourCard,
     '-held': pumpYourCardHeld,
@@ -240,10 +241,8 @@ final screenCatalogue = <ScreenEntry>[
     '-not-sent': pumpVoteNotSent,
     '-offline': const _NoMain(_waits, pumpVoteOffline),
   }),
-  ..._rebuilt('10-count', null, {
-    '-loading': const _NoMain(_waits, pumpCountLoading),
-  }),
-  ..._rebuilt('11-results', null, {
+  // The end board's live states, through the shell (end_fixtures.dart).
+  ..._rebuilt('12-end-shell', null, {
     '-loading': const _NoMain(_waits, pumpResultsLoading),
     '-playing-again': const _NoMain(_onItsWay, pumpResultsPlayingAgain),
     '-leaving': const _NoMain(_onItsWay, pumpResultsLeaving),
@@ -308,29 +307,6 @@ final screenCatalogue = <ScreenEntry>[
     '-practice': const _NoMain(_pickAName, pumpVotePractice),
     '-x1.3': const _AtText(1.3, pumpVoteOpen),
   }),
-  ..._rebuilt('10-count', '10-the-count.png', {
-    '-one': pumpCountOne,
-    '-opening': pumpCountOpening,
-    '-hunter': pumpCountHunter,
-    '-moved': pumpCountMoved,
-    '-nobody': pumpCountNobody,
-    '-tanner': pumpCountTanner,
-    '-ten-long': pumpCountTen,
-    '-waiting': const _NoMain(_waits, pumpCountWaiting),
-    '-x1.3': const _AtText(1.3, pumpCountOne),
-  }),
-  ..._rebuilt('11-results', '11-results.png', {
-    '-village': pumpResultsVillage,
-    '-werewolves': const _NoMain(_guestAgain, pumpResultsWerewolves),
-    '-nobody': const _NoMain(_guestAgain, pumpResultsNobody),
-    '-tanner': const _NoMain(_guestAgain, pumpResultsTanner),
-    '-night': const _NoMain(_guestAgain, pumpResultsNight),
-    '-folded': pumpResultsFolded,
-    '-end': pumpResultsEnd,
-    '-five-end': const _NoMain(_guestAgain, pumpResultsFiveEnd),
-    '-ten-long': const _NoMain(_guestAgain, pumpResultsTen),
-    '-x1.3': const _AtText(1.3, pumpResultsVillage),
-  }),
   ...endBoardEntries,
   ...endRevealEntries,
   ...endNightEntries,
@@ -363,7 +339,6 @@ const _elsewhere =
     "one way on is the text link \"Go there\" on the line \"You're at "
     "another table.\", which is also Back's";
 const _guest = 'a guest waits for the host to deal';
-const _guestAgain = 'a guest waits for the host to deal again';
 const _sheet = 'a sheet the player opened: Close, the scrim or Back close it';
 const _done =
     'done (ready, chosen or locked): it waits for the others; a send that '

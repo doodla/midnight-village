@@ -26,9 +26,8 @@ import '../../domain/screen_table.dart';
 import '../card_back_provider.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
-import 'count_screen.dart';
+import 'end_screen.dart';
 import 'night_screen.dart';
-import 'results_screen.dart';
 import 'talk_screen.dart';
 import 'vote_screen.dart';
 import 'waits.dart';
@@ -41,8 +40,9 @@ import 'your_card_screen.dart';
 /// server is fetched to say, and the screen follows.
 ///
 /// - 01 Join, 02 Table, 03 Deck (`features/lobby`), 04 Your card, the
-///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote, 10 The count
-///   and 11 Results (their calm wait while the results load). While a
+///   night board (06, 05 while `/me/` loads), 08 Talk, 09 Vote and the end
+///   board (its calm wait while the results load; its reveal once per result,
+///   for a phone that saw the game played: [EndRevealLatch]). While a
 ///   game screen's `/me/` loads it shows that screen's own frame with the
 ///   one waiting body in it (`waits.dart`, [Waiting]): never a bare ground.
 /// - A change of screen fades quickly ([Motion.settle]); two changes are a
@@ -160,6 +160,18 @@ class _TableShellState extends ConsumerState<TableShell>
     );
     final gameId = shown?.gameId;
     if (gameId != null) _warmBack(gameId);
+    // A phone at the game's night, talk or vote is in it when the results
+    // come: its end board plays the reveal.
+    if (gameId != null &&
+        switch (shown?.screen) {
+          AppScreen.yourCard ||
+          AppScreen.nightBoard ||
+          AppScreen.talk ||
+          AppScreen.vote => true,
+          _ => false,
+        }) {
+      ref.read(endRevealLatchProvider).inPlay(gameId);
+    }
     final gameAsync = gameId == null
         ? null
         : ref.watch(liveGameProvider(gameId));
@@ -275,13 +287,9 @@ class _TableShellState extends ConsumerState<TableShell>
       // The results being read are one wait, however many answers (`/me/`,
       // then the results) come before them: one key, so the wait is not
       // crossfaded into itself (its sign would blink).
-      AppScreen.count when gameId != null => (
+      AppScreen.end when gameId != null => (
         end?.outcome == null ? '${shown.screen.name}|$gameId|wait' : key,
-        CountScreen(gameId: gameId, game: end),
-      ),
-      AppScreen.results when gameId != null => (
-        end?.outcome == null ? '${shown.screen.name}|$gameId|wait' : key,
-        ResultsScreen(gameId: gameId, game: end),
+        EndScreen(gameId: gameId, game: end),
       ),
       // 08 while its `/me/` loads: its own frame, the layered dawn and the
       // headline, so the day breaks on the screen it belongs to.
@@ -311,7 +319,7 @@ typedef _Stage = ({String key, AppScreen? screen});
 
 /// The scene a change of screen is, if it is one: the deal's dusk (02 or 03
 /// to the night) and the night's dawn (04 or the board to the talk). Every
-/// other change, the vote to the count included, is a crossfade.
+/// other change, the vote to the end board included, is a crossfade.
 SceneKind? _sceneBetween(_Stage from, _Stage to) =>
     switch ((from.screen, to.screen)) {
       (
