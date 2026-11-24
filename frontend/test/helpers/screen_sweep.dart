@@ -161,6 +161,21 @@ bool reachable(WidgetTester tester, Element element) {
   return false;
 }
 
+/// What lies over the centre of [element] is what a hold is showing
+/// (`heldOpen`): it goes when the finger lifts.
+bool _underHeldFace(WidgetTester tester, Element element) {
+  final box = element.renderObject! as RenderBox;
+  final centre = box.localToGlobal(box.size.center(Offset.zero));
+  for (final hit in tester.hitTestOnBinding(centre).path) {
+    if (hit.target case final RenderObject o) {
+      if (o.debugCreator case final DebugCreator c) {
+        return heldOpen(c.element);
+      }
+    }
+  }
+  return false;
+}
+
 /// What a finger at the centre of [element] reaches instead: the widgets
 /// that made the front render objects under it.
 String _onTop(WidgetTester tester, Element element) {
@@ -210,6 +225,7 @@ class SweepPlan {
 List<String> checkDrawn(WidgetTester tester, SweepPlan plan, Size screen) {
   final problems = [for (final cut in truncatedText(tester)) 'cut short: $cut'];
   problems.addAll(nameProblems(tester, screen));
+  problems.addAll(heldFaceProblems(screen));
   final buttons = actingMainButtons();
   if (plan.main.required && buttons.isEmpty) {
     final shown = [
@@ -226,7 +242,7 @@ List<String> checkDrawn(WidgetTester tester, SweepPlan plan, Size screen) {
   for (final e in buttons) {
     final r = paintedRect(e);
     if (!onScreen(r, screen)) problems.add('main button off the screen: $r');
-    if (!reachable(tester, e)) {
+    if (!reachable(tester, e) && !_underHeldFace(tester, e)) {
       problems.add('main button under a piece (${_onTop(tester, e)}): $r');
     }
   }

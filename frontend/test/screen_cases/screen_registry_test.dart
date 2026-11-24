@@ -21,7 +21,14 @@ Set<String>? _onMainsList() {
   final prefix = Process.runSync('git', ['rev-parse', '--show-prefix']);
   if (prefix.exitCode != 0) return null;
   final path = '${(prefix.stdout as String).trim()}$_list';
-  final shown = Process.runSync('git', ['show', 'origin/main:$path']);
+  // Where this branch left main, not main as it is now: the list on main
+  // only shrinks, so a branch that is merely behind it would seem to have
+  // added what main has since taken off.
+  final left = Process.runSync('git', ['merge-base', 'origin/main', 'HEAD']);
+  final base = left.exitCode == 0
+      ? (left.stdout as String).trim()
+      : 'origin/main';
+  final shown = Process.runSync('git', ['show', '$base:$path']);
   if (shown.exitCode != 0) return null;
   return {for (final m in _key.allMatches(shown.stdout as String)) m.group(1)!};
 }
