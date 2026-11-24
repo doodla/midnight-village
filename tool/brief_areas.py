@@ -57,7 +57,8 @@ AREAS: dict[str, dict] = {
             (MODELS, "section", "When"),
             (LOBBY_MODEL, "section", "Files"),
             (LOBBY_MODEL, "section", "Rules"),
-            (LOBBY_MODEL, "see", "Known gaps"),
+            (LOBBY_MODEL, "section", "The rules the host can rely on"),
+            (LOBBY_MODEL, "see", "How the gaps closed"),
         ],
     },
     "outbox": {

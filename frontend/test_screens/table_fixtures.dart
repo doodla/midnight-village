@@ -799,6 +799,34 @@ Future<void> pumpDeckPracticeSwitched(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
+/// 03 on the host's own deck: a card swapped for another (the Tanner out,
+/// the Robber in) got no answer: "Not sent." with "Try again", and the swap
+/// stays on screen, the deck still whole, as "Try again" would send it.
+Future<void> pumpDeckNotSentKept(WidgetTester tester) async {
+  await pumpDeckGrid(tester);
+  final setup = _setup!;
+  setup.http.answer(
+    'PATCH',
+    '/lobbies/${setup.code}/',
+    'Server Error',
+    status: 503,
+  );
+  final minus = find.bySemanticsLabel(
+    SpokenCopy.takeOut.fill({'role': RoleId.tanner.displayName}),
+  );
+  await tester.ensureVisible(minus);
+  await tester.pumpAndSettle();
+  await pressLikeAFinger(tester, minus);
+  await tester.pumpAndSettle();
+  await _tapCard(tester, RoleId.robber);
+  await tester.pumpAndSettle();
+  // Back up to the count: the deck still whole.
+  await tester.ensureVisible(
+    find.text(DeckCopy.count.fill({'picked': 12, 'need': 12})),
+  );
+  await tester.pumpAndSettle();
+}
+
 /// 03 scrolled to its lengths, at a new table.
 Future<void> pumpDeckLengths(WidgetTester tester) async {
   await pumpDeckAlone(tester);

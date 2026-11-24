@@ -8,9 +8,8 @@ import '../../../helpers/contract/server_json.dart';
 
 // The host's settings lane as a pure value (`SettingsLane`): one test per
 // rule of the model (`docs/dev/models/phone/lobby/README.md`, `PhoneLobby.tla`)
-// as far as the lane holds it, the known gaps pinned as they are today. What
-// the lane does not hold (the reads, the socket, the server) is pinned on the
-// notifier: `settings_lane_order_test.dart`.
+// as far as the lane holds it. What the lane does not hold (the reads, the
+// socket, the server) is pinned on the notifier: `settings_lane_order_test.dart`.
 
 /// The server's lobby with [settings] (a recorded body).
 LobbyState _server(Map<String, Object?> settings) => FromSample.lobby(
@@ -23,6 +22,10 @@ final _table = _server(const {
   'seats': 4,
   'card_look_seconds': 240,
 });
+
+/// The server's lobby with [seats] (the rest as [_table]).
+LobbyState _seats(int seats) =>
+    _server({'roles': _roles, 'seats': seats, 'card_look_seconds': 240});
 
 LaneChange Function(int) _settings(Map<String, Object?> patch) =>
     (n) => SettingsChange(patch, n);
@@ -47,6 +50,9 @@ SettingsLane _sent(
   expect(change, isNotNull, reason: 'a change to send');
   return answer(out);
 }
+
+/// [lane]'s change out taken (its answer is shown as `admit` says).
+SettingsLane _take(SettingsLane lane) => lane.taken();
 
 /// What the request of [change] carries.
 Object _body(LaneChange change) => switch (change) {
@@ -106,7 +112,7 @@ void main() {
         final (out, change) = lane.sendNext();
         if (change == null) break;
         bodies.add(_body(change));
-        lane = out.settle();
+        lane = _take(out);
       }
       expect(bodies, [
         {'seats': 5},
@@ -122,15 +128,88 @@ void main() {
       expect(lane.out, isNull);
     });
 
-    test('after a 403 (host gone, settled like any answer) each later change '
-        'is still sent', () {
+    test('GuestQuiet (D): after a 403 the lane forgets everything it would '
+        'send: no "Not sent." on a guest\'s phone', () {
       var lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
-        _settings({'card_look_seconds': 300}),
       ]);
-      lane = _sent(lane, (l) => l.settle());
-      final (_, next) = lane.sendNext();
-      expect(_body(next!), {'card_look_seconds': 300});
+      lane = _sent(lane, (l) => l.lose()).dealLost();
+      lane = _asked(lane, [
+        _settings({'card_look_seconds': 300}),
+        _practice(const PracticeAsk(on: true)),
+      ]);
+      expect(lane.notSent, isTrue);
+      lane = _sent(lane, (l) => l.forbidden());
+      expect(lane.notSent, isFalse);
+      expect(lane.dealHeld, isFalse);
+      expect(lane.unsent, isEmpty);
+      expect(lane.pending, isEmpty, reason: 'each would meet its own 403');
+      expect(lane.sendNext().$2, isNull);
+      expect(lane.over(_table).settling, isFalse);
+      // A 403 on the deal itself (nothing out) settles the same way.
+      final waiting = lane.dealBehind().settle();
+      expect(waiting.dealWaiting, isFalse);
+      final (settled, go) = waiting.dealGoes();
+      expect(go, isFalse);
+      expect(settled.notSent, isFalse, reason: 'a guest: nothing said');
+    });
+
+    test('GuestQuiet: a lobby naming another host settles the lane; the one '
+        'out still gets its answer, and a guest keeps nothing more', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose()).dealLost();
+      lane = _asked(lane, [
+        _settings({'card_look_seconds': 300}),
+        _settings({'seats': 6}),
+      ]);
+      (lane, _) = lane.sendNext();
+      lane = lane.hosting(isHost: false);
+      expect(lane.notSent, isFalse);
+      expect(lane.pending, hasLength(1), reason: 'only the one out');
+      expect(lane.unsent, isEmpty);
+      lane = lane.lose();
+      expect(lane.notSent, isFalse, reason: 'a guest keeps nothing');
+      expect(lane.dealLost().notSent, isFalse);
+      // The role back: a clean start from the server, then kept again.
+      lane = lane.hosting(isHost: true);
+      expect(lane.notSent, isFalse, reason: 'nothing from before is kept');
+      lane = _sent(
+        _asked(lane, [
+          _settings({'seats': 7}),
+        ]),
+        (l) => l.lose(),
+      );
+      expect(lane.notSent, isTrue);
+    });
+
+    test('03 and 02: a lost change is "Not sent." for both; a held deal '
+        'only for the table', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      expect(lane.over(_table).changesNotSent, isTrue);
+      final dealOnly = SettingsLane.empty.dealLost().over(_table);
+      expect(dealOnly.changesNotSent, isFalse, reason: "not 03's to say");
+      expect(dealOnly.dealNotSent, isTrue);
+      expect(dealOnly.notSent, isTrue, reason: "02's line");
+    });
+
+    test('a lost value is judged as shown: the seats and lengths it lays '
+        'over are this phone\'s, not the server\'s numbers', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5, 'card_look_seconds': 300}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      final shown = lane.over(_table);
+      expect(
+        shown.ownKeys,
+        containsAll(<String>['seats', 'card_look_seconds']),
+      );
+      expect(shown.settling, isFalse);
+      expect(shown.cardsNeeded, 5 + centreCards);
     });
   });
 
@@ -195,46 +274,191 @@ void main() {
       expect(shown.table, _table.table);
     });
 
-    test('an answered change is no longer laid over: the answer shows, the '
+    test('an answered change is no longer pending: the answer shows, the '
         'rest of the queue over it', () {
       var lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
         _settings({'card_look_seconds': 300}),
       ]);
-      lane = _sent(lane, (l) => l.settle());
-      final answer = _server(const {
-        'roles': _roles,
-        'seats': 5,
-        'card_look_seconds': 240,
-      });
-      final shown = lane.over(answer);
+      lane = _sent(lane, _take);
+      final shown = lane.over(_seats(5));
       expect(shown.table.seats, 5);
       expect(shown.table.raw['card_look_seconds'], 300);
       expect(shown.pendingKeys, {'card_look_seconds'});
     });
+  });
 
-    test('KNOWN GAP (a), NoFlickerBack: an answered change is dropped at '
-        'once, so an older lobby laid under the lane shows the old value', () {
+  group('NoFlickerBack (A): a server lobby older than the newest shown is '
+      'never shown', () {
+    test('older is not shown; equal and newer are', () {
+      final (seven, shown) = SettingsLane.empty.admit(7);
+      expect(shown, isTrue, reason: 'the first lobby');
+      expect(seven.admit(6).$2, isFalse, reason: 'older');
+      expect(seven.admit(7).$2, isTrue, reason: 'equal: presence may differ');
+      final (eight, newer) = seven.admit(8);
+      expect(newer, isTrue);
+      expect(eight.admit(7).$2, isFalse, reason: 'the newest shown is 8 now');
+    });
+
+    test('an older lobby leaves the lane as it was', () {
+      final (seven, _) = SettingsLane.empty.admit(7);
+      final (after, _) = seven.admit(5);
+      expect(identical(after, seven), isTrue);
+    });
+
+    test('a lobby with no rev (a server from before it) is always shown, and '
+        'leaves the newest number as it was', () {
+      final (seven, _) = SettingsLane.empty.admit(7);
+      final (none, shown) = seven.admit(null);
+      expect(shown, isTrue);
+      expect(none.admits(6), isFalse);
+      expect(SettingsLane.empty.admits(null), isTrue);
+    });
+
+    test('the newest is per table: another table at the same code starts '
+        'again, and the old one\'s numbers no longer count', () {
+      final (old, _) = SettingsLane.empty.admit(9, table: 'ABC-1');
+      expect(old.admits(2, table: 'ABC-1'), isFalse);
+      final (fresh, shown) = old.admit(2, table: 'ABC-2');
+      expect(shown, isTrue, reason: 'a new table');
+      expect(fresh.admits(1, table: 'ABC-2'), isFalse);
+      expect(fresh.admits(2, table: 'ABC-2'), isTrue);
+    });
+
+    test('host_changed counts as shown at its number; a lower one is '
+        'ignored, and it takes no refused value off the screen', () {
+      var lane = _asked(SettingsLane.empty.admit(5).$1, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.refused());
+      final (moved, shown) = lane.admit(7, lobby: false);
+      expect(shown, isTrue);
+      expect(moved.refusedShown, isTrue, reason: 'host_changed is no lobby');
+      expect(moved.admits(6), isFalse, reason: 'older than the host change');
+      expect(moved.admit(6, lobby: false).$2, isFalse, reason: 'a late one');
+      final (none, noRev) = moved.admit(null, lobby: false);
+      expect(noRev, isTrue);
+      expect(none.admits(6), isFalse, reason: 'no rev leaves the newest');
+    });
+
+    test('an answered change is not held over the screen: the answer, or a '
+        'newer lobby, is what shows', () {
       var lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
       ]);
-      lane = _sent(lane, (l) => l.settle());
-      // A read served before the answer. Fixed (a "confirming" leg), 5.
-      expect(lane.over(_table).table.seats, 4);
+      lane = _sent(lane, _take);
+      expect(lane.over(_seats(7)).table.seats, 7, reason: 'someone else');
+      expect(lane.over(_seats(5)).settling, isFalse);
     });
   });
 
-  group('a refusal and a loss', () {
-    test('a refusal (an answer) is dropped: never "Not sent.", never kept '
-        'for Try again', () {
+  group('the screen shows what will go (E)', () {
+    test('a lost change lies over the server\'s value while Try again would '
+        'still send it, with "Not sent."', () {
       var lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
       ]);
-      lane = _sent(lane, (l) => l.settle());
+      lane = _sent(lane, (l) => l.lose());
+      final shown = lane.over(_table);
+      expect(shown.table.seats, 5);
+      expect(shown.notSent, isTrue);
+      expect(
+        shown.settling,
+        isFalse,
+        reason: 'lost, not pending: Deal is live',
+      );
+    });
+
+    test('a newer tap on its key covers it; once answered, the server\'s '
+        'value shows, never the lost one', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      lane = _asked(lane, [
+        _settings({'seats': 6}),
+      ]);
+      expect(lane.over(_table).table.seats, 6);
+      lane = _sent(lane, _take);
+      expect(lane.over(_seats(7)).table.seats, 7);
+    });
+
+    test('only the keys no newer change asked for lie over it', () {
+      const roles = {'Werewolf': 2, 'Seer': 1, 'Villager': 3};
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'deck': 'custom', 'roles': roles, 'seats': 6}),
+        _settings({'seats': 7}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      lane = _sent(lane, _take);
+      final shown = lane.over(_seats(7));
+      expect(shown.roleConfig, roles);
+      expect(shown.table.seats, 7);
+    });
+
+    test('a lost practice change lies over too', () {
+      final three = FromSample.lobby(
+        ContractSamples.map('http/lobby/practice_three'),
+      );
+      var lane = _asked(SettingsLane.empty, [
+        _practice(const PracticeAsk(count: 5)),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      expect(lane.over(three).practiceCount, 5);
+    });
+
+    test('Try again or a deal takes them: they are pending then, the same '
+        'values', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      final before = lane.over(_table).table;
+      final (taken, makes) = lane.takeResend();
+      lane = _asked(taken, makes);
+      expect(lane.over(_table).table, before);
+      expect(lane.over(_table).notSent, isFalse);
+    });
+  });
+  group('a refusal and a loss', () {
+    test('a refused change is dropped and never sent again: no "Not sent.", '
+        'nothing kept for Try again; its value stays shown until a lobby of '
+        "the server's", () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.refused());
       expect(lane.pending, isEmpty);
+      expect(lane.sendNext().$2, isNull, reason: 'never sent again');
       expect(lane.unsent, isEmpty);
       expect(lane.notSent, isFalse);
-      expect(lane.tryAgain, isNull);
+      expect(lane.refusedShown, isTrue);
+      expect(lane.over(_table).table.seats, 5, reason: 'until a server lobby');
+      final (read, _) = lane.admit(null);
+      expect(read.refusedShown, isFalse);
+      expect(read.over(_table).table.seats, 4);
+    });
+
+    test('a refused value stays over an older lobby (not shown), and goes '
+        'with an equal one', () {
+      var lane = SettingsLane.empty.admit(3).$1;
+      lane = _asked(lane, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.refused());
+      expect(lane.admit(2).$1.refusedShown, isTrue);
+      expect(lane.admit(3).$1.refusedShown, isFalse);
+    });
+
+    test('a refused value under a newer tap on its key is covered by it', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.refused());
+      lane = _asked(lane, [
+        _settings({'seats': 6}),
+      ]);
+      expect(lane.over(_table).table.seats, 6);
     });
 
     test('a loss is dropped from the queue, kept for Try again, and says '
@@ -251,19 +475,20 @@ void main() {
         ],
       );
       expect(lane.notSent, isTrue);
-      expect(lane.tryAgain, TryAgain.resend);
+      expect(lane.over(_table).notSent, isTrue, reason: 'the screen says it');
       expect(lane.out, isNull);
       expect(lane.over(_table).pendingKeys, {'card_look_seconds'});
       final (_, next) = lane.sendNext();
       expect(_body(next!), {'card_look_seconds': 300});
     });
 
-    test('an answer with nothing out changes nothing', () {
+    test('an answer with nothing out is a bug: asserted', () {
       final lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
       ]);
-      expect(lane.settle(), same(lane));
-      expect(lane.lose(), same(lane));
+      expect(lane.taken, throwsA(isA<AssertionError>()));
+      expect(lane.refused, throwsA(isA<AssertionError>()));
+      expect(lane.lose, throwsA(isA<AssertionError>()));
     });
   });
 
@@ -276,9 +501,7 @@ void main() {
         _settings({'seats': 7}),
       ]);
       lane = _sent(lane, (l) => l.lose());
-      final (retried, again) = lane.takeRetry();
-      expect(again, TryAgain.resend);
-      final (emptied, makes) = retried.takeResend();
+      final (emptied, makes) = lane.takeResend();
       expect(emptied.unsent, isEmpty);
       lane = _asked(emptied, makes);
       expect([for (final c in lane.pending) c.number], [2, 3]);
@@ -318,6 +541,7 @@ void main() {
       lane = _sent(lane, (l) => l.lose());
       expect(lane.unsent, hasLength(1));
       expect(_resent(lane), isEmpty, reason: 'an empty trim is not sent');
+      expect(lane.notSent, isFalse, reason: 'nothing left to send');
       // The server applying the lost request late is the server's (#16).
     });
 
@@ -333,88 +557,141 @@ void main() {
     });
   });
 
-  group('the one "Try again" slot, shared with the deal', () {
-    test('Try again empties the slot and takes "Not sent." away', () {
-      var lane = _asked(SettingsLane.empty, [
-        _settings({'seats': 5}),
-      ]);
-      lane = _sent(lane, (l) => l.lose());
-      final (after, again) = lane.takeRetry();
-      expect(again, TryAgain.resend);
-      expect(after.tryAgain, isNull);
-      expect(after.notSent, isFalse);
-      expect(after.unsent, hasLength(1), reason: 'taken by takeResend');
-      final (_, none) = after.takeRetry();
-      expect(none, isNull);
-    });
-
-    test('a lost deal says "Not sent." and Try again is the deal', () {
-      final lane = SettingsLane.empty.dealLost();
-      expect(lane.notSent, isTrue);
-      expect(lane.takeRetry().$2, TryAgain.deal);
-    });
-
-    test('a taken deal empties the slot but leaves "Not sent." as it was; '
-        'a refused deal clears both', () {
-      var lane = _asked(SettingsLane.empty, [
-        _settings({'seats': 5}),
-      ]);
-      lane = _sent(lane, (l) => l.lose());
-      final taken = lane.dealTaken();
-      expect(taken.tryAgain, isNull);
-      expect(taken.notSent, isTrue, reason: 'the game opens over it');
-      final refused = lane.dealRefused();
-      expect(refused.tryAgain, isNull);
-      expect(refused.notSent, isFalse);
-      expect(refused.unsent, hasLength(1), reason: 'unsaid: gap (c)');
-    });
-
-    test('KNOWN GAP (b), LostFlagged: a new tap takes "Not sent." away '
-        'while the lost change still waits in the slot', () {
+  group('LostFlagged, NoHiddenResend (b, b2): "Not sent." is derived', () {
+    test('(b) a new tap on another key leaves "Not sent." while the lost '
+        'change still waits for Try again', () {
       var lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
       ]);
       lane = _sent(lane, (l) => l.lose());
       lane = _asked(lane, [_practice(const PracticeAsk(on: true))]);
-      // Fixed, "Not sent." stays.
-      expect(lane.notSent, isFalse);
-      expect(lane.tryAgain, TryAgain.resend);
+      expect(lane.notSent, isTrue);
       expect(lane.unsent, hasLength(1));
     });
 
-    test('KNOWN GAP (b2), NoHiddenResend: Try again resends the hidden lost '
-        'change too, oldest first', () {
+    test('(b) a new tap on the same key takes it away: the lost value has '
+        'nothing left to send', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      lane = _asked(lane, [
+        _settings({'seats': 6}),
+      ]);
+      expect(lane.notSent, isFalse);
+      expect(_resent(lane), isEmpty);
+    });
+
+    test('(b2) Try again after two losses sends both, oldest first: '
+        '"Not sent." showed for both all along', () {
       var lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
       ]);
       lane = _sent(lane, (l) => l.lose());
       lane = _asked(lane, [_practice(const PracticeAsk(on: true))]);
+      expect(lane.notSent, isTrue, reason: 'never hidden');
       lane = _sent(lane, (l) => l.lose());
-      expect(lane.notSent, isTrue);
-      final (retried, again) = lane.takeRetry();
-      expect(again, TryAgain.resend);
-      // Fixed, only the practice switch.
       expect(
-        [for (final c in _resent(retried)) _body(c)],
+        [for (final c in _resent(lane)) _body(c)],
         [
           {'seats': 5},
           const PracticeAsk(on: true),
         ],
       );
+      final (after, _) = lane.takeResend();
+      expect(after.notSent, isFalse, reason: 'all sent again');
+    });
+  });
+
+  group('RetryCoversAll, DealAsShown (c): the deal goes behind the lane', () {
+    test('a lost deal says "Not sent."; Try again deals', () {
+      final lane = SettingsLane.empty.dealLost();
+      expect(lane.notSent, isTrue);
+      expect(lane.dealHeld, isTrue);
+      expect(lane.dealBehind().notSent, isFalse);
     });
 
-    test('KNOWN GAP (c), RetryCoversAll: a lost deal after a lost change '
-        'takes the slot; Try again is the deal only', () {
+    test('a lost change and then a lost deal: both wait, the change is still '
+        'sent again first, then the deal', () {
       var lane = _asked(SettingsLane.empty, [
         _settings({'seats': 5}),
       ]);
       lane = _sent(lane, (l) => l.lose());
-      expect(lane.over(_table).settling, isFalse, reason: 'Deal is live');
       lane = lane.dealLost();
-      final (after, again) = lane.takeRetry();
-      // Fixed, the seats go too.
-      expect(again, TryAgain.deal);
-      expect(after.unsent, hasLength(1));
+      expect(lane.dealHeld, isTrue);
+      expect(
+        [for (final c in _resent(lane)) _body(c)],
+        [
+          {'seats': 5},
+        ],
+      );
+      final (resent, makes) = lane.takeResend();
+      lane = _asked(resent, makes).dealBehind();
+      expect(lane.notSent, isFalse);
+      lane = _sent(lane, _take);
+      final (_, go) = lane.dealGoes();
+      expect(go, isTrue, reason: 'every change before it answered');
+    });
+
+    test('a change before the deal lost or refused keeps the deal back: '
+        '"Not sent."', () {
+      for (final lost in [true, false]) {
+        var lane = _asked(SettingsLane.empty, [
+          _settings({'seats': 5}),
+        ]).dealBehind();
+        lane = _sent(lane, (l) => lost ? l.lose() : l.refused());
+        expect(lane.dealHeld, isTrue, reason: 'lost: $lost');
+        expect(lane.notSent, isTrue, reason: 'lost: $lost');
+        final (_, go) = lane.dealGoes();
+        expect(go, isFalse, reason: 'lost: $lost');
+      }
+    });
+
+    test('(B) a deal never ends silently: whenever its turn comes and it does '
+        'not go, the lane says "Not sent."', () {
+      final waiting = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]).dealBehind();
+      final (held, go) = waiting.dealGoes();
+      expect(go, isFalse, reason: 'a change still before it');
+      expect(held.dealHeld, isTrue);
+      expect(held.notSent, isTrue);
+      expect(held.dealWaiting, isFalse);
+    });
+
+    test('(B) a tap while the deal waits keeps it back at once: "Not sent.", '
+        'and Try again deals what is shown then', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]).dealBehind();
+      lane = _asked(lane, [
+        _settings({'card_look_seconds': 300}),
+      ]);
+      expect(lane.dealWaiting, isFalse);
+      expect(lane.dealHeld, isTrue);
+      expect(lane.notSent, isTrue);
+      expect(lane.pending, hasLength(2), reason: 'the tap is still sent');
+    });
+
+    test('(B) a deal not waiting (held already, or settled by a 403) gives '
+        'no second answer at its turn', () {
+      final lost = SettingsLane.empty.dealBehind().dealLost();
+      final (still, go) = lost.dealGoes();
+      expect(go, isFalse);
+      expect(still.dealHeld, isTrue);
+    });
+
+    test('a deal answered (taken or refused) is no longer held, but a lost '
+        'change still says "Not sent."', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose()).dealLost();
+      for (final answered in [lane.dealTaken(), lane.dealRefused()]) {
+        expect(answered.dealHeld, isFalse);
+        expect(answered.notSent, isTrue, reason: 'the seats still wait');
+        expect(answered.unsent, hasLength(1));
+      }
     });
   });
 }
