@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/until_touched.dart';
 
 import 'finger.dart';
 import 'name_pieces.dart';
@@ -357,6 +358,23 @@ Future<List<String>> sweepScreen(
 
 Future<List<String>> _mainActionProblems(WidgetTester tester) async {
   final problems = <String>[];
+  // A layer up until one touch puts it away (`UntilTouched`): one touch, on
+  // the main action itself (so "anywhere" holds where it matters most), puts
+  // it away and does nothing else; the main action is then held to every rule.
+  if (find.byType(UntilTouched).evaluate().isNotEmpty) {
+    final under = actingMainButtons();
+    final at = under.isEmpty
+        ? tester.view.physicalSize.center(Offset.zero) /
+              tester.view.devicePixelRatio
+        : paintedRect(under.first).center;
+    await tester.tapAt(at);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    if (find.byType(UntilTouched).evaluate().isNotEmpty) {
+      problems.add('one touch did not put away what is up until touched');
+      return problems;
+    }
+  }
   final buttons = actingMainButtons();
   if (buttons.isEmpty) return problems;
   final button = buttons.first;

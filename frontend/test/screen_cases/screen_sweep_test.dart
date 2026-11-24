@@ -6,6 +6,7 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/paper_card.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/until_touched.dart';
 
 import '../helpers/finger.dart';
 import '../helpers/pump_skinned.dart';
@@ -77,6 +78,43 @@ class _SettlesState extends State<_SettlesUnderTheFinger>
       onPressed: () {},
     ),
   );
+}
+
+/// A main button under a layer that takes the first touch: put away by it
+/// ([goes]) or not, [marked] as the kit marks such a layer or not.
+class _UpUntilTouched extends StatefulWidget {
+  // A key each: one test pumps three, and a state kept from the one before
+  // would already be put away.
+  const _UpUntilTouched({super.key, required this.goes, this.marked = true});
+
+  final bool goes;
+  final bool marked;
+
+  @override
+  State<_UpUntilTouched> createState() => _UpUntilTouchedState();
+}
+
+class _UpUntilTouchedState extends State<_UpUntilTouched> {
+  var _up = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final layer = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) {
+        if (widget.goes) setState(() => _up = false);
+      },
+    );
+    return Stack(
+      children: [
+        _page(const SizedBox(height: 10)),
+        if (_up)
+          Positioned.fill(
+            child: widget.marked ? UntilTouched(child: layer) : layer,
+          ),
+      ],
+    );
+  }
 }
 
 /// A sample's player name ("Ana") with a paper card laid [over] it or under.
@@ -223,6 +261,34 @@ void main() {
       off.join('\n'),
       contains('the held face is not whole on the screen'),
     );
+  });
+
+  testWidgets('a layer up until touched may lie on the main button when one '
+      'touch puts it away; one that stays is reported', (tester) async {
+    final goes = await sweepScreen(
+      tester,
+      (t) =>
+          pumpSkinned(t, const _UpUntilTouched(key: ValueKey(1), goes: true)),
+      const SweepPlan(main: MainAction.button()),
+    );
+    expect(goes, isEmpty);
+    final stays = await sweepScreen(
+      tester,
+      (t) =>
+          pumpSkinned(t, const _UpUntilTouched(key: ValueKey(2), goes: false)),
+      const SweepPlan(main: MainAction.button()),
+    );
+    expect(stays.join('\n'), contains('one touch did not put away'));
+    // Without the kit's mark the same layer is a piece over the main button.
+    final unmarked = await sweepScreen(
+      tester,
+      (t) => pumpSkinned(
+        t,
+        const _UpUntilTouched(key: ValueKey(3), goes: true, marked: false),
+      ),
+      const SweepPlan(main: MainAction.button()),
+    );
+    expect(unmarked.join('\n'), contains('main button under a piece'));
   });
 
   testWidgets('a tree that keeps its own text size is reported', (
