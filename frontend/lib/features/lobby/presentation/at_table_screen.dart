@@ -111,7 +111,7 @@ class _AtTableScreenState extends ConsumerState<AtTableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final table = ref.watch(myTableProvider).value;
+    final table = ref.watch(myTableProvider.select((t) => t.value));
     if (table == null) {
       return _Waiting(
         offline: ref.watch(myTableProvider.select((t) => t.hasError)),

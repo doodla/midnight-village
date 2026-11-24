@@ -36,6 +36,30 @@ class MyTable {
     required this.gamePhase,
   });
 
+  /// Two answers that say the same thing are equal: a poll that changes
+  /// nothing redraws nothing.
+  @override
+  bool operator ==(Object other) =>
+      other is MyTable &&
+      other.lobbyCode == lobbyCode &&
+      other.gameType == gameType &&
+      other.status == status &&
+      other.isHost == isHost &&
+      other.token == token &&
+      other.gameId == gameId &&
+      other.gamePhase == gamePhase;
+
+  @override
+  int get hashCode => Object.hash(
+    lobbyCode,
+    gameType,
+    status,
+    isHost,
+    token,
+    gameId,
+    gamePhase,
+  );
+
   /// The whole body: null when the player is at no table.
   static MyTable? parse(Map<String, dynamic> body) {
     if (!body.containsKey('table')) {
