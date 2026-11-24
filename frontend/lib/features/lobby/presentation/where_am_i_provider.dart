@@ -35,9 +35,11 @@ part 'where_am_i_provider.g.dart';
 @Riverpod(retry: retryForever)
 Future<MyTable?> myTable(Ref ref) async {
   final service = ref.watch(lobbyServiceProvider);
+  var landed = false;
   ref.listen(appResumesProvider, (_, next) {
-    // askWhere's own rule, from inside: a new read.
-    if (next.hasValue && ref.mounted) ref.invalidateSelf();
+    // Joins a read already out: a game asks again plainly as it comes back,
+    // 02's lobby read asks again (judged) if the table moved on.
+    if (next.hasValue && ref.mounted && landed) ref.invalidateSelf();
   });
   // This read is dropped when a newer one is asked for (a seat put, an
   // event, the poll): its answer, if it still comes, arms nothing.
@@ -49,6 +51,7 @@ Future<MyTable?> myTable(Ref ref) async {
   });
   final seeded = ref.read(seatSeedProvider).take(_userId(ref));
   final table = seeded ?? await service.fetchMyTable();
+  landed = true;
   if (!current) return table;
   if (_userId(ref) case final user?) {
     LastSeat.keep(ref.read(devicePreferencesProvider), user, table);
@@ -112,17 +115,20 @@ void seatFromServer(Ref ref, int userId, MyTable seat) {
 /// table may have moved on: every place that asks goes through it (resume,
 /// a socket opening or coming back, a lobby ahead of the phone, a host
 /// change, a game that is refused or behind, a seat to check), so one
-/// heal costs one `/me/table/` request before the screen moves. With
-/// [settledBy] it never restarts a read that already answers the question:
-/// a read out now is waited for (it is no slower than a new one) and judged
-/// by its answer, asked again only when the answer does not settle it (a
-/// lobby saying the table is in a game: a read out that names it is
-/// enough, an older poll that says "waiting" is not).
-/// Otherwise the read out is replaced by a new one (Riverpod keeps only the
-/// newest). Nothing holds `/me/table/`: nothing is asked.
+/// heal costs one `/me/table/` request before the screen moves, in
+/// whichever order its asks come. It never restarts a read that already
+/// answers the question:
+/// - [settledBy] (a lobby saying the table is in a game): the answer
+///   held, or the read out when it lands (it is no slower than a new one),
+///   is judged; asked again only when it does not settle it (a read that
+///   names the game is enough, an older poll that says "waiting" is not).
+/// Otherwise (the end board, a game: nothing else covers a missed event)
+/// the read out is replaced by a new one (Riverpod keeps only the newest).
+/// Nothing holds `/me/table/`: nothing is asked.
 void askWhere(Ref ref, {bool Function(MyTable? table)? settledBy}) {
   if (!ref.exists(myTableProvider)) return;
-  if (settledBy != null && ref.read(myTableProvider).isLoading) {
+  final now = ref.read(myTableProvider);
+  if (now.isLoading && settledBy != null) {
     late final ProviderSubscription<AsyncValue<MyTable?>> out;
     out = ref.listen(myTableProvider, (_, next) {
       if (next.isLoading) return;
@@ -133,6 +139,7 @@ void askWhere(Ref ref, {bool Function(MyTable? table)? settledBy}) {
     });
     return;
   }
+  if (settledBy != null && now.hasValue && settledBy(now.value)) return;
   ref.invalidate(myTableProvider);
 }
 

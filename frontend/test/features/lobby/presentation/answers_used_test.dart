@@ -96,7 +96,10 @@ void main() {
       ..answer('POST', '/auth/guest/', _guest('Ben', ben), status: 201)
       ..answer('POST', '/lobbies/$code/join/', joined)
       // Where the server has Ben now (never asked: the join said it).
-      ..answer('GET', '/me/table/', serverMyTable(code: code));
+      ..answer('GET', '/me/table/', serverMyTable(code: code))
+      // The lobby, read once more as its socket is up (a join said before
+      // the socket listened).
+      ..answer('GET', '/lobbies/$code/', joined);
     await tester.enterText(find.byType(TextField), 'Ben');
     await tester.pump();
     await _tapText(tester, JoinCopy.joinTable);
@@ -117,6 +120,7 @@ void main() {
     expect(_sent(setup, from), [
       'POST /auth/guest/',
       'POST /lobbies/$code/join/',
+      'GET /lobbies/$code/',
     ]);
     await setup.close(tester);
   });
@@ -141,9 +145,14 @@ void main() {
     await _tapText(tester, JoinCopy.join);
     await _until(tester, () => _shows(find.byType(AtTableView)));
 
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(Duration.zero);
+    }
     expect(_sent(setup, from), [
       'POST /lobbies/V9YC2J/join/',
       'GET /me/table/',
+      'GET /lobbies/V9YC2J/',
+      // Once more as its socket is up; where the player sits is not.
       'GET /lobbies/V9YC2J/',
     ]);
     await setup.close(tester);
@@ -179,9 +188,14 @@ void main() {
     await _tapText(tester, BannerCopy.tryAgain);
     await _until(tester, () => _shows(find.byType(AtTableView)));
 
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(Duration.zero);
+    }
     expect(_sent(setup, from), [
       'POST /lobbies/V9YC2J/join/',
       'GET /me/table/',
+      'GET /lobbies/V9YC2J/',
+      // Once more as its socket is up; where the player sits is not.
       'GET /lobbies/V9YC2J/',
     ]);
     await setup.close(tester);

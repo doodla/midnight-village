@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:midnight_village/core/requests/player_request.dart';
@@ -15,6 +16,7 @@ import 'package:midnight_village/core/storage/device_preferences.dart';
 import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:midnight_village/core/storage/user_storage.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
+import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/load_once_bundle.dart';
 import 'package:midnight_village/design_system/skin_loader.dart';
@@ -104,8 +106,15 @@ class _Phone {
 
   final MockHttpClient http;
   final _Device device;
-  final lobbyWs = MockWebSocketChannel();
   final gameWs = MockWebSocketChannel();
+
+  /// The lobby's socket is the app's own [ReconnectingWebSocket] over a
+  /// fake connection, whose opening the test may hold ([holdLobbySocket],
+  /// then [openLobbySocket]); else it opens at once.
+  Completer<void>? _lobbyOpens;
+  void holdLobbySocket() => _lobbyOpens = Completer<void>();
+  void openLobbySocket() => _lobbyOpens?.complete();
+  final _sockets = <ReconnectingWebSocket>[];
 
   List<String> get sent => [
     for (final r in http.requests) '${r.method} ${r.path}',
@@ -144,7 +153,17 @@ class _Phone {
             HomeService(client: ApiClient(dio: http.dio)),
           ),
           devicePreferencesProvider.overrideWithValue(DevicePreferences()),
-          lobbyWebSocketFactoryProvider.overrideWithValue((_) => lobbyWs),
+          lobbyWebSocketFactoryProvider.overrideWithValue((code) {
+            final socket = ReconnectingWebSocket(
+              url: 'ws://midnight.example/ws/lobby/$code/',
+              tokenStorage: TokenStorage(storage: device),
+              channelFactory: (_) =>
+                  MockWebSocketChannel(opens: _lobbyOpens?.future),
+            );
+            _sockets.add(socket);
+            unawaited(socket.connect());
+            return socket;
+          }),
           gameWebSocketProvider.overrideWith((ref, id) => null),
           gameWebSocketStreamProvider.overrideWith((ref, id) => gameWs.stream),
           gameConnectionStateProvider.overrideWith(
@@ -167,6 +186,9 @@ class _Phone {
   /// Closes the app and lets its timers run out.
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
+    for (final socket in _sockets) {
+      socket.dispose();
+    }
     await tester.pump(const Duration(seconds: 1));
   }
 }
@@ -288,9 +310,9 @@ void main() {
       final table = phone.http.hold(method: 'GET', path: '/me/table/');
 
       await phone.open(tester);
-      await _until(tester, () => phone.sent.length == 2);
+      await _until(tester, () => phone.sent.length >= 2);
       expect(
-        phone.sent,
+        phone.sent.take(2),
         unorderedEquals(['GET /me/table/', 'GET /lobbies/$code/']),
       );
 
@@ -299,47 +321,68 @@ void main() {
         tester,
         () => find.byType(AtTableView).evaluate().isNotEmpty,
       );
-      expect(phone.sent, hasLength(2));
+      // And the lobby once more as its socket is up (anything said before it
+      // listened); the table's read out answers that opening too.
+      expect(phone.sent.skip(2), ['GET /lobbies/$code/']);
       await phone.close(tester);
     });
 
-    testWidgets('at a waiting table whose game has since started: the lobby '
-        'saying so does not ask where the phone sits a second time', (
-      tester,
-    ) async {
-      const code = 'K7QX4M';
-      final lobby = serverLobby(
-        code: code,
-        seats: [(id: _playerId, name: 'Ana'), (id: 2, name: 'Bo')],
-        hostId: _playerId,
-        status: 'in_game',
-      );
-      await _preferences(seat: code);
-      final phone = _Phone(MockHttpClient(), _signedIn(_goodToken));
-      phone.http
-        ..answer('GET', '/me/table/', tableOf(_me))
-        ..answer('GET', '/lobbies/$code/', lobby)
-        ..answer('GET', _mePath, _me);
-      final table = phone.http.hold(method: 'GET', path: '/me/table/');
-
-      await phone.open(tester);
-      await _until(tester, () => phone.sent.contains('GET /lobbies/$code/'));
-      for (var i = 0; i < 20; i++) {
-        await tester.pump();
-      }
-      expect(table.length, 1, reason: 'the lobby answered "in a game" first');
-
-      table.releaseAll();
-      await _until(
+    for (final socketFirst in const [false, true]) {
+      testWidgets('at a waiting table whose game has since started, the '
+          '${socketFirst ? 'socket opening before' : 'socket opening after'} '
+          'the lobby answers: one read of where the phone sits', (
         tester,
-        () => find.byType(YourCardScreen).evaluate().isNotEmpty,
-      );
-      expect(
-        phone.sent.takeWhile((r) => r != 'GET $_mePath'),
-        unorderedEquals(['GET /me/table/', 'GET /lobbies/$code/']),
-      );
-      await phone.close(tester);
-    });
+      ) async {
+        const code = 'K7QX4M';
+        final lobby = serverLobby(
+          code: code,
+          seats: [(id: _playerId, name: 'Ana'), (id: 2, name: 'Bo')],
+          hostId: _playerId,
+          status: 'in_game',
+        );
+        await _preferences(seat: code);
+        final phone = _Phone(MockHttpClient(), _signedIn(_goodToken))
+          ..holdLobbySocket();
+        phone.http
+          ..answer('GET', '/me/table/', tableOf(_me))
+          ..answer('GET', '/lobbies/$code/', lobby)
+          ..answer('GET', _mePath, _me);
+        final table = phone.http.hold(method: 'GET', path: '/me/table/');
+        final lobbyRead = phone.http.hold(
+          method: 'GET',
+          path: '/lobbies/$code/',
+        );
+
+        await phone.open(tester);
+        await _until(tester, () => lobbyRead.length == 1);
+        Future<void> frames() async {
+          for (var i = 0; i < 20; i++) {
+            await tester.pump();
+          }
+        }
+
+        if (socketFirst) {
+          phone.openLobbySocket();
+          await frames();
+        }
+        phone.http.stopHolding(method: 'GET', path: '/lobbies/$code/');
+        lobbyRead.releaseAll();
+        await frames();
+        if (!socketFirst) {
+          phone.openLobbySocket();
+          await frames();
+        }
+        expect(table.length, 1);
+
+        table.releaseAll();
+        await _until(
+          tester,
+          () => find.byType(YourCardScreen).evaluate().isNotEmpty,
+        );
+        expect(phone.sent.where((r) => r == 'GET /me/table/'), hasLength(1));
+        await phone.close(tester);
+      });
+    }
 
     testWidgets('a seat the server no longer names is let go: its screen '
         'follows /me/table/', (tester) async {

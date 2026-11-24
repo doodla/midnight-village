@@ -45,6 +45,20 @@ void _dealOnServer(TableSetup setup, Map<String, dynamic> me) {
   setup.answerGame(me);
 }
 
+/// The app goes to the background and comes back.
+void _wake(WidgetTester tester) {
+  for (final state in const [
+    AppLifecycleState.inactive,
+    AppLifecycleState.hidden,
+    AppLifecycleState.paused,
+    AppLifecycleState.hidden,
+    AppLifecycleState.inactive,
+    AppLifecycleState.resumed,
+  ]) {
+    tester.binding.handleAppLifecycleStateChanged(state);
+  }
+}
+
 Future<void> _frames(WidgetTester tester) async {
   for (var i = 0; i < 20; i++) {
     await tester.pump(Duration.zero);
@@ -52,60 +66,49 @@ Future<void> _frames(WidgetTester tester) async {
 }
 
 void main() {
-  group('one heal, one read of where the phone sits', () {
-    testWidgets('the app comes back after a missed deal: the lobby answering '
-        'first does not throw the table\'s read away for another', (
-      tester,
-    ) async {
+  group('one heal, one read of where the phone sits, in either order', () {
+    // Ben missed the deal (the lobby socket down, or not open yet, the
+    // phone asleep). Two things then ask where he sits: the app coming back
+    // and the socket coming up. Whichever comes first, one /me/table/
+    // request goes out (held here), and the screen moves on its answer.
+    Future<void> heal(
+      WidgetTester tester, {
+      required bool firstOpen,
+      required bool resumeFirst,
+    }) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
+        slowLobbySocket: firstOpen,
         healTiming: _phone,
       );
-      final dealt = recordedMe('me_look_stage');
-      _dealOnServer(setup, dealt);
-      final table = setup.http.hold(method: 'GET', path: '/me/table/');
-
-      for (final state in const [
-        AppLifecycleState.inactive,
-        AppLifecycleState.hidden,
-        AppLifecycleState.paused,
-        AppLifecycleState.hidden,
-        AppLifecycleState.inactive,
-        AppLifecycleState.resumed,
-      ]) {
-        tester.binding.handleAppLifecycleStateChanged(state);
+      if (!firstOpen) {
+        await setup.dropLobbySocket();
+        // Its lobby read while down answers before the deal.
+        await _frames(tester);
       }
-      await _frames(tester);
-
-      expect(table.length, 1, reason: 'the lobby said "in a game" meanwhile');
-      setup.http.stopHolding(method: 'GET', path: '/me/table/');
-      table.releaseAll();
-      await _frames(tester);
-      expect(_inGame(tester), isTrue, reason: '${_screen(tester)}');
-      await setup.close(tester);
-    });
-
-    testWidgets('the socket comes back after a missed deal: one read', (
-      tester,
-    ) async {
-      final setup = await TableSetup.pump(
-        tester,
-        lobby: v2Lobby('detail_auto_deck_5'),
-        viewer: 'Ben',
-        reconnectingSocket: true,
-        healTiming: _phone,
-      );
-      await setup.dropLobbySocket();
-      // Its lobby read while down answers before the deal.
-      await _frames(tester);
       final dealt = recordedMe('me_look_stage');
       _dealOnServer(setup, dealt);
       final table = setup.http.hold(method: 'GET', path: '/me/table/');
+      Future<void> socketUp() async {
+        if (firstOpen) {
+          setup.openLobbySocket();
+        } else {
+          await tester.pump(const Duration(seconds: 1));
+        }
+        await _frames(tester);
+      }
 
-      await tester.pump(const Duration(seconds: 1));
-      await _frames(tester);
+      if (resumeFirst) {
+        _wake(tester);
+        await _frames(tester);
+        await socketUp();
+      } else {
+        await socketUp();
+        _wake(tester);
+        await _frames(tester);
+      }
 
       expect(table.length, 1);
       setup.http.stopHolding(method: 'GET', path: '/me/table/');
@@ -113,7 +116,19 @@ void main() {
       await _frames(tester);
       expect(_inGame(tester), isTrue, reason: '${_screen(tester)}');
       await setup.close(tester);
-    });
+    }
+
+    for (final firstOpen in const [false, true]) {
+      for (final resumeFirst in const [true, false]) {
+        final socket = firstOpen ? 'opens' : 'comes back';
+        final order = resumeFirst
+            ? 'the app comes back, then the socket $socket'
+            : 'the socket $socket, then the app comes back';
+        testWidgets(order, (tester) async {
+          await heal(tester, firstOpen: firstOpen, resumeFirst: resumeFirst);
+        });
+      }
+    }
   });
 
   group('a lobby that says the table is in a game', () {
@@ -185,24 +200,28 @@ void main() {
     // him from that list.
     Future<TableSetup> leftThenDealt(
       WidgetTester tester, {
-      required bool gameSocketRefused,
+      required bool refused,
     }) async {
       final setup = await TableSetup.pump(
         tester,
         lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
         healTiming: _phone,
-        gameSocketRefused: gameSocketRefused,
+        holdGameSocket: true,
       );
       final dealt = recordedMe('me_look_stage');
-      setup.http
-        ..answer('GET', '/me/table/', serverMyTable())
-        ..answer(
+      setup.http.answer('GET', '/me/table/', serverMyTable());
+      if (refused) {
+        setup.http.answer(
           'GET',
           '/onuw/games/${dealt['game_id']}/me/',
           ContractSamples.map('http/game/me_not_a_player'),
           status: 403,
         );
+      } else {
+        // Answered: only the socket's opening can find the seat is wrong.
+        setup.answerGame(dealt);
+      }
       setup.event({
         ...ContractSamples.map('ws/lobby/game_started'),
         'game_id': dealt['game_id'],
@@ -213,7 +232,7 @@ void main() {
 
     testWidgets('a game that refuses this player reads where it sits: 01 '
         '(its socket never opens)', (tester) async {
-      final setup = await leftThenDealt(tester, gameSocketRefused: true);
+      final setup = await leftThenDealt(tester, refused: true);
 
       await tester.pump(_soon);
       await tester.pump();
@@ -225,8 +244,11 @@ void main() {
     testWidgets('the game\'s socket opening reads where it sits: 01', (
       tester,
     ) async {
-      final setup = await leftThenDealt(tester, gameSocketRefused: false);
+      final setup = await leftThenDealt(tester, refused: false);
+      await setup.settle(tester);
+      expect(_inGame(tester), isTrue, reason: 'seated, the socket not open');
 
+      setup.openGameSocket();
       await tester.pump(_soon);
       await tester.pump();
 

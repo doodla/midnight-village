@@ -73,6 +73,8 @@ NewRead == Older \cup {[cur |-> TRUE, v |-> Sent]}
 Ask == reads' = NewRead /\ judge' = FALSE
 \* askWhere(settledBy: moved on): a read out now is judged when it lands
 AskJudged == IF \E r \in reads : r.cur THEN judge' = TRUE /\ UNCHANGED reads ELSE Ask
+\* the app coming back (myTable's own resume): a read out answers it
+AskJoin == IF \E r \in reads : r.cur THEN UNCHANGED <<reads, judge>> ELSE Ask
 \* What the phone shows becomes v. A screen on another socket opens it (not
 \* listened to until up) and reads at once: 02 its lobby, a game its /me/.
 Show(v) == /\ tab' = v
@@ -142,9 +144,11 @@ ServeLobby == /\ lq = LSent /\ lq' = [v |-> srv, m |-> member]
               /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, reads, judge, lwhy,
                              lmem, mq, drops, resumes, fails>>
 \* a lobby read that fails: the phone keeps its own (older) player list
-LobbyFails == /\ lq = LSent /\ fails < MaxFails /\ fails' = fails + 1 /\ lq' = LNone
-              /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, reads, judge, lwhy,
-                             lmem, mq, drops, resumes>>
+\* meanwhile, and reads again after a backoff (`_healRead`, main's #187): the
+\* read stays asked for, and is served later
+LobbyFails == /\ lq = LSent /\ fails < MaxFails /\ fails' = fails + 1
+              /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, reads, judge, lq,
+                             lwhy, lmem, mq, drops, resumes>>
 \* the lobby says the table is past waiting and the phone knows no game of it:
 \* the first read (build) did so before too (current-game); a read again only
 \* with FIX_HEAL (_askWhereIfMoved)
@@ -179,25 +183,26 @@ Drop == /\ up /\ drops < MaxDrops /\ drops' = drops + 1
         /\ UNCHANGED <<srv, member, left, opening, tab, reads, judge, lq, lwhy, lmem, mq,
                        resumes, fails>>
 \* the socket is up (a game's only for a player of it). Back after a drop: 02
-\* reads its lobby and asks the table; a game or the end asks the table. Up for
-\* the first time: the same with FIX_UP; before it, nothing.
+\* reads its lobby (whose judged rule asks the table); a game or the end asks
+\* the table. Up for the first time: the same with FIX_UP; before it, nothing.
 Back == /\ ~up /\ Src(tab) # "none" /\ (Src(tab) = "lobby" \/ member)
         /\ up' = TRUE /\ opening' = FALSE
         /\ IF opening
            THEN IF ~FIX_UP THEN UNCHANGED <<reads, judge, lq, lwhy>>
                 ELSE IF Kind(tab) = "waiting"
-                THEN lq' = LSent /\ lwhy' = "again" /\ Ask
+                THEN lq' = LSent /\ lwhy' = "again" /\ UNCHANGED <<reads, judge>>
                 ELSE Ask /\ UNCHANGED <<lq, lwhy>>
            ELSE IF Kind(tab) = "waiting"
-                THEN /\ lq' = LSent /\ lwhy' = "again"
-                     /\ IF FIX_HEAL THEN Ask ELSE UNCHANGED <<reads, judge>>
+                \* 02: the lobby read asks (judged) if the table moved on; before
+                \* FIX_HEAL that read was not judged at all (ApplyLobby)
+                THEN lq' = LSent /\ lwhy' = "again" /\ UNCHANGED <<reads, judge>>
                 ELSE Ask /\ UNCHANGED <<lq, lwhy>>
         /\ UNCHANGED <<srv, member, left, chan, tab, lmem, mq, drops, resumes, fails>>
 \* the app comes back: FIX_HEAL asks the table wherever it is and reads the
 \* lobby at 02; before, only a game did
 Woken == /\ resumes' = resumes + 1
          /\ IF Kind(tab) = "waiting"
-            THEN IF FIX_HEAL THEN Ask /\ lq' = LSent /\ lwhy' = "again"
+            THEN IF FIX_HEAL THEN AskJoin /\ lq' = LSent /\ lwhy' = "again"
                  ELSE UNCHANGED <<reads, judge, lq, lwhy>>
             ELSE Ask /\ UNCHANGED <<lq, lwhy>>
 Resume == /\ resumes < MaxResumes /\ Woken

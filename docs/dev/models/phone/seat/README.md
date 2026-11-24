@@ -4,9 +4,10 @@ One guest phone from 02 through a game, play again and the next deal, written fr
 `start-lands-fast` (on `e48d802`). It models what moves the screen between tables and
 games: the events (`game_started` on the lobby socket, `game_results` and `play_again` on
 the game's); `/me/table/` reads, all asked through `askWhere` (a plain ask replaces the
-read out; a judged ask, the lobby's, waits for the read out and asks again only if its
-answer is still "waiting"); the lobby's reads and the phone's own player list (a read
-again can fail, leaving the list behind); the game's `/me/`, refused to a phone that is not
+read out, in a game and at the end board; a judged ask, the lobby's, waits for the read
+out or judges the answer held, and asks again only if it still says "waiting"; coming
+back to the app joins a read out); the lobby's reads and the phone's own player list (a
+read can fail, leaving the list behind, and is read again after a backoff, main's #187); the game's `/me/`, refused to a phone that is not
 a player; the phone leaving; a socket that opens (not listened to until it is up; a game's
 never opens for a phone that is not a player), drops and comes back; the phone asleep; the
 app coming back. The slow poll is left out: every heal must come from the phone's own reads.
@@ -14,7 +15,11 @@ The table is a version: 0 waiting, 1 game 1, 2 its results, 3 waiting again, 4 g
 `NoTable` once the phone has left.
 
 Left out: the stages inside a game (the day model's, `../day/`: here a game behind the
-server heals by its deadline, `GameHeals`), the host's taps (the answers seat the phone as
+server heals by its deadline, `GameHeals`, whose guard is the server's own state, so
+convergence inside a running game holds by construction; the rules that matter here, at
+02 and the end board, do not lean on it), the lobby asking only once per change of
+status (`_askedWhereAt`: the model asks on every such lobby read; the code asks less,
+and a resume or a socket coming back still asks), the host's taps (the answers seat the phone as
 the events do), a cold open from the seat kept on the device (`LastSeat`; its one-read rule
 is pinned by `app_open_test.dart`), a second table, joining again after leaving.
 
@@ -40,8 +45,12 @@ is pinned by `app_open_test.dart`), a second table, joining again after leaving.
 - The event channel holds at most the three events a run can send; the lobby and `/me/`
   reads are one slot each, as in the app (a read asked for while one is out shares it).
 
-`runseat.sh` runs all six in about half a minute on this machine (`seat`: 207,781 distinct
+`runseat.sh` runs all six in about half a minute on this machine (`seat`: 211,762 distinct
 states, none left on the queue).
+
+Cost, accepted: a game screen's socket opening reads `/me/` once more (and `/me/table/`
+when the table names the game), on every phone, at every new game: the first `/me/`
+always goes out before the socket listens.
 
 ## Runs (`TLA2TOOLS=/path/to/tla2tools.jar ./runseat.sh`)
 

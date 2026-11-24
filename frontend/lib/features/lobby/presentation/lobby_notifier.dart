@@ -267,15 +267,14 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
         },
       );
       // After a dropped connection comes back, read the lobby again: events
-      // (including a host change) may have been missed meanwhile, and where
-      // this phone sits.
+      // (including a host change) may have been missed meanwhile; a lobby
+      // ahead of the phone asks where it sits (judged: one read).
       final ws = _webSocket;
       if (ws is ReconnectingWebSocket) {
         var wasDown = false;
         _connectionSubscription = ws.connectionState.listen((s) {
           if (s == WebSocketConnectionState.connected &&
               (wasDown || _readWhenUp)) {
-            askWhere(ref);
             wasDown = false;
             _readWhenUp = false;
             // After the first read (it may predate the socket listening).

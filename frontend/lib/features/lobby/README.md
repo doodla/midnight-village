@@ -76,8 +76,8 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   or a join by code (`already_in_lobby` is no refusal: the player is there), then the screen
   `/me/table/` names. The start's or the join's answer is the table's lobby (`LobbySeed`): 02
   shows it without reading it again. Every lobby is read once more when its socket is first
-  up (anything said before it listened: a join, a deal), with `/me/table/`, as when it
-  comes back; a table its
+  up (anything said before it listened: a join, a deal), as when it comes back (a lobby
+  that moved on then asks where the phone sits, judged: one read); a table its
   host just started never (only its host knows the code). The same answer is where the player sits (`MyTable.seatedAt`): `/me/table/` takes it
   as its next value without asking (`SeatSeed`, put and asked for together by
   `holdSeatFromAnswer`, which mounts and holds `/me/table/` at once; one slot, for one

@@ -126,6 +126,12 @@ class TableSetup {
   /// With `slowLobbySocket`: the lobby socket's first connection is open
   /// (the server listens to it) only from now on.
   void openLobbySocket() => _firstOpens?.complete();
+
+  /// With `holdGameSocket`: the dealt game's socket is open from now on.
+  void openGameSocket() =>
+      _gameConnection.add(WebSocketConnectionState.connected);
+  final _gameConnection =
+      StreamController<WebSocketConnectionState>.broadcast();
   Completer<void>? _firstOpens;
   final _open = <MockWebSocketChannel>{};
 
@@ -173,15 +179,16 @@ class TableSetup {
 
     /// The lobby's socket is the app's own [ReconnectingWebSocket] over
     /// fake connections, so a test can drop it ([dropLobbySocket]).
-    bool reconnectingSocket = false,
+    bool reconnectingSocket = true,
 
     /// With `reconnectingSocket`: its first connection opens only when the
     /// test says ([openLobbySocket]); events meanwhile reach nobody.
     bool slowLobbySocket = false,
 
-    /// A dealt game's socket never opens (the server refuses it to a phone
-    /// that is not a player); else it opens at once.
-    bool gameSocketRefused = false,
+    /// A dealt game's socket opens only when the test says
+    /// ([openGameSocket]; never: the server refuses it to a phone that is
+    /// not a player); else it opens at once.
+    bool holdGameSocket = false,
 
     /// How the phone heals (the test's fast one unless given: a test of how
     /// long a miss lasts gives the phone's own, `const HealTiming()`).
@@ -296,9 +303,9 @@ class TableSetup {
           gameWebSocketStreamProvider.overrideWith(
             (ref, id) => setup.gameWs.stream,
           ),
-          if (gameSocketRefused)
+          if (holdGameSocket)
             gameConnectionStateProvider.overrideWith(
-              (ref, id) => const Stream<WebSocketConnectionState>.empty(),
+              (ref, id) => setup._gameConnection.stream,
             ),
           // Without: an app build that knows no web address (no QR code).
           appOriginProvider.overrideWithValue(webAddress ? _webOrigin : null),
