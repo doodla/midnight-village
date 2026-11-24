@@ -170,10 +170,13 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   /// Whether a lobby the server sent is shown: not older than the newest
   /// shown ([SettingsLane.admit], the server's `rev`).
   bool _admit(LobbyState fresh) {
-    final (lane, shown) = _lane.admit(fresh.rev);
+    final (lane, shown) = _lane.admit(fresh.rev, table: _tableOf(fresh));
     _lane = lane;
     return shown;
   }
+
+  /// Which table a lobby is: its code with when it was opened.
+  static Object _tableOf(LobbyState lobby) => (lobby.code, lobby.createdAt);
 
   /// A lobby the server sent (an answer, a `lobby_update`) under the screen,
   /// unless it is older than the newest shown.
@@ -408,6 +411,15 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     final change = HostChange.fromEvent(message);
     final current = _current;
     if (current == null) return;
+    // Shown at its `rev`; a lower one (a late handover) never puts an older
+    // host back.
+    final (lane, shown) = _lane.admit(
+      message['rev'] as int?,
+      table: _tableOf(current),
+      lobby: false,
+    );
+    _lane = lane;
+    if (!shown) return;
     final brief = change.reason != HostChangeReason.handover;
     _set(
       current.copyWith(

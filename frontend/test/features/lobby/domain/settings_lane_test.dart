@@ -257,6 +257,32 @@ void main() {
       expect(SettingsLane.empty.admits(null), isTrue);
     });
 
+    test('the newest is per table: another table at the same code starts '
+        'again, and the old one\'s numbers no longer count', () {
+      final (old, _) = SettingsLane.empty.admit(9, table: 'ABC-1');
+      expect(old.admits(2, table: 'ABC-1'), isFalse);
+      final (fresh, shown) = old.admit(2, table: 'ABC-2');
+      expect(shown, isTrue, reason: 'a new table');
+      expect(fresh.admits(1, table: 'ABC-2'), isFalse);
+      expect(fresh.admits(2, table: 'ABC-2'), isTrue);
+    });
+
+    test('host_changed counts as shown at its number; a lower one is '
+        'ignored, and it takes no refused value off the screen', () {
+      var lane = _asked(SettingsLane.empty.admit(5).$1, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.refused());
+      final (moved, shown) = lane.admit(7, lobby: false);
+      expect(shown, isTrue);
+      expect(moved.refusedShown, isTrue, reason: 'host_changed is no lobby');
+      expect(moved.admits(6), isFalse, reason: 'older than the host change');
+      expect(moved.admit(6, lobby: false).$2, isFalse, reason: 'a late one');
+      final (none, noRev) = moved.admit(null, lobby: false);
+      expect(noRev, isTrue);
+      expect(none.admits(6), isFalse, reason: 'no rev leaves the newest');
+    });
+
     test('an answered change is not held over the screen: the answer, or a '
         'newer lobby, is what shows', () {
       var lane = _asked(SettingsLane.empty, [

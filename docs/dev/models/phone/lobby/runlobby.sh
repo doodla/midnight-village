@@ -14,7 +14,7 @@ for n in $names; do
   s=$(date +%s)
   # one worker for a known gap: the same shortest trace every run (as README.md gives it)
   case $n in known_*) w=1 ;; *) w=4 ;; esac
-  timeout 1800 java -XX:+UseParallelGC -cp "$J" tlc2.TLC -noGenerateSpecTE -workers $w -metadir "$out/$n.states" \
+  timeout 3600 java -XX:+UseParallelGC -cp "$J" tlc2.TLC -noGenerateSpecTE -workers $w -metadir "$out/$n.states" \
     -config "$n.cfg" PhoneLobby.tla > "$out/$n.out" 2>&1
   e=$(date +%s)
   broke=$(grep -E 'is violated' "$out/$n.out" | sort -u | tr '\n' ' ')

@@ -6,8 +6,9 @@ events held while a read is out), the socket (a read when it drops and when it i
 "Not sent." with its "Try again", and the deal. Against an abstract server that applies a
 change, answers the whole lobby and broadcasts `lobby_update` of that same lobby
 (`backend/apps/core/views.py`), with a second writer beside the host: a presence change, a
-join, and a join to a full table that takes a practice player's seat (`practice.make_room`),
-each a `lobby_update` of its own; and the host role moving away (a 403 for this phone).
+join, a join to a full table that takes a practice player's seat (`practice.make_room`),
+each a `lobby_update` of its own, and a new table at the same code (its numbers start
+again); and the host role moving away (`host_changed`, and a 403 for this phone).
 
 Every lobby body carries the server's revision `rev`, which rises with every change the
 server tells anyone. The phone never shows a body older than the newest it has shown.
@@ -23,7 +24,10 @@ goes out is `lobby_taps.dart`, a part of `lobby_notifier.dart`.
   `lobby_update`) whose `rev` is lower than the newest shown is not shown; equal is shown (at
   an equal number who is present may differ, and a read that crosses a write can carry newer
   members with the older number). A body with no `rev` (a server from before it) is shown as
-  it comes. This one compare replaced the guess that told lobbies apart by their values and
+  it comes and leaves the newest number alone. `host_changed` carries `rev` and counts as
+  shown at it; one lower than the newest shown is ignored, so a late handover never puts an
+  older host back (`HostNeverBack`). The newest is kept per table (its code with its
+  `created_at`): a new table at a code used before starts again. This one compare replaced the guess that told lobbies apart by their values and
   the order they came in (gap a's "laid" answers and the matching of `lobby_update`s), which
   stuck when someone else wrote a key and took another player's update for the host's own.
 - **R1, "Not sent." is derived** (`LostFlagged`, `NoHiddenResend`). It is
@@ -84,7 +88,7 @@ gap's and each finding's trace, in
   make_room leaves on `prac`), so for the host's own keys "older" is "smaller". Three keys:
   `seats`, `deck` (a custom deck changes `deck` and `seats` in one tap, as `startCustomDeck`
   does), `prac` (practice, the other endpoint, same lane).
-- Bodies are `[v, rev]`; the server's `rev` rises with each change it tells anyone (a host
+- Bodies are `[v, rev, host, tid]` (`tid`: the table); the server's `rev` rises with each change it tells anyone (a host
   change applied, a presence change, a join, a make_room, the host role moving).
 - After a refusal or a loss the queue waits for the read (`await refreshLobby()` in `_send`).
 - Faults (at most `MaxFaults`): a change with no answer in time (applied or not), a refusal,
@@ -119,7 +123,7 @@ the whole script: TLC 2026.11.19 (`tla2tools.jar` of the tlaplus v1.8.0 release)
 | Rule | Says | Run | Result |
 |---|---|---|---|
 | `NeverOlder` | The server never writes a key's older ask over a newer one (lane order; "Try again" never undoes a newer change) | `lobby` | holds (RESULT_lobby) |
-| `NoFlickerBack` | (R0) No lobby shown takes a host value back, and nothing laid over the lobby is older than it | `rule_a` | holds (RESULT_rule_a) |
+| `NoFlickerBack`, `HostNeverBack` | (R0) No lobby shown takes a host value back, nothing laid over the lobby is older than it, and no older host comes back | `rule_a` | holds (RESULT_rule_a) |
 | `LostFlagged` | (R1) A lost change that "Try again" would still send is said so on the screen | `rule_b` | holds (RESULT_rule_b) |
 | `NoHiddenResend` | (R1) "Try again" never sends a lost value after "Not sent." stopped showing for it | `rule_b2` | holds (RESULT_rule_b2) |
 | `RetryCoversAll`, `DealAsShown` | (R2) "Try again" leaves nothing behind; what is dealt is what the screen showed at the tap (but a key make_room wrote after the lobby then on screen) | `rule_c` | holds (RESULT_rule_c) |
@@ -154,6 +158,17 @@ in the model and the code:
    values were shown again). With the screen at the tap, `rule_c` breaks: the read put 4
    back, "Not sent." showed, the host dealt and 5 was dealt. Now a lost value lies over the
    screen while it would still be sent, so the screen at the tap is what goes.
+
+**Added with the server's `rev` (its contract: `docs/specs/onuw/api-contract-v2.md`,
+sections 2 and 8).** With two host moves, a `host_changed` applied whatever its number
+breaks `HostNeverBack` (a read showed the newest host, then the first move's late event put
+the older one back). With a new table at the same code and the newest kept for the whole
+code, `Converges` breaks (two taps, then the new table's first `lobby_update`, numbered 1,
+is never shown). Both hold with the rules above.
+
+**A slip in the model, found on the way.** `Next` read `\E r \in reqs : SRefuse(r) \/ SJoin`:
+the quantifier ran to the end of the line, so someone sat down only while a request of the
+host's was in flight. Each quantifier is in parentheses now.
 
 ## How the first gaps closed (`7821a42`)
 

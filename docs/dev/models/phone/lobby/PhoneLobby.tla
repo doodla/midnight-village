@@ -40,32 +40,35 @@ None == [n |-> 0, keys |-> {}, v |-> 0]
 
 VARIABLES
   sv, sask, srev, badOrder,        \* server: the lobby's values, the newest host ask stored per key, its revision, an older ask over a newer
-  sDealt, moved, roomAt,           \* dealt; the host role moved off this phone; the rev make_room wrote "prac" at (0: never)
+  sDealt, shost, stid, roomAt,     \* dealt; host moves so far (this phone hosts at 0); the table (a reused code: a new one); the rev make_room wrote "prac" at (0: never)
   reqs, rep, evq, sock, joins,     \* lane requests in flight, the answer, socket events, socket up/down, second-writer events
   q, phase,                        \* phone: the lane's queue (pending; its head is out in phase "out"), its step
-  base, srn,                       \* the server lobby under the screen (the newest shown) and its rev
+  base, srn, phost, btid,          \* the server lobby under the screen (the newest shown), its rev, its host, its table
   unsent, asked, askedAt,          \* the lost changes, the tap count, the newest ask per key
   refC, dealHeld, guest,           \* the refused change still on screen ({} or {c}); the deal not sent; a 403 met
   rq, rv, again, buf,              \* refreshLobby: the read, its body, _refreshAgain, _buffered
   dq, pDealt, deals, dealView, dealMoved, \* the deal: its state, the game opened, deal taps, the screen at the tap, make_room wrote after it
-  flick, hidden, ghost, stranded, dealBad, \* history for the rules
+  flick, hostBack, hidden, ghost, stranded, dealBad, \* history for the rules
   taps, faults, tried              \* tried: the step before was a "Try again"
 
-vars == <<sv, sask, srev, badOrder, sDealt, moved, roomAt, reqs, rep, evq, sock, joins, q, phase,
-          base, srn, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, again, buf, dq, pDealt,
+vars == <<sv, sask, srev, badOrder, sDealt, shost, stid, roomAt, reqs, rep, evq, sock, joins, q,
+          phase, base, srn, phost, btid, hostBack, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, again, buf, dq, pDealt,
           deals, dealView, dealMoved, flick, hidden, ghost, stranded, dealBad, taps, faults, tried>>
-servVars == <<sv, sask, srev, badOrder, sDealt, moved, roomAt>>
+servVars == <<sv, sask, srev, badOrder, sDealt, shost, stid, roomAt>>
 readVars == <<rq, rv, again, buf>>
 laneVars == <<q, unsent, asked, askedAt, refC, dealHeld, guest>>
-screenVars == <<base, srn, flick>>
+screenVars == <<base, srn, phost, btid, flick, hostBack>>
 histVars == <<hidden, ghost, stranded, dealBad>>
 dealVars == <<dq, pDealt, deals, dealView, dealMoved>>
 
 Max(S) == CHOOSE x \in S : \A y \in S : y <= x
 Vals(s) == {s[i].v : i \in 1..Len(s)}
 Range(s) == {s[i] : i \in 1..Len(s)}
-Body == [v |-> sv, rev |-> srev]
-NoBody == [v |-> Zero, rev |-> 0]
+\* a lobby body (and host_changed): the values, the rev, the host, the table
+Body == [v |-> sv, rev |-> srev, host |-> shost, tid |-> stid]
+NoBody == [v |-> Zero, rev |-> 0, host |-> 0, tid |-> 0]
+\* the host role is this phone's only before the first move
+moved == shost > 0
 
 (* ---------------- what the screen shows (SettingsLane.over) ---------------- *)
 \* a lost or refused change lies over the server's lobby on the keys no newer change asked for
@@ -88,17 +91,30 @@ NotSent == NS(unsent, askedAt, dealHeld)
 Waiting == WaitingIn(unsent, askedAt)
 
 (* ---------------- the one compare (SettingsLane.admit) ---------------- *)
-\* Of the server bodies S arriving in this step (in order), those not older than the newest
-\* shown are shown; the last of them (the greatest rev) is the lobby under the screen. A body
-\* shown takes the refused value off the screen.
-Admitted(S) == {b \in S : b.rev >= srn}
-ShowAll(S) ==
-  IF Admitted(S) = {} THEN UNCHANGED screenVars /\ UNCHANGED refC
-  ELSE LET b == CHOOSE x \in Admitted(S) : \A y \in Admitted(S) : y.rev <= x.rev IN
-       /\ base' = b.v /\ srn' = b.rev /\ refC' = {}
-       /\ flick' = (flick \/ \E k \in HostOnly : b.v[k] < base[k])
-Show(b) == ShowAll({b})
-Upds(B) == {B[i].lob : i \in {j \in 1..Len(B) : B[j].t = "upd"}}
+\* The events E arriving in this step, in order: a lobby body ("upd": an answer, a read, a
+\* lobby_update) is shown when its rev is not lower than the newest shown, and host_changed
+\* ("host") counts as shown at its rev; a lower one is ignored. The newest is per table: a
+\* body of another table (a reused code) starts again. A body shown takes the refused value
+\* off the screen.
+Adm(c, b) == b.tid # c.tid \/ b.rev >= c.rev
+Step1(c, e) ==
+  IF e.t = "upd" /\ Adm(c, e.lob)
+  THEN [v |-> e.lob.v, rev |-> e.lob.rev, host |-> e.lob.host, tid |-> e.lob.tid, body |-> TRUE,
+        fl |-> c.fl \/ (e.lob.tid = c.tid /\ \E k \in HostOnly : e.lob.v[k] < c.v[k]),
+        hb |-> c.hb \/ (e.lob.tid = c.tid /\ e.lob.host < c.host)]
+  ELSE IF e.t = "host" /\ Adm(c, e.lob)
+  THEN [c EXCEPT !.rev = e.lob.rev, !.host = e.lob.host, !.tid = e.lob.tid,
+                 !.hb = c.hb \/ (e.lob.tid = c.tid /\ e.lob.host < c.host)]
+  ELSE c
+RECURSIVE Fold(_, _)
+Fold(c, E) == IF E = <<>> THEN c ELSE Fold(Step1(c, Head(E)), Tail(E))
+Apply(E) ==
+  LET c == Fold([v |-> base, rev |-> srn, host |-> phost, tid |-> btid, body |-> FALSE,
+                 fl |-> flick, hb |-> hostBack], E) IN
+  /\ base' = c.v /\ srn' = c.rev /\ phost' = c.host /\ btid' = c.tid
+  /\ flick' = c.fl /\ hostBack' = c.hb
+  /\ refC' = IF c.body THEN {} ELSE refC
+Show(b) == Apply(<<[t |-> "upd", lob |-> b]>>)
 HasJoin(B) == \E i \in 1..Len(B) : B[i].t = "join"
 
 (* refreshLobby: a call while a read is out runs once more after it *)
@@ -121,14 +137,15 @@ SApply(r) ==
      ELSE \* a host value IS the order it was asked in (v), so "the stored ask is newer" is
           \* sask[k] > r.v; all keys stale: 409 stale_request, nothing stored, nothing broadcast
           LET keep == IF FIX_ASKED THEN {k \in r.keys : r.v >= sask[k]} ELSE r.keys
-              nb == [v |-> [k \in Keys |-> IF k \in keep THEN r.v ELSE sv[k]], rev |-> srev + 1] IN
+              nb == [Body EXCEPT !.v = [k \in Keys |-> IF k \in keep THEN r.v ELSE sv[k]],
+                                 !.rev = srev + 1] IN
           IF keep = {} THEN Answer(r, "refused", NoBody) /\ UNCHANGED <<sv, sask, srev, badOrder, roomAt, evq>>
           ELSE /\ sv' = nb.v /\ srev' = srev + 1 /\ Answer(r, "taken", nb)
                /\ sask' = [k \in Keys |-> IF k \in keep THEN r.v ELSE sask[k]]
                /\ badOrder' = (badOrder \/ \E k \in keep : r.v < sask[k])
                /\ evq' = IF sock = "up" THEN Append(evq, [t |-> "upd", lob |-> nb]) ELSE evq
                /\ UNCHANGED roomAt
-  /\ UNCHANGED <<sDealt, moved, sock, joins, phase, laneVars, screenVars, readVars, dealVars,
+  /\ UNCHANGED <<sDealt, shost, stid, sock, joins, phase, laneVars, screenVars, readVars, dealVars,
                  histVars, taps, faults>>
 \* a 4xx: the table moved under the change (someone joined, the seats filled)
 SRefuse(r) ==
@@ -143,8 +160,8 @@ SOther ==
   /\ joins < MaxJoins /\ joins' = joins + 1 /\ ~sDealt
   /\ \E kind \in {"presence", "join", "room"} :
        /\ kind = "room" => sv["prac"] # 0
-       /\ LET nb == [v |-> IF kind = "room" THEN [sv EXCEPT !["prac"] = 0] ELSE sv,
-                     rev |-> srev + 1] IN
+       /\ LET nb == [Body EXCEPT !.v = IF kind = "room" THEN [sv EXCEPT !["prac"] = 0] ELSE sv,
+                                  !.rev = srev + 1] IN
           /\ sv' = nb.v /\ srev' = srev + 1
           /\ roomAt' = IF kind = "room" THEN srev + 1 ELSE roomAt
           \* a deal tapped and not served yet: the phone could not have shown it
@@ -152,16 +169,30 @@ SOther ==
           /\ evq' = IF sock = "down" THEN evq
                     ELSE IF kind = "presence" THEN Append(evq, [t |-> "upd", lob |-> nb])
                     ELSE evq \o <<[t |-> "upd", lob |-> nb], [t |-> "join", lob |-> NoBody]>>
-  /\ UNCHANGED <<sask, badOrder, sDealt, moved, reqs, rep, sock, phase, laneVars, screenVars,
-                 readVars, dq, pDealt, deals, dealView, histVars, taps, faults>>
+  /\ UNCHANGED <<sask, badOrder, sDealt, shost, stid, reqs, rep, sock, phase, laneVars,
+                 screenVars, readVars, dq, pDealt, deals, dealView, histVars, taps, faults>>
+\* the table closed and a new one opened at the same code: its revs start again (bounded
+\* to a moment with nothing of the old table in flight); its first lobby_update
+SNewTable ==
+  /\ joins < MaxJoins /\ joins' = joins + 1 /\ ~sDealt
+  /\ reqs = {} /\ rep = {} /\ evq = <<>> /\ rq = "none" /\ dq = "none" /\ phase = "idle"
+  /\ q = <<>>
+  /\ sv' = Zero /\ sask' = Zero /\ srev' = 1 /\ shost' = 0 /\ stid' = 1 - stid /\ roomAt' = 0
+  /\ evq' = IF sock = "up"
+            THEN <<[t |-> "upd", lob |-> [v |-> Zero, rev |-> 1, host |-> 0, tid |-> 1 - stid]]>>
+            ELSE evq
+  /\ UNCHANGED <<badOrder, sDealt, reqs, rep, sock, phase, laneVars, screenVars, readVars,
+                 dealVars, histVars, taps, faults>>
 \* the host role moves to someone else (a handover): told to the table; this phone learns
 \* it from a 403
 SMove ==
-  /\ ~moved /\ ~sDealt /\ faults < MaxFaults /\ faults' = faults + 1
-  /\ moved' = TRUE /\ srev' = srev + 1
-  /\ evq' = IF sock = "up" THEN Append(evq, [t |-> "upd", lob |-> [v |-> sv, rev |-> srev + 1]]) ELSE evq
-  /\ UNCHANGED <<sv, sask, badOrder, sDealt, roomAt, reqs, rep, sock, joins, phase, laneVars,
-                 screenVars, readVars, dealVars, histVars, taps>>
+  /\ ~sDealt /\ faults < MaxFaults /\ faults' = faults + 1
+  /\ shost' = shost + 1 /\ srev' = srev + 1
+  /\ evq' = IF sock = "up"
+            THEN Append(evq, [t |-> "host", lob |-> [Body EXCEPT !.rev = srev + 1, !.host = shost + 1]])
+            ELSE evq
+  /\ UNCHANGED <<sv, sask, badOrder, sDealt, stid, roomAt, reqs, rep, sock, joins, phase,
+                 laneVars, screenVars, readVars, dealVars, histVars, taps>>
 
 (* ---------------- phone: the lane (_change, _send) ---------------- *)
 \* "Try again" (and a deal on a lost value still shown): the lost changes U
@@ -240,14 +271,14 @@ ReadServe ==
 \* if not older; then the read is no longer out
 ReadApply ==
   /\ rq = "served"
-  /\ ShowAll({rv} \cup Upds(buf))
+  /\ Apply(<<[t |-> "upd", lob |-> rv]>> \o buf)
   /\ EndRead(again \/ HasJoin(buf))
   /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, q, unsent, asked, askedAt, dealHeld,
                  guest, dealVars, histVars, taps, faults>>
 \* _applyHeld: the events held meanwhile, over what is shown
 ReadFail ==
   /\ rq # "none" /\ faults < MaxFaults /\ faults' = faults + 1
-  /\ ShowAll(Upds(buf))
+  /\ Apply(buf)
   /\ EndRead(again \/ HasJoin(buf))
   /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, q, unsent, asked, askedAt, dealHeld,
                  guest, dealVars, histVars, taps>>
@@ -257,8 +288,8 @@ EvDeliver ==
   /\ LET e == Head(evq) IN
      IF rq # "none"
      THEN buf' = Append(buf, e) /\ UNCHANGED <<screenVars, refC, rq, again, phase>>
-     ELSE IF e.t = "upd"
-          THEN Show(e.lob) /\ UNCHANGED <<buf, rq, again, phase>>
+     ELSE IF e.t \in {"upd", "host"}
+          THEN Apply(<<e>>) /\ UNCHANGED <<buf, rq, again, phase>>
           ELSE Refresh /\ UNCHANGED <<screenVars, refC, phase>>
   /\ UNCHANGED <<servVars, reqs, rep, sock, joins, q, unsent, asked, askedAt, dealHeld, guest,
                  rv, dealVars, histVars, taps, faults>>
@@ -307,7 +338,7 @@ DealServe ==
           /\ LET moved2 == IF dealMoved THEN {"prac"} ELSE {} IN
              dealBad' = (dealBad \/ \E k \in Keys \ moved2 : sv[k] # dealView[k])
           /\ UNCHANGED <<guest, unsent, dealHeld, q>>
-  /\ UNCHANGED <<sv, sask, srev, badOrder, moved, roomAt, reqs, rep, evq, sock, joins, phase,
+  /\ UNCHANGED <<sv, sask, srev, badOrder, shost, stid, roomAt, reqs, rep, evq, sock, joins, phase,
                  asked, askedAt, refC, screenVars, readVars, pDealt, deals,
                  hidden, ghost, stranded, taps, faults>>
 DealRefuse ==
@@ -351,9 +382,9 @@ Retry ==
 
 Init ==
   /\ sv = Zero /\ sask = Zero /\ srev = 0 /\ badOrder = FALSE /\ sDealt = FALSE
-  /\ moved = FALSE /\ roomAt = 0
+  /\ shost = 0 /\ stid = 0 /\ roomAt = 0
   /\ reqs = {} /\ rep = {} /\ evq = <<>> /\ sock = "up" /\ joins = 0
-  /\ q = <<>> /\ phase = "idle" /\ base = Zero /\ srn = 0
+  /\ q = <<>> /\ phase = "idle" /\ base = Zero /\ srn = 0 /\ phost = 0 /\ btid = 0 /\ hostBack = FALSE
   /\ unsent = <<>> /\ asked = 0 /\ askedAt = Zero /\ refC = {} /\ dealHeld = FALSE /\ guest = FALSE
   /\ rq = "none" /\ rv = NoBody /\ again = FALSE /\ buf = <<>>
   /\ dq = "none" /\ pDealt = FALSE /\ deals = 0 /\ dealView = Zero /\ dealMoved = FALSE
@@ -367,8 +398,8 @@ Done ==
 
 SApplyStep == \E r \in reqs : SApply(r)
 Step ==
-  \/ SApplyStep \/ \E r \in reqs : SRefuse(r) \/ SOther \/ SMove
-  \/ \E ks \in TapKeys : Tap(ks) \/ Send \/ Reply \/ Timeout
+  \/ SApplyStep \/ (\E r \in reqs : SRefuse(r)) \/ SOther \/ SNewTable \/ SMove
+  \/ (\E ks \in TapKeys : Tap(ks)) \/ Send \/ Reply \/ Timeout
   \/ ReadServe \/ ReadApply \/ ReadFail \/ EvDeliver \/ SockDrop \/ SockUp
   \/ DealTap \/ DealGo \/ DealServe \/ DealRefuse \/ DealLoss \/ DealTaken \/ DealRefused
 Next ==
@@ -377,8 +408,8 @@ Next ==
   \/ Step /\ tried' = FALSE
 
 \* every variable but `tried`, which no step reads (the invariant runs' VIEW)
-View == <<sv, sask, srev, badOrder, sDealt, moved, roomAt, reqs, rep, evq, sock, joins, q, phase,
-          base, srn, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, again, buf, dq, pDealt,
+View == <<sv, sask, srev, badOrder, sDealt, shost, stid, roomAt, reqs, rep, evq, sock, joins, q,
+          phase, base, srn, phost, btid, hostBack, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, again, buf, dq, pDealt,
           deals, dealView, dealMoved, flick, hidden, ghost, stranded, dealBad, taps, faults>>
 
 \* the network and the phone's own steps are fair; taps, faults and joins are not
@@ -396,6 +427,8 @@ NeverOlder == ~badOrder
 \* (the server's values on them only rise, LATE aside, so: no lobby shown takes one back,
 \* and nothing laid over the lobby is older than it)
 NoFlickerBack == ~flick /\ \A k \in HostOnly : Shown[k] >= base[k]
+\* (R0) a host_changed (or a lobby) older than the newest shown never puts an older host back
+HostNeverBack == ~hostBack
 \* (R1) a lost change that "Try again" would still send is said so on the screen
 LostFlagged == Waiting => NotSent
 \* (R1) "Try again" never sends a lost value after "Not sent." stopped showing for it

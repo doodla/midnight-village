@@ -40,7 +40,7 @@ final class SettingsLane {
     required Map<String, int> askedAt,
     required this.unsent,
     required LaneChange? refused,
-    required int? shownRev,
+    required _Newest? shownRev,
     required this.dealHeld,
     required this.dealWaiting,
   }) : _asked = asked,
@@ -80,8 +80,9 @@ final class SettingsLane {
   /// lobby is shown).
   final LaneChange? _refused;
 
-  /// The `rev` of the newest server lobby shown (null: none with one yet).
-  final int? _shownRev;
+  /// The table and `rev` of the newest server lobby shown (null: none with
+  /// a `rev` yet).
+  final _Newest? _shownRev;
 
   /// The deal did not go (no answer, or kept back): "Not sent.", and "Try
   /// again" deals.
@@ -97,7 +98,7 @@ final class SettingsLane {
     Map<String, int>? askedAt,
     List<LaneChange>? unsent,
     LaneChange? Function()? refused,
-    int? Function()? shownRev,
+    _Newest? Function()? shownRev,
     bool? dealHeld,
     bool? dealWaiting,
   }) => SettingsLane._(
@@ -123,22 +124,35 @@ final class SettingsLane {
   /// did not go. Derived, never stored: nothing else switches it.
   bool get notSent => dealHeld || unsent.any((c) => _newestOf(c).isNotEmpty);
 
-  /// Whether a server lobby numbered [rev] would be shown: not older than
-  /// the newest shown. Equal is shown (at an equal number who is present may
-  /// differ, and a read that crosses a write can carry newer members with
-  /// the older number); a lobby with no number (a server from before `rev`)
-  /// is shown.
-  bool admits(int? rev) {
+  /// Whether a server lobby numbered [rev] of [table] (its code with its
+  /// `created_at`) would be shown: not older than the newest shown of that
+  /// table. Equal is shown (at an equal number who is present may differ,
+  /// and a read that crosses a write can carry newer members with the older
+  /// number); a lobby with no number (a server from before `rev`) is shown;
+  /// another table (a code used again) starts again.
+  bool admits(int? rev, {Object? table}) {
     final newest = _shownRev;
-    return rev == null || newest == null || rev >= newest;
+    return rev == null ||
+        newest == null ||
+        newest.table != table ||
+        rev >= newest.rev;
   }
 
   /// A server lobby numbered [rev] arrived (an answer, a read, a
-  /// `lobby_update`): whether to show it ([admits]). Shown, it is the newest,
-  /// and no refused value stays on screen over it.
-  (SettingsLane, bool) admit(int? rev) {
-    if (!admits(rev)) return (this, false);
-    return (_with(shownRev: () => rev ?? _shownRev, refused: () => null), true);
+  /// `lobby_update`; [table] as in [admits]): whether to show it. Shown, it
+  /// is the newest, and no refused value stays on screen over it. A
+  /// `host_changed` ([lobby] false) counts as shown at its number the same
+  /// way, but is no lobby: a refused value stays. With no number the newest
+  /// is left as it was.
+  (SettingsLane, bool) admit(int? rev, {Object? table, bool lobby = true}) {
+    if (!admits(rev, table: table)) return (this, false);
+    return (
+      _with(
+        shownRev: () => rev == null ? _shownRev : (table: table, rev: rev),
+        refused: lobby ? () => null : null,
+      ),
+      true,
+    );
   }
 
   /// A tap: the change [make] builds with the next number, at the back of the
@@ -309,6 +323,9 @@ final class SettingsLane {
             : lobby.roleConfig,
       );
 }
+
+/// The newest server lobby shown: its table and its `rev`.
+typedef _Newest = ({Object? table, int rev});
 
 /// One change of the host's on the settings lane, numbered in the order
 /// asked ([number]).

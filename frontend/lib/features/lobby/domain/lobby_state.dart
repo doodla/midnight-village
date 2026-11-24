@@ -235,6 +235,11 @@ abstract class LobbyState with _$LobbyState {
     /// shown is never shown (`SettingsLane.admit`). Null: a server from
     /// before it (shown as it comes).
     int? rev,
+
+    /// When the table was opened (`created_at`): with [code], which table
+    /// this is (a code can be used again by a new table, whose [rev] starts
+    /// again).
+    String? createdAt,
   }) = _LobbyState;
 
   /// Parses the backend's LobbyResponse format.
@@ -284,6 +289,8 @@ abstract class LobbyState with _$LobbyState {
       seatsRange: (json['seats_range'] as List?)?.cast<int>(),
       practiceMost:
           (json['practice'] as Map<String, dynamic>?)?['most'] as int?,
+      rev: json['rev'] as int?,
+      createdAt: json['created_at'] as String?,
     );
   }
 }
