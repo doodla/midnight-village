@@ -6,33 +6,14 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'copy_rules.dart';
 
 // Every state of every screen in docs/specs/frontend/first-time-play.md
-// section 3, as the lines visible at once, for the copy budget test. Each
+// section 3, as the lines visible at once, for the copy rules test. Each
 // line is read from lib/design_system/copy/copy.dart. A held face counts
 // with the screen under it (copy rule 1). Lines are counted as written, gaps
 // unfilled (rule 1 exempts them); the face content
 // (lib/design_system/faces/face_content.dart) fills these same templates.
 
-/// A screen's budget (copy rule 2) and its states, by name.
-typedef Screen = ({int budget, Map<String, List<Line>> states});
-
-/// The states allowed past their screen's budget, each with its own, by
-/// screen and state: only states a host reaches by a gesture nothing on screen
-/// offers (practice players), so what every table shows stays in the budget.
-const stateAllowances = <String, Map<String, int>>{
-  // "Get the app" (3), the quiet link at the foot of 01, only in an Android
-  // browser: 14 and the link.
-  '01 Join': {'in an Android browser, Get the app': 17},
-  // "Practice" on the rows (one word, the same on each practice row) over a
-  // full 13: a table set for a number, practice players seated, fewer came.
-  '02 Table': {'host, set for a number, practice players, Play with {n}': 15},
-  // The Practice stepper's name under Players, at a number: 23 of 22.
-  '03 Deck': {
-    'practice switched on': 38,
-    // The count's line ("14 of 12 · Remove 2 cards").
-    'the deck does not fit, too many': 43,
-    'the deck does not fit, too few': 43,
-  },
-};
+/// A screen's states, by name: the lines visible at once in each.
+typedef Screen = ({Map<String, List<Line>> states});
 
 /// Every role text, laid out as the 04 face and 03b show it.
 Iterable<(RoleId, List<Line>)> _roleTexts() => [
@@ -159,7 +140,6 @@ const _lengths = [
 
 final screens = <String, Screen>{
   '01 Join': (
-    budget: 14,
     states: {
       for (final last in [JoinCopy.lastWon, JoinCopy.lastLost]) ...{
         'empty name ($last)': [
@@ -212,7 +192,6 @@ final screens = <String, Screen>{
   // The scanner (spec 01b): no words while it looks; one calm line and a
   // way out when the camera cannot be used.
   '01b Scan': (
-    budget: 7,
     states: {
       'looking': [],
       'camera off': [text(ScanCopy.cameraOff), button(ScanCopy.typeCode)],
@@ -224,7 +203,6 @@ final screens = <String, Screen>{
     // chip, the talk's length, the roles face up: names exempt), "Edit",
     // the deal button's one label and a quiet labelled "Leave"; Share is a
     // glyph, spoken only.
-    budget: 14,
     states: {
       for (final chip in DeckCopy.chips)
         for (final deal in <Object>[
@@ -320,7 +298,6 @@ final screens = <String, Screen>{
     // are exempt; the count is digits), every length with its value. The
     // Practice stepper, only for a host who held "Players", has its own
     // allowance ([stateAllowances]).
-    budget: 37,
     states: {
       for (final open in [true, false])
         open ? 'an open table' : 'set for a number': [
@@ -369,7 +346,6 @@ final screens = <String, Screen>{
     },
   ),
   '03b Role sheet': (
-    budget: 30,
     states: {
       for (final (role, lines) in _roleTexts())
         role.name: [
@@ -380,7 +356,6 @@ final screens = <String, Screen>{
     },
   ),
   '04 Your card': (
-    budget: 34,
     states: {
       // As the spec counts it: the whole role text, with the cue's word.
       for (final (role, lines) in _roleTexts())
@@ -405,13 +380,11 @@ final screens = <String, Screen>{
     },
   ),
   '05 Night, between': (
-    budget: 3,
     states: {
       'between': [headline(CommonCopy.nightTitle)],
     },
   ),
   '06 Night board': (
-    budget: 24,
     states: {
       for (final MapEntry(key: key, value: (prompt, face)) in _you.entries)
         for (final label in _buttons(prompt))
@@ -439,7 +412,6 @@ final screens = <String, Screen>{
     },
   ),
   '08 Talk': (
-    budget: 16,
     states: {
       // A first game, My night not yet held: the cue's word on it.
       'not held': [
@@ -463,7 +435,6 @@ final screens = <String, Screen>{
     },
   ),
   '09 Vote': (
-    budget: 8,
     states: {
       for (final label in <Object>[
         VoteCopy.pickName,
@@ -489,7 +460,6 @@ final screens = <String, Screen>{
   // names on cards, tags and strips are the players' and the roles', not
   // words.
   '12 End board': (
-    budget: 16,
     states: {
       for (final you in _endYouLines) ...{
         'host, $you': [

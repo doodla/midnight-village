@@ -123,6 +123,9 @@ void main() {
         File('$_out/${entry.id}.png')
           ..parent.createSync(recursive: true)
           ..writeAsBytesSync(png!);
+        // How many words are on the screen at once (`just handover` says
+        // which states show more than main does).
+        File('$_out/${entry.id}.words').writeAsStringSync('${_wordsShown()}');
       } finally {
         debugDisableShadows = true;
         FlutterError.onError = report;
@@ -133,6 +136,23 @@ void main() {
       }
     });
   }
+}
+
+/// The words drawn on the screen now: every piece with a letter in it, in
+/// every text that has a size (icons are glyphs, not words).
+int _wordsShown() {
+  var words = 0;
+  for (final e in find.byType(RichText).evaluate()) {
+    if (e.findAncestorWidgetOfExactType<Icon>() != null) continue;
+    final box = e.renderObject;
+    if (box is! RenderBox || !box.hasSize || box.size.isEmpty) continue;
+    final text = (e.widget as RichText).text.toPlainText();
+    words += text
+        .split(RegExp(r'\s+'))
+        .where((piece) => RegExp(r'\p{L}', unicode: true).hasMatch(piece))
+        .length;
+  }
+  return words;
 }
 
 /// Image providers load on real I/O, which the test clock never waits for:

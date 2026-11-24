@@ -242,6 +242,12 @@ def facts(changed: list[str], base: str) -> dict:
     ]
     return {
         "guards": guards,
+        "more_words": [
+            (item["name"], item["added"])
+            for item in (lambda w: w.grown(w.copy_at(base), w.by_class(w.all_copy())))(
+                tool("words_added")
+            )
+        ],
         "words": words_changed(base, tool("copy_page")),
         "specs": specs,
         "screen_code": screen_code,
@@ -333,6 +339,8 @@ def write(
         out.append(
             "- Each changed state alone, full size: `frontend/build/handover/<state>-<width>x<height>.png`"
         )
+        for state, was, now in shots.get("wordier", []):
+            out.append(f"- More words on screen at once: `{state}` shows {now}, main shows {was}.")
     out += ["", "## For the pull request", ""]
     if found["guards"]:
         out += [
@@ -346,6 +354,16 @@ def write(
         ]
     else:
         out.append("No guard file is edited: no `Guards changed` section needed.")
+    if found.get("more_words"):
+        out += [
+            "",
+            "This change adds words a player reads. The description needs, under `Words added`:",
+            "",
+            "```",
+            "Words added",
+        ]
+        out += [f"- {name}: <why, in a sentence>   (+{added})" for name, added in found["more_words"]]
+        out += ["```"]
     out += ["", "## Words", ""]
     if found["words"]:
         out += ["| Key | On main | Now |", "|---|---|---|"]

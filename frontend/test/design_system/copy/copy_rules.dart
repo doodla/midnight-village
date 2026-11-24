@@ -167,13 +167,12 @@ bool _contains(String line, String phrase) {
 }
 
 /// What is wrong with one screen state, [lines] being everything visible at
-/// once, against its [budget]: rules 2 (budget), 3 (one headline of at most
-/// 5 words) and 4 (buttons of 1 to 3 words).
-List<String> stateViolations(List<Line> lines, {required int budget}) {
-  final total = lines.fold(0, (sum, line) => sum + wordCount(line.text));
+/// once: rules 3 (one headline of at most 5 words) and 4 (buttons of 1 to 3
+/// words). How many words a screen has in all is not a number here: a change
+/// that adds words says so and why (rule 2, `tool/words_added.py`).
+List<String> stateViolations(List<Line> lines) {
   final headlines = lines.where((l) => l.kind == Shown.headline).toList();
   return [
-    if (total > budget) '$total words for a budget of $budget',
     if (headlines.length > 1)
       '${headlines.length} headlines: ${headlines.map((l) => l.text)}',
     for (final h in headlines)

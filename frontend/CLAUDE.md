@@ -125,7 +125,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 - **Words**: every player-facing string is in `lib/design_system/copy/` (the library `copy.dart`, one part file per screen's words: `vote_copy.dart`, `table_copy.dart`, ...; read them
   all on one page with `just copy-page` at the repo root; a spec names a copy class or key in
   backticks, never the words, and `just check` fails a name that does not exist), held to the
-  spec's budgets by `copy_budget_test.dart`; none in widgets.
+  spec's copy rules by `copy_budget_test.dart`; a change that adds words says why in its pull
+  request (`tool/words_added.py`: no screen has a pinned number of words); none in widgets.
 - **Names are never cut**: they wrap between words or are set smaller (`FitWords`, `FitLine`),
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink

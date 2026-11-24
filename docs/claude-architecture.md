@@ -85,6 +85,11 @@ never main as it is now, so main moving under a running check is not blamed on t
 change (`guardrails/tests/test_change_base.py`). The file-size, guard-edit and
 previous-build checks all take it from there.
 
+**Words added.** `tool/words_added.py` (the same step as the guard lines, `just guard-edits`)
+compares every copy key with the main the change was built on; a copy class with more words
+than it had needs a line under `Words added` in the pull request's description. It replaces
+the pinned per-screen word budgets (`guardrails/tests/test_words_added.py`).
+
 **File sizes.** `tool/check_file_sizes.py` fails `just check`, the commit gate (on what is
 staged) and `just gate-full` when a source file passes 600 lines: a file that long cannot be
 read whole, and two branches that touch it collide. A file already over it on main may stay
