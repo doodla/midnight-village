@@ -230,11 +230,15 @@ def main():
     a.add_argument("--missed", type=int, default=2, help="deals, sockets cut")
     a.add_argument("--chrome", default="", help="a Chrome to use (else Playwright's)")
     a.add_argument("--budget-event", type=float, default=0.5)
-    # Measured on start-lands-fast (24 November 2026, an idle machine): deal 2.69 s
-    # (the first), 1.64, 1.52; play again 1.13, 0.85, 0.96; events 0.06-0.15 s.
+    # Measured 24 November 2026, an idle machine, three connected deals and two
+    # missed, five plays again each (seconds to the screen's content):
+    #   start-lands-fast  deal 1.99 1.41 1.51  missed 2.62 2.60  again 0.89-0.98
+    #   main (e48d802)    deal 1.69 1.32 1.36  missed 6.59 6.27  again 1.14-1.32
+    # The connected deal did not get faster (a guard only); the missed deal and
+    # play again budgets fail main and pass this branch.
     a.add_argument("--budget-first-deal", type=float, default=3.0)
     a.add_argument("--budget-deal", type=float, default=2.0)
-    a.add_argument("--budget-again", type=float, default=1.3)
+    a.add_argument("--budget-again", type=float, default=1.1)
     a.add_argument("--budget-missed", type=float, default=4.0)
     a.add_argument("--out", default="")
     sys.exit(asyncio.run(run(a.parse_args())))
