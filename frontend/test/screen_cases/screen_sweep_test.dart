@@ -349,7 +349,7 @@ void main() {
   ) async {
     await pumpSkinned(
       tester,
-      SecondaryButton(label: 'Leave', onPressed: () {}),
+      SecondaryButton(label: Words.forTest('Leave'), onPressed: () {}),
     );
     await tester.tap(find.byType(SecondaryButton));
     expect(tester.takeException().toString(), contains('pressLikeAFinger'));

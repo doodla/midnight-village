@@ -11,6 +11,8 @@ import 'paper_lantern.dart';
 import 'paper_piece.dart';
 import 'primary_button.dart';
 
+export '../copy/copy.dart' show Words;
+
 /// A second, quieter action beside or below the primary one: an outline on
 /// the ground ("Do nothing tonight", "Take out of deck"). Like the primary
 /// button it is never silently disabled: it acts, or it is
@@ -70,7 +72,7 @@ class SecondaryButton extends StatefulWidget {
   /// The regular minimum height.
   static const height = 48.0;
 
-  final String label;
+  final Words label;
   final VoidCallback? onPressed;
   final VoidCallback? onLockedTap;
   final String? reason;

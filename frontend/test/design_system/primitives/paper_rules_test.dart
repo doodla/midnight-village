@@ -626,7 +626,7 @@ void main() {
                   ),
                   SecondaryButton(
                     key: const Key('secondary'),
-                    label: 'Back',
+                    label: Words.forTest('Back'),
                     onPressed: () {},
                   ),
                   PrimaryButton.quiet(

@@ -390,7 +390,7 @@ void main() {
                 ),
                 SecondaryButton(
                   key: const Key('button'),
-                  label: 'Edit',
+                  label: Words.forTest('Edit'),
                   onPressed: () {},
                 ),
               ],

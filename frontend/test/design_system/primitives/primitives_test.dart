@@ -205,7 +205,10 @@ void main() {
     var taps = 0;
     await pumpSkinned(
       tester,
-      SecondaryButton(label: 'Do nothing tonight', onPressed: () => taps++),
+      SecondaryButton(
+        label: Words.forTest('Do nothing tonight'),
+        onPressed: () => taps++,
+      ),
     );
     await pressLikeAFinger(tester, find.text('Do nothing tonight'));
     expect(taps, 1);

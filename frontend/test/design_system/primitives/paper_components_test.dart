@@ -218,7 +218,7 @@ void main() {
     ) async {
       final strokes = await _strokes(
         tester,
-        SecondaryButton(label: 'Outlined', onPressed: () {}),
+        SecondaryButton(label: Words.forTest('Outlined'), onPressed: () {}),
         dress: Dress.plain,
       );
       expect(strokes, isNotEmpty);

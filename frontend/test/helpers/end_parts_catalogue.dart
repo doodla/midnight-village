@@ -20,12 +20,13 @@ final List<PartSample> endPartsCatalogue = [
   PartSample(
     'PaperScrap / PaperSlip',
     PartState.rest,
-    (c) => PaperScrap(label: 'What happened', onTap: () {}),
+    (c) => PaperScrap(label: Words.forTest('What happened'), onTap: () {}),
   ),
   PartSample(
     'PaperScrap / PaperSlip',
     PartState.locked,
-    (c) => PaperScrap(label: 'Back to\nthe result', onTap: () {}),
+    (c) =>
+        PaperScrap(label: Words.forTest('Back to\nthe result'), onTap: () {}),
   ),
   PartSample(
     'PaperScrap / PaperSlip',
