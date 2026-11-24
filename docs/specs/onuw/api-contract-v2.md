@@ -59,7 +59,9 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
     number). So a later builder must not turn "equal" into "skip": a body with an equal
     `rev` is shown. Three more rules:
     - A `host_changed` counts as shown at its `rev`: after it, a body with a lower `rev` is
-      not shown (else a read sent before the handover puts the old host back).
+      not shown (else a read sent before the handover puts the old host back). And a
+      `host_changed` whose own `rev` is lower than the newest shown is ignored, like a body
+      (else a handover that arrives late puts an older host back).
     - A body or event with NO `rev` (an older server build, during a deploy) is shown as
       today and leaves the newest number as it is.
     - The number belongs to one table: keep the newest per table, its `code` together
