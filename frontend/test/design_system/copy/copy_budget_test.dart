@@ -1,4 +1,6 @@
 // Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 
@@ -11,11 +13,15 @@ import 'screen_states.dart';
 // every line written in lib/design_system/copy/copy.dart, and every state of
 // every screen (screen_states.dart) as the words visible at once.
 
-/// copy.dart and its parts.
-const _copyFiles = [
+/// copy.dart, every part it names and what it exports: read from the file's
+/// own directives, so a new part of the copy is held to the rules by being one.
+final _copyFiles = [
   'lib/design_system/copy/copy.dart',
-  'lib/design_system/copy/end_copy.dart',
-  'lib/design_system/copy/story_copy.dart',
+  for (final named in RegExp(
+    r"^(?:part|export) '([^']+)';",
+    multiLine: true,
+  ).allMatches(File('lib/design_system/copy/copy.dart').readAsStringSync()))
+    'lib/design_system/copy/${named.group(1)}',
 ];
 
 /// Every line the screens, banners and screen reader use, as written.
