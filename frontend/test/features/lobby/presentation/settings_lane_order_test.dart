@@ -30,14 +30,17 @@ import '../../../helpers/mock_websocket.dart';
 // - settings and practice share ONE lane: every tap sent, one out at a time,
 //   in tap order, two taps on one key both sent;
 // - a `lobby_update` while a tap is out never takes the tap back;
-// - after a refusal or a loss the next change waits for the lobby read, and
-//   the refused or lost value stays shown until that read lands;
+// - after a refusal or a loss the next change waits for the lobby read; the
+//   refused value stays shown until that read lands, the lost one while Try
+//   again would still send it (the screen shows what will go);
 // - "Try again" goes at the back of the queue, trimmed to the keys nothing
 //   newer asked for;
 // - a deal goes behind the lane: a lost change is sent again first;
 // - the host role moving mid-queue, and the table left with changes queued.
 // And the model's gaps a, b (b2) and c, each on the trace that showed it,
-// now closed (each test names its rule and its run, `rule_*.cfg`).
+// now closed (each test names its rule and its run, `rule_*.cfg`), and the
+// review's findings 1 to 6 (its last group). The tests that need lobby bodies
+// with `rev` are skipped until `contract_samples/` has them.
 //
 // The stand-in server holds every request until the test answers it, so the
 // order of everything is the test's: payloads from `contract_samples/`.

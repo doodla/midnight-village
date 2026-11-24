@@ -116,13 +116,13 @@ Answer(r, ans, lob) == rep' = IF r.live THEN {[n |-> r.n, ans |-> ans, lob |-> l
 \* role moved: 403)
 SApply(r) ==
   /\ reqs' = reqs \ {r}
-  /\ IF moved THEN Answer(r, "forbidden", Body) /\ UNCHANGED <<sv, sask, srev, badOrder, roomAt, evq>>
-     ELSE IF sDealt THEN Answer(r, "refused", Body) /\ UNCHANGED <<sv, sask, srev, badOrder, roomAt, evq>>
+  /\ IF moved THEN Answer(r, "forbidden", NoBody) /\ UNCHANGED <<sv, sask, srev, badOrder, roomAt, evq>>
+     ELSE IF sDealt THEN Answer(r, "refused", NoBody) /\ UNCHANGED <<sv, sask, srev, badOrder, roomAt, evq>>
      ELSE \* a host value IS the order it was asked in (v), so "the stored ask is newer" is
           \* sask[k] > r.v; all keys stale: 409 stale_request, nothing stored, nothing broadcast
           LET keep == IF FIX_ASKED THEN {k \in r.keys : r.v >= sask[k]} ELSE r.keys
               nb == [v |-> [k \in Keys |-> IF k \in keep THEN r.v ELSE sv[k]], rev |-> srev + 1] IN
-          IF keep = {} THEN Answer(r, "refused", Body) /\ UNCHANGED <<sv, sask, srev, badOrder, roomAt, evq>>
+          IF keep = {} THEN Answer(r, "refused", NoBody) /\ UNCHANGED <<sv, sask, srev, badOrder, roomAt, evq>>
           ELSE /\ sv' = nb.v /\ srev' = srev + 1 /\ Answer(r, "taken", nb)
                /\ sask' = [k \in Keys |-> IF k \in keep THEN r.v ELSE sask[k]]
                /\ badOrder' = (badOrder \/ \E k \in keep : r.v < sask[k])
@@ -133,7 +133,7 @@ SApply(r) ==
 \* a 4xx: the table moved under the change (someone joined, the seats filled)
 SRefuse(r) ==
   /\ faults < MaxFaults /\ faults' = faults + 1
-  /\ reqs' = reqs \ {r} /\ Answer(r, "refused", Body)
+  /\ reqs' = reqs \ {r} /\ Answer(r, "refused", NoBody)
   /\ UNCHANGED <<servVars, evq, sock, joins, phase, laneVars, screenVars, readVars, dealVars,
                  histVars, taps>>
 \* the second writer, numbered like every change: a presence change (lobby_update), someone
@@ -151,7 +151,7 @@ SOther ==
           /\ dealMoved' = (dealMoved \/ (kind = "room" /\ dq \in {"queued", "sent"}))
           /\ evq' = IF sock = "down" THEN evq
                     ELSE IF kind = "presence" THEN Append(evq, [t |-> "upd", lob |-> nb])
-                    ELSE evq \o <<[t |-> "upd", lob |-> nb], [t |-> "join", lob |-> nb]>>
+                    ELSE evq \o <<[t |-> "upd", lob |-> nb], [t |-> "join", lob |-> NoBody]>>
   /\ UNCHANGED <<sask, badOrder, sDealt, moved, reqs, rep, sock, phase, laneVars, screenVars,
                  readVars, dq, pDealt, deals, dealView, histVars, taps, faults>>
 \* the host role moves to someone else (a handover): told to the table; this phone learns
@@ -375,6 +375,11 @@ Next ==
   \/ Done
   \/ Retry /\ tried' = TRUE
   \/ Step /\ tried' = FALSE
+
+\* every variable but `tried`, which no step reads (the invariant runs' VIEW)
+View == <<sv, sask, srev, badOrder, sDealt, moved, roomAt, reqs, rep, evq, sock, joins, q, phase,
+          base, srn, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, again, buf, dq, pDealt,
+          deals, dealView, dealMoved, flick, hidden, ghost, stranded, dealBad, taps, faults>>
 
 \* the network and the phone's own steps are fair; taps, faults and joins are not
 Fair(A) == WF_vars(A /\ tried' = FALSE)
