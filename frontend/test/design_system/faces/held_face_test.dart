@@ -172,16 +172,96 @@ void main() {
     expect(_scale(tester), 1, reason: 'the portrait gave way, not the words');
   });
 
-  test('a short portrait is cut around its face', () {
-    final art = SkinId.fallback.skin.art;
+  testWidgets('a role\'s art is never cropped: its window takes the art\'s '
+      'own shape, whatever room the card has', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final art = SkinId.fallback.skin.art.rolePixels.aspectRatio;
     for (final role in RoleId.values) {
-      // As short as a face's portrait gets: its least share of the width.
-      const box = Size(300, 300 * HeldFace.minPortraitShare);
-      final crop = art.portraitCrop(role, box);
-      final shown = box.height / (box.width * 768 / 576);
-      final top = (crop.y + 1) / 2 * (1 - shown);
-      final centre = art.faceCentres[role]!;
-      expect(centre, inInclusiveRange(top, top + shown), reason: role.name);
+      for (final room in const [
+        Size(312, 380),
+        Size(312, 560),
+        Size(342, 700),
+      ]) {
+        await pumpSkinned(
+          tester,
+          Center(
+            child: SizedBox.fromSize(
+              size: room,
+              child: HeldFace(
+                content: FaceContent.roleText(role),
+                page: 0,
+                fill: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final window = tester.getSize(
+          find
+              .descendant(
+                of: find.byType(HeldFace),
+                matching: find.byType(ClipRRect),
+              )
+              .first,
+        );
+        expect(
+          window.width / window.height,
+          moreOrLessEquals(art, epsilon: 0.01),
+          reason: '${role.name} in $room',
+        );
+      }
+    }
+  });
+
+  testWidgets('04\'s art is as large as the room allows: on a tall phone it is '
+      'close to the card\'s inner width, centred, never cropped', (
+    tester,
+  ) async {
+    addTearDown(tester.view.reset);
+    for (final (phone, least) in const [
+      (Size(412, 915), 0.8),
+      (Size(390, 844), 0.7),
+      (Size(360, 780), 0.55),
+      (Size(360, 640), 0.35),
+    ]) {
+      final frame = await _frameOf(tester, phone);
+      final inner = frame.width - HeldFace.padding.horizontal;
+      for (final role in [RoleId.werewolf, RoleId.minion]) {
+        await pumpSkinned(
+          tester,
+          Center(
+            child: SizedBox.fromSize(
+              size: frame,
+              child: HeldFace(
+                content: FaceContent.roleText(role),
+                page: 0,
+                fill: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final art = find
+            .descendant(
+              of: find.byType(HeldFace),
+              matching: find.byType(ClipRRect),
+            )
+            .first;
+        final window = tester.getRect(art);
+        final card = tester.getRect(find.byType(HeldFace));
+        expect(
+          window.width,
+          greaterThanOrEqualTo(inner * least),
+          reason: '${role.name} on $phone',
+        );
+        expect(
+          window.left - card.left,
+          moreOrLessEquals(card.right - window.right, epsilon: 0.5),
+          reason: 'the paper beside the art is equal on both sides',
+        );
+      }
     }
   });
 }

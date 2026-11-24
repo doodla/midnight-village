@@ -15,11 +15,11 @@ import '../teach/hold_cue.dart';
 import '../skin/elevation.dart';
 import 'art_picture.dart';
 import 'cut_paper.dart';
-import 'deckle.dart';
 import 'deckled_paper.dart';
 import 'paper_light.dart';
 import 'paper_mark.dart';
 import 'fit_line.dart';
+import 'card_back_paper.dart';
 import 'hold_to_reveal.dart' show HoldPress;
 import 'player_token.dart';
 import 'text_backing.dart';
@@ -82,6 +82,7 @@ class FaceDownCard extends StatefulWidget {
     this.face,
     this.tilt = Tilt.none,
     this.cardWidth,
+    this.cardHeight,
     this.nameSize,
     this.nameHeight,
     this.youName = false,
@@ -114,6 +115,12 @@ class FaceDownCard extends StatefulWidget {
   final RoleId? face;
   final Tilt tilt;
   final double? cardWidth;
+
+  /// The hero card's own height, when the screen gives it the room it has
+  /// (04: the card takes the height between the title and the foot, so the
+  /// portrait on its face is as large as the phone allows). The back keeps
+  /// its own shape, whole, centred on the paper. Null: 3 by 4.
+  final double? cardHeight;
   final double? nameSize;
   final double? nameHeight;
 
@@ -262,7 +269,8 @@ class _FaceDownCardState extends State<FaceDownCard> {
     final caption = widget.caption;
     final skin = context.skin;
     final ground = context.ground;
-    final height = width * size.mock.height / size.mock.width;
+    final height =
+        widget.cardHeight ?? width * size.mock.height / size.mock.width;
     final angle = skin.tilt.angle(widget.tilt);
     Widget card = SizedBox(
       width: width,
@@ -655,17 +663,20 @@ class _FaceDownCardState extends State<FaceDownCard> {
         ),
         child: Padding(
           padding: EdgeInsets.all(Space.smPlus * scale),
-          child: CardBackPaper(
-            id: #hero,
-            elevation: ground.elevation.badge,
-            over: widget.hold == null
-                ? null
-                : Center(
-                    child: HoldCue(
-                      teaching: widget.hold!,
-                      size: HoldCue.maxSize * scale,
+          child: _wholeBack(
+            context,
+            CardBackPaper(
+              id: #hero,
+              elevation: ground.elevation.badge,
+              over: widget.hold == null
+                  ? null
+                  : Center(
+                      child: HoldCue(
+                        teaching: widget.hold!,
+                        size: HoldCue.maxSize * scale,
+                      ),
                     ),
-                  ),
+            ),
           ),
         ),
       );
@@ -679,109 +690,39 @@ class _FaceDownCardState extends State<FaceDownCard> {
       ),
       child: Padding(
         padding: EdgeInsets.all(Space.smPlus * scale),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
-              child: ArtPicture(context.cardBack),
-            ),
-            if (widget.hold case final teaching?)
-              Center(
-                child: HoldCue(
-                  teaching: teaching,
-                  size: HoldCue.maxSize * scale,
-                ),
+        child: _wholeBack(
+          context,
+          Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(skin.shape.radiusTiny),
+                child: ArtPicture(context.cardBack),
               ),
-          ],
+              if (widget.hold case final teaching?)
+                Center(
+                  child: HoldCue(
+                    teaching: teaching,
+                    size: HoldCue.maxSize * scale,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-/// A card of dressed paper: a layer of red (or bone, for a face) paper with the
-/// card's navy paper laid on it a rim smaller, both deckled, the lower with a
-/// shadow cast by the paper above it. The picture inside is the card's art
-/// as it is, its own printed edge left outside the navy layer (`CardBack.
-/// frameInset`); the edge of the card is two cut layers and their shadows,
-/// never a line. [face] shows a role instead of the back.
-class CardBackPaper extends StatelessWidget {
-  const CardBackPaper({
-    super.key,
-    required this.id,
-    required this.elevation,
-    this.face,
-    this.over,
-  });
-
-  final Object id;
-
-  /// What the whole card casts.
-  final Elevation elevation;
-  final RoleId? face;
-
-  /// Laid over the picture (the hold ring).
-  final Widget? over;
-
-  @override
-  Widget build(BuildContext context) {
-    final skin = context.skin;
-    final ground = context.ground;
-    final parts = skin.parts;
-    final art = face == null ? context.cardBack : context.roleArt(face!);
-    final inset = face == null ? CardBackScope.of(context).frameInset : 0.0;
-    return LayoutBuilder(
-      builder: (context, box) {
-        final rim = (box.maxWidth * 0.035).clamp(2.0, 5.0);
-        final top = DeckleBorder(
-          seed: deckleSeed((id, 'top')),
-          depth: parts.deckleDepth,
-          step: parts.deckleStep,
+  /// The back picture in a hero card given its own height ([cardHeight]):
+  /// whole, in its own shape, as large as the paper allows, centred (the
+  /// paper equal on both sides). In the mock's 3 by 4 card it fills it.
+  Widget _wholeBack(BuildContext context, Widget back) =>
+      widget.cardHeight == null
+      ? back
+      : Center(
+          child: AspectRatio(
+            aspectRatio: context.cardBack.pixels.aspectRatio,
+            child: back,
+          ),
         );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
-              decoration: deckledPaper(
-                context,
-                fill: face == null ? parts.cardRim : ground.paper,
-                id: (id, 'rim'),
-                elevation: elevation,
-                depth: parts.deckleDepth,
-                step: parts.deckleStep,
-                edgeLine: false,
-                side: BorderSide.none,
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.all(rim),
-              child: DecoratedBox(
-                decoration: deckledPaper(
-                  context,
-                  fill: skin.night.ground,
-                  id: (id, 'top'),
-                  elevation: ground.elevation.badge,
-                  depth: parts.deckleDepth,
-                  step: parts.deckleStep,
-                  edgeLine: false,
-                  side: BorderSide.none,
-                ),
-                child: ClipPath(
-                  clipper: ShapeBorderClipper(shape: top),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ArtPicture(art, inset: inset),
-                      ?over,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }

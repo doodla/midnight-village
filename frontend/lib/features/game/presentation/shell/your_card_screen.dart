@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../design_system/copy/copy.dart';
 import '../../../../design_system/layout/space.dart';
+import '../../../../design_system/faces/held_face.dart';
 import '../../../../design_system/primitives/face_down_card.dart';
 import '../../../../design_system/primitives/fit_line.dart';
 import '../../../../design_system/primitives/notice.dart';
@@ -150,14 +151,13 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
           const SizedBox(height: Space.lg),
           Expanded(
             child: LayoutBuilder(
+              // The card takes the whole room between the title and the foot
+              // (the face's portrait is as large as that allows).
               builder: (context, room) => Center(
                 child: _card(
                   me,
-                  // As large as the room allows, 3 by 4.
-                  math.min(
-                    room.maxWidth,
-                    room.maxHeight * FaceDownSize.hero.mock.aspectRatio,
-                  ),
+                  math.min(room.maxWidth, HeldFace.maxWidth),
+                  room.maxHeight,
                 ),
               ),
             ),
@@ -187,7 +187,7 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
     );
   }
 
-  Widget _card(GameMe me, double width) => TeachingHold(
+  Widget _card(GameMe me, double width, double height) => TeachingHold(
     target: CardCopy.headline,
     face: me.report.card,
     replay: _replay,
@@ -196,8 +196,12 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
       if (_revealedIn != me.stage) unawaited(_remember(me));
       if (mounted) setState(() => _revealedIn = me.stage);
     },
-    cover: (teaching) =>
-        FaceDownCard(size: FaceDownSize.hero, cardWidth: width, hold: teaching),
+    cover: (teaching) => FaceDownCard(
+      size: FaceDownSize.hero,
+      cardWidth: width,
+      cardHeight: height,
+      hold: teaching,
+    ),
   );
 
   Widget _button(GameMe me) {

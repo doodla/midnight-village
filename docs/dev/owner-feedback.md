@@ -4,6 +4,20 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 24 November 2026, 04 Your card in the live game (a screenshot of the Werewolf, verbatim)
+
+> can we scale the image so the whole thing sits and showed in the frame?
+
+HANDLED (branch `role-card-readable`): a role's art is never cropped. Every portrait is 3 by 4; the held card's window was as wide as the card and as tall as the words left, and the art covered it (the wolf's ears, hood and claw cut off). Now the window takes the art's own shape, as large as the room allows, the paper showing beside it (`HeldFace`); the sheet's portrait was already 3 by 4.
+
+> There's a double label as well.
+
+HANDLED: a team's tag beside a role's name never repeats the name (`RoleText.teamLabel`): the Werewolf team's reads "Werewolf team" (the Werewolf and the Minion, red), the others "Village", "Alone", "Copies"; the count's tag (10) is the same rule.
+
+> I'd like the copy updated with different formatting so it's easier to parse
+
+HANDLED: every role fills one structure (`RoleRules`): a small label ("Night", the Hunter's "Vote", "Wins") in a column beside short lines, one line per case; then "You are your last card." set apart under them. No role has more words than before (spec section 3, "Role text").
+
 ## 23 November 2026, a play-through with practice players (spoken, verbatim)
 
 Handled by the deck-count piece (set-up page leave rule, the table's primary button, timer
