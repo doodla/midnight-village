@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
@@ -56,15 +55,6 @@ enum PlayerRowSize {
     token: TokenSize.grand,
     gap: Space.lg,
     endPadding: Space.xl,
-  ),
-
-  /// In the count (S10): 52 tall, a 34 token, the voters' names under the
-  /// name and a [Tally] at the end.
-  count(
-    height: 52,
-    token: TokenSize.count,
-    gap: Space.md,
-    endPadding: Space.mdPlus,
   );
 
   const PlayerRowSize({
@@ -81,7 +71,7 @@ enum PlayerRowSize {
   /// Between the token and the name.
   final double gap;
 
-  /// After the trailing part.
+  /// After the name.
   final double endPadding;
 
   /// A player's name is one role in every row.
@@ -103,9 +93,8 @@ class PlayerNameSize extends InheritedWidget {
   bool updateShouldNotify(PlayerNameSize old) => size != old.size;
 }
 
-/// One player as a strip of paper: token, name, an optional [detail] line
-/// under the name (who voted for them, by name, S10) and an optional
-/// [trailing] part (a [Tally]). With [onTap] it is a button.
+/// One player as a strip of paper: token and name. With [onTap] it is a
+/// button.
 ///
 /// - [picked]: the player's pick lifts and takes the selection's outline
 ///   (ink by day); never a fill (first-time play spec, copy rule 10).
@@ -120,10 +109,6 @@ class PlayerNameSize extends InheritedWidget {
 ///   (owner, 22 November 2026: "red row and seal"), cut in on the frame of
 ///   the lock (a tween would pass through a grey no ink reads on). Never a fill of the screen's
 ///   amber.
-/// - [condemned]: the count's verdict on a player the vote killed: the
-///   [picked] outline is cut in thicker, in the paper's ink (a cut, never a
-///   tween). Never red: on this screen red is the Werewolf team's, and a dead
-///   Villager must not read as a wolf. No seal.
 /// - [stretch]: how much taller than its size the row stands, where the
 ///   room allows it (the vote fills the screen).
 /// - A row with [onTap] dips 2 px the frame a finger lands and comes back
@@ -136,15 +121,12 @@ class PlayerRow extends StatefulWidget {
     super.key,
     required this.token,
     required this.name,
-    this.detail,
-    this.trailing,
     this.picked = false,
     this.own = false,
     this.practice = false,
     this.away = false,
     this.dimmed = false,
     this.sealed = false,
-    this.condemned = false,
     this.stretch = 0,
     this.onTap,
     this.size = PlayerRowSize.compact,
@@ -153,20 +135,14 @@ class PlayerRow extends StatefulWidget {
   /// How far a finger presses a row down.
   static const dip = 2.0;
 
-  /// How much thicker a [condemned] row's outline is than a picked one's.
-  static const condemnedExtra = 2.0;
-
   final TokenId? token;
   final String name;
-  final String? detail;
-  final Widget? trailing;
   final bool picked;
   final bool own;
   final bool practice;
   final bool away;
   final bool dimmed;
   final bool sealed;
-  final bool condemned;
 
   final double stretch;
   final VoidCallback? onTap;
@@ -213,12 +189,7 @@ class _PlayerRowState extends State<PlayerRow> {
 
   @override
   Widget build(BuildContext context) {
-    final (token, name, detail, trailing) = (
-      widget.token,
-      widget.name,
-      widget.detail,
-      widget.trailing,
-    );
+    final (token, name) = (widget.token, widget.name);
     final (own, practice, away, dimmed, onTap) = (
       widget.own,
       widget.practice,
@@ -271,97 +242,84 @@ class _PlayerRowState extends State<PlayerRow> {
         ? size.nameStyle(skin.typography)
         : size.nameStyle(skin.typography).copyWith(fontSize: scoped);
 
-    final content = _RowInk(
-      ink: ink,
-      child: Row(
-        spacing: size.gap,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              PlayerToken(
-                token,
-                size: size.token,
-                ringColor: ink,
-                away: away && !sealed,
-              ),
-              // Stamped inside the portrait's lower right corner (its tilt
-              // and shadow too), so it never hangs below the paper or
-              // reaches the name, which it also grows away from.
-              if (sealed)
-                Positioned(
-                  right: size.token.size * _sealSize * PaperSeal.tiltReach,
-                  bottom:
-                      size.token.size * _sealSize * PaperSeal.tiltReach +
-                      PaperSeal.drop,
-                  child: PaperSeal(
-                    size: size.token.size * _sealSize,
-                    lands: !_openedSealed,
-                  ),
+    final content = Row(
+      spacing: size.gap,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            PlayerToken(
+              token,
+              size: size.token,
+              ringColor: ink,
+              away: away && !sealed,
+            ),
+            // Stamped inside the portrait's lower right corner (its tilt
+            // and shadow too), so it never hangs below the paper or
+            // reaches the name, which it also grows away from.
+            if (sealed)
+              Positioned(
+                right: size.token.size * _sealSize * PaperSeal.tiltReach,
+                bottom:
+                    size.token.size * _sealSize * PaperSeal.tiltReach +
+                    PaperSeal.drop,
+                child: PaperSeal(
+                  size: size.token.size * _sealSize,
+                  lands: !_openedSealed,
                 ),
-            ],
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // A long name wraps between words, then is set smaller;
-                // never cut short.
-                // "You" beside the name where both fit, under it where
-                // not, so a long name keeps its room and a short one its
-                // size.
-                if (own)
-                  Wrap(
-                    spacing: Space.sm,
-                    runSpacing: Space.xxs,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      FitWords(
+              ),
+          ],
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // A long name wraps between words, then is set smaller;
+              // never cut short.
+              // "You" beside the name where both fit, under it where
+              // not, so a long name keeps its room and a short one its
+              // size.
+              if (own)
+                Wrap(
+                  spacing: Space.sm,
+                  runSpacing: Space.xxs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    FitWords(
+                      name,
+                      maxLines: 2,
+                      style: nameStyle.copyWith(color: ink),
+                    ),
+                    YouTag(ink: ink),
+                  ],
+                )
+              // "Practice" always on the name's line, so every row of
+              // a list is laid out alike.
+              else if (practice)
+                Row(
+                  spacing: Space.sm,
+                  children: [
+                    Flexible(
+                      child: FitWords(
                         name,
                         maxLines: 2,
                         style: nameStyle.copyWith(color: ink),
                       ),
-                      YouTag(ink: ink),
-                    ],
-                  )
-                // "Practice" always on the name's line, so every row of
-                // a list is laid out alike.
-                else if (practice)
-                  Row(
-                    spacing: Space.sm,
-                    children: [
-                      Flexible(
-                        child: FitWords(
-                          name,
-                          maxLines: 2,
-                          style: nameStyle.copyWith(color: ink),
-                        ),
-                      ),
-                      PracticeTag(ink: ink),
-                    ],
-                  )
-                else
-                  FitWords(
-                    name,
-                    maxLines: 2,
-                    style: nameStyle.copyWith(color: ink),
-                  ),
-                // Names wrap between words, never inside one.
-                if (detail case final detail?)
-                  FitWords(
-                    detail,
-                    style: skin.typography.body.copyWith(
-                      // On red paper the quiet ink is unreadable: the bone.
-                      color: red ? ink : skin.paper.quietText,
                     ),
-                  ),
-              ],
-            ),
+                    PracticeTag(ink: ink),
+                  ],
+                )
+              else
+                FitWords(
+                  name,
+                  maxLines: 2,
+                  style: nameStyle.copyWith(color: ink),
+                ),
+            ],
           ),
-          ?trailing,
-        ],
-      ),
+        ),
+      ],
     );
     final dressed = context.dress.isPaper;
     Widget plainPaper() => AnimatedContainer(
@@ -385,9 +343,7 @@ class _PlayerRowState extends State<PlayerRow> {
       foregroundDecoration: picked
           ? ringDecoration(
               color: ground.selection,
-              width: widget.condemned
-                  ? skin.shape.selectedRing + PlayerRow.condemnedExtra
-                  : skin.shape.selectedRing,
+              width: skin.shape.selectedRing,
               radius: radius,
             )
           : own
@@ -499,173 +455,4 @@ class _PlayerRowState extends State<PlayerRow> {
       ),
     );
   }
-}
-
-class _RowInk extends InheritedWidget {
-  const _RowInk({required this.ink, required super.child});
-
-  final Color ink;
-
-  static _RowInk? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_RowInk>();
-
-  @override
-  bool updateShouldNotify(_RowInk old) => ink != old.ink;
-}
-
-/// The number of votes at the end of a count row (S10). With [struck], and
-/// two votes or more, the votes are also tally marks under the number, cut
-/// from paper: four strokes and a fifth across them, in the row's ink (one
-/// vote is the number alone: a "1" over one mark is only noise). [struck] says how far mark `k`
-/// (from 0) is struck, 0 to 1; it is only how the marks arrive, the number is
-/// the whole count from the first frame (nothing is held back).
-class Tally extends StatelessWidget {
-  const Tally(this.count, {super.key, this.struck});
-
-  /// Between the name and the number, on top of the row's own gap.
-  static const gap = Space.sm;
-
-  final int count;
-  final double Function(int mark)? struck;
-
-  @override
-  Widget build(BuildContext context) {
-    final ink = _RowInk.of(context)?.ink ?? context.ground.text;
-    final number = Text(
-      '$count',
-      textAlign: TextAlign.end,
-      style: context.skin.typography.tally.copyWith(color: ink),
-    );
-    final struck = this.struck;
-    // A gap of its own beyond the row's, so a long name (wrapped, set as
-    // large as the room allows) never reads as touching the number.
-    if (struck == null || count < 2) {
-      return Padding(
-        padding: const EdgeInsets.only(left: gap),
-        child: number,
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(left: gap),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        spacing: Space.xxs,
-        children: [
-          number,
-          ExcludeSemantics(
-            child: CustomPaint(
-              size: TallyMarks.sizeOf(count),
-              painter: TallyMarks(
-                [for (var k = 0; k < count; k++) struck(k)],
-                ink,
-                // Dressed up each mark is a strip of paper with its shadow.
-                cast: context.dress.isPaper ? context.ground.shadow : null,
-                drop: context.skin.parts.tallyDrop,
-                castAlpha: context.skin.parts.tallyAlpha,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Votes as paper tally marks: groups of five (four strokes and a slash
-/// across them), each stroke drawn downward as it is struck. A hand's cut, so
-/// every stroke leans a little differently, the same each time.
-class TallyMarks extends CustomPainter {
-  TallyMarks(
-    this.progress,
-    this.ink, {
-    this.cast,
-    this.drop = 0,
-    this.castAlpha = 0,
-  });
-
-  /// The ink the strips of paper cast, where the marks are cut paper (a
-  /// dressed screen); null draws the plain strokes, as ever.
-  final Color? cast;
-
-  /// How far a cut strip's shadow drops, and its ink (`PaperParts`).
-  final double drop;
-  final double castAlpha;
-
-  /// How far each mark is struck, 0 to 1, in order.
-  final List<double> progress;
-  final Color ink;
-
-  static const strokeHeight = 18.0;
-  static const strokeWidth = 4.0;
-  static const pitch = 8.0;
-  static const groupGap = 10.0;
-
-  /// A group's width: four strokes (the fifth lies across them).
-  static const _group = 3 * pitch + strokeWidth;
-
-  static Size sizeOf(int count) {
-    final groups = (count + 4) ~/ 5;
-    final last = count - (groups - 1) * 5;
-    final lastWidth = last >= 4 ? _group : (last - 1) * pitch + strokeWidth;
-    final width = groups == 0
-        ? 0.0
-        : (groups - 1) * (_group + groupGap) + lastWidth;
-    return Size(width, strokeHeight);
-  }
-
-  /// A strip of paper from [a] to [b], [strokeWidth] wide, a shadow under it.
-  void _strip(Canvas canvas, Offset a, Offset b, Color shadow) {
-    final d = b - a;
-    final n = Offset(-d.dy, d.dx) / d.distance * (strokeWidth / 2);
-    final path = Path()
-      ..moveTo((a + n).dx, (a + n).dy)
-      ..lineTo((b + n).dx, (b + n).dy)
-      ..lineTo((b - n).dx, (b - n).dy)
-      ..lineTo((a - n).dx, (a - n).dy)
-      ..close();
-    canvas
-      ..drawPath(
-        path.shift(Offset(0, drop)),
-        Paint()..color = shadow.withValues(alpha: castAlpha),
-      )
-      ..drawPath(path, Paint()..color = ink);
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = ink
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
-    final shadow = cast;
-    for (var k = 0; k < progress.length; k++) {
-      final t = Motion.curve.transform(progress[k].clamp(0.0, 1.0));
-      if (t <= 0) continue;
-      final group = k ~/ 5;
-      final at = k % 5;
-      final left = group * (_group + groupGap);
-      // A little lean, from the stroke's place only.
-      final lean = ((k * 7) % 5 - 2) * 0.35;
-      if (at < 4) {
-        final x = left + at * pitch + strokeWidth / 2;
-        final from = Offset(x - lean, 0);
-        final to = Offset(x - lean + (lean * 2) * t, strokeHeight * t);
-        shadow == null
-            ? canvas.drawLine(from, to, paint)
-            : _strip(canvas, from, to, shadow);
-      } else {
-        final end = Offset(left + _group + 1, strokeHeight * 0.15);
-        final start = Offset(left - 1, strokeHeight * 0.85);
-        final to = Offset.lerp(start, end, t)!;
-        shadow == null
-            ? canvas.drawLine(start, to, paint)
-            : _strip(canvas, start, to, shadow);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(TallyMarks old) =>
-      ink != old.ink || cast != old.cast || !listEquals(progress, old.progress);
 }

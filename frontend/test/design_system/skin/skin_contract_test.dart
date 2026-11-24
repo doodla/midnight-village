@@ -107,7 +107,6 @@ const _kinds = {
   'screenTitle': _Kind.question,
   'headline': _Kind.question,
   'title': _Kind.heading,
-  'tally': _Kind.heading,
   'heading': _Kind.heading,
   'name': _Kind.name,
   'nameSmall': _Kind.name,

@@ -20,9 +20,6 @@ enum TokenSize {
   /// A row at the table (S02).
   lobby(26),
 
-  /// A row in the count (S10).
-  count(34),
-
   /// A row in the vote (S09).
   vote(38),
 

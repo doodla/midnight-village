@@ -169,14 +169,6 @@ class PlayersPage extends StatelessWidget {
         dimmed: true,
         onTap: () {},
       ),
-      const Note('The count: voters by name'),
-      PlayerRow(
-        token: dev.token,
-        name: dev.name,
-        size: PlayerRowSize.count,
-        detail: nameList([ana.name, ben.name, cleo.name]),
-        trailing: const Tally(3),
-      ),
       ProgressPips(
         done: 2,
         total: 5,
