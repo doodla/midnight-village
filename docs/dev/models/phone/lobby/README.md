@@ -117,6 +117,7 @@ Bound: 2 taps in `lobby` (1 in `try` and `converge`; 3 in `heal`, with 1 fault, 
 |---|---|
 | `PhoneLobby.tla` | The model; its header names the code it was read from. |
 | `lobby.cfg` | Every invariant (R0, R1, R2, R4 and `NeverOlder`) in one exploration, 2 taps, 2 faults (once `rule_a` to `rule_d`: five explorations of the same states). With 3 taps the one exploration had 26 million states and 4 million still queued at 39 minutes, on course past the script's hour on a shared machine, so it has 2 taps: every trace this README names needs at most 2 (a third tap only repeats a trimming or a resend the second already checks). |
+| `lobby3.cfg` | The same invariants with 3 taps and 1 fault: the third tap that 2 taps cannot reach, at a size that ends (2,310,752 states, about 2 minutes). |
 | `late.cfg` | `NeverOlder` with `LATE` and `FIX_ASKED` (the server's half of #16), without the second writer (`MaxJoins = 0`). True by construction under `FIX_ASKED`; the real check comes when the phone sends `asked` (#16 step 2). Not a proof. |
 | `try.cfg` | R3, `TryAgainActs` (liveness), 1 tap, 2 faults. |
 | `heal.cfg` | `Converges` with 1 fault. |
