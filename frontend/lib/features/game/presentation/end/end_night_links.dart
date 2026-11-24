@@ -21,14 +21,17 @@ import 'end_night.dart';
 /// The middle cards [step] is about, each where it lies on the board for
 /// the step (in the board's frame, as [EndBoardPlan]'s rects): beside the
 /// card of the one who acted, clear of every card, seal and the lantern.
-Map<int, Rect>? nightLiftedOf(
+Map<int, Rect> nightLiftedOf(
   EndBoardPlan plan,
   StoryStep? step, {
   Map<int, Offset> docked = const {},
   double scroll = 0,
 }) {
   if (step == null || step.actors.isEmpty) return const {};
-  final middles = _middlesOf(step);
+  final middles = [
+    for (final p in step.places)
+      if (p is CenterPlace) p.index,
+  ];
   if (middles.isEmpty) return const {};
   final actor = plan.card(step.actors.first);
   Rect lying(Rect r, int id) => r.shift(docked[id] ?? Offset.zero);
@@ -39,7 +42,21 @@ Map<int, Rect>? nightLiftedOf(
       if (c.sealRect case final seal?) lying(seal, c.id),
     ],
   ];
-  final size = _middleSize(plan, step);
+  final own = {
+    for (final p in step.places)
+      if (p is PlayerPlace) p.playerId,
+  };
+  final mine = [
+    for (final c in plan.cards)
+      if (own.contains(c.id)) ...[
+        lying(c.leaned, c.id),
+        if (c.sealRect case final seal?) lying(seal, c.id),
+      ],
+  ];
+  final widest = plan.cards
+      .map((c) => c.rect.width)
+      .reduce((a, b) => a > b ? a : b);
+  final size = Size(widest, actor.rect.height - actor.header);
   final lifted = <int, Rect>{};
   for (final i in middles) {
     final at = nightMiddleAt(
@@ -47,55 +64,28 @@ Map<int, Rect>? nightLiftedOf(
       actor: lying(actor.leaned, actor.id),
       size: size,
       taken: taken,
+      step: mine,
       scroll: scroll,
     );
-    if (at == null) return null;
     lifted[i] = at;
     taken.add(at);
+    mine.add(at);
   }
   return lifted;
 }
 
-List<int> _middlesOf(StoryStep step) => [
-  for (final p in step.places)
-    if (p is CenterPlace) p.index,
-];
-
-/// A middle card lifted for a step: as wide as the widest card, as tall as
-/// the actor's card without its name.
-Size _middleSize(EndBoardPlan plan, StoryStep step) {
-  final actor = plan.card(step.actors.first);
-  final widest = plan.cards
-      .map((c) => c.rect.width)
-      .reduce((a, b) => a > b ? a : b);
-  return Size(widest, actor.rect.height - actor.header);
-}
-
-/// The step shown, as the night board lays it.
-typedef NightStep = ({
-  /// How far each card is moved for the step (lifted, or slid down).
+/// The step shown, as the night board lays it: where each card lies
+/// ([docked], [lifted], [level]) and its links. Where a link cannot run
+/// clear of every other card, its far card is lifted beside the near one
+/// for the step, as a middle card is ([nightMiddleAt]), and the links are
+/// tied again.
+({
   Map<int, Offset> docked,
-
-  /// The middle cards the step is about, where they lie on the board.
   Map<int, Rect> lifted,
-
-  /// How far the lantern slid down.
-  Offset lantern,
-
-  /// The room the step opened in the board ([nightOpeningOf]).
-  double opened,
-
-  /// Where the board stands for the step.
-  double scroll,
+  bool level,
   List<NightLink> links,
-});
-
-/// The step shown, as the night board lays it: where each card lies and
-/// its links. Where a card the step lifts finds no empty board in the
-/// window, or a link cannot run clear of every other card, the step opens
-/// the board under the one who acted and lays its other cards there
-/// ([nightOpeningOf]): nothing ever lies on a card, a name or a seal.
-NightStep nightStepOf(
+})
+nightStepOf(
   EndBoardPlan plan,
   StoryStep? step, {
   required List<int> players,
@@ -103,51 +93,61 @@ NightStep nightStepOf(
   bool deal = false,
 }) {
   final view = nightViewOf(plan, players, deal: deal);
-  var docked = view.docked;
-  var lantern = Offset.zero;
-  var opened = 0.0;
-  var scroll = view.scroll;
-  var lifted = view.open
-      ? null
-      : nightLiftedOf(plan, step, docked: docked, scroll: scroll);
+  final docked = {...view.docked};
+  final level = nightLevel(docked, players.length);
+  final lifted = nightLiftedOf(plan, step, docked: docked, scroll: view.scroll);
   List<NightLink> tie() => nightLinksOf(
     plan,
     step,
     origin: origin,
     docked: docked,
-    lifted: lifted ?? const {},
-    lantern: lantern,
-    scroll: scroll,
+    level: level,
+    lifted: lifted,
+    scroll: view.scroll,
   );
-  var links = lifted == null ? null : tie();
-  final unclear = links == null || links.any((l) => !l.link.clear);
-  if (step != null && step.actors.isNotEmpty && unclear && plan.scrolls) {
-    final middles = _middlesOf(step);
-    final open = nightOpeningOf(
-      plan,
-      actor: step.actors.first,
-      players: [
+  var links = tie();
+  final moved = <int>{};
+  for (final l in links) {
+    if (l.link.clear || step == null) continue;
+    if (l.to case PlayerPlace(:final playerId) when !moved.contains(playerId)) {
+      final near = switch (l.from) {
+        PlayerPlace(:final playerId) =>
+          plan.card(playerId).leaned.shift(docked[playerId] ?? Offset.zero),
+        CenterPlace(:final index) => lifted[index]!,
+      };
+      final far = plan.card(playerId);
+      Rect lying(EndCard c) => c.leaned.shift(docked[c.id] ?? Offset.zero);
+      final own = {
         for (final p in step.places)
-          if (p is PlayerPlace) p.playerId,
-      ],
-      middles: middles.length,
-      middleSize: middles.isEmpty ? Size.zero : _middleSize(plan, step),
-    );
-    docked = open.docked;
-    lantern = open.lantern;
-    opened = open.height;
-    scroll = open.scroll;
-    lifted = {for (final (k, i) in middles.indexed) i: open.middles[k]};
-    links = tie();
+          if (p is PlayerPlace && p.playerId != playerId) p.playerId,
+      };
+      final at = nightMiddleAt(
+        plan,
+        actor: near,
+        size: far.leaned.size,
+        taken: [
+          plan.lantern,
+          ...lifted.values,
+          for (final c in plan.cards)
+            if (c.id != playerId) ...[
+              lying(c),
+              if (c.sealRect case final seal?)
+                seal.shift(docked[c.id] ?? Offset.zero),
+            ],
+        ],
+        step: [
+          ...lifted.values,
+          for (final c in plan.cards)
+            if (own.contains(c.id)) lying(c),
+        ],
+        scroll: view.scroll,
+      );
+      docked[playerId] = at.topLeft - far.leaned.topLeft;
+      moved.add(playerId);
+      links = tie();
+    }
   }
-  return (
-    docked: docked,
-    lifted: lifted ?? const {},
-    lantern: lantern,
-    opened: opened,
-    scroll: scroll,
-    links: links ?? tie(),
-  );
+  return (docked: docked, lifted: lifted, level: level, links: links);
 }
 
 /// What a step's kind says as a link.
@@ -162,24 +162,28 @@ LinkKind linkKindOf(StoryKind kind) => switch (kind) {
 typedef NightLink = ({CardPlace from, CardPlace to, CardLink link});
 
 /// The links of [step] in the board's content ([origin]: the frame's place
-/// in it), each tied between its two cards as they lie ([docked]; [lifted]:
-/// the middle cards on the board; [lantern]: how far the lantern slid),
-/// round every other card, seal and the lantern, inside the frame.
+/// in it), each tied between its two cards as they lie ([docked], [level]:
+/// lifted and drawn level; [lifted]: the middle cards on the board), round
+/// every other card, seal and the lantern, inside the frame.
 List<NightLink> nightLinksOf(
   EndBoardPlan plan,
   StoryStep? step, {
   required Offset origin,
   Map<int, Offset> docked = const {},
+  bool level = false,
   Map<int, Rect> lifted = const {},
-  Offset lantern = Offset.zero,
   double scroll = 0,
 }) {
   if (step == null) return const [];
   LaidCard laid(CardPlace place) => switch (place) {
-    PlayerPlace(:final playerId) => LaidCard(
-      plan.card(playerId).rect.shift(origin + (docked[playerId] ?? .zero)),
-      plan.card(playerId).angle,
-    ),
+    PlayerPlace(:final playerId) => () {
+      final c = plan.card(playerId);
+      final lift = docked[playerId];
+      return LaidCard(
+        c.rect.shift(origin + (lift ?? Offset.zero)),
+        level && lift != null ? 0 : c.angle,
+      );
+    }(),
     CenterPlace(:final index) => LaidCard(lifted[index]!.shift(origin)),
   };
   // The board's window where it stands for the step.
@@ -189,11 +193,7 @@ List<NightLink> nightLinksOf(
     plan.boardWidth,
     plan.scrolls ? plan.viewHeight - EndMetrics.lip : plan.boardHeight,
   );
-  final places = [
-    ...step.places,
-    for (final c in plan.cards)
-      if (!step.places.contains(PlayerPlace(c.id))) PlayerPlace(c.id),
-  ];
+  final mine = [for (final p in step.places) laid(p).bounds];
   final seals = [
     for (final c in plan.cards)
       if (c.sealRect case final seal?)
@@ -212,10 +212,18 @@ List<NightLink> nightLinksOf(
               kind: linkKindOf(step.kind),
               frame: frame,
               avoid: [
-                plan.lantern.shift(origin + lantern),
+                plan.lantern.shift(origin),
                 ...seals,
-                for (final p in places)
+                for (final p in step.places)
                   if (p != t.from && p != t.to) laid(p).bounds,
+                // A card the step lifted a card over is under it: the
+                // thread may pass over it there.
+                for (final c in plan.cards)
+                  if (!step.places.contains(PlayerPlace(c.id)) &&
+                      !mine.any(
+                        laid(PlayerPlace(c.id)).bounds.deflate(2).overlaps,
+                      ))
+                    laid(PlayerPlace(c.id)).bounds,
               ],
             ),
           ),
