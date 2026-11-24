@@ -147,5 +147,51 @@ class FromTheSources(unittest.TestCase):
             self.assertIn(number, sections, f"no per-screen section for {number}")
 
 
+class Areas(unittest.TestCase):
+    """`just brief <area>`: every row of the table still points at something."""
+
+    def setUp(self):
+        self.areas = load().tool("brief_areas")
+
+    def test_every_glob_of_every_area_matches_a_file(self):
+        for name, area in self.areas.AREAS.items():
+            for pattern in [*area["files"], *area["tests"]]:
+                self.assertTrue(
+                    self.areas.files_of([pattern]),
+                    f"{name}: nothing matches {pattern} any more",
+                )
+
+    def test_every_rule_is_still_where_the_row_says(self):
+        for name, area in self.areas.AREAS.items():
+            for document, kind, start in area["rules"]:
+                self.assertIsNotNone(
+                    self.areas.rule_text(document, kind, start),
+                    f"{name}: {document} has no {kind} starting '{start}'",
+                )
+
+    def test_every_model_folder_is_there(self):
+        for name, area in self.areas.AREAS.items():
+            if area["model"]:
+                self.assertTrue((REPO / area["model"]).is_dir(), name)
+
+    def test_a_bullet_is_printed_whole_and_a_section_stops_at_the_next(self):
+        line, bullet = self.areas.rule_text("frontend/CLAUDE.md", "bullet", "No waits.")
+        self.assertIn("never", bullet)
+        self.assertEqual(bullet.count("- **"), 1)
+        _, section = self.areas.rule_text(
+            "backend/CLAUDE.md", "section", "Deploy-safe changes"
+        )
+        self.assertEqual(sum(l.startswith("## ") for l in section.splitlines()), 1)
+
+    def test_a_brief_names_files_tests_and_who_else(self):
+        text = self.areas.brief("copy", lambda files: {"someone": sorted(files)[:1]})
+        for part in ("## The rules that bite here", "## Files", "## Tests", "someone:"):
+            self.assertIn(part, text)
+
+    def test_a_long_list_is_a_line_a_folder(self):
+        paths = [f"a/b/f{i}.py" for i in range(60)]
+        self.assertEqual(self.areas.listed(paths, lambda p: p), "   60 files  a/b/")
+
+
 if __name__ == "__main__":
     unittest.main()

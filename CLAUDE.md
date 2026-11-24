@@ -34,6 +34,7 @@ work stands: `docs/dev/status.md`.
 ```bash
 just check            # backend lint, format, types, migrations + instruction links
 just brief 09         # FIRST on a screen: its spec and the owner's words as written, states, files, who else is in them
+just brief copy       # FIRST on work that is not a screen (lobby-queue, outbox, design-system, copy, models, server); alone, it lists them
 just piece-check      # while building: fast checks + only the tests this change reaches (a minute or two)
 just handover <file>  # LAST, the only way to hand over: refuses unpushed work, runs the checks, draws it beside main
 just test             # backend tests (on every core) + guardrail and gate-routing tests
