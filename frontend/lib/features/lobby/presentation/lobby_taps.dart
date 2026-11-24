@@ -82,7 +82,7 @@ mixin _LobbyTaps on _$LobbyNotifier {
     _lane = lane;
     // Queued before it is shown: whatever showing sets off, the send is
     // already in line.
-    final sent = _settingsQueue = _settingsQueue.then((_) => _send());
+    final sent = _settingsQueue = _settingsQueue.then((_) => _sendGuarded());
     _showLane();
     return sent;
   }
@@ -99,6 +99,20 @@ mixin _LobbyTaps on _$LobbyNotifier {
     final base = _base;
     if (base?.dealRefused != null) {
       _putBase(base!.copyWith(dealRefused: null));
+    }
+  }
+
+  /// [_send], and nothing it throws can stop the lane: the change it had out
+  /// counts as not sent ("Not sent.", "Try again"), the queue goes on, and a
+  /// deal behind it is never left busy.
+  Future<void> _sendGuarded() async {
+    try {
+      await _send();
+    } catch (e, stack) {
+      logger.e('A settings send failed', error: e, stackTrace: stack);
+      if (!ref.mounted) return;
+      if (_lane.out != null) _lane = _lane.lose();
+      _showLane();
     }
   }
 
@@ -140,9 +154,10 @@ mixin _LobbyTaps on _$LobbyNotifier {
       // The role moved: the lobby was read again and this phone is a guest
       // now, which its screen shows with no words: nothing waits to be sent
       // or dealt, no "Not sent.".
-      _lane = _lane.settle();
+      _lane = _lane.forbidden();
+      if (!ref.mounted) return;
       _showLane();
-      if (ref.mounted) await refreshLobby();
+      await refreshLobby();
     } catch (e) {
       if (!ref.mounted) return;
       if (serverAnswered(e)) {
@@ -194,6 +209,16 @@ mixin _LobbyTaps on _$LobbyNotifier {
       return;
     }
     await _resendUnsent();
+  }
+
+  /// "Try again" on the set-up page (03), whose "Not sent." is only for the
+  /// changes: every change not sent, again, never the deal (a deal that did
+  /// not go is the table's line and the table's "Try again"). A refused
+  /// value still on screen: the lobby is read too.
+  Future<void> retryChanges() async {
+    final resent = _resendUnsent();
+    if (_lane.refusedShown) await refreshLobby();
+    await resent;
   }
 
   /// The one deal under way (waiting behind the lane, or out): a deal or a

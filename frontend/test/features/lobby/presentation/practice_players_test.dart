@@ -375,6 +375,59 @@ void main() {
     expect(tester.widget<PrimaryButton>(deal(4)).phase, ButtonPhase.ready);
   });
 
+  testWidgets('03 says "Not sent." only for its own changes, and its Try '
+      'again never deals (review 2, finding 1)', (tester) async {
+    final (setup, table) = await open(
+      tester,
+      before: (t) => t
+        ..on = true
+        ..count = 2,
+    );
+    final path = '/lobbies/${setup.code}/';
+    final start = '/onuw/lobbies/${setup.code}/start/';
+    void losing() {
+      setup.http.answerEach(method: 'PATCH', path: path, answer: (_) {});
+      setup.http.answer('PATCH', path, 'Server Error', status: 503);
+    }
+
+    // A length change is lost; back on 02 the host deals, and the deal
+    // waits behind the change, sent again (held, then lost again).
+    losing();
+    await toDeck(tester, setup);
+    await tapIn(tester, setup, _talkRow(), Icons.add);
+    expect(find.text(BannerCopy.notSent), findsOneWidget);
+    await backToTable(tester, setup);
+    final held = setup.http.hold(method: 'PATCH', path: path);
+    await pressLikeAFinger(
+      tester,
+      find.widgetWithText(PrimaryButton, TableCopy.start),
+    );
+    await tester.pump();
+    // The set-up page meanwhile: a practice player added (it goes after the
+    // length) keeps the deal back. That is the table's line, never 03's.
+    await toDeck(tester, setup);
+    await tapIn(tester, setup, _practiceRow(), Icons.add);
+    expect(find.text(BannerCopy.notSent), findsNothing);
+
+    held.releaseAll();
+    setup.http.stopHolding(method: 'PATCH', path: path);
+    await setup.settle(tester);
+    expect(table.count, 3, reason: 'the practice player, after the length');
+    expect(find.text(BannerCopy.notSent), findsOneWidget, reason: 'the length');
+    // 03's Try again: the length again (lost once more), never the deal
+    // (the deal goes through 02's own; see settings_lane_order_test).
+    final patches = setup.count('PATCH', path);
+    await pressLikeAFinger(tester, find.text(BannerCopy.tryAgain));
+    await setup.settle(tester);
+    expect(setup.count('PATCH', path), patches + 1);
+    expect(setup.count('POST', start), 0, reason: "03's Try again never deals");
+
+    // On 02 the held deal says so, with its own Try again.
+    await backToTable(tester, setup);
+    expect(find.text(BannerCopy.notSent), findsOneWidget);
+    expect(setup.count('POST', start), 0);
+  });
+
   testWidgets('+ + − with every answer held: shows 1 throughout, sends 1, 2, '
       '1 in order, and ends at 1', (tester) async {
     final (setup, table) = await open(tester);
@@ -533,6 +586,9 @@ void main() {
         setup.http.answer('PATCH', request.path, table.body());
       },
     );
+    // The screen shows the lost talk up (what Try again would send): two
+    // minuses go below where it began.
+    await tapIn(tester, setup, _talkRow(), Icons.remove);
     await tapIn(tester, setup, _talkRow(), Icons.remove);
     final down = table.lengths[key] as int;
     expect(down, lessThan(before));

@@ -139,7 +139,7 @@ void main() {
         _practice(const PracticeAsk(on: true)),
       ]);
       expect(lane.notSent, isTrue);
-      lane = _sent(lane, (l) => l.settle());
+      lane = _sent(lane, (l) => l.forbidden());
       expect(lane.notSent, isFalse);
       expect(lane.dealHeld, isFalse);
       expect(lane.unsent, isEmpty);
@@ -152,6 +152,64 @@ void main() {
       final (settled, go) = waiting.dealGoes();
       expect(go, isFalse);
       expect(settled.notSent, isFalse, reason: 'a guest: nothing said');
+    });
+
+    test('GuestQuiet: a lobby naming another host settles the lane; the one '
+        'out still gets its answer, and a guest keeps nothing more', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose()).dealLost();
+      lane = _asked(lane, [
+        _settings({'card_look_seconds': 300}),
+        _settings({'seats': 6}),
+      ]);
+      (lane, _) = lane.sendNext();
+      lane = lane.hosting(isHost: false);
+      expect(lane.notSent, isFalse);
+      expect(lane.pending, hasLength(1), reason: 'only the one out');
+      expect(lane.unsent, isEmpty);
+      lane = lane.lose();
+      expect(lane.notSent, isFalse, reason: 'a guest keeps nothing');
+      expect(lane.dealLost().notSent, isFalse);
+      // The role back: a clean start from the server, then kept again.
+      lane = lane.hosting(isHost: true);
+      expect(lane.notSent, isFalse, reason: 'nothing from before is kept');
+      lane = _sent(
+        _asked(lane, [
+          _settings({'seats': 7}),
+        ]),
+        (l) => l.lose(),
+      );
+      expect(lane.notSent, isTrue);
+    });
+
+    test('03 and 02: a lost change is "Not sent." for both; a held deal '
+        'only for the table', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      expect(lane.over(_table).changesNotSent, isTrue);
+      final dealOnly = SettingsLane.empty.dealLost().over(_table);
+      expect(dealOnly.changesNotSent, isFalse, reason: "not 03's to say");
+      expect(dealOnly.dealNotSent, isTrue);
+      expect(dealOnly.notSent, isTrue, reason: "02's line");
+    });
+
+    test('a lost value is judged as shown: the seats and lengths it lays '
+        'over are this phone\'s, not the server\'s numbers', () {
+      var lane = _asked(SettingsLane.empty, [
+        _settings({'seats': 5, 'card_look_seconds': 300}),
+      ]);
+      lane = _sent(lane, (l) => l.lose());
+      final shown = lane.over(_table);
+      expect(
+        shown.ownKeys,
+        containsAll(<String>['seats', 'card_look_seconds']),
+      );
+      expect(shown.settling, isFalse);
+      expect(shown.cardsNeeded, 5 + centreCards);
     });
   });
 

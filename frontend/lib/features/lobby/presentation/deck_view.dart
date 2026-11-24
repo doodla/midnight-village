@@ -182,7 +182,7 @@ class DeckViewState extends State<DeckView> {
         ],
       ),
       actions: [
-        if (lobby.notSent)
+        if (lobby.changesNotSent)
           Notice(
             message: BannerCopy.notSent,
             action: BannerCopy.tryAgain,

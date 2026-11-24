@@ -799,10 +799,9 @@ Future<void> pumpDeckPracticeSwitched(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
-/// 03 on the host's own deck: a card tapped in got no answer ("Not sent."
-/// with "Try again"), then "Players" held (its answer held): the practice
-/// switch is on its way and "Not sent." stays, the lost card still waiting
-/// for "Try again" (the lane's rule: a tap on something else never hides it).
+/// 03 on the host's own deck: a card swapped for another (the Tanner out,
+/// the Robber in) got no answer: "Not sent." with "Try again", and the swap
+/// stays on screen, the deck still whole, as "Try again" would send it.
 Future<void> pumpDeckNotSentKept(WidgetTester tester) async {
   await pumpDeckGrid(tester);
   final setup = _setup!;
@@ -812,19 +811,20 @@ Future<void> pumpDeckNotSentKept(WidgetTester tester) async {
     'Server Error',
     status: 503,
   );
+  final minus = find.bySemanticsLabel(
+    SpokenCopy.takeOut.fill({'role': RoleId.tanner.displayName}),
+  );
+  await tester.ensureVisible(minus);
+  await tester.pumpAndSettle();
+  await pressLikeAFinger(tester, minus);
+  await tester.pumpAndSettle();
   await _tapCard(tester, RoleId.robber);
   await tester.pumpAndSettle();
-  final path = '/lobbies/${setup.code}/practice/';
-  setup.http.hold(method: 'POST', path: path);
-  setup.http.answer(
-    'POST',
-    path,
-    ContractSamples.map('http/lobby/practice_on'),
+  // Back up to the count: the deck still whole.
+  await tester.ensureVisible(
+    find.text(DeckCopy.count.fill({'picked': 12, 'need': 12})),
   );
-  await tester.ensureVisible(find.text(DeckCopy.players));
   await tester.pumpAndSettle();
-  await tester.longPress(find.text(DeckCopy.players));
-  await tester.pump(const Duration(milliseconds: 300));
 }
 
 /// 03 scrolled to its lengths, at a new table.

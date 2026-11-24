@@ -46,16 +46,16 @@ VARIABLES
   base, srn, phost, btid,          \* the server lobby under the screen (the newest shown), its rev, its host, its table
   unsent, asked, askedAt,          \* the lost changes, the tap count, the newest ask per key
   refC, dealHeld, guest,           \* the refused change still on screen ({} or {c}); the deal not sent; a 403 met
-  rq, rv, again, buf,              \* refreshLobby: the read, its body, _refreshAgain, _buffered
+  rq, rv, owed, again, buf,        \* refreshLobby: the read, its body, a read failed and none landed since, _refreshAgain, _buffered
   dq, pDealt, deals, dealView, dealMoved, \* the deal: its state, the game opened, deal taps, the screen at the tap, the keys another writer changed that the phone could not have shown
   flick, hostBack, hidden, ghost, stranded, dealBad, \* history for the rules
   taps, faults, tried              \* tried: the step before was a "Try again"
 
 vars == <<sv, sask, srev, badOrder, sDealt, shost, stid, roomAt, reqs, rep, evq, sock, joins, q,
-          phase, base, srn, phost, btid, hostBack, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, again, buf, dq, pDealt,
+          phase, base, srn, phost, btid, hostBack, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, owed, again, buf, dq, pDealt,
           deals, dealView, dealMoved, flick, hidden, ghost, stranded, dealBad, taps, faults, tried>>
 servVars == <<sv, sask, srev, badOrder, sDealt, shost, stid, roomAt>>
-readVars == <<rq, rv, again, buf>>
+readVars == <<rq, rv, owed, again, buf>>
 laneVars == <<q, unsent, asked, askedAt, refC, dealHeld, guest>>
 screenVars == <<base, srn, phost, btid, flick, hostBack>>
 histVars == <<hidden, ghost, stranded, dealBad>>
@@ -108,21 +108,35 @@ Adm(c, b) == b.tid # c.tid \/ b.rev >= c.rev
 Step1(c, e) ==
   IF e.t = "upd" /\ Adm(c, e.lob)
   THEN [v |-> e.lob.v, rev |-> e.lob.rev, host |-> e.lob.host, tid |-> e.lob.tid, body |-> TRUE,
+        shown |-> TRUE,
         fl |-> c.fl \/ (e.lob.tid = c.tid /\ \E k \in HostOnly : e.lob.v[k] < c.v[k]),
         hb |-> c.hb \/ (e.lob.tid = c.tid /\ e.lob.host < c.host)]
   ELSE IF e.t = "host" /\ Adm(c, e.lob)
-  THEN [c EXCEPT !.rev = e.lob.rev, !.host = e.lob.host, !.tid = e.lob.tid,
+  THEN [c EXCEPT !.rev = e.lob.rev, !.host = e.lob.host, !.tid = e.lob.tid, !.shown = TRUE,
                  !.hb = c.hb \/ (e.lob.tid = c.tid /\ e.lob.host < c.host)]
   ELSE c
 RECURSIVE Fold(_, _)
 Fold(c, E) == IF E = <<>> THEN c ELSE Fold(Step1(c, Head(E)), Tail(E))
-Apply(E) ==
+\* Q2: the queue as the step leaves it; out: a change is still out after it. A lobby or
+\* host_changed shown that names another host settles the lane (SettingsLane.hosting):
+\* the changes waiting, the lost ones and a held or waiting deal go (the one out still gets
+\* its answer); one naming this phone makes it the host's lane again, from a clean start.
+Apply(E, Q2, out) ==
   LET c == Fold([v |-> base, rev |-> srn, host |-> phost, tid |-> btid, body |-> FALSE,
-                 fl |-> flick, hb |-> hostBack], E) IN
+                 shown |-> FALSE, fl |-> flick, hb |-> hostBack], E)
+      other == c.shown /\ c.host # 0 IN
   /\ base' = c.v /\ srn' = c.rev /\ phost' = c.host /\ btid' = c.tid
   /\ flick' = c.fl /\ hostBack' = c.hb
   /\ refC' = IF c.body THEN {} ELSE refC
-Show(b) == Apply(<<[t |-> "upd", lob |-> b]>>)
+  /\ guest' = IF other THEN TRUE ELSE IF c.shown THEN FALSE ELSE guest
+  /\ q' = IF other THEN (IF out THEN <<Head(Q2)>> ELSE <<>>) ELSE Q2
+  /\ unsent' = IF other THEN <<>> ELSE unsent
+  /\ dealHeld' = IF other THEN FALSE ELSE dealHeld
+  /\ dq' = IF other /\ dq = "queued" THEN "none" ELSE dq
+\* the lane as it is (no lobby shown in this step)
+LaneSame == UNCHANGED <<q, unsent, dealHeld, guest, dq>>
+\* this phone may tap as the host: the lobby shown names it, and no 403 since
+IsHost == phost = 0 /\ ~guest
 HasJoin(B) == \E i \in 1..Len(B) : B[i].t = "join"
 
 (* refreshLobby: a call while a read is out runs once more after it *)
@@ -217,7 +231,7 @@ Resend(U, A, N, Q, S) ==
 \* SettingsLane.ask. A tap while a deal waits behind the lane keeps the deal back (B: it
 \* would not deal what was shown at its tap): "Not sent.", Try again deals.
 Tap(ks) ==
-  /\ taps < MaxTaps /\ ~pDealt /\ ~guest
+  /\ taps < MaxTaps /\ ~pDealt /\ IsHost
   /\ LET c == [n |-> asked + 1, keys |-> ks, v |-> asked + 1]
          A2 == [k \in Keys |-> IF k \in ks THEN c.n ELSE askedAt[k]]
          held == dealHeld \/ dq = "queued" IN
@@ -243,18 +257,18 @@ Reply ==
   /\ LET a == CHOOSE x \in rep : TRUE c == Head(q) IN
      /\ rep' = {}
      /\ CASE a.ans = "taken" ->
-             /\ q' = Tail(q) /\ phase' = "idle" /\ Show(a.lob)
-             /\ UNCHANGED <<rq, again, buf, dq, dealHeld, unsent, guest>>
+             /\ phase' = "idle" /\ Apply(<<[t |-> "upd", lob |-> a.lob]>>, Tail(q), FALSE)
+             /\ UNCHANGED <<rq, again, buf>>
           [] a.ans = "refused" ->
              /\ q' = Tail(q) /\ phase' = "reading" /\ Refresh /\ refC' = {c}
-             /\ IF dq = "queued" THEN dq' = "none" /\ dealHeld' = TRUE ELSE UNCHANGED <<dq, dealHeld>>
+             /\ IF dq = "queued" THEN dq' = "none" /\ dealHeld' = ~guest ELSE UNCHANGED <<dq, dealHeld>>
              /\ UNCHANGED <<screenVars, unsent, guest>>
           [] a.ans = "forbidden" ->
              /\ q' = <<>> /\ unsent' = <<>> /\ dealHeld' = FALSE /\ guest' = TRUE
              /\ phase' = "reading" /\ Refresh
              /\ dq' = IF dq = "queued" THEN "none" ELSE dq
              /\ UNCHANGED <<screenVars, refC>>
-  /\ UNCHANGED <<servVars, reqs, evq, sock, joins, asked, askedAt, rv, pDealt, deals, dealView,
+  /\ UNCHANGED <<servVars, reqs, evq, sock, joins, asked, askedAt, rv, owed, pDealt, deals, dealView,
                  dealMoved, histVars, taps, faults>>
 \* SettingsLane.lose: no answer in time (offline, 5xx, 10 s): kept for "Try again" ("Not
 \* sent."), its value over the screen while it would still be sent; a deal behind it does
@@ -262,55 +276,61 @@ Reply ==
 Timeout ==
   /\ phase = "out" /\ faults < MaxFaults /\ faults' = faults + 1
   /\ LET c == Head(q) IN
-     /\ q' = Tail(q) /\ unsent' = Append(unsent, c)
+     /\ q' = Tail(q) /\ unsent' = IF guest THEN unsent ELSE Append(unsent, c)
      /\ rep' = {}
      /\ reqs' = IF LATE THEN {IF r.n = c.n THEN [r EXCEPT !.live = FALSE] ELSE r : r \in reqs}
                 ELSE {r \in reqs : r.n # c.n}
-  /\ IF dq = "queued" THEN dq' = "none" /\ dealHeld' = TRUE ELSE UNCHANGED <<dq, dealHeld>>
+  /\ IF dq = "queued" THEN dq' = "none" /\ dealHeld' = ~guest ELSE UNCHANGED <<dq, dealHeld>>
   /\ phase' = "reading" /\ Refresh
-  /\ UNCHANGED <<servVars, evq, sock, joins, asked, askedAt, refC, guest, screenVars, rv,
+  /\ UNCHANGED <<servVars, evq, sock, joins, asked, askedAt, refC, guest, screenVars, rv, owed,
                  pDealt, deals, dealView, dealMoved, histVars, taps>>
 
 (* ---------------- phone: reads and the socket ---------------- *)
 ReadServe ==
   /\ rq = "sent" /\ rq' = "served" /\ rv' = Body
-  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, laneVars, screenVars, again, buf,
+  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, laneVars, screenVars, again, buf, owed,
                  dealVars, histVars, taps, faults, refC>>
 \* _replayBuffered over the read: the read and every lobby_update held meanwhile, each shown
 \* if not older; then the read is no longer out
 ReadApply ==
   /\ rq = "served"
-  /\ Apply(<<[t |-> "upd", lob |-> rv]>> \o buf)
-  /\ EndRead(again \/ HasJoin(buf))
-  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, q, unsent, asked, askedAt, dealHeld,
-                 guest, dealVars, histVars, taps, faults>>
+  /\ Apply(<<[t |-> "upd", lob |-> rv]>> \o buf, q, phase = "out")
+  /\ EndRead(again \/ HasJoin(buf)) /\ owed' = FALSE
+  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, asked, askedAt, pDealt, deals, dealView,
+                 dealMoved, histVars, taps, faults>>
 \* _applyHeld: the events held meanwhile, over what is shown
 ReadFail ==
   /\ rq # "none" /\ faults < MaxFaults /\ faults' = faults + 1
-  /\ Apply(buf)
-  /\ EndRead(again \/ HasJoin(buf))
-  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, q, unsent, asked, askedAt, dealHeld,
-                 guest, dealVars, histVars, taps>>
+  /\ Apply(buf, q, phase = "out")
+  /\ EndRead(again \/ HasJoin(buf)) /\ owed' = TRUE
+  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, asked, askedAt, pDealt, deals, dealView,
+                 dealMoved, histVars, taps>>
 \* held while a read is out; else lobby_update is the server's lobby, player_joined a read
 EvDeliver ==
   /\ evq # <<>> /\ evq' = Tail(evq)
   /\ LET e == Head(evq) IN
      IF rq # "none"
-     THEN buf' = Append(buf, e) /\ UNCHANGED <<screenVars, refC, rq, again, phase>>
+     THEN buf' = Append(buf, e) /\ LaneSame /\ UNCHANGED <<screenVars, refC, rq, again, phase>>
      ELSE IF e.t \in {"upd", "host"}
-          THEN Apply(<<e>>) /\ UNCHANGED <<buf, rq, again, phase>>
-          ELSE Refresh /\ UNCHANGED <<screenVars, refC, phase>>
-  /\ UNCHANGED <<servVars, reqs, rep, sock, joins, q, unsent, asked, askedAt, dealHeld, guest,
-                 rv, dealVars, histVars, taps, faults>>
+          THEN Apply(<<e>>, q, phase = "out") /\ UNCHANGED <<buf, rq, again, phase>>
+          ELSE Refresh /\ LaneSame /\ UNCHANGED <<screenVars, refC, phase>>
+  /\ UNCHANGED <<servVars, reqs, rep, sock, joins, asked, askedAt, rv, owed, pDealt, deals, dealView,
+                 dealMoved, histVars, taps, faults>>
+\* _healRead: a lobby read failed and none has landed since: read again (the healing
+\* backoff, core/healing/, until one lands)
+HealRead ==
+  /\ owed /\ rq = "none" /\ rq' = "sent" /\ again' = FALSE /\ buf' = <<>>
+  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, laneVars, screenVars, rv, owed,
+                 dealVars, histVars, taps, faults>>
 \* readOnDrop: a read when it drops; events meanwhile are lost; a read when it is back
 SockDrop ==
   /\ sock = "up" /\ faults < MaxFaults /\ faults' = faults + 1
   /\ sock' = "down" /\ evq' = <<>> /\ Refresh
-  /\ UNCHANGED <<servVars, reqs, rep, joins, phase, laneVars, screenVars, rv, dealVars,
+  /\ UNCHANGED <<servVars, reqs, rep, joins, phase, laneVars, screenVars, rv, owed, dealVars,
                  histVars, taps>>
 SockUp ==
   /\ sock = "down" /\ sock' = "up" /\ Refresh
-  /\ UNCHANGED <<servVars, reqs, rep, evq, joins, phase, laneVars, screenVars, rv, dealVars,
+  /\ UNCHANGED <<servVars, reqs, rep, evq, joins, phase, laneVars, screenVars, rv, owed, dealVars,
                  histVars, taps, faults>>
 
 (* ---------------- phone: the deal and "Try again" ---------------- *)
@@ -318,7 +338,7 @@ SockUp ==
 \* deal does not go ("Not sent.", Try again). Lost changes (on screen, "Not sent."): sent
 \* again first, the deal behind them. What is dealt is the screen at the tap (E).
 DealTap ==
-  /\ ~pDealt /\ ~guest /\ dq = "none" /\ q = <<>> /\ deals < MaxDeals /\ deals' = deals + 1
+  /\ ~pDealt /\ IsHost /\ dq = "none" /\ q = <<>> /\ deals < MaxDeals /\ deals' = deals + 1
   /\ IF refC # {}
      THEN dealHeld' = TRUE /\ UNCHANGED <<dq, dealView, dealMoved, unsent, asked, askedAt, q, ghost>>
      ELSE LET R == Resend(unsent, askedAt, asked, q, {}) IN
@@ -356,7 +376,7 @@ DealRefuse ==
 \* SettingsLane.dealLost: no answer: "Not sent.", Try again redoes it
 DealLoss ==
   /\ dq = "sent" /\ faults < MaxFaults /\ faults' = faults + 1
-  /\ dq' = "none" /\ dealHeld' = TRUE
+  /\ dq' = "none" /\ dealHeld' = ~guest
   /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, q, unsent, asked, askedAt, refC,
                  guest, screenVars, readVars, pDealt, deals, dealView, dealMoved, histVars, taps>>
 DealTaken ==
@@ -367,13 +387,13 @@ DealTaken ==
 DealRefused ==
   /\ dq = "refused" /\ dq' = "none" /\ dealHeld' = FALSE /\ Refresh
   /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, q, unsent, asked, askedAt, refC,
-                 guest, screenVars, rv, pDealt, deals, dealView, dealMoved, histVars, taps, faults>>
+                 guest, screenVars, rv, owed, pDealt, deals, dealView, dealMoved, histVars, taps, faults>>
 
 \* "Try again" (shown with "Not sent."): every lost change again, oldest first, then the deal
 \* if it was not sent, behind them. A refused value still on screen: the lobby is read (C),
 \* and the deal stays back until a Try again on what the read shows.
 Retry ==
-  /\ NotSent /\ ~pDealt /\ ~guest
+  /\ NotSent /\ ~pDealt /\ IsHost
   /\ LET R == Resend(unsent, askedAt, asked, q, {})
          go == dealHeld /\ refC = {} IN
      /\ unsent' = <<>> /\ askedAt' = R.a /\ asked' = R.n /\ q' = R.q
@@ -385,8 +405,21 @@ Retry ==
      /\ IF refC # {} THEN Refresh ELSE UNCHANGED <<rq, again, buf>>
      \* nothing left behind: a waiting lost change is sent, a held deal goes or the lobby is read
      /\ stranded' = (stranded \/ (Waiting /\ R.sent = {}) \/ (dealHeld /\ ~go /\ refC = {}))
-  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, refC, guest, screenVars, rv,
+  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, refC, guest, screenVars, rv, owed,
                  pDealt, deals, hidden, dealBad, taps, faults>>
+
+\* 03's "Try again" (shown with its "Not sent." for lost changes only): every lost change
+\* again, oldest first; never the deal (a held deal is 02's line and 02's button). A refused
+\* value on screen: the lobby is read too.
+RetryChanges ==
+  /\ Waiting /\ ~pDealt /\ IsHost
+  /\ LET R == Resend(unsent, askedAt, asked, q, {}) IN
+     /\ unsent' = <<>> /\ askedAt' = R.a /\ asked' = R.n /\ q' = R.q
+     /\ ghost' = (ghost \/ R.sent \cap hidden # {})
+     /\ IF refC # {} THEN Refresh ELSE UNCHANGED <<rq, again, buf>>
+     /\ stranded' = (stranded \/ R.sent = {})
+  /\ UNCHANGED <<servVars, reqs, rep, evq, sock, joins, phase, refC, dealHeld, guest, screenVars,
+                 rv, owed, dealVars, hidden, dealBad, taps, faults>>
 
 Init ==
   /\ sv = Zero /\ sask = Zero /\ srev = 0 /\ badOrder = FALSE /\ sDealt = FALSE
@@ -394,7 +427,7 @@ Init ==
   /\ reqs = {} /\ rep = {} /\ evq = <<>> /\ sock = "up" /\ joins = 0
   /\ q = <<>> /\ phase = "idle" /\ base = Zero /\ srn = 0 /\ phost = 0 /\ btid = 0 /\ hostBack = FALSE
   /\ unsent = <<>> /\ asked = 0 /\ askedAt = Zero /\ refC = {} /\ dealHeld = FALSE /\ guest = FALSE
-  /\ rq = "none" /\ rv = NoBody /\ again = FALSE /\ buf = <<>>
+  /\ rq = "none" /\ rv = NoBody /\ owed = FALSE /\ again = FALSE /\ buf = <<>>
   /\ dq = "none" /\ pDealt = FALSE /\ deals = 0 /\ dealView = Zero /\ dealMoved = {}
   /\ flick = FALSE /\ hidden = {} /\ ghost = FALSE /\ stranded = FALSE
   /\ dealBad = FALSE /\ taps = 0 /\ faults = 0 /\ tried = FALSE
@@ -408,23 +441,23 @@ SApplyStep == \E r \in reqs : SApply(r)
 Step ==
   \/ SApplyStep \/ (\E r \in reqs : SRefuse(r)) \/ SOther \/ SNewTable \/ SMove
   \/ (\E ks \in TapKeys : Tap(ks)) \/ Send \/ Reply \/ Timeout
-  \/ ReadServe \/ ReadApply \/ ReadFail \/ EvDeliver \/ SockDrop \/ SockUp
+  \/ ReadServe \/ ReadApply \/ ReadFail \/ EvDeliver \/ SockDrop \/ SockUp \/ HealRead
   \/ DealTap \/ DealGo \/ DealServe \/ DealRefuse \/ DealLoss \/ DealTaken \/ DealRefused
 Next ==
   \/ Done
-  \/ Retry /\ tried' = TRUE
+  \/ (Retry \/ RetryChanges) /\ tried' = TRUE
   \/ Step /\ tried' = FALSE
 
 \* every variable but `tried`, which no step reads (the invariant runs' VIEW)
 View == <<sv, sask, srev, badOrder, sDealt, shost, stid, roomAt, reqs, rep, evq, sock, joins, q,
-          phase, base, srn, phost, btid, hostBack, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, again, buf, dq, pDealt,
+          phase, base, srn, phost, btid, hostBack, unsent, asked, askedAt, refC, dealHeld, guest, rq, rv, owed, again, buf, dq, pDealt,
           deals, dealView, dealMoved, flick, hidden, ghost, stranded, dealBad, taps, faults>>
 
 \* the network and the phone's own steps are fair; taps, faults and joins are not
 Fair(A) == WF_vars(A /\ tried' = FALSE)
 Spec == Init /\ [][Next]_vars
         /\ Fair(SApplyStep) /\ Fair(Send) /\ Fair(Reply) /\ Fair(ReadServe)
-        /\ Fair(ReadApply) /\ Fair(EvDeliver) /\ Fair(SockUp)
+        /\ Fair(ReadApply) /\ Fair(EvDeliver) /\ Fair(SockUp) /\ Fair(HealRead)
         /\ Fair(DealGo) /\ Fair(DealServe) /\ Fair(DealTaken) /\ Fair(DealRefused)
 
 (* ---------------- rules ---------------- *)
@@ -448,7 +481,7 @@ RetryCoversAll == ~stranded
 \* on every key but one make_room wrote after the lobby on screen then
 DealAsShown == ~dealBad
 \* (D) a phone that met a 403 is a guest's: no "Not sent." on it
-GuestQuiet == guest => ~NotSent
+GuestQuiet == (phost # 0 \/ guest) => ~NotSent
 \* (C) "Try again" always does something: a request goes out, or "Not sent." goes
 Out == q # <<>> \/ phase # "idle" \/ rq # "none" \/ dq \in {"queued", "sent"}
 TryAgainActs == tried ~> (Out \/ ~NotSent)

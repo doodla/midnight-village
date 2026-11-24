@@ -30,8 +30,11 @@ import 'lobby_state.dart';
 ///   before it lost or refused, or a tap while it waits, keeps it back, and
 ///   the lane always says so ([dealBehind], [dealGoes]; `RetryCoversAll`,
 ///   `DealAsShown`);
-/// - a 403 (the host role moved) forgets what would be sent again and any
-///   held deal: no "Not sent." on a guest's phone ([settle], `GuestQuiet`).
+/// - the host role moved away (a 403, or a lobby or `host_changed` naming
+///   another host) forgets what would be sent again, the changes waiting
+///   and any held deal, and keeps nothing more until the role is this
+///   phone's again: no "Not sent." on a guest's phone ([settle], [hosting],
+///   `GuestQuiet`).
 final class SettingsLane {
   const SettingsLane._({
     required this.pending,
@@ -43,6 +46,7 @@ final class SettingsLane {
     required _Newest? shownRev,
     required this.dealHeld,
     required this.dealWaiting,
+    required this.notHost,
   }) : _asked = asked,
        _askedAt = askedAt,
        _refused = refused,
@@ -59,6 +63,7 @@ final class SettingsLane {
     shownRev: null,
     dealHeld: false,
     dealWaiting: false,
+    notHost: false,
   );
 
   /// The changes asked and not answered, oldest first (the one [out] first).
@@ -91,6 +96,10 @@ final class SettingsLane {
   /// A deal waits behind the changes on the lane.
   final bool dealWaiting;
 
+  /// The host role is not this phone's (a 403, or the lobby shown names
+  /// another host): nothing is kept to send again or to deal.
+  final bool notHost;
+
   SettingsLane _with({
     List<LaneChange>? pending,
     LaneChange? Function()? out,
@@ -101,6 +110,7 @@ final class SettingsLane {
     _Newest? Function()? shownRev,
     bool? dealHeld,
     bool? dealWaiting,
+    bool? notHost,
   }) => SettingsLane._(
     pending: pending ?? this.pending,
     out: out != null ? out() : this.out,
@@ -111,6 +121,7 @@ final class SettingsLane {
     shownRev: shownRev != null ? shownRev() : _shownRev,
     dealHeld: dealHeld ?? this.dealHeld,
     dealWaiting: dealWaiting ?? this.dealWaiting,
+    notHost: notHost ?? this.notHost,
   );
 
   /// The keys of every change not answered yet (`LobbyState.settling`).
@@ -120,9 +131,17 @@ final class SettingsLane {
   /// shown): a deal tapped now would not deal what is shown.
   bool get refusedShown => _refused != null;
 
-  /// "Not sent.": a lost change "Try again" would still send, or the deal
-  /// did not go. Derived, never stored: nothing else switches it.
-  bool get notSent => dealHeld || unsent.any((c) => _newestOf(c).isNotEmpty);
+  /// "Not sent." for the changes: a lost change "Try again" would still
+  /// send (the set-up page's line and its "Try again", which only resends).
+  /// Derived, never stored.
+  bool get changesNotSent => unsent.any((c) => _newestOf(c).isNotEmpty);
+
+  /// "Not sent." for the deal: it did not go (the table's line; its "Try
+  /// again" resends the changes and deals).
+  bool get dealNotSent => dealHeld;
+
+  /// Either: something "Try again" on the table would still do.
+  bool get notSent => changesNotSent || dealNotSent;
 
   /// Whether a server lobby numbered [rev] of [table] (its code with its
   /// `created_at`) would be shown: not older than the newest shown of that
@@ -197,22 +216,37 @@ final class SettingsLane {
       pending: _without(change),
       out: () => null,
       refused: () => change,
-      dealHeld: dealHeld || dealWaiting,
+      dealHeld: !notHost && (dealHeld || dealWaiting),
       dealWaiting: false,
     ),
   );
 
-  /// The host role moved (403, on a change or the deal): this phone is a
-  /// guest's now. The change out and every one waiting are dropped (each
-  /// would meet its own 403), and nothing is kept to send again or to deal:
-  /// no "Not sent." on a guest's phone.
+  /// The host role moved (a 403 on a change or the deal, or a lobby or
+  /// `host_changed` naming another host): this phone is a guest's now. Every
+  /// change waiting is dropped (each would meet its own 403; the one out
+  /// still gets its answer), and nothing is kept to send again or to deal:
+  /// no "Not sent." on a guest's phone, until the role is this phone's again
+  /// ([hosting]), which starts clean from the server.
   SettingsLane settle() => _with(
-    pending: const [],
-    out: () => null,
+    pending: List.unmodifiable([?out]),
     unsent: const [],
     dealHeld: false,
     dealWaiting: false,
+    notHost: true,
   );
+
+  /// The change out met a 403: dropped, and the lane settles ([settle]).
+  SettingsLane forbidden() => _answer(
+    (change) => _with(pending: _without(change), out: () => null),
+  ).settle();
+
+  /// The lobby shown names this phone the host ([isHost]) or another:
+  /// another settles the lane ([settle]); this phone, again, keeps what it
+  /// sends from now on.
+  SettingsLane hosting({required bool isHost}) {
+    if (!isHost) return notHost ? this : settle();
+    return notHost ? _with(notHost: false) : this;
+  }
 
   /// The change out got no answer (offline, 5xx, the time ran out): dropped
   /// from the queue, kept for "Try again" ("Not sent."), its value on screen
@@ -221,8 +255,8 @@ final class SettingsLane {
     (change) => _with(
       pending: _without(change),
       out: () => null,
-      unsent: List.unmodifiable([...unsent, change]),
-      dealHeld: dealHeld || dealWaiting,
+      unsent: notHost ? unsent : List.unmodifiable([...unsent, change]),
+      dealHeld: !notHost && (dealHeld || dealWaiting),
       dealWaiting: false,
     ),
   );
@@ -282,7 +316,7 @@ final class SettingsLane {
 
   /// The deal got no answer, or was kept back: "Not sent.", and "Try again"
   /// deals.
-  SettingsLane dealLost() => _with(dealHeld: true, dealWaiting: false);
+  SettingsLane dealLost() => _with(dealHeld: !notHost, dealWaiting: false);
 
   /// What the screen shows: the server's lobby with every change still to
   /// go over it, oldest first, as the server applies them (settings merged
@@ -310,8 +344,10 @@ final class SettingsLane {
     }
     return shown.copyWith(
       pendingKeys: pendingKeys,
+      ownKeys: {for (final c in layers) ...c.keys},
       practiceAsk: practice,
-      notSent: notSent,
+      changesNotSent: changesNotSent,
+      dealNotSent: dealNotSent,
     );
   }
 

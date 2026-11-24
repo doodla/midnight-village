@@ -213,7 +213,11 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   setting tapped while it waits keeps the deal back ("Not sent."; never a silent end); a
   setting tapped while the deal is out goes after its answer. "Try again" redoes every lost
   change and then the deal; with a refused value still on screen it reads the lobby first.
-  A host role that moved (a 403) says nothing: the lane forgets what it would send. The
+  The set-up page says "Not sent." only for its lost changes and its "Try again" only resends
+  them (never the deal: a held deal is the table's line and button). A host role that moved
+  (a 403, or a lobby or `host_changed` naming another host) says nothing: the lane forgets
+  what it would send, first, and keeps nothing until the role is this phone's again. A
+  failed lobby read is made again with `core/healing/`'s backoff until one lands. The
   lane's rules are one pure value, `domain/settings_lane.dart` (`SettingsLane`: the queue,
   the one change out, the lost changes, a refused value, the deal behind them, the newest
   `rev` shown; unit tested in

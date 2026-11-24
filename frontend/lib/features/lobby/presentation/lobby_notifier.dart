@@ -13,10 +13,12 @@ import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/primitives/pending.dart' show RequestRefused;
+import '../../../features/auth/domain/auth_state.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
 import '../domain/settings_lane.dart';
+import 'deal_refusal.dart';
 import 'where_am_i_provider.dart';
 
 part 'lobby_notifier.g.dart';
@@ -111,6 +113,11 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   StreamSubscription<dynamic>? _wsSubscription;
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
   Timer? _noticeTimer;
+
+  /// A failed lobby read is made again after the healing backoff until one
+  /// lands (`core/healing/`): the screen never stays on what it had.
+  Timer? _healTimer;
+  int _healAttempt = 0;
   WebSocketChannelInterface? _webSocket;
 
   /// True while a lobby fetch (the first load or a refetch) is in flight.
@@ -164,6 +171,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   @override
   void _putBase(LobbyState base) {
     _base = base;
+    // Another host named: this phone's lane is a guest's (nothing kept).
+    if (_me case final me?) _lane = _lane.hosting(isHost: base.hostId == me);
     state = AsyncData(_lane.over(base));
   }
 
@@ -358,6 +367,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
       final base = _base;
       final read = _admit(newState) || base == null ? _adopt(newState) : base;
       _putBase(_replayBuffered(read));
+      _healAttempt = 0;
+      _healTimer?.cancel();
     } on NotFoundException {
       // The table is gone (its last member left).
       if (ref.mounted) _applyHeld(closed: true);
@@ -367,7 +378,10 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
         error: e,
         stackTrace: stack,
       );
-      if (ref.mounted) _applyHeld();
+      if (ref.mounted) {
+        _applyHeld();
+        _healRead();
+      }
     } finally {
       _buffering = false;
     }
@@ -394,7 +408,6 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     final brief = current.briefHostNotice;
     return fresh.copyWith(
       startedGameId: current.startedGameId,
-      notSent: current.notSent,
       dealRefused: current.dealRefused,
       // The "hosting again" / "is the host now" line outlives a refetch only
       // while the server agrees that person is the host.
@@ -451,6 +464,10 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     try {
       return await call();
     } on ForbiddenException {
+      // A guest's phone now: settled first, so no "Not sent." shows while
+      // the lobby is read.
+      _lane = _lane.settle();
+      _showLane();
       await refreshLobby();
       final s = _base;
       if (ref.mounted && s != null) {
@@ -479,7 +496,6 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     _showServer(
       fresh.copyWith(
         startedGameId: current.startedGameId,
-        notSent: current.notSent,
         briefHostNotice: current.briefHostNotice,
         hostActionNotice: current.hostActionNotice,
       ),
@@ -520,53 +536,28 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     }
   }
 
-  /// What a refused deal means to the host, from the server's answer
-  /// (`apps/onuw/deal.py`'s `deal_refusal`: the table is not waiting, or the
-  /// settings' errors for this many players). Not [answered]: the phone could
-  /// not reach the server ("Not sent."). Answered with no [why]: the server
-  /// gave no reason worth saying, so nothing is said; the button showed
-  /// `deal.ok`, so a refusal means the table changed under the tap, and the
-  /// lobby read again sets the button.
-  static ({bool answered, String? why}) dealRefusal(Object error) {
-    final (int? status, List<String> details) = switch (error) {
-      ValidationException(:final errors) => (
-        400,
-        [...errors.values.expand((e) => e)],
-      ),
-      UnhandledHttpException(:final statusCode, :final message) => (
-        statusCode,
-        [message],
-      ),
-      NotFoundException() => (404, const <String>[]),
-      _ => (null, const <String>[]),
-    };
-    if (status == null || !serverAnswered(error)) {
-      return (answered: false, why: null);
-    }
-    final why = status == 404
-        ? BannerCopy.tableClosed
-        : details.contains(_notWaiting)
-        ? BannerCopy.lobbyClosed
-        : details.any((d) => d.startsWith(_tooFew))
-        ? TableCopy.needPlayers
-        // Not everyone the table is set for is here: the seats say so.
-        : details.any((d) => d.startsWith(_setFor))
-        ? null
-        : details.any(_deckError.hasMatch)
-        ? BannerCopy.deckDoesNotFit
-        : null;
-    return (answered: true, why: why);
+  /// What a refused deal means to the host ([dealRefusalOf]).
+  static ({bool answered, String? why}) dealRefusal(Object error) =>
+      dealRefusalOf(error);
+
+  /// A lobby read failed: read again after the healing backoff (one at a
+  /// time; a read that lands ends it).
+  void _healRead() {
+    if (_healTimer?.isActive ?? false) return;
+    final after = ref.read(healTimingProvider).retryAfter(_healAttempt++);
+    _healTimer = Timer(after, () {
+      if (ref.mounted) unawaited(refreshLobby());
+    });
   }
 
-  /// The server's refusal words (`deal.py`, `validate_onuw_settings`).
-  static const _notWaiting = 'Lobby is not in waiting state.';
-  static const _tooFew = 'At least 3 players required';
-  static const _setFor = 'The table is set for';
-  static final _deckError = RegExp(
-    r'^(Total role count|Masons must|Unknown role|Count for|.* requires at least|.* allows at most)',
-  );
+  /// This phone's player (null: not signed in).
+  int? get _me => switch (ref.read(authProvider)) {
+    AuthAuthenticated(:final user) => user.id,
+    _ => null,
+  };
 
   void _dispose() {
+    _healTimer?.cancel();
     _noticeTimer?.cancel();
     _connectionSubscription?.cancel();
     _connectionSubscription = null;

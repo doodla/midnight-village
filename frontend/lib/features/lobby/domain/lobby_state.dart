@@ -171,9 +171,14 @@ abstract class LobbyState with _$LobbyState {
     /// Frontend only.
     String? hostActionNotice,
 
-    /// A change this phone made (a deck, a pace, the deal) did not reach the
-    /// server: the screen says "Not sent." with "Try again". Frontend only.
-    @Default(false) bool notSent,
+    /// A setting this phone changed did not reach the server and "Try
+    /// again" would still send it: the set-up page and the table say "Not
+    /// sent." with "Try again". Frontend only.
+    @Default(false) bool changesNotSent,
+
+    /// The deal did not go: the table says "Not sent." with "Try again"
+    /// (never the set-up page, whose "Try again" never deals). Frontend only.
+    @Default(false) bool dealNotSent,
 
     /// The server refused the deal: why, in the player's words
     /// (`LobbyNotifier.dealRefusal`), until the next deal or "Try again".
@@ -221,6 +226,13 @@ abstract class LobbyState with _$LobbyState {
     /// server has it; the server's numbers (`deal`) judge only once
     /// answered. Frontend only.
     @Default({}) Set<String> pendingKeys,
+
+    /// The settings keys this phone lays over the server's lobby: the
+    /// pending ones, a lost change "Try again" would still send, a refused
+    /// value until the next lobby. The screen shows them as this phone has
+    /// them and judges the deck and the lengths from them, never from the
+    /// server's numbers for an older value. Frontend only.
+    @Default({}) Set<String> ownKeys,
 
     /// Practice players switched on for this table (`practice`, sent only
     /// then): the most that may sit at it now. Null: switched off (the
@@ -317,7 +329,7 @@ extension PracticeSeats on LobbyState {
   /// holds at the number shown.
   int get practiceLimit {
     final most = practiceMost;
-    if (most != null && !pendingKeys.contains('seats')) return most;
+    if (most != null && !ownKeys.contains('seats')) return most;
     final people = players.length - practiceSeated;
     final seats = table.seats ?? maxPlayers;
     return (seats - people).clamp(0, maxPlayers);
@@ -356,6 +368,9 @@ extension TableCards on LobbyState {
   /// A change of this phone's is on its way.
   bool get settling => pendingKeys.isNotEmpty;
 
+  /// "Not sent." on the table (02): a setting or the deal.
+  bool get notSent => changesNotSent || dealNotSent;
+
   /// The table's deck face up (02 for host and guests, 03), in [deckOrder]:
   /// the host's own deck as it stands on this phone (its taps shown at
   /// once), else the server's `deck_cards`.
@@ -371,7 +386,7 @@ extension TableCards on LobbyState {
   /// way (the number, the chip): its cards are the server's to say.
   bool get _autoDeckPending =>
       table.autoDeck &&
-      pendingKeys.intersection({'seats', 'deck', 'deck_chip'}).isNotEmpty;
+      ownKeys.intersection({'seats', 'deck', 'deck_chip'}).isNotEmpty;
 
   /// The cards the deal needs for the table as this phone shows it: the
   /// server's `deal.need`, or, while a new number is on its way, that number
@@ -381,7 +396,7 @@ extension TableCards on LobbyState {
     // An open table's automatic deck is built for whoever is here: never
     // short. A deck of the host's own is judged against the server's need.
     if (seats == null) return table.autoDeck ? null : deal?.need;
-    if (pendingKeys.contains('seats')) return seats + centreCards;
+    if (ownKeys.contains('seats')) return seats + centreCards;
     return deal?.need;
   }
 

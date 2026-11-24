@@ -168,7 +168,8 @@ class TableSetup {
       MockWebSocketChannel(),
       viewerId,
     );
-    final http = setup.http;
+    final http = setup.http..served = setup._numbered;
+    setup.ws.served = setup._numbered;
     setup.answerTable();
     http
       ..answer('GET', '/stats/online/', serverOnlineStats(players: online))
@@ -316,19 +317,34 @@ class TableSetup {
   void event(Map<String, dynamic> event) => ws.addServerEvent(event);
 
   /// `PATCH /lobbies/<code>/` answers [body] (a recorded settings answer).
-  /// A taken change is numbered as the server numbers it, after the lobby
-  /// served before (`rev` only rises; [body] may be from an older recording).
-  void answerPatch(Map<String, dynamic> body, {int status = 200}) {
-    final served = (lobby?['rev'] as int?) ?? 0;
-    final rev = body['rev'] as int?;
-    http.answer(
-      'PATCH',
-      '/lobbies/$code/',
-      status == 200 && rev != null && rev <= served
-          ? withValues(body, {'rev': served + 1})
-          : body,
-      status: status,
-    );
+  void answerPatch(Map<String, dynamic> body, {int status = 200}) =>
+      http.answer('PATCH', '/lobbies/$code/', body, status: status);
+
+  /// The stand-in server numbers what it serves as `apps/core` numbers a
+  /// table: every lobby body (an answer, a read, a `lobby_update`) and every
+  /// `host_changed` is of this one table (its `created_at`) and newer than
+  /// the last, whichever recording it came from, so the phone's `rev`
+  /// compare runs in every test built on this.
+  int _rev = 0;
+  String? _createdAt;
+
+  dynamic _numbered(dynamic data) {
+    if (data is! Map<String, dynamic>) return data;
+    if (data['type'] == 'lobby_update' && data['data'] is Map) {
+      return withValues(data, {
+        'data': _numbered((data['data'] as Map).cast<String, dynamic>()),
+      });
+    }
+    if (data['type'] == 'host_changed' && data.containsKey('rev')) {
+      return withValues(data, {'rev': ++_rev});
+    }
+    if (data.containsKey('rev') && data.containsKey('created_at')) {
+      return withValues(data, {
+        'rev': ++_rev,
+        'created_at': _createdAt ??= data['created_at'] as String,
+      });
+    }
+    return data;
   }
 
   /// The bodies of every PATCH so far.

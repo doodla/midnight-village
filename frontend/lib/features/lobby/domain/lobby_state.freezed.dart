@@ -315,9 +315,12 @@ mixin _$LobbyState {
 /// seconds after the role returns or is transferred. Frontend only.
  HostChange? get briefHostNotice;/// A plain line about a host action refused because the role had moved.
 /// Frontend only.
- String? get hostActionNotice;/// A change this phone made (a deck, a pace, the deal) did not reach the
-/// server: the screen says "Not sent." with "Try again". Frontend only.
- bool get notSent;/// The server refused the deal: why, in the player's words
+ String? get hostActionNotice;/// A setting this phone changed did not reach the server and "Try
+/// again" would still send it: the set-up page and the table say "Not
+/// sent." with "Try again". Frontend only.
+ bool get changesNotSent;/// The deal did not go: the table says "Not sent." with "Try again"
+/// (never the set-up page, whose "Try again" never deals). Frontend only.
+ bool get dealNotSent;/// The server refused the deal: why, in the player's words
 /// (`LobbyNotifier.dealRefusal`), until the next deal or "Try again".
 /// Frontend only.
  String? get dealRefused;/// The chip the body's [deckPreview] is the deck of (its own
@@ -344,7 +347,12 @@ mixin _$LobbyState {
 /// screen shows those keys as changed at once and everything else as the
 /// server has it; the server's numbers (`deal`) judge only once
 /// answered. Frontend only.
- Set<String> get pendingKeys;/// Practice players switched on for this table (`practice`, sent only
+ Set<String> get pendingKeys;/// The settings keys this phone lays over the server's lobby: the
+/// pending ones, a lost change "Try again" would still send, a refused
+/// value until the next lobby. The screen shows them as this phone has
+/// them and judges the deck and the lengths from them, never from the
+/// server's numbers for an older value. Frontend only.
+ Set<String> get ownKeys;/// Practice players switched on for this table (`practice`, sent only
 /// then): the most that may sit at it now. Null: switched off (the
 /// table shows nothing of them).
  int? get practiceMost;/// This phone's practice change not answered yet. Frontend only.
@@ -366,16 +374,16 @@ $LobbyStateCopyWith<LobbyState> get copyWith => _$LobbyStateCopyWithImpl<LobbySt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other.players, players)&&(identical(other.status, status) || other.status == status)&&(identical(other.gameType, gameType) || other.gameType == gameType)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other.roleConfig, roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.notSent, notSent) || other.notSent == notSent)&&(identical(other.dealRefused, dealRefused) || other.dealRefused == dealRefused)&&(identical(other.deckPreviewChip, deckPreviewChip) || other.deckPreviewChip == deckPreviewChip)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed)&&const DeepCollectionEquality().equals(other.deckPreview, deckPreview)&&(identical(other.deal, deal) || other.deal == deal)&&const DeepCollectionEquality().equals(other.deckCards, deckCards)&&const DeepCollectionEquality().equals(other.lengths, lengths)&&const DeepCollectionEquality().equals(other.lengthRanges, lengthRanges)&&const DeepCollectionEquality().equals(other.seatsRange, seatsRange)&&const DeepCollectionEquality().equals(other.pendingKeys, pendingKeys)&&(identical(other.practiceMost, practiceMost) || other.practiceMost == practiceMost)&&(identical(other.practiceAsk, practiceAsk) || other.practiceAsk == practiceAsk)&&(identical(other.rev, rev) || other.rev == rev)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other.players, players)&&(identical(other.status, status) || other.status == status)&&(identical(other.gameType, gameType) || other.gameType == gameType)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other.roleConfig, roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.changesNotSent, changesNotSent) || other.changesNotSent == changesNotSent)&&(identical(other.dealNotSent, dealNotSent) || other.dealNotSent == dealNotSent)&&(identical(other.dealRefused, dealRefused) || other.dealRefused == dealRefused)&&(identical(other.deckPreviewChip, deckPreviewChip) || other.deckPreviewChip == deckPreviewChip)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed)&&const DeepCollectionEquality().equals(other.deckPreview, deckPreview)&&(identical(other.deal, deal) || other.deal == deal)&&const DeepCollectionEquality().equals(other.deckCards, deckCards)&&const DeepCollectionEquality().equals(other.lengths, lengths)&&const DeepCollectionEquality().equals(other.lengthRanges, lengthRanges)&&const DeepCollectionEquality().equals(other.seatsRange, seatsRange)&&const DeepCollectionEquality().equals(other.pendingKeys, pendingKeys)&&const DeepCollectionEquality().equals(other.ownKeys, ownKeys)&&(identical(other.practiceMost, practiceMost) || other.practiceMost == practiceMost)&&(identical(other.practiceAsk, practiceAsk) || other.practiceAsk == practiceAsk)&&(identical(other.rev, rev) || other.rev == rev)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 
 @override
-int get hashCode => Object.hashAll([runtimeType,code,hostId,const DeepCollectionEquality().hash(players),status,gameType,maxPlayers,const DeepCollectionEquality().hash(roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,notSent,dealRefused,deckPreviewChip,tableClosed,const DeepCollectionEquality().hash(deckPreview),deal,const DeepCollectionEquality().hash(deckCards),const DeepCollectionEquality().hash(lengths),const DeepCollectionEquality().hash(lengthRanges),const DeepCollectionEquality().hash(seatsRange),const DeepCollectionEquality().hash(pendingKeys),practiceMost,practiceAsk,rev,createdAt]);
+int get hashCode => Object.hashAll([runtimeType,code,hostId,const DeepCollectionEquality().hash(players),status,gameType,maxPlayers,const DeepCollectionEquality().hash(roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,changesNotSent,dealNotSent,dealRefused,deckPreviewChip,tableClosed,const DeepCollectionEquality().hash(deckPreview),deal,const DeepCollectionEquality().hash(deckCards),const DeepCollectionEquality().hash(lengths),const DeepCollectionEquality().hash(lengthRanges),const DeepCollectionEquality().hash(seatsRange),const DeepCollectionEquality().hash(pendingKeys),const DeepCollectionEquality().hash(ownKeys),practiceMost,practiceAsk,rev,createdAt]);
 
 @override
 String toString() {
-  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, gameType: $gameType, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, notSent: $notSent, dealRefused: $dealRefused, deckPreviewChip: $deckPreviewChip, tableClosed: $tableClosed, deckPreview: $deckPreview, deal: $deal, deckCards: $deckCards, lengths: $lengths, lengthRanges: $lengthRanges, seatsRange: $seatsRange, pendingKeys: $pendingKeys, practiceMost: $practiceMost, practiceAsk: $practiceAsk, rev: $rev, createdAt: $createdAt)';
+  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, gameType: $gameType, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, changesNotSent: $changesNotSent, dealNotSent: $dealNotSent, dealRefused: $dealRefused, deckPreviewChip: $deckPreviewChip, tableClosed: $tableClosed, deckPreview: $deckPreview, deal: $deal, deckCards: $deckCards, lengths: $lengths, lengthRanges: $lengthRanges, seatsRange: $seatsRange, pendingKeys: $pendingKeys, ownKeys: $ownKeys, practiceMost: $practiceMost, practiceAsk: $practiceAsk, rev: $rev, createdAt: $createdAt)';
 }
 
 
@@ -386,7 +394,7 @@ abstract mixin class $LobbyStateCopyWith<$Res>  {
   factory $LobbyStateCopyWith(LobbyState value, $Res Function(LobbyState) _then) = _$LobbyStateCopyWithImpl;
 @useResult
 $Res call({
- String code, int hostId, List<LobbyPlayer> players, String status, String gameType, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool notSent, String? dealRefused, DeckChip? deckPreviewChip, bool tableClosed, Map<String, int>? deckPreview, DealReadiness? deal, Map<String, int> deckCards, Map<String, int> lengths, Map<String, List<int>> lengthRanges, List<int>? seatsRange, Set<String> pendingKeys, int? practiceMost, PracticeAsk? practiceAsk, int? rev, String? createdAt
+ String code, int hostId, List<LobbyPlayer> players, String status, String gameType, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool changesNotSent, bool dealNotSent, String? dealRefused, DeckChip? deckPreviewChip, bool tableClosed, Map<String, int>? deckPreview, DealReadiness? deal, Map<String, int> deckCards, Map<String, int> lengths, Map<String, List<int>> lengthRanges, List<int>? seatsRange, Set<String> pendingKeys, Set<String> ownKeys, int? practiceMost, PracticeAsk? practiceAsk, int? rev, String? createdAt
 });
 
 
@@ -403,7 +411,7 @@ class _$LobbyStateCopyWithImpl<$Res>
 
 /// Create a copy of LobbyState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? gameType = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? notSent = null,Object? dealRefused = freezed,Object? deckPreviewChip = freezed,Object? tableClosed = null,Object? deckPreview = freezed,Object? deal = freezed,Object? deckCards = null,Object? lengths = null,Object? lengthRanges = null,Object? seatsRange = freezed,Object? pendingKeys = null,Object? practiceMost = freezed,Object? practiceAsk = freezed,Object? rev = freezed,Object? createdAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? gameType = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? changesNotSent = null,Object? dealNotSent = null,Object? dealRefused = freezed,Object? deckPreviewChip = freezed,Object? tableClosed = null,Object? deckPreview = freezed,Object? deal = freezed,Object? deckCards = null,Object? lengths = null,Object? lengthRanges = null,Object? seatsRange = freezed,Object? pendingKeys = null,Object? ownKeys = null,Object? practiceMost = freezed,Object? practiceAsk = freezed,Object? rev = freezed,Object? createdAt = freezed,}) {
   return _then(_self.copyWith(
 code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
@@ -419,7 +427,8 @@ as String,originalHostId: null == originalHostId ? _self.originalHostId : origin
 as int,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost // ignore: cast_nullable_to_non_nullable
 as bool,briefHostNotice: freezed == briefHostNotice ? _self.briefHostNotice : briefHostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
-as String?,notSent: null == notSent ? _self.notSent : notSent // ignore: cast_nullable_to_non_nullable
+as String?,changesNotSent: null == changesNotSent ? _self.changesNotSent : changesNotSent // ignore: cast_nullable_to_non_nullable
+as bool,dealNotSent: null == dealNotSent ? _self.dealNotSent : dealNotSent // ignore: cast_nullable_to_non_nullable
 as bool,dealRefused: freezed == dealRefused ? _self.dealRefused : dealRefused // ignore: cast_nullable_to_non_nullable
 as String?,deckPreviewChip: freezed == deckPreviewChip ? _self.deckPreviewChip : deckPreviewChip // ignore: cast_nullable_to_non_nullable
 as DeckChip?,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
@@ -430,6 +439,7 @@ as Map<String, int>,lengths: null == lengths ? _self.lengths : lengths // ignore
 as Map<String, int>,lengthRanges: null == lengthRanges ? _self.lengthRanges : lengthRanges // ignore: cast_nullable_to_non_nullable
 as Map<String, List<int>>,seatsRange: freezed == seatsRange ? _self.seatsRange : seatsRange // ignore: cast_nullable_to_non_nullable
 as List<int>?,pendingKeys: null == pendingKeys ? _self.pendingKeys : pendingKeys // ignore: cast_nullable_to_non_nullable
+as Set<String>,ownKeys: null == ownKeys ? _self.ownKeys : ownKeys // ignore: cast_nullable_to_non_nullable
 as Set<String>,practiceMost: freezed == practiceMost ? _self.practiceMost : practiceMost // ignore: cast_nullable_to_non_nullable
 as int?,practiceAsk: freezed == practiceAsk ? _self.practiceAsk : practiceAsk // ignore: cast_nullable_to_non_nullable
 as PracticeAsk?,rev: freezed == rev ? _self.rev : rev // ignore: cast_nullable_to_non_nullable
@@ -519,10 +529,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  String gameType,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  String? dealRefused,  DeckChip? deckPreviewChip,  bool tableClosed,  Map<String, int>? deckPreview,  DealReadiness? deal,  Map<String, int> deckCards,  Map<String, int> lengths,  Map<String, List<int>> lengthRanges,  List<int>? seatsRange,  Set<String> pendingKeys,  int? practiceMost,  PracticeAsk? practiceAsk,  int? rev,  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  String gameType,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool changesNotSent,  bool dealNotSent,  String? dealRefused,  DeckChip? deckPreviewChip,  bool tableClosed,  Map<String, int>? deckPreview,  DealReadiness? deal,  Map<String, int> deckCards,  Map<String, int> lengths,  Map<String, List<int>> lengthRanges,  List<int>? seatsRange,  Set<String> pendingKeys,  Set<String> ownKeys,  int? practiceMost,  PracticeAsk? practiceAsk,  int? rev,  String? createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LobbyState() when $default != null:
-return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameType,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.dealRefused,_that.deckPreviewChip,_that.tableClosed,_that.deckPreview,_that.deal,_that.deckCards,_that.lengths,_that.lengthRanges,_that.seatsRange,_that.pendingKeys,_that.practiceMost,_that.practiceAsk,_that.rev,_that.createdAt);case _:
+return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameType,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.changesNotSent,_that.dealNotSent,_that.dealRefused,_that.deckPreviewChip,_that.tableClosed,_that.deckPreview,_that.deal,_that.deckCards,_that.lengths,_that.lengthRanges,_that.seatsRange,_that.pendingKeys,_that.ownKeys,_that.practiceMost,_that.practiceAsk,_that.rev,_that.createdAt);case _:
   return orElse();
 
 }
@@ -540,10 +550,10 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameTyp
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  String gameType,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  String? dealRefused,  DeckChip? deckPreviewChip,  bool tableClosed,  Map<String, int>? deckPreview,  DealReadiness? deal,  Map<String, int> deckCards,  Map<String, int> lengths,  Map<String, List<int>> lengthRanges,  List<int>? seatsRange,  Set<String> pendingKeys,  int? practiceMost,  PracticeAsk? practiceAsk,  int? rev,  String? createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  String gameType,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool changesNotSent,  bool dealNotSent,  String? dealRefused,  DeckChip? deckPreviewChip,  bool tableClosed,  Map<String, int>? deckPreview,  DealReadiness? deal,  Map<String, int> deckCards,  Map<String, int> lengths,  Map<String, List<int>> lengthRanges,  List<int>? seatsRange,  Set<String> pendingKeys,  Set<String> ownKeys,  int? practiceMost,  PracticeAsk? practiceAsk,  int? rev,  String? createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _LobbyState():
-return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameType,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.dealRefused,_that.deckPreviewChip,_that.tableClosed,_that.deckPreview,_that.deal,_that.deckCards,_that.lengths,_that.lengthRanges,_that.seatsRange,_that.pendingKeys,_that.practiceMost,_that.practiceAsk,_that.rev,_that.createdAt);case _:
+return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameType,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.changesNotSent,_that.dealNotSent,_that.dealRefused,_that.deckPreviewChip,_that.tableClosed,_that.deckPreview,_that.deal,_that.deckCards,_that.lengths,_that.lengthRanges,_that.seatsRange,_that.pendingKeys,_that.ownKeys,_that.practiceMost,_that.practiceAsk,_that.rev,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -560,10 +570,10 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameTyp
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  String gameType,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool notSent,  String? dealRefused,  DeckChip? deckPreviewChip,  bool tableClosed,  Map<String, int>? deckPreview,  DealReadiness? deal,  Map<String, int> deckCards,  Map<String, int> lengths,  Map<String, List<int>> lengthRanges,  List<int>? seatsRange,  Set<String> pendingKeys,  int? practiceMost,  PracticeAsk? practiceAsk,  int? rev,  String? createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String code,  int hostId,  List<LobbyPlayer> players,  String status,  String gameType,  int maxPlayers,  Map<String, int> roleConfig,  TableSettings table,  String? startedGameId,  String hostName,  int originalHostId,  bool isActingHost,  HostChange? briefHostNotice,  String? hostActionNotice,  bool changesNotSent,  bool dealNotSent,  String? dealRefused,  DeckChip? deckPreviewChip,  bool tableClosed,  Map<String, int>? deckPreview,  DealReadiness? deal,  Map<String, int> deckCards,  Map<String, int> lengths,  Map<String, List<int>> lengthRanges,  List<int>? seatsRange,  Set<String> pendingKeys,  Set<String> ownKeys,  int? practiceMost,  PracticeAsk? practiceAsk,  int? rev,  String? createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _LobbyState() when $default != null:
-return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameType,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.notSent,_that.dealRefused,_that.deckPreviewChip,_that.tableClosed,_that.deckPreview,_that.deal,_that.deckCards,_that.lengths,_that.lengthRanges,_that.seatsRange,_that.pendingKeys,_that.practiceMost,_that.practiceAsk,_that.rev,_that.createdAt);case _:
+return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameType,_that.maxPlayers,_that.roleConfig,_that.table,_that.startedGameId,_that.hostName,_that.originalHostId,_that.isActingHost,_that.briefHostNotice,_that.hostActionNotice,_that.changesNotSent,_that.dealNotSent,_that.dealRefused,_that.deckPreviewChip,_that.tableClosed,_that.deckPreview,_that.deal,_that.deckCards,_that.lengths,_that.lengthRanges,_that.seatsRange,_that.pendingKeys,_that.ownKeys,_that.practiceMost,_that.practiceAsk,_that.rev,_that.createdAt);case _:
   return null;
 
 }
@@ -575,7 +585,7 @@ return $default(_that.code,_that.hostId,_that.players,_that.status,_that.gameTyp
 
 
 class _LobbyState implements LobbyState {
-  const _LobbyState({required this.code, required this.hostId, required final  List<LobbyPlayer> players, required this.status, required this.gameType, required this.maxPlayers, final  Map<String, int> roleConfig = const {}, this.table = TableSettings.none, this.startedGameId, required this.hostName, required this.originalHostId, required this.isActingHost, this.briefHostNotice, this.hostActionNotice, this.notSent = false, this.dealRefused, this.deckPreviewChip, this.tableClosed = false, final  Map<String, int>? deckPreview, this.deal, final  Map<String, int> deckCards = const {}, final  Map<String, int> lengths = const {}, final  Map<String, List<int>> lengthRanges = const {}, final  List<int>? seatsRange, final  Set<String> pendingKeys = const {}, this.practiceMost, this.practiceAsk, this.rev, this.createdAt}): _players = players,_roleConfig = roleConfig,_deckPreview = deckPreview,_deckCards = deckCards,_lengths = lengths,_lengthRanges = lengthRanges,_seatsRange = seatsRange,_pendingKeys = pendingKeys;
+  const _LobbyState({required this.code, required this.hostId, required final  List<LobbyPlayer> players, required this.status, required this.gameType, required this.maxPlayers, final  Map<String, int> roleConfig = const {}, this.table = TableSettings.none, this.startedGameId, required this.hostName, required this.originalHostId, required this.isActingHost, this.briefHostNotice, this.hostActionNotice, this.changesNotSent = false, this.dealNotSent = false, this.dealRefused, this.deckPreviewChip, this.tableClosed = false, final  Map<String, int>? deckPreview, this.deal, final  Map<String, int> deckCards = const {}, final  Map<String, int> lengths = const {}, final  Map<String, List<int>> lengthRanges = const {}, final  List<int>? seatsRange, final  Set<String> pendingKeys = const {}, final  Set<String> ownKeys = const {}, this.practiceMost, this.practiceAsk, this.rev, this.createdAt}): _players = players,_roleConfig = roleConfig,_deckPreview = deckPreview,_deckCards = deckCards,_lengths = lengths,_lengthRanges = lengthRanges,_seatsRange = seatsRange,_pendingKeys = pendingKeys,_ownKeys = ownKeys;
   
 
 @override final  String code;
@@ -617,9 +627,13 @@ class _LobbyState implements LobbyState {
 /// A plain line about a host action refused because the role had moved.
 /// Frontend only.
 @override final  String? hostActionNotice;
-/// A change this phone made (a deck, a pace, the deal) did not reach the
-/// server: the screen says "Not sent." with "Try again". Frontend only.
-@override@JsonKey() final  bool notSent;
+/// A setting this phone changed did not reach the server and "Try
+/// again" would still send it: the set-up page and the table say "Not
+/// sent." with "Try again". Frontend only.
+@override@JsonKey() final  bool changesNotSent;
+/// The deal did not go: the table says "Not sent." with "Try again"
+/// (never the set-up page, whose "Try again" never deals). Frontend only.
+@override@JsonKey() final  bool dealNotSent;
 /// The server refused the deal: why, in the player's words
 /// (`LobbyNotifier.dealRefusal`), until the next deal or "Try again".
 /// Frontend only.
@@ -714,6 +728,23 @@ class _LobbyState implements LobbyState {
   return EqualUnmodifiableSetView(_pendingKeys);
 }
 
+/// The settings keys this phone lays over the server's lobby: the
+/// pending ones, a lost change "Try again" would still send, a refused
+/// value until the next lobby. The screen shows them as this phone has
+/// them and judges the deck and the lengths from them, never from the
+/// server's numbers for an older value. Frontend only.
+ final  Set<String> _ownKeys;
+/// The settings keys this phone lays over the server's lobby: the
+/// pending ones, a lost change "Try again" would still send, a refused
+/// value until the next lobby. The screen shows them as this phone has
+/// them and judges the deck and the lengths from them, never from the
+/// server's numbers for an older value. Frontend only.
+@override@JsonKey() Set<String> get ownKeys {
+  if (_ownKeys is EqualUnmodifiableSetView) return _ownKeys;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableSetView(_ownKeys);
+}
+
 /// Practice players switched on for this table (`practice`, sent only
 /// then): the most that may sit at it now. Null: switched off (the
 /// table shows nothing of them).
@@ -740,16 +771,16 @@ _$LobbyStateCopyWith<_LobbyState> get copyWith => __$LobbyStateCopyWithImpl<_Lob
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other._players, _players)&&(identical(other.status, status) || other.status == status)&&(identical(other.gameType, gameType) || other.gameType == gameType)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other._roleConfig, _roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.notSent, notSent) || other.notSent == notSent)&&(identical(other.dealRefused, dealRefused) || other.dealRefused == dealRefused)&&(identical(other.deckPreviewChip, deckPreviewChip) || other.deckPreviewChip == deckPreviewChip)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed)&&const DeepCollectionEquality().equals(other._deckPreview, _deckPreview)&&(identical(other.deal, deal) || other.deal == deal)&&const DeepCollectionEquality().equals(other._deckCards, _deckCards)&&const DeepCollectionEquality().equals(other._lengths, _lengths)&&const DeepCollectionEquality().equals(other._lengthRanges, _lengthRanges)&&const DeepCollectionEquality().equals(other._seatsRange, _seatsRange)&&const DeepCollectionEquality().equals(other._pendingKeys, _pendingKeys)&&(identical(other.practiceMost, practiceMost) || other.practiceMost == practiceMost)&&(identical(other.practiceAsk, practiceAsk) || other.practiceAsk == practiceAsk)&&(identical(other.rev, rev) || other.rev == rev)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LobbyState&&(identical(other.code, code) || other.code == code)&&(identical(other.hostId, hostId) || other.hostId == hostId)&&const DeepCollectionEquality().equals(other._players, _players)&&(identical(other.status, status) || other.status == status)&&(identical(other.gameType, gameType) || other.gameType == gameType)&&(identical(other.maxPlayers, maxPlayers) || other.maxPlayers == maxPlayers)&&const DeepCollectionEquality().equals(other._roleConfig, _roleConfig)&&(identical(other.table, table) || other.table == table)&&(identical(other.startedGameId, startedGameId) || other.startedGameId == startedGameId)&&(identical(other.hostName, hostName) || other.hostName == hostName)&&(identical(other.originalHostId, originalHostId) || other.originalHostId == originalHostId)&&(identical(other.isActingHost, isActingHost) || other.isActingHost == isActingHost)&&(identical(other.briefHostNotice, briefHostNotice) || other.briefHostNotice == briefHostNotice)&&(identical(other.hostActionNotice, hostActionNotice) || other.hostActionNotice == hostActionNotice)&&(identical(other.changesNotSent, changesNotSent) || other.changesNotSent == changesNotSent)&&(identical(other.dealNotSent, dealNotSent) || other.dealNotSent == dealNotSent)&&(identical(other.dealRefused, dealRefused) || other.dealRefused == dealRefused)&&(identical(other.deckPreviewChip, deckPreviewChip) || other.deckPreviewChip == deckPreviewChip)&&(identical(other.tableClosed, tableClosed) || other.tableClosed == tableClosed)&&const DeepCollectionEquality().equals(other._deckPreview, _deckPreview)&&(identical(other.deal, deal) || other.deal == deal)&&const DeepCollectionEquality().equals(other._deckCards, _deckCards)&&const DeepCollectionEquality().equals(other._lengths, _lengths)&&const DeepCollectionEquality().equals(other._lengthRanges, _lengthRanges)&&const DeepCollectionEquality().equals(other._seatsRange, _seatsRange)&&const DeepCollectionEquality().equals(other._pendingKeys, _pendingKeys)&&const DeepCollectionEquality().equals(other._ownKeys, _ownKeys)&&(identical(other.practiceMost, practiceMost) || other.practiceMost == practiceMost)&&(identical(other.practiceAsk, practiceAsk) || other.practiceAsk == practiceAsk)&&(identical(other.rev, rev) || other.rev == rev)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 
 @override
-int get hashCode => Object.hashAll([runtimeType,code,hostId,const DeepCollectionEquality().hash(_players),status,gameType,maxPlayers,const DeepCollectionEquality().hash(_roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,notSent,dealRefused,deckPreviewChip,tableClosed,const DeepCollectionEquality().hash(_deckPreview),deal,const DeepCollectionEquality().hash(_deckCards),const DeepCollectionEquality().hash(_lengths),const DeepCollectionEquality().hash(_lengthRanges),const DeepCollectionEquality().hash(_seatsRange),const DeepCollectionEquality().hash(_pendingKeys),practiceMost,practiceAsk,rev,createdAt]);
+int get hashCode => Object.hashAll([runtimeType,code,hostId,const DeepCollectionEquality().hash(_players),status,gameType,maxPlayers,const DeepCollectionEquality().hash(_roleConfig),table,startedGameId,hostName,originalHostId,isActingHost,briefHostNotice,hostActionNotice,changesNotSent,dealNotSent,dealRefused,deckPreviewChip,tableClosed,const DeepCollectionEquality().hash(_deckPreview),deal,const DeepCollectionEquality().hash(_deckCards),const DeepCollectionEquality().hash(_lengths),const DeepCollectionEquality().hash(_lengthRanges),const DeepCollectionEquality().hash(_seatsRange),const DeepCollectionEquality().hash(_pendingKeys),const DeepCollectionEquality().hash(_ownKeys),practiceMost,practiceAsk,rev,createdAt]);
 
 @override
 String toString() {
-  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, gameType: $gameType, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, notSent: $notSent, dealRefused: $dealRefused, deckPreviewChip: $deckPreviewChip, tableClosed: $tableClosed, deckPreview: $deckPreview, deal: $deal, deckCards: $deckCards, lengths: $lengths, lengthRanges: $lengthRanges, seatsRange: $seatsRange, pendingKeys: $pendingKeys, practiceMost: $practiceMost, practiceAsk: $practiceAsk, rev: $rev, createdAt: $createdAt)';
+  return 'LobbyState(code: $code, hostId: $hostId, players: $players, status: $status, gameType: $gameType, maxPlayers: $maxPlayers, roleConfig: $roleConfig, table: $table, startedGameId: $startedGameId, hostName: $hostName, originalHostId: $originalHostId, isActingHost: $isActingHost, briefHostNotice: $briefHostNotice, hostActionNotice: $hostActionNotice, changesNotSent: $changesNotSent, dealNotSent: $dealNotSent, dealRefused: $dealRefused, deckPreviewChip: $deckPreviewChip, tableClosed: $tableClosed, deckPreview: $deckPreview, deal: $deal, deckCards: $deckCards, lengths: $lengths, lengthRanges: $lengthRanges, seatsRange: $seatsRange, pendingKeys: $pendingKeys, ownKeys: $ownKeys, practiceMost: $practiceMost, practiceAsk: $practiceAsk, rev: $rev, createdAt: $createdAt)';
 }
 
 
@@ -760,7 +791,7 @@ abstract mixin class _$LobbyStateCopyWith<$Res> implements $LobbyStateCopyWith<$
   factory _$LobbyStateCopyWith(_LobbyState value, $Res Function(_LobbyState) _then) = __$LobbyStateCopyWithImpl;
 @override @useResult
 $Res call({
- String code, int hostId, List<LobbyPlayer> players, String status, String gameType, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool notSent, String? dealRefused, DeckChip? deckPreviewChip, bool tableClosed, Map<String, int>? deckPreview, DealReadiness? deal, Map<String, int> deckCards, Map<String, int> lengths, Map<String, List<int>> lengthRanges, List<int>? seatsRange, Set<String> pendingKeys, int? practiceMost, PracticeAsk? practiceAsk, int? rev, String? createdAt
+ String code, int hostId, List<LobbyPlayer> players, String status, String gameType, int maxPlayers, Map<String, int> roleConfig, TableSettings table, String? startedGameId, String hostName, int originalHostId, bool isActingHost, HostChange? briefHostNotice, String? hostActionNotice, bool changesNotSent, bool dealNotSent, String? dealRefused, DeckChip? deckPreviewChip, bool tableClosed, Map<String, int>? deckPreview, DealReadiness? deal, Map<String, int> deckCards, Map<String, int> lengths, Map<String, List<int>> lengthRanges, List<int>? seatsRange, Set<String> pendingKeys, Set<String> ownKeys, int? practiceMost, PracticeAsk? practiceAsk, int? rev, String? createdAt
 });
 
 
@@ -777,7 +808,7 @@ class __$LobbyStateCopyWithImpl<$Res>
 
 /// Create a copy of LobbyState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? gameType = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? notSent = null,Object? dealRefused = freezed,Object? deckPreviewChip = freezed,Object? tableClosed = null,Object? deckPreview = freezed,Object? deal = freezed,Object? deckCards = null,Object? lengths = null,Object? lengthRanges = null,Object? seatsRange = freezed,Object? pendingKeys = null,Object? practiceMost = freezed,Object? practiceAsk = freezed,Object? rev = freezed,Object? createdAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? code = null,Object? hostId = null,Object? players = null,Object? status = null,Object? gameType = null,Object? maxPlayers = null,Object? roleConfig = null,Object? table = null,Object? startedGameId = freezed,Object? hostName = null,Object? originalHostId = null,Object? isActingHost = null,Object? briefHostNotice = freezed,Object? hostActionNotice = freezed,Object? changesNotSent = null,Object? dealNotSent = null,Object? dealRefused = freezed,Object? deckPreviewChip = freezed,Object? tableClosed = null,Object? deckPreview = freezed,Object? deal = freezed,Object? deckCards = null,Object? lengths = null,Object? lengthRanges = null,Object? seatsRange = freezed,Object? pendingKeys = null,Object? ownKeys = null,Object? practiceMost = freezed,Object? practiceAsk = freezed,Object? rev = freezed,Object? createdAt = freezed,}) {
   return _then(_LobbyState(
 code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,hostId: null == hostId ? _self.hostId : hostId // ignore: cast_nullable_to_non_nullable
@@ -793,7 +824,8 @@ as String,originalHostId: null == originalHostId ? _self.originalHostId : origin
 as int,isActingHost: null == isActingHost ? _self.isActingHost : isActingHost // ignore: cast_nullable_to_non_nullable
 as bool,briefHostNotice: freezed == briefHostNotice ? _self.briefHostNotice : briefHostNotice // ignore: cast_nullable_to_non_nullable
 as HostChange?,hostActionNotice: freezed == hostActionNotice ? _self.hostActionNotice : hostActionNotice // ignore: cast_nullable_to_non_nullable
-as String?,notSent: null == notSent ? _self.notSent : notSent // ignore: cast_nullable_to_non_nullable
+as String?,changesNotSent: null == changesNotSent ? _self.changesNotSent : changesNotSent // ignore: cast_nullable_to_non_nullable
+as bool,dealNotSent: null == dealNotSent ? _self.dealNotSent : dealNotSent // ignore: cast_nullable_to_non_nullable
 as bool,dealRefused: freezed == dealRefused ? _self.dealRefused : dealRefused // ignore: cast_nullable_to_non_nullable
 as String?,deckPreviewChip: freezed == deckPreviewChip ? _self.deckPreviewChip : deckPreviewChip // ignore: cast_nullable_to_non_nullable
 as DeckChip?,tableClosed: null == tableClosed ? _self.tableClosed : tableClosed // ignore: cast_nullable_to_non_nullable
@@ -804,6 +836,7 @@ as Map<String, int>,lengths: null == lengths ? _self._lengths : lengths // ignor
 as Map<String, int>,lengthRanges: null == lengthRanges ? _self._lengthRanges : lengthRanges // ignore: cast_nullable_to_non_nullable
 as Map<String, List<int>>,seatsRange: freezed == seatsRange ? _self._seatsRange : seatsRange // ignore: cast_nullable_to_non_nullable
 as List<int>?,pendingKeys: null == pendingKeys ? _self._pendingKeys : pendingKeys // ignore: cast_nullable_to_non_nullable
+as Set<String>,ownKeys: null == ownKeys ? _self._ownKeys : ownKeys // ignore: cast_nullable_to_non_nullable
 as Set<String>,practiceMost: freezed == practiceMost ? _self.practiceMost : practiceMost // ignore: cast_nullable_to_non_nullable
 as int?,practiceAsk: freezed == practiceAsk ? _self.practiceAsk : practiceAsk // ignore: cast_nullable_to_non_nullable
 as PracticeAsk?,rev: freezed == rev ? _self.rev : rev // ignore: cast_nullable_to_non_nullable
