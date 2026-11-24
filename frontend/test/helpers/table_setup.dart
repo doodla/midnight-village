@@ -343,12 +343,37 @@ class TableSetup {
     ),
   );
 
-  /// Lets answers and a screen change finish.
+  /// Lets answers and a screen change finish: [settleFor] of the app's
+  /// time, drawn frame by frame only while something is moving. Once the
+  /// screen is still, the rest of the time passes in one step (its timers
+  /// still fire), and whatever that sets moving is drawn out too. A screen
+  /// that never stops moving gets every frame, as before.
+  ///
+  /// (It used to draw twelve frames after every tap, moving or not: a test
+  /// of fifty taps spent twenty seconds drawing a still screen.)
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 12; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
+    var left = settleFor;
+    while (left > Duration.zero) {
+      await tester.pump(_frame);
+      left -= _frame;
+      if (!tester.binding.hasScheduledFrame) break;
+    }
+    if (left == Duration.zero) return;
+    await tester.pump(left);
+    for (
+      var i = 0;
+      i < _settleFrames && tester.binding.hasScheduledFrame;
+      i++
+    ) {
+      await tester.pump(_frame);
     }
   }
+
+  static const _frame = Duration(milliseconds: 50);
+  static const _settleFrames = 12;
+
+  /// How much of the app's time a [settle] lets pass.
+  static const settleFor = Duration(milliseconds: 600);
 
   /// Unmounts the app (its timers go with it; an answer still held runs
   /// out the client's wait).
