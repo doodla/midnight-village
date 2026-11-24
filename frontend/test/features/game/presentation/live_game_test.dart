@@ -555,16 +555,30 @@ void main() {
       expect(setup.meFetches, 1);
     });
 
-    test('reconnect and resume fetch /me/ and the table', () async {
+    test('a drop, the socket back, and a resume each fetch /me/ and the '
+        'table', () async {
       final setup = await phone('me_talk_ready');
       final tables = setup.tableFetches;
-      setup.reconnect();
+      // The moment the socket drops (the read renews a sign-in that ran out,
+      // without which the socket cannot open again), and again when it is back.
+      setup.drop();
       await setup.settle();
-      expect(setup.meFetches, 2);
+      expect(setup.meFetches, 2, reason: 'one read as it drops, not two');
+      setup.triesAgain();
+      await setup.settle();
+      expect(setup.meFetches, 3, reason: 'still down: each try reads');
+      setup.back();
+      await setup.settle();
+      expect(setup.meFetches, 4, reason: 'and again when it is open');
+      setup.drop();
+      await setup.settle();
+      expect(setup.meFetches, 5, reason: 'a second drop reads again');
+      setup.back();
+      await setup.settle();
       setup.resume();
       await setup.settle();
-      expect(setup.meFetches, 3);
-      expect(setup.tableFetches, greaterThanOrEqualTo(tables + 2));
+      expect(setup.meFetches, 7);
+      expect(setup.tableFetches, greaterThanOrEqualTo(tables + 5));
     });
   });
 

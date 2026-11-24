@@ -421,7 +421,7 @@ class LiveGameNotifier extends _$LiveGameNotifier {
         _healEverything();
       case WebSocketConnectionState.disconnected ||
           WebSocketConnectionState.reconnecting:
-        _wasDisconnected = true;
+        _wasDisconnected = readOnDrop(connection!, _healEverything);
       default:
     }
   }

@@ -261,10 +261,14 @@ class UiHarness {
     container.read(appRouterProvider).go('/game/$gameId');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    // Let the server put this socket in the game's groups: events sent before
-    // that are not replayed (a phone recovers them by reading `/me/` again).
+    // Wait until the game's socket is open: the server puts it in the game's
+    // groups before it accepts the connection, and events sent before that are
+    // not replayed (a phone recovers them by reading `/me/` again).
     await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 600)),
+      () async => container
+          .read(gameWebSocketProvider(gameId))
+          ?.ready
+          .timeout(eventTimeout),
     );
   }
 
@@ -424,6 +428,9 @@ class _OriginChannel implements WebSocketChannelInterface {
 
   @override
   Stream<dynamic> get stream => _channel.stream;
+
+  @override
+  Future<void> get ready => _channel.ready;
 
   @override
   void send(dynamic data) => _channel.sink.add(data);

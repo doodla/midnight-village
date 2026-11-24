@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+export 'read_on_drop.dart';
+
 part 'websocket_channel.freezed.dart';
 part 'websocket_channel.g.dart';
 
@@ -12,6 +14,14 @@ part 'websocket_channel.g.dart';
 abstract interface class WebSocketChannelInterface {
   /// The stream of messages received from the server.
   Stream<dynamic> get stream;
+
+  /// Completes when the connection is open: the server has accepted it (and,
+  /// on this server, has already put the socket in its groups). Completes with
+  /// an error when it could not be opened (a channel that tries again by
+  /// itself never does: it completes when one of its tries opens). Making a
+  /// channel only starts the connection; nothing is "connected" until this
+  /// completes.
+  Future<void> get ready;
 
   /// Sends [data] to the server.
   void send(dynamic data);

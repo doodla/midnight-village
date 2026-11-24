@@ -181,6 +181,22 @@ class LiveGameSetup {
   /// The app comes back to the foreground.
   void resume() => _resumes.add(++_resumeCount);
 
+  /// The socket drops and is about to be tried again: the two states the real
+  /// socket says, in its order.
+  void drop() => _connection
+    ..add(WebSocketConnectionState.disconnected)
+    ..add(WebSocketConnectionState.reconnecting);
+
+  /// Still down: a try that fails, as the real socket says it (it starts, it
+  /// is lost, the next one is on its way).
+  void triesAgain() => _connection
+    ..add(WebSocketConnectionState.connecting)
+    ..add(WebSocketConnectionState.disconnected)
+    ..add(WebSocketConnectionState.reconnecting);
+
+  /// The socket is open again.
+  void back() => _connection.add(WebSocketConnectionState.connected);
+
   /// The socket drops, then is back.
   void reconnect() => _connection
     ..add(WebSocketConnectionState.reconnecting)

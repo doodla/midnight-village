@@ -39,12 +39,20 @@ export 'package:midnight_village/core/websocket/websocket_channel.dart'
 /// expect(ws.isClosed, isTrue);
 /// ```
 class MockWebSocketChannel implements WebSocketChannelInterface {
-  MockWebSocketChannel({this.acceptsSends = false})
+  MockWebSocketChannel({this.acceptsSends = false, Future<void>? opens})
     // sync: true ensures addServerEvent() delivers events synchronously to
     // listeners, making test assertions deterministic without extra awaits.
-    : _controller = StreamController<dynamic>.broadcast(sync: true);
+    : _opens = opens,
+      _controller = StreamController<dynamic>.broadcast(sync: true);
 
   final StreamController<dynamic> _controller;
+
+  /// When the connection opens: at once, unless the test gives the moment
+  /// (a slow, failed or never-finished opening).
+  final Future<void>? _opens;
+
+  @override
+  Future<void> get ready => _opens ?? Future<void>.value();
 
   /// Whether [send] is allowed (socket plumbing tests only).
   final bool acceptsSends;
