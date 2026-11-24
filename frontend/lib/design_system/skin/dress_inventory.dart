@@ -467,6 +467,8 @@ const notAComponent = <String, String>{
       'part of band.dart: `TimerBand` is in the Band / TimerBand row',
   'primitives/art_picture.dart': 'draws a picture of the art set',
   'primitives/art_precache.dart': 'decodes art ahead; draws nothing',
+  'primitives/card_back_paper.dart':
+      'part of the FaceDownCard row: the card back and a role face on layered paper',
   'primitives/cut_paper.dart': 'the plain decoration helpers',
   'primitives/deckle.dart': 'the torn-edge shape',
   'primitives/deckled_paper.dart':
