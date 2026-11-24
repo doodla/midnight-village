@@ -10,6 +10,8 @@ import 'paper_pin.dart';
 import 'paper_piece.dart';
 import 'secondary_button.dart' show BusyMark;
 
+export '../copy/copy.dart' show Words;
+
 /// A scrap of bone paper pinned to a board, and tapped as a whole: "What
 /// happened", "Edit deck", "Leave". Its paper is [paperHeight] tall (more where
 /// its words take two lines) and the finger's target is [touchHeight] tall,
@@ -31,7 +33,7 @@ class PaperScrap extends StatelessWidget {
   }) : assert(!busy || sends, 'a scrap that can be busy is one that sends');
 
   /// The words. A break the caller wants is a newline.
-  final String label;
+  final Words label;
   final VoidCallback onTap;
 
   /// Its tap sends a request, so it can be [busy]: its paper keeps the busy

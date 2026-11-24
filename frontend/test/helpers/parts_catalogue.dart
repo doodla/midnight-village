@@ -124,10 +124,13 @@ final List<PartSample> partsCatalogue = [
       state,
       (c) => switch (state) {
         PartState.locked => const SecondaryButton.waiting(
-          label: 'Take out',
+          label: Words.forTest('Take out'),
           reason: 'Waiting',
         ),
-        _ => SecondaryButton(label: 'Take out', onPressed: () {}),
+        _ => SecondaryButton(
+          label: Words.forTest('Take out'),
+          onPressed: () {},
+        ),
       },
     ),
   PartSample(

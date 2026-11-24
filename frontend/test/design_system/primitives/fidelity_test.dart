@@ -84,9 +84,9 @@ void main() {
         tester,
         Column(
           children: [
-            SecondaryButton(label: 'A', onPressed: () {}),
+            SecondaryButton(label: Words.forTest('A'), onPressed: () {}),
             SecondaryButton(
-              label: 'B',
+              label: Words.forTest('B'),
               onPressed: () {},
               size: ButtonSize.compact,
             ),

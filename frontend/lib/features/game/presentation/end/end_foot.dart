@@ -138,7 +138,7 @@ class EndFootBand extends StatelessWidget {
     // as the wider of its two labels, so nothing beside it moves.
     double wide(String day) =>
         math.max(_scrapWidth(context, day), _scrapWidth(context, _backOf(day)));
-    Widget scrap(String label) => Transform.rotate(
+    Widget scrap(Words label) => Transform.rotate(
       angle: _whatHappenedTurn,
       child: _NightScrap(day: label, width: wide(label), onTap: onWhatHappened),
     );
@@ -237,7 +237,7 @@ class EndFootBand extends StatelessWidget {
 }
 
 /// The scrap's words at night for its words [day] (on as many lines).
-String _backOf(String day) =>
+Words _backOf(String day) =>
     day.contains('\n') ? EndCopy.backToResultTwoLines : EndCopy.backToResult;
 
 /// "What happened" by day; while the night plays, the way back to the result,
@@ -249,7 +249,7 @@ class _NightScrap extends StatelessWidget {
     required this.onTap,
   });
 
-  final String day;
+  final Words day;
   final double width;
   final VoidCallback onTap;
 

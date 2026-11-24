@@ -85,7 +85,10 @@ void main() {
         var taps = 0;
         await _pump(
           tester,
-          PaperScrap(label: 'What happened', onTap: () => taps++),
+          PaperScrap(
+            label: Words.forTest('What happened'),
+            onTap: () => taps++,
+          ),
           dress: dress,
         );
         final target = find.descendant(
@@ -118,7 +121,7 @@ void main() {
       _phone(tester);
       await _pump(
         tester,
-        PaperScrap(label: 'Back to\nthe result', onTap: () {}),
+        PaperScrap(label: Words.forTest('Back to\nthe result'), onTap: () {}),
       );
       expect(
         tester.getSize(find.byType(PaperPiece)).height,
@@ -145,7 +148,7 @@ void main() {
           await _pump(
             tester,
             PaperScrap(
-              label: 'Edit deck',
+              label: Words.forTest('Edit deck'),
               onTap: () {},
               sends: true,
               busy: busy,

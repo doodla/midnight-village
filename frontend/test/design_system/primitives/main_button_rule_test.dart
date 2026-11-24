@@ -125,7 +125,7 @@ void main() {
       await pumpSkinned(
         tester,
         SecondaryButton.locked(
-          label: 'Start a table',
+          label: Words.forTest('Start a table'),
           onLockedTap: () => led++,
         ),
       );
@@ -135,7 +135,10 @@ void main() {
       final live = await _wordsColour(tester, 'Start a table');
       await pumpSkinned(
         tester,
-        SecondaryButton(label: 'Start a table', onPressed: () {}),
+        SecondaryButton(
+          label: Words.forTest('Start a table'),
+          onPressed: () {},
+        ),
       );
       expect(live, await _wordsColour(tester, 'Start a table'));
     });
@@ -152,7 +155,10 @@ void main() {
               label: Words.forTest('Pick a name'),
               reason: 'Pick first',
             ),
-            SecondaryButton.waiting(label: 'Join a table', reason: 'Working'),
+            SecondaryButton.waiting(
+              label: Words.forTest('Join a table'),
+              reason: 'Working',
+            ),
           ],
         ),
       );

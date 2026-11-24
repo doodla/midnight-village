@@ -149,7 +149,10 @@ Widget _parts(Dress dress, String title) => ScreenFrame(
           ),
         ),
         LanternPool(
-          child: SecondaryButton(label: 'A pinned scrap', onPressed: () {}),
+          child: SecondaryButton(
+            label: Words.forTest('A pinned scrap'),
+            onPressed: () {},
+          ),
         ),
         PrimaryButton(label: Words.forTest('The plaque'), onPressed: () {}),
         const PrimaryButton.done(label: Words.forTest('Ready')),

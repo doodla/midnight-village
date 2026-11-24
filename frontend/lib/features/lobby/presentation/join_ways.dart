@@ -88,7 +88,7 @@ extension _JoinWays on _JoinViewState {
   /// another request is on its way it holds its words; [own] is the request
   /// this one made.
   Widget _scrap({
-    required String label,
+    required Words label,
     required JoinWay? busy,
     required JoinWay? own,
     required VoidCallback act,

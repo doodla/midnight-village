@@ -85,9 +85,16 @@ Widget endPartsPage() => ScreenFrame(
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                PaperScrap(label: 'What happened', onTap: () {}),
-                PaperScrap(label: 'Back to\nthe result', onTap: () {}),
-                PaperScrap(label: 'Edit deck', onTap: () {}, sends: true),
+                PaperScrap(label: Words.forTest('What happened'), onTap: () {}),
+                PaperScrap(
+                  label: Words.forTest('Back to\nthe result'),
+                  onTap: () {},
+                ),
+                PaperScrap(
+                  label: Words.forTest('Edit deck'),
+                  onTap: () {},
+                  sends: true,
+                ),
                 const PaperSlip(label: 'Dev deals next.'),
               ],
             ),
