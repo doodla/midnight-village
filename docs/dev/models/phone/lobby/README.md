@@ -7,6 +7,31 @@ events held while a read is out), the socket (a read when it drops and when it i
 one "Try again" slot it shares with the deal. Against an abstract server that applies a change,
 answers the whole lobby and broadcasts `lobby_update` (`backend/apps/core/views.py`).
 Step 1 of the plan for splitting `lobby_notifier.dart`: the model of today, before any change.
+The split since (no change of behaviour) put the lane's rules in one pure value,
+`frontend/lib/features/lobby/domain/settings_lane.dart` (`SettingsLane`), and what goes out in
+`lobby_taps.dart`, a part of `lobby_notifier.dart`; the table below says where each action now is.
+The model's header names the lines it was read from at `7821a42`.
+
+## Where each action is in the code
+
+| Model | Code now |
+|---|---|
+| `q`, `unsent`, `retry`, `asked`, `askedAt`, `notSent` | `SettingsLane.pending`, `.unsent`, `.tryAgain` (`TryAgain.resend` / `.deal`), `._asked`, `._askedAt`, `.notSent` (put on `LobbyState.notSent` by each transition that sets it) |
+| `Over(base, q)` | `SettingsLane.over` (every `LobbyNotifier._show`; `pendingKeys` makes `settling`) |
+| `Tap(ks)` | `SettingsLane.ask` (`_LobbyTaps._change`) |
+| `Send`, `phase = "out"` | `SettingsLane.sendNext` (`_LobbyTaps._send`, run in turn by `_settingsQueue`); `SettingsLane.out` is the one out |
+| `Reply`, taken | `SettingsLane.settle`, then `over` of the answer |
+| `Reply`, refused | `SettingsLane.settle`, then `await refreshLobby()` in `_send` (`phase = "reading"`: the next send waits on it) |
+| (left out) the host role moved, 403 | `SettingsLane.settle`, then a read; each later change is still sent and meets its own 403 |
+| `Timeout` | `SettingsLane.lose`, then the read as above |
+| `Retry` | `SettingsLane.takeRetry`; with `resend`, `SettingsLane.takeResend` (`Resend`: trimmed, oldest first) and `ask` for each |
+| `DealTap`, `DealServe`, `DealRefuse` | `_LobbyTaps.deal` / `startGame` (no lane transition) |
+| `DealLoss`, `DealTaken`, `DealRefused` | `SettingsLane.dealLost`, `.dealTaken`, `.dealRefused` |
+| `ReadServe`, `ReadApply`, `ReadFail`, `EvDeliver`, `SockDrop`, `SockUp` | `lobby_notifier.dart` (`refreshLobby`, `_refreshOnce`, `_applyHeld`, `_replayBuffered`, `_onLobbyUpdate`, `readOnDrop`): the lane only through `over` |
+
+The lane's own rules, gaps included, are unit tested one per rule in
+`frontend/test/features/lobby/domain/settings_lane_test.dart`; the notifier around it is pinned
+in `frontend/test/features/lobby/presentation/settings_lane_order_test.dart`.
 
 ## What it models
 
@@ -84,16 +109,19 @@ practice on: the line goes (`_change` sets `notSent: false`), but the seat count
 `_unsent` and `_retry` still points at it. At the table: the lost count is still shown, with no
 word, until the read lands and it flips back, still with no word and no "Try again". Worse
 (`known_b2`, 10 states): then practice is lost too, "Not sent." comes back, and "Try again"
-sends practice AND the old seat count (nothing newer asked for seats), so the count changes long
-after the host saw it undone. (A new tap on the SAME key is harmless: "Try again" would trim the
+sends the old seat count AND practice, oldest first (the seat count, then practice; nothing newer
+asked for seats), so the count changes long after the host saw it undone. (A new tap on the SAME key is harmless: "Try again" would trim the
 lost change to nothing, so the rule counts only a lost change that would still be sent.)
 
 **(c) A lost deal after a lost change: "Try again" redoes only the deal: real** (`known_c`, 7
 states). The host taps a seat count; no answer: "Not sent.". Nothing is pending any more, so
 Deal is live; the host deals; no answer: "Not sent." again, and the one slot now holds the deal
 (`_retry = deal`). "Try again" sends the deal; the seat count stays in `_unsent`, unsaid. At the
-table: the game is dealt for the old count. A REFUSED deal empties the slot too (`_retry =
-null`, `notSent: false`): the lost change is then unsaid with no "Try again" at all.
+table: the game is dealt for the old count. A REFUSED deal empties the slot too
+(`SettingsLane.dealRefused`: no slot, no "Not sent."): the lost change is then unsaid with no
+"Try again" at all. A TAKEN deal empties the slot as well but leaves "Not sent." as it was
+(`SettingsLane.dealTaken`; the model's `DealTaken` leaves `notSent` alone): after a lost change
+the line stays on while the game opens over it, and its "Try again" does nothing.
 
 **Also found.** `known_late` (9 states, two faults): two seat taps; the first gets no answer but
 reaches the server after the second, and overwrites it (the hole #16 names for the game is in
