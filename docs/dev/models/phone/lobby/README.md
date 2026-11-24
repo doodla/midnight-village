@@ -1,134 +1,215 @@
 # The lobby's send queue: a TLA+ model
 
-The host's phone in the lobby, as the code is at `7821a42`: the settings lane
-(`frontend/lib/features/lobby/presentation/lobby_notifier.dart`: settings and practice in ONE queue,
-one request out at a time in tap order, every tap sent), the lobby reads (`refreshLobby`, the
-events held while a read is out), the socket (a read when it drops and when it is back), and the
-one "Try again" slot it shares with the deal. Against an abstract server that applies a change,
-answers the whole lobby and broadcasts `lobby_update` (`backend/apps/core/views.py`).
-Step 1 of the plan for splitting `lobby_notifier.dart`: the model of today, before any change.
-The split since (no change of behaviour) put the lane's rules in one pure value,
-`frontend/lib/features/lobby/domain/settings_lane.dart` (`SettingsLane`), and what goes out in
-`lobby_taps.dart`, a part of `lobby_notifier.dart`; the table below says where each action now is.
-The model's header names the lines it was read from at `7821a42`.
+The host's phone in the lobby: the settings lane (settings and practice in ONE queue, one
+request out at a time in tap order, every tap sent), the lobby reads (`refreshLobby`, the
+events held while a read is out), the socket (a read when it drops and when it is back),
+"Not sent." with its "Try again", and the deal. Against an abstract server that applies a
+change, answers the whole lobby and broadcasts `lobby_update` of that same lobby
+(`backend/apps/core/views.py`), with a second writer beside the host: a presence change, a
+join, a join to a full table that takes a practice player's seat (`practice.make_room`),
+each a `lobby_update` of its own, and a new table at the same code (its numbers start
+again); and the host role moving away (`host_changed`, and a 403 for this phone).
+
+Every lobby body carries the server's revision `rev`, which rises with every change the
+server tells anyone. The phone never shows a body older than the newest it has shown.
+
+First written from `7821a42` with four KNOWN gaps (a, b, b2, c), closed on the branch
+`lobby-lane-gaps`; its review (findings 1 to 6) is closed here. The lane's rules are one pure
+value, `frontend/lib/features/lobby/domain/settings_lane.dart` (`SettingsLane`), and what
+goes out is `lobby_taps.dart`, a part of `lobby_notifier.dart`.
+
+## The rules the host can rely on
+
+- **R0, nothing older is shown** (`NoFlickerBack`). A lobby body (an answer, a read, a
+  `lobby_update`) whose `rev` is lower than the newest shown is not shown; equal is shown (at
+  an equal number who is present may differ, and a read that crosses a write can carry newer
+  members with the older number). A body with no `rev` (a server from before it) is shown as
+  it comes and leaves the newest number alone. `host_changed` carries `rev` and counts as
+  shown at it; one lower than the newest shown is ignored, so a late handover never puts an
+  older host back (`HostNeverBack`). The newest is kept per table (its code with its
+  `created_at`): a new table at a code used before starts again. This one compare replaced the guess that told lobbies apart by their values and
+  the order they came in (gap a's "laid" answers and the matching of `lobby_update`s), which
+  stuck when someone else wrote a key and took another player's update for the host's own.
+- **R1, "Not sent." is derived** (`LostFlagged`, `NoHiddenResend`). It is
+  `SettingsLane.notSent`, never a stored flag: it shows exactly while a lost change would
+  still be sent by "Try again" (it has a key no newer change asked for), or the deal did not
+  go. A newer tap on another key cannot take it away; a newer tap on the same key leaves the
+  lost change nothing to send, so the line goes with it and that lost value is never sent
+  again.
+- **R2, the screen shows what will go, and that is what is dealt** (`DealAsShown`,
+  `RetryCoversAll`). The screen is the server's lobby with every change still to go over it,
+  the newest ask winning on each key: the pending changes, the lost changes "Try again" or
+  Deal would still send (with "Not sent."), and a refused value until the next server lobby.
+  So what the host sees at the tap of Deal (or of its "Try again") is what is dealt: a deal
+  sends the lost changes again first and goes behind them. One deal at a time: a deal or
+  "Try again" while one waits joins it. Whenever the deal does not go (a change before it lost
+  or refused, a refused value on screen, a setting tapped while it waits) the lane says so,
+  "Not sent.": never a silent end. A change tapped while the deal is out goes after its
+  answer.
+- **R3, "Try again" always does something** (`TryAgainActs`). With a refused value still on
+  screen it reads the lobby (a read is what takes it off); the deal stays back, and the next
+  "Try again" deals what the read shows. The set-up page (03) says "Not sent." only for its
+  lost changes and its "Try again" only resends them (`RetryChanges`): it never deals. A held
+  deal is the table's (02) line and button. And a failed lobby read heals by itself: it is
+  made again with `core/healing/`'s backoff until one lands (`HealRead`).
+- **R4, a guest's phone says nothing** (`GuestQuiet`: `(phost # 0 \/ guest) => ~NotSent`).
+  When the host role moves away (a 403, or a lobby or `host_changed` that names another
+  host), the lane forgets what it would send again, the changes waiting and any held deal,
+  first, before any read, and keeps nothing more. Only the host taps. If the role comes back,
+  the phone starts clean from the server: lost changes are not kept.
 
 ## Where each action is in the code
 
-| Model | Code now |
+| Model | Code |
 |---|---|
-| `q`, `unsent`, `retry`, `asked`, `askedAt`, `notSent` | `SettingsLane.pending`, `.unsent`, `.tryAgain` (`TryAgain.resend` / `.deal`), `._asked`, `._askedAt`, `.notSent` (put on `LobbyState.notSent` by each transition that sets it) |
-| `Over(base, q)` | `SettingsLane.over` (every `LobbyNotifier._show`; `pendingKeys` makes `settling`) |
-| `Tap(ks)` | `SettingsLane.ask` (`_LobbyTaps._change`) |
-| `Send`, `phase = "out"` | `SettingsLane.sendNext` (`_LobbyTaps._send`, run in turn by `_settingsQueue`); `SettingsLane.out` is the one out |
-| `Reply`, taken | `SettingsLane.settle`, then `over` of the answer |
-| `Reply`, refused | `SettingsLane.settle`, then `await refreshLobby()` in `_send` (`phase = "reading"`: the next send waits on it) |
-| (left out) the host role moved, 403 | `SettingsLane.settle`, then a read; each later change is still sent and meets its own 403 |
+| `q`, `unsent`, `asked`, `askedAt` | `SettingsLane.pending`, `.unsent`, `._asked`, `._askedAt` |
+| `refC`, `dealHeld`, `dq = "queued"` | `SettingsLane._refused` (`refusedShown`), `.dealHeld`, `.dealWaiting` |
+| `base`, `srn` | `LobbyNotifier._base` (with what only this phone knows), `SettingsLane._shownRev` |
+| `Apply`, `Show` (`Adm`: per table) | `SettingsLane.admit` (in `LobbyNotifier._admit` with `_tableOf`, `_showServer`, `_refreshOnce`, `_replayBuffered`); a `"host"` event: `_onHostChanged` (`admit(lobby: false)`) |
+| `phost`, `btid` | `LobbyState.hostId`, `.code` with `.createdAt` |
+| `Shown`, `Over`, `Layers` | `SettingsLane.over` (`_putBase`, `_showLane`) |
+| `NotSent` | `SettingsLane.notSent` (put on `LobbyState.notSent` by `over`) |
+| `Tap(ks)` | `SettingsLane.ask` (`_LobbyTaps._change`); a deal waiting is held |
+| `Send`, `phase = "out"` | `SettingsLane.sendNext` (`_LobbyTaps._send`, run in turn by `_settingsQueue`) |
+| `Reply`, taken | `SettingsLane.taken`, then `_showServer` of the answer |
+| `Reply`, refused | `SettingsLane.refused`, then `await refreshLobby()` in `_send` (`phase = "reading"`) |
+| `Reply`, forbidden | `LobbyNotifier._hostAction` settles first (`SettingsLane.settle`), then reads; `_send` drops the change (`forbidden`) |
+| `Apply` with another host, `guest`, `IsHost` | `SettingsLane.hosting` (in `_putBase`), `.notHost`: a guest keeps nothing (`lose`, `refused`, `dealLost`) |
 | `Timeout` | `SettingsLane.lose`, then the read as above |
-| `Retry` | `SettingsLane.takeRetry`; with `resend`, `SettingsLane.takeResend` (`Resend`: trimmed, oldest first) and `ask` for each |
-| `DealTap`, `DealServe`, `DealRefuse` | `_LobbyTaps.deal` / `startGame` (no lane transition) |
+| `Retry` | `_LobbyTaps.retry`: a read with a refused value on screen; else `deal` if `dealHeld`; else `takeResend` and `ask` for each |
+| `DealTap`, `DealGo` | `_LobbyTaps.deal` (`_dealing`: one deal), `takeResend`, `dealBehind`, `_dealAfterLane` (`dealGoes`) |
+| `DealServe` | `startGame` (a 403: `settle`) |
 | `DealLoss`, `DealTaken`, `DealRefused` | `SettingsLane.dealLost`, `.dealTaken`, `.dealRefused` |
-| `ReadServe`, `ReadApply`, `ReadFail`, `EvDeliver`, `SockDrop`, `SockUp` | `lobby_notifier.dart` (`refreshLobby`, `_refreshOnce`, `_applyHeld`, `_replayBuffered`, `_onLobbyUpdate`, `readOnDrop`): the lane only through `over` |
+| `ReadServe`, `ReadApply`, `ReadFail` | `_refreshOnce`, `_replayBuffered`, `_applyHeld` |
+| `EvDeliver` | `_handleWebSocketEvent`: held while a read is out; else `_onLobbyUpdate` (`_showServer`) or a read |
+| `RetryChanges` | `_LobbyTaps.retryChanges` (03's Try again: `changesNotSent` only) |
+| `HealRead`, `owed` | `LobbyNotifier._healRead` (`core/healing/`'s `retryAfter`) |
+| `SockDrop`, `SockUp` | the socket's state in `_connectWebSocket`: `readOnDrop` |
+| `SOther`, `SMove`, `SApply`, `SRefuse` | the server: `views.py`, `practice.make_room`, `announce_lobby`, `host.py` |
 
-The lane's own rules, gaps included, are unit tested one per rule in
-`frontend/test/features/lobby/domain/settings_lane_test.dart`; the notifier around it is pinned
-in `frontend/test/features/lobby/presentation/settings_lane_order_test.dart`.
+The lane's rules are unit tested one per rule in
+`frontend/test/features/lobby/domain/settings_lane_test.dart`; the notifier around it, each
+gap's and each finding's trace, in
+`frontend/test/features/lobby/presentation/settings_lane_order_test.dart`.
 
 ## What it models
 
-- A key's value is the number of the tap that asked it (0: the table's own), so "older" is
-  "smaller". Three keys: `seats`, `deck` (a custom deck changes `deck` and `seats` in one tap,
-  as `startCustomDeck` does), `prac` (practice, the other endpoint, same lane).
-- `q` is `_pending` and the queue at once: the change out is always its head (`_send` removes
-  it on every outcome). The screen is `Over(base, q)`: the base lobby with every pending change
-  over it (`_withPending`). What the base is follows the code: the answer, the read (with the
-  events held meanwhile over it), a `lobby_update`, or, after a refusal or a loss, what was
-  already shown (the refused or lost value stays until the read lands).
+- A key's value is the number of the tap that asked it (0: the table's own, and what
+  make_room leaves on `prac`), so for the host's own keys "older" is "smaller". Three keys:
+  `seats`, `deck` (a custom deck changes `deck` and `seats` in one tap, as `startCustomDeck`
+  does), `prac` (practice, the other endpoint, same lane).
+- Bodies are `[v, rev, host, tid]` (`tid`: the table); the server's `rev` rises with each change it tells anyone (a host
+  change applied, a presence change, a join, a make_room, the host role moving).
 - After a refusal or a loss the queue waits for the read (`await refreshLobby()` in `_send`).
-- "Try again" is one slot: the unsent changes (`_resendUnsent`: each trimmed to the keys no
-  newer change asked for, renumbered, at the back of the queue) or the deal.
-- Faults (at most `MaxFaults`): a change with no answer in time, a refusal, a failed read, a
-  socket drop, a lost or refused deal. `LATE`: a request with no answer may still reach the
-  server after a newer one (issue #16).
+- Faults (at most `MaxFaults`): a change with no answer in time (applied or not), a refusal,
+  a failed read, a socket drop, a lost or refused deal, the host role moving. `LATE`: a
+  request with no answer may still reach the server after a newer one (issue #16).
+- `MaxJoins` bounds the second writer: one presence change, join, or make_room.
 
-Left out: the host role moving (403), the notifier going away, a deal that reached the server
-though its answer was lost, the deck rules, how practice asks fold (`PracticeAsk.then`, unit
-tested). Bound: 3 taps, 1 player joining, 1 deal tap, 2 faults.
+Left out: the notifier going away, a deal that reached the server though its answer was lost,
+the host role coming back to this phone, the deck rules, how practice asks fold
+(`PracticeAsk.then`, unit tested), a server that answers a value other than the one asked.
+Bound: 2 taps in `lobby` (1 in `try` and `converge`; 3 in `heal`, with 1 fault, and in `late`, with no second writer), 1 second-writer event, 1 deal tap, 2 faults.
 
 ## Files
 
 | File | What it is |
 |---|---|
 | `PhoneLobby.tla` | The model; its header names the code it was read from. |
-| `lobby.cfg` | The rule that holds (`NeverOlder`), 2 faults. |
-| `heal.cfg` | `FlickerHeals` and `Converges` with 1 fault: both hold. |
+| `lobby.cfg` | Every invariant (R0, R1, R2, R4 and `NeverOlder`) in one exploration, 2 taps, 2 faults (once `rule_a` to `rule_d`: five explorations of the same states). With 3 taps the one exploration had 26 million states and 4 million still queued at 39 minutes, on course past the script's hour on a shared machine, so it has 2 taps: every trace this README names needs at most 2 (a third tap only repeats a trimming or a resend the second already checks). |
+| `late.cfg` | `NeverOlder` with `LATE` and `FIX_ASKED` (the server's half of #16), without the second writer (`MaxJoins = 0`). True by construction under `FIX_ASKED`; the real check comes when the phone sends `asked` (#16 step 2). Not a proof. |
+| `try.cfg` | R3, `TryAgainActs` (liveness), 1 tap, 2 faults. |
+| `heal.cfg` | `Converges` with 1 fault. |
+| `converge.cfg` | `Converges` with 2 faults (once `known_converge`; it holds since a failed read heals), 1 tap so the liveness run ends in minutes. |
 | `known_*.cfg` | One KNOWN gap each: the run must still break its rule. |
 | `runlobby.sh` | Runs them all and fails when any ends otherwise (a gap closed, or a new break). |
 
-`TLA2TOOLS=/path/to/tla2tools.jar ./runlobby.sh` (TLC is not in the repository). Last run:
-TLC 2026.11.19 (`tla2tools.jar` of the tlaplus v1.8.0 release), 24 November 2026.
+`TLA2TOOLS=/path/to/tla2tools.jar ./runlobby.sh` (TLC is not in the repository). Last run,
+the whole script: TLC 2026.11.19 (`tla2tools.jar` of the tlaplus v1.8.0 release),
+24 November 2026.
 
 ## Rules
 
 | Rule | Says | Run | Result |
 |---|---|---|---|
-| `NeverOlder` | The server never writes a key's older ask over a newer one (lane order; "Try again" never undoes a newer change) | `lobby` | holds (6,774,314 distinct states) |
-| `FlickerHeals`, `Converges` | A key shown older than its answer is put right with nobody tapping; the screen ends where the server is or says "Not sent." | `heal` (1 fault) | hold (616,617 distinct states) |
-| `NoFlickerBack` | (a) Once a change's answer is shown, its keys never show an older value | `known_a` (no fault at all) | KNOWN gap |
-| `LostFlagged` | (b) A lost change that "Try again" would still send is said so on the screen | `known_b` | KNOWN gap |
-| `NoHiddenResend` | (b) "Try again" never sends a change whose "Not sent." a later tap took away | `known_b2` | KNOWN gap |
-| `RetryCoversAll` | (c) "Try again" sends every change that did not get through | `known_c` | KNOWN gap |
-| `NeverOlder` | With `LATE`: a lost request may reach the server after a newer one | `known_late` | KNOWN gap (#16) |
-| `FlickerHeals` | With 2 faults: a socket drop and a failed read | `known_heal` | KNOWN gap |
-| `Converges` | With 2 faults: a refusal and a failed read | `known_converge` | KNOWN gap |
+| `NeverOlder` | The server never writes a key's older ask over a newer one (lane order; "Try again" never undoes a newer change) | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `NoFlickerBack`, `HostNeverBack` | (R0) No lobby shown takes a host value back, nothing laid over the lobby is older than it, and no older host comes back | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `LostFlagged` | (R1) A lost change that "Try again" would still send is said so on the screen | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `NoHiddenResend` | (R1) "Try again" never sends a lost value after "Not sent." stopped showing for it | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `RetryCoversAll`, `DealAsShown` | (R2) "Try again" leaves nothing behind; what is dealt is what the screen showed at the tap, but a key another writer changed where the phone could not show it (`Unseen`: see below) | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `GuestQuiet` | (R4) A phone that knows it is not the host (a 403, or the lobby or `host_changed` shown names another) shows no "Not sent." | `lobby` | holds (3,743,503 distinct states, 4 min) |
+| `TryAgainActs` | (R3) After "Try again" (02's or 03's) a request goes out or "Not sent." goes | `try` | holds (224,760 distinct states, 1 min) |
+| `Converges` | The screen ends where the server is or says "Not sent." | `heal` (1 fault) | holds (2,489,118 distinct states, 6 min) |
+| `NeverOlder` | With `LATE` and `FIX_ASKED`: true by construction (the server drops a change older than the one it stored); the real check comes when the phone sends `asked` (#16 step 2). Not counted as a proof | `late` | holds (3,977,668 distinct states, 6 min) |
+| `NeverOlder` | With `LATE` alone: a lost request may reach the server after a newer one | `known_late` | KNOWN gap (#16) |
+| `Converges` | With 2 faults (a refusal and a failed read; a socket drop, a new table and a failed read): a failed read heals | `converge` (1 tap) | holds (224,760 distinct states, 0 min) |
 
-## Known gaps (shortest traces)
+## How the review's findings showed in the model
 
-The traces are TLC's with one worker (`runlobby.sh` runs the known gaps that way, so they come
-out the same every time). TLC writes `Next` for the step `SJoin` (someone sits down) and for
-`SRefuse` (the server refuses a change).
+Each was first seen breaking the model as it was at `de8b710` (TLC, one worker), then fixed
+in the model and the code:
 
-**(a) A read that crosses an answer shows the old value: real, with no fault at all**
-(`known_a`, `MaxFaults = 0`, 9 states). The host taps a seat count; it goes out. Someone sits
-down: `player_joined`, and the phone starts a read, which the server serves BEFORE it applies the
-seat count. The server applies it, answers, and queues `lobby_update`. The answer lands: the new
-count shows. The read lands: the OLD count shows (the `lobby_update` was not in yet, so nothing
-was held to replay over the read). The `lobby_update` then arrives and puts it right. At the
-table: the number the host just set jumps back for a moment, then forward again. Any read that
-crosses an answer does it (a player joining or leaving, a refusal or loss of an earlier change,
-the socket coming back). The socket can do it alone, too (a run with four workers found it, 10
-states): two quick seat taps, and the first one's `lobby_update` arrives after the second one's
-answer, so the first count shows until the second `lobby_update` comes. It heals whenever the
-socket works (`heal` holds), but not always: with the socket down and the read after it failing,
-the old value stays until something else reads (`known_heal`, 15 states: the socket drops and
-starts a read, two seat taps both answered while that read was served before them, the read
-lands old, the socket is back and its read fails).
+1. **A deal that never went, and nothing said.** The model had `dq = "none"` guards on a tap
+   and on "Try again" that the code does not have. Without them `rule_c` breaks
+   (`DealAsShown`: a setting tapped while the deal was out reached the server before it, and
+   was dealt though the screen at the tap did not show it). Now a change tapped while the
+   deal is out waits for its answer, a tap while the deal waits keeps it back ("Not sent."),
+   and there is one deal at a time: a deal or "Try again" while one waits joins it.
+2. **"Try again" that did nothing.** A refused value on screen after a failed read: Deal says
+   "Not sent.", and "Try again" sent nothing and read nothing. `TryAgainActs` breaks on it
+   (`try.cfg`). Now it reads the lobby.
+3. and 4. **The hold that stuck, and another player's update taken for the host's own.** With
+   a presence `lobby_update` beside the host's own, `rule_a` breaks: an update carrying the
+   old seats, sent before the host's change was applied, arrives after its answer and shows
+   the old count. The value-and-order matching is gone; the `rev` compare is the rule.
+5. **"Not sent." on a guest's phone.** After a 403 the lane kept what it would resend;
+   `GuestQuiet` breaks with the 403 kept that way. Now `settle` forgets it.
+6. **`DealAsShown` was weaker than its name** (it compared with the screen after the lost
+   values were shown again). With the screen at the tap, `rule_c` breaks: the read put 4
+   back, "Not sent." showed, the host dealt and 5 was dealt. Now a lost value lies over the
+   screen while it would still be sent, so the screen at the tap is what goes.
 
-**(b) A new tap hides "Not sent." while the lost change still waits: real** (`known_b`, 5
-states). The host taps a seat count; no answer: "Not sent." with "Try again". The host turns
-practice on: the line goes (`_change` sets `notSent: false`), but the seat count stays in
-`_unsent` and `_retry` still points at it. At the table: the lost count is still shown, with no
-word, until the read lands and it flips back, still with no word and no "Try again". Worse
-(`known_b2`, 10 states): then practice is lost too, "Not sent." comes back, and "Try again"
-sends the old seat count AND practice, oldest first (the seat count, then practice; nothing newer
-asked for seats), so the count changes long after the host saw it undone. (A new tap on the SAME key is harmless: "Try again" would trim the
-lost change to nothing, so the rule counts only a lost change that would still be sent.)
+**Added with the server's `rev` (its contract: `docs/specs/onuw/api-contract-v2.md`,
+sections 2 and 8).** With two host moves, a `host_changed` applied whatever its number
+breaks `HostNeverBack` (a read showed the newest host, then the first move's late event put
+the older one back). With a new table at the same code and the newest kept for the whole
+code, `Converges` breaks (two taps, then the new table's first `lobby_update`, numbered 1,
+is never shown). Both hold with the rules above.
 
-**(c) A lost deal after a lost change: "Try again" redoes only the deal: real** (`known_c`, 7
-states). The host taps a seat count; no answer: "Not sent.". Nothing is pending any more, so
-Deal is live; the host deals; no answer: "Not sent." again, and the one slot now holds the deal
-(`_retry = deal`). "Try again" sends the deal; the seat count stays in `_unsent`, unsaid. At the
-table: the game is dealt for the old count. A REFUSED deal empties the slot too
-(`SettingsLane.dealRefused`: no slot, no "Not sent."): the lost change is then unsaid with no
-"Try again" at all. A TAKEN deal empties the slot as well but leaves "Not sent." as it was
-(`SettingsLane.dealTaken`; the model's `DealTaken` leaves `notSent` alone): after a lost change
-the line stays on while the game opens over it, and its "Try again" does nothing.
+**What `DealAsShown` leaves out, and why (the honest nearest rule).** With the second writer
+in, the deal can only promise the screen for the keys the phone could know. Two traces broke
+the plain rule, neither a fault of the phone's: (1) a new table opened at the same code and
+the host dealt before its first `lobby_update` came; (2) the host changed the practice count
+and, before its answer, someone sat down at the full table: make_room took a practice seat
+AFTER the host's change was applied, the phone showed the host's change on its way over that
+newer lobby, and the answer (older) was rightly not shown; the deal dealt the server's order,
+which is the table as it is. So `Unseen` (the keys left out) is: make_room's `prac` after the
+lobby on screen or while the host's own practice change is on its way, and every key of a
+new table not heard of yet. Every other key is dealt as shown.
 
-**Also found.** `known_late` (9 states, two faults): two seat taps; the first gets no answer but
-reaches the server after the second, and overwrites it (the hole #16 names for the game is in
-the lobby too). `known_converge` (7 states, two faults): a custom deck is tapped, the server
-refuses it, the read after the refusal fails: the refused deck stays on screen, with no word,
-until something else reads (`_send`'s refusal branch shows nothing itself, and `_applyHeld`
-keeps what is shown).
+**A slip in the model, found on the way.** `Next` read `\E r \in reqs : SRefuse(r) \/ SJoin`:
+the quantifier ran to the end of the line, so someone sat down only while a request of the
+host's was in flight. Each quantifier is in parentheses now.
+
+## How the gaps closed (the first four, `7821a42`)
+
+**(a) A read that crosses an answer showed the old value**; now the `rev` compare. **(b) A
+new tap hid "Not sent." while the lost change still waited**, and **(b2)** "Try again" then
+sent a value the host saw undone; now "Not sent." is derived. **(c) A lost deal after a lost
+change: "Try again" redid only the deal**; now a deal sends the lost changes first and "Try
+again" redoes both, the change first.
+
+**Still open.** `known_late` (two faults): two seat taps; the first gets no answer but
+reaches the server after the second, and overwrites it (#16, the server's).
+
+**Closed by the second review.** `known_converge` (a refused deck, then the read after the
+refusal fails: the refused deck stayed with no word) is `converge.cfg` now and holds: a
+failed lobby read is made again with the healing backoff until one lands. Seen breaking
+first, with that healing taken out (15,492 states). With it in and the old bounds (3 taps)
+the liveness run did not end in 25 minutes, so `converge.cfg` has 1 tap. A phone that stops
+being the host by a handover (no 403) kept "Not sent." and its lost values: with taps made
+host-only and `GuestQuiet` asking about the host shown too, the model broke in 979 states
+before the fix (a lobby naming another host now settles the lane).
 
 ## #16, the server's half (`FIX_ASKED`)
 
@@ -136,7 +217,8 @@ keeps what is shown).
 per key, a change older than the newest it applied for that key is dropped; when every key of
 a change is dropped it answers `409 stale_request`, stores nothing and broadcasts nothing (the
 phone reads again, as after any refusal). `late.cfg` (`LATE` and `FIX_ASKED`, 2 faults) holds
-`NeverOlder` (17,572,777 distinct states); `known_late` (`LATE` alone) still breaks it, and is
-the phone of today, which sends no `asked` yet. When the phone sends it, `known_late` goes and
-`late.cfg` is the run. `runlobby.sh` runs both.
-
+`NeverOlder`, but by construction: under `FIX_ASKED` the server keeps only the keys whose
+stored ask is not newer, so an older ask can never be written. It is not a proof; the real
+check comes when the phone sends `asked` (#16 step 2). `known_late` (`LATE` alone) still
+breaks it, and is the phone of today, which sends no `asked` yet.
+`runlobby.sh` runs both.

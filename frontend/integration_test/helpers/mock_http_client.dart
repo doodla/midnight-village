@@ -66,11 +66,21 @@ class MockHttpClient {
         ),
       ) {
     dio.interceptors.add(
-      _MockInterceptor(_registry, requests, _holds, _beforeAnswer),
+      _MockInterceptor(
+        _registry,
+        requests,
+        _holds,
+        _beforeAnswer,
+        (data) => served?.call(data) ?? data,
+      ),
     );
   }
 
   final Dio dio;
+
+  /// Each answer's body as it is served (a stand-in server that numbers what
+  /// it serves, say); null: as registered.
+  dynamic Function(dynamic data)? served;
 
   /// Every request that reached the mock, in order (registered or not), so a
   /// test can assert what the app sent (method, path, body).
@@ -195,9 +205,11 @@ class _MockInterceptor extends Interceptor {
     this._requests,
     this._holds,
     this._beforeAnswer,
+    this._served,
   );
 
   final Map<String, _MockResponse> _registry;
+  final dynamic Function(dynamic data) _served;
   final List<RequestOptions> _requests;
   final Map<String, HeldReplies> _holds;
   final Map<String, void Function(RequestOptions)> _beforeAnswer;
@@ -228,7 +240,7 @@ class _MockInterceptor extends Interceptor {
       final response = Response<dynamic>(
         requestOptions: options,
         statusCode: mock.statusCode,
-        data: _copy(mock.data),
+        data: _served(_copy(mock.data)),
         headers: Headers.fromMap(mock.headers),
       );
       void answer() {

@@ -1,22 +1,24 @@
 #!/bin/sh
 # Runs every configuration of PhoneLobby and checks each ends as recorded:
-# lobby.cfg holds every rule; each known_*.cfg is a KNOWN gap (README.md) and
+# every cfg but known_*.cfg holds its rules; each known_*.cfg is a KNOWN gap (README.md) and
 # must still break its rule. Exit 1 when any run ends otherwise (a gap closed:
-# move its rule into lobby.cfg; a new break: a finding). TLC logs go to a
+# rename it rule_<name>.cfg; a new break: a finding). TLC logs go to a
 # temporary folder; the summary to stdout.
 # usage: TLA2TOOLS=/path/to/tla2tools.jar ./runlobby.sh [name...]
 J=${TLA2TOOLS:?set TLA2TOOLS to the path of tla2tools.jar}
 cd "$(dirname "$0")" || exit 1
 out=$(mktemp -d)
-names=${*:-"lobby late known_a known_b known_b2 known_c known_late"}
+names=${*:-"lobby late try heal converge known_late"}
 bad=0
 for n in $names; do
   s=$(date +%s)
   # one worker for a known gap: the same shortest trace every run (as README.md gives it)
   case $n in known_*) w=1 ;; *) w=4 ;; esac
-  timeout 1800 java -XX:+UseParallelGC -cp "$J" tlc2.TLC -noGenerateSpecTE -workers $w -metadir "$out/$n.states" \
+  timeout 3600 java -XX:+UseParallelGC -cp "$J" tlc2.TLC -noGenerateSpecTE -workers $w -metadir "$out/$n.states" \
     -config "$n.cfg" PhoneLobby.tla > "$out/$n.out" 2>&1
   e=$(date +%s)
+  # the run's states are gigabytes and never read again: only its log stays
+  rm -rf "${out:?}/$n.states"
   broke=$(grep -E 'is violated' "$out/$n.out" | sort -u | tr '\n' ' ')
   states=$(grep 'distinct states found' "$out/$n.out" | tail -1)
   case $n in

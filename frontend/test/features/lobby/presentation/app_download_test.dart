@@ -10,6 +10,7 @@ import 'package:midnight_village/design_system/primitives/text_action.dart';
 import 'package:midnight_village/design_system/primitives/viewfinder.dart';
 import 'package:midnight_village/design_system/skin/skin.dart';
 
+import '../../../helpers/finger.dart';
 import '../../../helpers/table_setup.dart';
 
 // 01's quiet "Get the app": offered only to a page in an Android browser, on
@@ -104,7 +105,7 @@ void main() {
           ),
         );
 
-        await tester.tap(_link);
+        await pressLikeAFinger(tester, _link);
         expect(setup.appDownloads, 1);
         await setup.close(tester);
       },
@@ -129,7 +130,8 @@ void main() {
 
     testWidgets('not on the scanner (01b)', (tester) async {
       final setup = await TableSetup.pump(tester, androidWeb: true);
-      await tester.tap(
+      await pressLikeAFinger(
+        tester,
         find.byWidgetPredicate(
           (w) => w is GlyphButton && w.semanticLabel == ScanCopy.scan,
         ),

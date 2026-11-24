@@ -20,6 +20,7 @@ final _pages03 = <ScreenEntry>[
     '-lengths-doppelganger': pumpDeckLengthsDoppelganger,
     '-practice': pumpDeckPractice,
     '-practice-switched': pumpDeckPracticeSwitched,
+    '-not-sent-kept': pumpDeckNotSentKept,
     '-x1.3': const _AtText(1.3, pumpDeckAlone),
   }),
 ];

@@ -187,12 +187,7 @@ const _plumbing = {
 /// Test files whose plain taps are not converted yet, each with why. The
 /// rule lets their taps pass; `finger_rule_test.dart` fails an entry whose
 /// file no longer taps plainly, so the list only shrinks.
-const notYetHeld = {
-  'test/features/lobby/presentation/app_download_test.dart':
-      'the lobby\'s tests are being reworked with its send queue',
-  'test/features/lobby/presentation/deck_art_test.dart':
-      'the lobby\'s tests are being reworked with its send queue',
-};
+const notYetHeld = <String, String>{};
 
 /// Installed for every test (flutter_test_config.dart): a finger that lifts
 /// in the frame it went down (a plain `tester.tap`) on ANYTHING that takes a

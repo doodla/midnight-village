@@ -161,7 +161,7 @@ class _DeckScreenState extends ConsumerState<DeckScreen> {
             unawaited(notifier.setLength(length.key, seconds)),
         onPracticeSwitch: () => unawaited(notifier.togglePractice()),
         onPractice: (count) => unawaited(notifier.setPracticeCount(count)),
-        onRetry: () => unawaited(notifier.retry()),
+        onRetry: () => unawaited(notifier.retryChanges()),
         onUse: close,
       ),
     );

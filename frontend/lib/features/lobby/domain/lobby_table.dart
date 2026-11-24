@@ -70,7 +70,7 @@ extension TableLengths on LobbyState {
   /// else the server's `lengths` (the table's own or the default). Null
   /// from a server that sends no `lengths`.
   int? secondsOf(Length length) {
-    if (pendingKeys.contains(length.key)) {
+    if (ownKeys.contains(length.key)) {
       if (table.raw[length.key] case final int mine) return mine;
     }
     return lengths[length.key];

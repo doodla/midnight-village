@@ -73,9 +73,14 @@ class MockWebSocketChannel implements WebSocketChannelInterface {
   ///
   /// Silently ignored if the channel is already [closed][isClosed].
   void addServerEvent(dynamic data) {
-    checkSocketEvent(data);
-    addOffContractEvent(data);
+    final event = served?.call(data) ?? data;
+    checkSocketEvent(event);
+    addOffContractEvent(event);
   }
+
+  /// Each server event as it is sent (a stand-in server that numbers what it
+  /// sends, say); null: as given.
+  dynamic Function(dynamic event)? served;
 
   /// [addServerEvent] without the check, for a test about a message the
   /// server would never send (malformed, unknown type).

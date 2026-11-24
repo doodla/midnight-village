@@ -20,6 +20,7 @@ import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
 import '../domain/settings_lane.dart';
 import '../domain/where_am_i.dart';
+import 'deal_refusal.dart';
 import 'where_am_i_provider.dart';
 
 part 'lobby_notifier.g.dart';
@@ -115,6 +116,11 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
   StreamSubscription<dynamic>? _wsSubscription;
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
   Timer? _noticeTimer;
+
+  /// A failed lobby read is made again after the healing backoff until one
+  /// lands (`core/healing/`): the screen never stays on what it had.
+  Timer? _healTimer;
+  int _healAttempt = 0;
   WebSocketChannelInterface? _webSocket;
 
   /// True while a lobby fetch (the first load or a refetch) is in flight.
@@ -135,33 +141,66 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
   bool _readWhenUp = false;
 
   /// The lobby state events act on: the snapshot being replayed on, else the
-  /// current state.
+  /// lobby under the screen.
   @override
-  LobbyState? get _current => _working ?? state.value;
+  LobbyState? get _current => _working ?? _base;
 
+  /// [next] is the lobby under the screen (in a replay, the snapshot replayed
+  /// on).
   void _set(LobbyState next) {
     if (_working != null) {
       _working = next;
     } else {
-      _show(next);
+      _putBase(next);
     }
   }
 
   /// The host's changes on the settings lane (settings and practice): what
-  /// is asked and not answered, the one out, the changes that got no answer
-  /// and the one "Try again" slot ([SettingsLane]; sent by [_LobbyTaps]).
-  /// What the screen shows is the server's lobby with ALL pending changes
-  /// over it ([SettingsLane.over]), as the server will apply them, so a tap
-  /// shows at once, an event or a refetch meanwhile never takes it back, and
-  /// nothing judged from the server's numbers (Deal, the seats, the practice
-  /// limit) goes around one ([LobbyState.pendingKeys]: `settling`).
+  /// is asked and not answered, the one out, the changes that got no answer,
+  /// the deal, and the newest server lobby shown ([SettingsLane]; sent by
+  /// [_LobbyTaps]). What the screen shows is the lobby under it ([_base])
+  /// with every change still to go over it ([SettingsLane.over]), as the
+  /// server will apply them, so a tap shows at once, an event or a refetch
+  /// meanwhile never takes it back, and nothing judged from the server's
+  /// numbers (Deal, the seats, the practice limit) goes around one
+  /// ([LobbyState.pendingKeys]: `settling`).
   @override
   SettingsLane _lane = SettingsLane.empty;
 
+  /// The server's lobby under the screen, the newest shown, with what only
+  /// this phone knows (the host lines, the deal's refusal, the game opened).
   @override
-  void _show(LobbyState server) {
-    state = AsyncData(_lane.over(server));
-    _askWhereIfMoved(server);
+  LobbyState? _base;
+
+  @override
+  void _putBase(LobbyState base) {
+    _base = base;
+    // Another host named: this phone's lane is a guest's (nothing kept).
+    if (_me case final me?) _lane = _lane.hosting(isHost: base.hostId == me);
+    state = AsyncData(_lane.over(base));
+    _askWhereIfMoved(base);
+  }
+
+  /// Whether a lobby the server sent is shown: not older than the newest
+  /// shown ([SettingsLane.admit], the server's `rev`).
+  bool _admit(LobbyState fresh) {
+    final (lane, shown) = _lane.admit(fresh.rev, table: _tableOf(fresh));
+    _lane = lane;
+    return shown;
+  }
+
+  /// Which table a lobby is: its code with when it was opened.
+  static Object _tableOf(LobbyState lobby) => (lobby.code, lobby.createdAt);
+
+  /// A lobby the server sent (an answer, a `lobby_update`) under the screen,
+  /// unless it is older than the newest shown.
+  @override
+  void _showServer(LobbyState fresh) {
+    if (_admit(fresh)) {
+      _set(fresh);
+    } else if (_working == null) {
+      _showLane();
+    }
   }
 
   /// The game ID from a `game_started` event. Consumers watch this to navigate.
@@ -185,12 +224,19 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     _readOnResume();
 
     // The start's or the join's answer is the lobby: no read before 02.
-    if (seed != null) return _replayBuffered(seed.lobby);
+    if (seed != null) return _first(seed.lobby);
 
     // Fetch initial lobby state
-    final lobbyState = _replayBuffered(await service.fetchLobby(code));
-    _askWhereIfMoved(lobbyState);
+    final lobbyState = _first(await service.fetchLobby(code));
+    _askWhereIfMoved(_base ?? lobbyState);
     return lobbyState;
+  }
+
+  /// The first lobby: the newest shown, with the events held meanwhile.
+  LobbyState _first(LobbyState lobby) {
+    _admit(lobby);
+    final base = _base = _replayBuffered(lobby);
+    return _lane.over(base);
   }
 
   /// Ends buffering and applies the held events, in order, on top of [base].
@@ -252,17 +298,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
       return;
     }
     try {
-      final Map<String, dynamic> message;
-      if (rawMessage is String) {
-        message = json.decode(rawMessage) as Map<String, dynamic>;
-      } else if (rawMessage is Map<String, dynamic>) {
-        message = rawMessage;
-      } else {
-        logger.w(
-          'Unexpected WebSocket message type: ${rawMessage.runtimeType}',
-        );
-        return;
-      }
+      final message = _decoded(rawMessage);
+      if (message == null) return;
 
       final type = message['type'] as String?;
       if (type == null) {
@@ -286,6 +323,15 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     } catch (e, stack) {
       logger.e('Error handling lobby WS event', error: e, stackTrace: stack);
     }
+  }
+
+  Map<String, dynamic>? _decoded(dynamic rawMessage) {
+    if (rawMessage is String) {
+      return json.decode(rawMessage) as Map<String, dynamic>;
+    }
+    if (rawMessage is Map<String, dynamic>) return rawMessage;
+    logger.w('Unexpected WebSocket message type: ${rawMessage.runtimeType}');
+    return null;
   }
 
   /// Re-fetch full lobby state when player list changes.
@@ -324,7 +370,13 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     try {
       final newState = await ref.read(lobbyServiceProvider).fetchLobby(code);
       if (!ref.mounted) return;
-      _show(_replayBuffered(_adopt(newState)));
+      // A read older than the newest lobby shown (it crossed a newer answer
+      // or update) is not shown; the events held meanwhile still are.
+      final base = _base;
+      final read = _admit(newState) || base == null ? _adopt(newState) : base;
+      _putBase(_replayBuffered(read));
+      _healAttempt = 0;
+      _healTimer?.cancel();
     } on NotFoundException {
       // The table is gone (its last member left).
       if (ref.mounted) _applyHeld(closed: true);
@@ -334,7 +386,10 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
         error: e,
         stackTrace: stack,
       );
-      if (ref.mounted) _applyHeld();
+      if (ref.mounted) {
+        _applyHeld();
+        _healRead();
+      }
     } finally {
       _buffering = false;
     }
@@ -342,26 +397,25 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
 
   /// A fetch failed: apply the events held meanwhile to the state we have.
   void _applyHeld({bool closed = false}) {
-    final current = state.value;
+    final current = _base;
     if (current == null) {
       _buffering = false;
       _buffered.clear();
       return;
     }
     final next = _replayBuffered(current);
-    _show(closed ? next.copyWith(tableClosed: true) : next);
+    _putBase(closed ? next.copyWith(tableClosed: true) : next);
   }
 
   /// A freshly fetched lobby, keeping what only this phone knows: the game it
   /// has been told to open and the host lines.
   @override
   LobbyState _adopt(LobbyState fresh) {
-    final current = state.value;
+    final current = _base;
     if (current == null) return fresh;
     final brief = current.briefHostNotice;
     return fresh.copyWith(
       startedGameId: current.startedGameId,
-      notSent: current.notSent,
       dealRefused: current.dealRefused,
       // The "hosting again" / "is the host now" line outlives a refetch only
       // while the server agrees that person is the host.
@@ -378,6 +432,15 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     final change = HostChange.fromEvent(message);
     final current = _current;
     if (current == null) return;
+    // Shown at its `rev`; a lower one (a late handover) never puts an older
+    // host back.
+    final (lane, shown) = _lane.admit(
+      message['rev'] as int?,
+      table: _tableOf(current),
+      lobby: false,
+    );
+    _lane = lane;
+    if (!shown) return;
     final brief = change.reason != HostChangeReason.handover;
     _set(
       current.copyWith(
@@ -393,9 +456,9 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     if (brief) {
       _noticeTimer = Timer(kHostNoticeDuration, () {
         if (!ref.mounted) return;
-        final s = state.value;
+        final s = _base;
         if (s != null && s.briefHostNotice == change) {
-          state = AsyncData(s.copyWith(briefHostNotice: null));
+          _putBase(s.copyWith(briefHostNotice: null));
         }
       });
     }
@@ -409,15 +472,19 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     try {
       return await call();
     } on ForbiddenException {
+      // A guest's phone now: settled first, so no "Not sent." shows while
+      // the lobby is read.
+      _lane = _lane.settle();
+      _showLane();
       await refreshLobby();
-      final s = state.value;
+      final s = _base;
       if (ref.mounted && s != null) {
-        state = AsyncData(s.copyWith(hostActionNotice: kNoLongerHostMessage));
+        _putBase(s.copyWith(hostActionNotice: kNoLongerHostMessage));
         _noticeTimer?.cancel();
         _noticeTimer = Timer(kHostNoticeDuration, () {
           if (!ref.mounted) return;
-          final c = state.value;
-          if (c != null) state = AsyncData(c.copyWith(hostActionNotice: null));
+          final c = _base;
+          if (c != null) _putBase(c.copyWith(hostActionNotice: null));
         });
       }
       throw const NoLongerHostException();
@@ -425,18 +492,18 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
   }
 
   /// `lobby_update` carries the whole lobby body (a settings change, play
-  /// again): it is the server's lobby now, kept with what only this phone
-  /// knows and with its own changes still on their way merged over it.
+  /// again, someone's presence): the server's lobby now unless it is older
+  /// than the newest shown, kept with what only this phone knows and with
+  /// its own changes still on their way over it.
   void _onLobbyUpdate(Map<String, dynamic> message) {
     final current = _current;
     if (current == null) return;
     final data = message['data'] as Map<String, dynamic>?;
     if (data == null) return;
     final fresh = LobbyState.fromJson(data);
-    _set(
+    _showServer(
       fresh.copyWith(
         startedGameId: current.startedGameId,
-        notSent: current.notSent,
         briefHostNotice: current.briefHostNotice,
         hostActionNotice: current.hostActionNotice,
       ),
@@ -466,53 +533,28 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     _seatIn(id);
   }
 
-  /// What a refused deal means to the host, from the server's answer
-  /// (`apps/onuw/deal.py`'s `deal_refusal`: the table is not waiting, or the
-  /// settings' errors for this many players). Not [answered]: the phone could
-  /// not reach the server ("Not sent."). Answered with no [why]: the server
-  /// gave no reason worth saying, so nothing is said; the button showed
-  /// `deal.ok`, so a refusal means the table changed under the tap, and the
-  /// lobby read again sets the button.
-  static ({bool answered, String? why}) dealRefusal(Object error) {
-    final (int? status, List<String> details) = switch (error) {
-      ValidationException(:final errors) => (
-        400,
-        [...errors.values.expand((e) => e)],
-      ),
-      UnhandledHttpException(:final statusCode, :final message) => (
-        statusCode,
-        [message],
-      ),
-      NotFoundException() => (404, const <String>[]),
-      _ => (null, const <String>[]),
-    };
-    if (status == null || !serverAnswered(error)) {
-      return (answered: false, why: null);
-    }
-    final why = status == 404
-        ? BannerCopy.tableClosed
-        : details.contains(_notWaiting)
-        ? BannerCopy.lobbyClosed
-        : details.any((d) => d.startsWith(_tooFew))
-        ? TableCopy.needPlayers
-        // Not everyone the table is set for is here: the seats say so.
-        : details.any((d) => d.startsWith(_setFor))
-        ? null
-        : details.any(_deckError.hasMatch)
-        ? BannerCopy.deckDoesNotFit
-        : null;
-    return (answered: true, why: why);
+  /// What a refused deal means to the host ([dealRefusalOf]).
+  static ({bool answered, String? why}) dealRefusal(Object error) =>
+      dealRefusalOf(error);
+
+  /// A lobby read failed: read again after the healing backoff (one at a
+  /// time; a read that lands ends it).
+  void _healRead() {
+    if (_healTimer?.isActive ?? false) return;
+    final after = ref.read(healTimingProvider).retryAfter(_healAttempt++);
+    _healTimer = Timer(after, () {
+      if (ref.mounted) unawaited(refreshLobby());
+    });
   }
 
-  /// The server's refusal words (`deal.py`, `validate_onuw_settings`).
-  static const _notWaiting = 'Lobby is not in waiting state.';
-  static const _tooFew = 'At least 3 players required';
-  static const _setFor = 'The table is set for';
-  static final _deckError = RegExp(
-    r'^(Total role count|Masons must|Unknown role|Count for|.* requires at least|.* allows at most)',
-  );
+  /// This phone's player (null: not signed in).
+  int? get _me => switch (ref.read(authProvider)) {
+    AuthAuthenticated(:final user) => user.id,
+    _ => null,
+  };
 
   void _dispose() {
+    _healTimer?.cancel();
     _noticeTimer?.cancel();
     _connectionSubscription?.cancel();
     _connectionSubscription = null;

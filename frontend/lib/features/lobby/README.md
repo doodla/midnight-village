@@ -210,12 +210,30 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   classifier every host action uses) is dropped and the lobby read again, never "Not
   sent." nor sent again; a change that never got an answer says "Not sent." with "Try
   again", which sends each such change again with only the keys no newer change has asked
-  for since, so it never undoes a newer value on the same key, answered or on its way. A
-  host role that moved says nothing. The lane's rules are one pure value,
-  `domain/settings_lane.dart` (`SettingsLane`: the queue, the one change out, the pending
-  keys laid over the server's lobby, the lost changes and the one "Try again" slot shared
-  with the deal; unit tested in `test/features/lobby/domain/settings_lane_test.dart`, modelled
-  in `docs/dev/models/phone/lobby/`); `LobbyNotifier` is one class in two files:
+  for since, so it never undoes a newer value on the same key, answered or on its way.
+  "Not sent." is derived from the lane, never stored: it shows exactly while such a change
+  waits (a tap on another key never hides it) or the deal did not go. The screen shows what
+  will go: while a lost change would still be sent by "Try again" or Deal, its value lies over
+  the server's (with "Not sent."), so what the host sees at the tap of Deal is what is dealt.
+  A lobby the server sends (an answer, a read, a `lobby_update`) is never shown when its
+  `rev` is older than the newest shown (equal is shown; a body with no `rev` is shown and
+  leaves the newest alone; the newest is per table, its code with `created_at`), and a
+  `host_changed` counts as shown at its `rev` (a lower one is ignored), so a setting never
+  jumps back and a late handover never puts an older host back. A deal goes behind the lane, one at a time: every lost change is
+  sent again first, and one of them lost or refused, a refused value still on screen, or a
+  setting tapped while it waits keeps the deal back ("Not sent."; never a silent end); a
+  setting tapped while the deal is out goes after its answer. "Try again" redoes every lost
+  change and then the deal; with a refused value still on screen it reads the lobby first.
+  The set-up page says "Not sent." only for its lost changes and its "Try again" only resends
+  them (never the deal: a held deal is the table's line and button). A host role that moved
+  (a 403, or a lobby or `host_changed` naming another host) says nothing: the lane forgets
+  what it would send, first, and keeps nothing until the role is this phone's again. A
+  failed lobby read is made again with `core/healing/`'s backoff until one lands. The
+  lane's rules are one pure value, `domain/settings_lane.dart` (`SettingsLane`: the queue,
+  the one change out, the lost changes, a refused value, the deal behind them, the newest
+  `rev` shown; unit tested in
+  `test/features/lobby/domain/settings_lane_test.dart`, modelled in
+  `docs/dev/models/phone/lobby/`); `LobbyNotifier` is one class in two files:
   `lobby_notifier.dart` what comes in (reads, socket, host moving) and `lobby_taps.dart`
   what goes out (the taps, the requests one after another, "Try again", the deal, leaving). `TableSettings` reads the deck, the chip, the look and the number of players.
 - **Tests.** `test/features/lobby/` (`table_screens_test.dart` drives the screens through the
