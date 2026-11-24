@@ -2635,6 +2635,8 @@ def record_all(run: Recording) -> None:
     gone_account(run)
     practice_table(run)
     # Last, so nothing recorded above moves (imported here: it uses this module).
+    from .asked_scenarios import asked_table
     from .story_scenarios import story_tables
 
     story_tables(run)
+    asked_table(run)

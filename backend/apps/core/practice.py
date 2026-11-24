@@ -50,6 +50,7 @@ from typing import Any
 
 from django.db.models import Q
 
+from apps.core import asked as ask
 from apps.core import games, lobbies, tokens
 from apps.core.models import Lobby, LobbyMember, User
 
@@ -243,6 +244,17 @@ def set_practice(lobby: Lobby, *, on: bool | None, count: int | None) -> None:
         lobby.save(update_fields=["settings", "updated_at"])
     else:
         lobbies.touch(lobby.pk)
+
+
+def note_asked(lobby: Lobby, user_id: int, asked: int | None) -> None:
+    """A practice request was applied: keep its ``asked`` as the newest under
+    ``Lobby.asked["practice"]`` (``apps.core.asked``). The settings PATCH never
+    writes that key (it strips ``practice``), so the two never shadow each other.
+    The caller holds the Lobby row lock. Without ``asked`` nothing is written."""
+    if asked is None:
+        return
+    lobby.asked = ask.noted(lobby.asked, [SETTING_KEY], user_id, asked)
+    lobby.save(update_fields=["asked"])
 
 
 def make_room(lobby: Lobby) -> bool:

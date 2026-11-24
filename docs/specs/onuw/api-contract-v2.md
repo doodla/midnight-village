@@ -259,7 +259,8 @@ the host sends `POST .../end-discussion/ {"stage"}` or the deadline passes.
   or lock is `409 vote_locked`.
 - `400`: `invalid_target` (yourself, someone not in the game), `bad_request`
   (`target_player_id` not a JSON integer, `lock` not a bool, no `stage`); `409
-  wrong_stage`; `403` for someone who does not play in the game.
+  wrong_stage`; `409 stale_request` (an older `asked`, section 9); `403` for someone who
+  does not play in the game.
 - The votes are revealed when every present player has locked, at the deadline, or when the
   host sends `POST .../reveal-votes/ {"stage"}`. At any reveal every stored pick counts,
   locked or not (an unlocked Hunter pick triggers the Hunter chain); no pick is a non-voter.
@@ -314,8 +315,27 @@ as sending it once did (`backend/tests/onuw/test_resend.py`):
 | lobby `practice` | the same switch and count: same answer | `409 lobby_closed` once dealt |
 
 For `join`, `leave` and `start`, whose second answer differs, the app treats the answer to
-its own resend as success and reads the table again. The app sends a phone's requests one at
-a time and retries only the latest, so a stale resend never overtakes a newer request.
+its own resend as success and reads the table again.
+
+**A late request (`asked`).** A request whose answer was lost may still reach the server
+after a newer one from the same phone. So a settings `PATCH`, `practice`, `vote` and `ready`
+may carry `"asked": <int>`: when the tap was made on that phone, in milliseconds, always
+rising on that phone. The server never compares it with its own clock, only with the newest
+`asked` it applied for the same thing, and never between two people. A request older than
+that changes nothing: `409 {"detail": "A newer tap from this phone already got there.",
+"code": "stale_request"}`. An equal `asked` is the same tap sent again. Without `asked` a
+request works as before. `asked` that is not a whole number of 0 or more is `400 bad_request`.
+
+| Request | Compared with | When older |
+|---|---|---|
+| lobby `PATCH` | per settings key: the newest `asked` that set it, if it was this player's | that key is dropped; the other keys apply (`200`); every key dropped: `409 stale_request`, nothing sent |
+| lobby `practice` | the newest `asked` of this player's practice requests | `409 stale_request` |
+| `vote` (pick or lock) | this player's newest applied vote in this stage | `409 stale_request`; checked after every other refusal, so a locked vote still answers `vote_locked` and its same lock again `200` |
+| `ready` | this player's newest applied ready in this stage (the look and the talk are compared apart) | `409 stale_request`; checked after every other refusal |
+| `choose`, `night-results/seen`, stage-ending requests | not read (already safe: `chosen`, `GREATEST`, `stage`) | n/a |
+
+The app sends a phone's requests one at a time and retries only the latest; `asked` covers a
+request whose answer was lost that still arrives after the next one was applied.
 
 ## 10. Accepted tells and limits
 
