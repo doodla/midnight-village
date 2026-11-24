@@ -95,6 +95,52 @@ class FromTheSources(unittest.TestCase):
         said = self.tool.said_by_owner(FEEDBACK, ["08"], ["Talk"])
         self.assertTrue(any("talk timer" in line for _, _, line in said))
 
+    def test_a_state_says_what_its_fixture_did(self):
+        widgets = {
+            "06-night-board": ["NightBoard", "FaceDownCard"],
+            "06-night-board-follow-up": ["NightBoard", "FaceDownCard", "HeldFace", "RoleHead", "_Words"],
+            "06-night-board-x1.6": ["NightBoard", "FaceDownCard"],
+            "03b-role-sheet": ["SheetScaffold"],
+        }
+        kit = {"NightBoard", "FaceDownCard", "HeldFace", "RoleHead", "SheetScaffold"}
+        line = lambda s: self.tool.state_line(s, sorted(widgets), widgets, kit)  # noqa: E731
+        self.assertEqual(line("06-night-board"), "06-night-board")
+        held = line("06-night-board-follow-up")
+        self.assertIn("HELD", held)
+        self.assertIn("beyond 06-night-board: HeldFace, RoleHead", held)
+        self.assertNotIn("_Words", held)
+        self.assertIn("text x1.6", line("06-night-board-x1.6"))
+        self.assertIn("SHEET", line("03b-role-sheet"))
+
+    def test_a_parked_fault_is_printed_whole_with_the_constant_it_names(self):
+        parked = (
+            "const _over =\n    'its story lies over Ready '\n    '(a long story)';\n\n"
+            "const notYetSwept = <String, String>{\n"
+            "  '06-night-board-follow-up':\n      \"the copied role's card lies over the names \"\n"
+            "      'while it asks for a pick',\n"
+            "  '08-talk-held-tanner': _over,\n};\n"
+        )
+        (whole,) = self.tool.parked_faults(parked, ["06-night-board-follow-up"])
+        self.assertIn("while it asks for a pick", whole)
+        (named,) = self.tool.parked_faults(parked, ["08-talk-held-tanner"])
+        self.assertIn("its story lies over Ready", named)
+        self.assertIn("(a long story)", named)
+
+    def test_a_rule_about_a_part_is_found_by_its_words_with_the_list_under_it(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self.tool.ROOT = Path(tmp)
+            doc = Path(tmp) / "spec.md"
+            doc.write_text(
+                "## 2. Cues\n\n**The held-face frame** is the same on every face:\n"
+                "- Always the same fixed size.\n- Drawn above the touch point, never under the thumb.\n\n"
+                "Nothing about it here.\n"
+            )
+            ((where, text),) = self.tool.part_rules("HeldFace", [doc])
+        self.assertEqual(where, "spec.md:3")
+        self.assertIn("Drawn above the touch point, never under the thumb.", text)
+
     def test_the_real_spec_has_a_section_for_every_screen_a_state_belongs_to(self):
         sections = self.tool.spec_sections((REPO / self.tool.SPEC).read_text())
         for number in ("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"):
