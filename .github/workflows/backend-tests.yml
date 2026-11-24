@@ -64,6 +64,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The database's own log is dumped at the end of the job, errors our tests cause
+      # on purpose included, and buried what failed. It keeps quiet here.
+      - name: Quiet the database's own log
+        run: |
+          docker exec "$(docker ps -q --filter ancestor=postgres:16)" \
+            psql -U postgres -c "ALTER SYSTEM SET log_min_messages = 'panic'" \
+            -c "SELECT pg_reload_conf()"
+
       - name: Install just
         uses: extractions/setup-just@v2
 
@@ -83,6 +91,9 @@ jobs:
       # Both run even when the first fails: one red run shows both.
       - name: Tests
         if: ${{ !cancelled() }}
+        env:
+          # the run's own report, for "What failed" below
+          PYTEST_ADDOPTS: --junitxml=build/junit.xml
         run: just test
 
       # A pull request that edits a guard test (a rule held for the whole app) must
@@ -99,3 +110,8 @@ jobs:
       - name: The previous build on this change's database
         if: ${{ !cancelled() }}
         run: just previous-build-check
+
+      # The last lines of a red job name each failed test and its first error line.
+      - name: What failed
+        if: failure()
+        run: tool/failed_tests.py junit backend/build/junit.xml
