@@ -5,8 +5,9 @@ the host and a second guest are driven over the API. For each round it times, fr
 the host's request:
 
 - event: the socket event (`game_started`, `play_again`) reaching the guest's page;
-- screen: the guest's screen showing its content: the card screen with its button
-  (not the empty frame the dusk lands on), or 02 with "<host> deals".
+- screen: the guest's screen showing its content: the card or the night board with
+  this player's own seat (not the empty frame the dusk lands on), or 02 with its
+  code ("Scan to join").
 
 Rounds: `--rounds` with the socket connected, then `--missed` deals with the guest's
 sockets cut just before the deal (the app reconnects after its own backoff), which is
@@ -51,8 +52,11 @@ window.WebSocket = class extends Native {
 CUT_SOCKETS = "() => window.__sockets.forEach(s => s.close())"
 
 # What a screen shows once it has its content (lib/design_system/copy/).
-CARD = ("Look first", "Ready")  # CardCopy.readyLocked, CardCopy.ready
-TABLE = ("Host deals",)  # TableCopy.hostDeals, for the host "Host"
+# The deal: the card (04, CardCopy.readyLocked) or, with no look stage, the night
+# board's own seat ("You, hidden. Activate to show."); never the empty frame.
+CARD = ("Look first", "Activate to show")
+# Play again: 02's code block (TableCopy.scan), drawn once the lobby is read.
+TABLE = ("Scan to join",)
 
 
 async def shows(page, markers, since, timeout=30):
