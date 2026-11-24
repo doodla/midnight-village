@@ -383,6 +383,10 @@ class WorkflowAfterMerge(unittest.TestCase):
         self.assertLess(moved, checked)
         self.assertIn("steps.live.outputs.server", self.code)
         self.assertIn("steps.live.outputs.app", self.code)
+        # the deal and a restart reach the other phones only by socket: the one
+        # check that opens one against the live server stays switched on
+        self.assertIn("--sockets", self.code)
+        self.assertTrue((ROOT / "tool" / "deployed_sockets.py").is_file())
         android = (ROOT / ".github" / "workflows" / PUBLISHING[0]).read_text()
         for name in ("API_ORIGIN", "PUBLIC_ORIGIN"):
             (line,) = re.findall(rf"(?m)^  {name}: \S+$", self.code)

@@ -57,9 +57,9 @@ jobs:
         id: live
         run: python3 tool/promote_live.py
 
-      - name: Wait for each side's build, then Start and Join on the live game
+      - name: Wait for each side's build, then Start, Join and a deal heard on the live game
         run: >
           python3 tool/deployed_check.py
           --api "$API_ORIGIN" --app "$PUBLIC_ORIGIN"
           --commit "${{ steps.live.outputs.server }}"
-          --app-commit "${{ steps.live.outputs.app }}" --wait 900
+          --app-commit "${{ steps.live.outputs.app }}" --wait 900 --sockets
