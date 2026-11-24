@@ -49,6 +49,7 @@ from django.utils import timezone
 from apps.core import games, lobbies, practice, presence, timers
 from apps.core.effects import after_commit, schedule_after_commit, send_after_commit
 from apps.core.models import Lobby, LobbyMember, LobbySocket
+from apps.core.wire import public_name
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ def _announce(lobby: Lobby, reason: str) -> None:
     event = {
         "type": "host.changed",
         "host_id": host.id,
-        "host_name": host.display_name or host.username,
+        "host_name": public_name(host),
         "original_host_id": lobby.host_id,
         "reason": reason,
     }

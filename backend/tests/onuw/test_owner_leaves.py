@@ -18,6 +18,7 @@ import pytest
 from rest_framework import status
 
 from apps.core.models import Lobby, LobbyMember, LobbySocket
+from apps.core.wire import public_name
 from apps.onuw.models import Game, Phase
 from tests.onuw.test_play_again import Table
 
@@ -227,7 +228,7 @@ class TestEveryoneIsTold:
         expected = {
             "type": "host.changed",
             "host_id": new_owner.id,
-            "host_name": new_owner.display_name or new_owner.username,
+            "host_name": public_name(new_owner),
             "original_host_id": new_owner.id,
             "reason": "transferred",
         }

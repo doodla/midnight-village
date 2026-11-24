@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.practice import is_practice
-from apps.core.wire import wire_time
+from apps.core.wire import public_name, wire_time
 
 from . import presence
 from .models import Game, Phase, PlayerRole
@@ -249,7 +249,7 @@ class ResultsView(APIView):
                 eliminated_details.append(
                     {
                         "player_id": pr.user_id,
-                        "display_name": pr.user.display_name or pr.user.username,
+                        "display_name": public_name(pr.user),
                         "role": pr.current_role,
                         "elimination_reason": elimination_reasons.get(str(pr.user_id)),
                     }

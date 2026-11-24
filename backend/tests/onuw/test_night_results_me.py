@@ -14,6 +14,7 @@ from django.urls import reverse
 import pytest
 from rest_framework import status
 
+from apps.core.wire import public_name
 from apps.onuw.engine.state import NightAction
 from apps.onuw.models import Game, Phase
 from apps.onuw.night_results import _client_action_type
@@ -135,8 +136,7 @@ class TestNightResultsInMe:
             }
         ]
         assert me(night, "rob")["night_results"][0]["revealed_info"] == {
-            "target_name": night.users["ins"].display_name
-            or night.users["ins"].username,
+            "target_name": public_name(night.users["ins"]),
             "new_role": "Insomniac",
         }
 
@@ -174,7 +174,7 @@ class TestNightResultsInMe:
         # team view or the Robber's swap.
         assert [r["action_type"] for r in seer] == ["peek_player"]
         text = str(seer)
-        wolf_name = night.users["wolf"].display_name or night.users["wolf"].username
+        wolf_name = public_name(night.users["wolf"])
         assert wolf_name not in text
         assert "teammate_names" not in text
         assert "new_role" not in text
@@ -272,7 +272,7 @@ class TestDoppelgangerWindowOne:
         ]
         # The Doppelganger who copied the Werewolf sees the real Werewolf in her team view.
         assert later[1]["revealed_info"]["teammate_names"] == [
-            night.users["w"].display_name or night.users["w"].username
+            public_name(night.users["w"])
         ]
 
     def test_a_doppelganger_who_copied_the_insomniac_gets_the_dawn_result(
@@ -518,9 +518,7 @@ def test_every_swap_is_in_me_even_though_its_engine_result_is_empty(make_night) 
     night.post("d", "swap_with_center", {"center_index": 0})
     night.host_close_window()
 
-    names = {
-        u: (night.users[u].display_name or night.users[u].username) for u in ("w", "v")
-    }
+    names = {u: (public_name(night.users[u])) for u in ("w", "v")}
     assert me(night, "t")["night_results"] == [
         {
             "wave": 2,

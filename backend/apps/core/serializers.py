@@ -6,6 +6,7 @@ from rest_framework import serializers
 
 from .models import Lobby, LobbyMember, User
 from .tokens import MAX_TABLE_SIZE
+from .wire import public_name
 
 DISPLAY_NAME_PATTERN = re.compile(r"^[\w]+( [\w]+)*$", re.UNICODE)
 
@@ -13,9 +14,15 @@ DISPLAY_NAME_PATTERN = re.compile(r"^[\w]+( [\w]+)*$", re.UNICODE)
 class UserBriefSerializer(serializers.ModelSerializer):
     """Brief user info for embedding in other serializers."""
 
+    # The name others read: never empty, never the username (wire.public_name).
+    display_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ["id", "username", "display_name"]
+
+    def get_display_name(self, user: User) -> str:
+        return public_name(user)
 
 
 def without_usernames(body: dict) -> dict:

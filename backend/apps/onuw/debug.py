@@ -24,6 +24,7 @@ from rest_framework.response import Response
 
 from apps.core import host, timers
 from apps.core.models import ScheduledTimer
+from apps.core.wire import public_name
 from apps.onuw import presence
 
 from .engine.roles import ROLE_REGISTRY
@@ -160,7 +161,7 @@ def build_debug_state(game: Game) -> dict[str, Any]:
         players.append(
             {
                 "user_id": pr.user_id,
-                "display_name": pr.user.display_name or pr.user.username,
+                "display_name": public_name(pr.user),
                 "is_host": pr.user_id == host_id,
                 "token": pr.token,
                 "seat": pr.seat,

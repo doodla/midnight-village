@@ -104,7 +104,11 @@ class Night:
         # user-id order, so a list that comes back in user-id order is not mistaken
         # for one in seat order.
         created = {
-            name: User.objects.create_user(username=f"nw_{name}", password="pass")
+            # Every player has a name of their own, and it is not their username: a
+            # body that named anyone by username would show here.
+            name: User.objects.create_user(
+                username=f"nw_{name}", password="pass", display_name=f"Named {name}"
+            )
             for name in reversed(list(roles))
         }
         self.users = {name: created[name] for name in roles}

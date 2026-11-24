@@ -7,7 +7,7 @@ from typing import Any
 from rest_framework import serializers
 
 from apps.core.practice import is_practice
-from apps.core.wire import wire_time
+from apps.core.wire import public_name, wire_time
 
 from .models import Game, Phase, PlayerRole
 from .protocol import in_look_stage, stage_token
@@ -22,7 +22,7 @@ def player_identity(pr: PlayerRole) -> dict[str, Any]:
     """
     identity: dict[str, Any] = {
         "player_id": pr.user_id,
-        "display_name": pr.user.display_name or pr.user.username,
+        "display_name": public_name(pr.user),
         "token": pr.token,
         "seat": pr.seat,
     }
@@ -189,7 +189,7 @@ class GameMeSerializer(serializers.Serializer):
         from .night_results import night_results_for_player
 
         names = {
-            pr.user_id: pr.user.display_name or pr.user.username
+            pr.user_id: public_name(pr.user)
             for pr in self.context.get("all_player_roles", [])
         }
         return night_results_for_player(game, player_role.user_id, names)
