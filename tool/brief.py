@@ -108,24 +108,61 @@ def which_screens(asked: str, states: list[str], sections) -> list[str]:
     return sorted(found)
 
 
+# A quoted line is quoted with the paragraph or list item it sits in, so the
+# sentence that names a screen keeps the sentence that carries its rule ("... on
+# 09. It must never truncate."). A block longer than WHOLE lines is quoted as the
+# line with one before and AFTER after it, and says where it was cut.
+WHOLE, AFTER = 6, 2
+_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])\s")
+
+
+def quoted(lines: list[str], index: int) -> tuple[str, int]:
+    """(the block around lines[index] as one text, the index of its last line used)."""
+
+    def starts_block(i: int) -> bool:
+        line = lines[i]
+        return bool(_ITEM.match(line)) or line.startswith(("#", "|", "```"))
+
+    first = index
+    while first > 0 and lines[first - 1].strip() and not starts_block(first):
+        first -= 1
+    last = index
+    while last + 1 < len(lines) and lines[last + 1].strip() and not starts_block(last + 1):
+        last += 1
+    if last - first + 1 > WHOLE:
+        cut_first, cut_last = max(first, index - 1), min(last, index + AFTER)
+        text = " ".join(line.strip() for line in lines[cut_first : cut_last + 1])
+        text = ("[...] " if cut_first > first else "") + text
+        text += " [...]" if cut_last < last else ""
+        return text, cut_last
+    return " ".join(line.strip() for line in lines[first : last + 1]), last
+
+
 def said_by_owner(
     text: str, numbers: list[str], names: list[str]
 ) -> list[tuple[str, int, str]]:
     """(the dated heading, line number, the line) for each line about the screen."""
     wanted = [
-        re.compile(rf"(?<![\w.:-]){re.escape(n)}(?![\w.:-]|\s*(?:November|px|s\b|%))")
+        # a number that ends a sentence ("... on 09.") is the screen; one inside a
+        # figure ("0.9", "09.5", "9:41") is not
+        re.compile(rf"(?<![\w.:-]){re.escape(n)}(?![\w:-]|\.\w|\s*(?:November|px|s\b|%))")
         for n in numbers
     ]
     wanted += [re.compile(re.escape(name), re.I) for name in names if len(name) > 3]
-    found, heading = [], ""
-    for number, line in enumerate(text.splitlines(), 1):
+    found, heading, done = [], "", -1
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        number = index + 1
         if line.startswith("## "):
             heading = line[3:].strip()
             if any(p.search(line) for p in wanted):
                 found.append((heading, number, "(the whole section is about it)"))
             continue
+        if index <= done:
+            continue  # already quoted with the line before it
         if line.strip() and any(p.search(line) for p in wanted):
-            found.append((heading, number, line.strip()))
+            block, done = quoted(lines, index)
+            found.append((heading, number, block))
     return found
 
 
@@ -186,14 +223,15 @@ def part_rules(name: str, documents: list[Path]) -> list[tuple[str, str]]:
     found = []
     for document in documents:
         lines = document.read_text().splitlines()
+        done = -1
         for number, line in enumerate(lines, 1):
-            if not wanted.search(line):
+            if number - 1 <= done or not wanted.search(line):
                 continue
-            text = line.strip()
+            text, done = quoted(lines, number - 1)
             # a rule's heading line ("**The held-face frame** is ...:") carries its
             # rule in the list under it: that list is the rule
             if text.startswith("**") or text.endswith(":"):
-                under = number
+                under = done + 1
                 while under < len(lines) and lines[under].lstrip().startswith(("- ", "* ")):
                     text += "\n      " + lines[under].strip()
                     under += 1
