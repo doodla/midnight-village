@@ -157,6 +157,20 @@ heartbeat, then the usual 25 s / 60 s).
 WebSocket connections close when the function reaches its max duration; the app already
 reconnects, which is a normal disconnect + connect to the presence rows.
 
+## Request limits
+
+Two requests are limited, both open to anyone without signing in: making a guest
+(`sign_up`, 60 a minute) and the players-online number (`online_stats`, 600 a minute).
+Nothing a table does in a game is limited. They are there to stop one runaway script
+filling the database with guests, not to police players: friends at a table share one
+address, so the allowance is several tables all retrying at once
+(`tests/core/test_request_limits.py` seats them). The count is per address, and the
+address is the one Vercel writes itself (`x-vercel-forwarded-for`). It counts only when it
+is exactly one valid address; anything else shares one allowance, so a made-up header
+buys nothing. An IPv6 caller is counted by network (/64). The count lives in each server
+instance's own memory, so under load the real ceiling is the allowance times the number
+of instances: good enough for its job, and no shared store is needed.
+
 ## Single process still assumed anywhere?
 
 Under `vercel_queue`: nothing. Under `memory` (dev, tests, harness, `just dev`): exactly one
