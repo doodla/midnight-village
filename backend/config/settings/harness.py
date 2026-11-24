@@ -12,8 +12,8 @@ two-window night closes as soon as every actor has submitted, and uses the
 DEBUG fire-timer hook or the host's advance-wave to close a window early. A
 scenario that wants the real window lengths passes the real values.
 
-NOTE: GuestCreateView hardcodes throttle_classes=[AnonRateThrottle] (scope "anon"),
-so we relax by raising the "anon" rate, not by clearing DEFAULT_THROTTLE_CLASSES.
+NOTE: GuestCreateView sets its own throttle (``SignUpThrottle``, scope "sign_up"),
+so we relax by raising that rate, not by clearing DEFAULT_THROTTLE_CLASSES.
 """
 
 from .development import *
@@ -26,9 +26,8 @@ from .development import DATABASES, REST_FRAMEWORK
 DATABASES["default"]["NAME"] = "midnight_village_harness"
 
 # Effectively disable rate limiting for the harness (high ceiling beats removing
-# the class, since the guest view sets throttle_classes explicitly).
+# the class, since the guest view sets its throttle explicitly).
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
-    "anon": "1000000/minute",
-    "user": "1000000/minute",
+    "sign_up": "1000000/minute",
     "online_stats": "1000000/minute",
 }

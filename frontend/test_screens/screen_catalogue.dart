@@ -223,8 +223,15 @@ final screenCatalogue = <ScreenEntry>[
     '': pumpYourCard,
     '-held': pumpYourCardHeld,
     '-held-minion': pumpYourCardHeldMinion,
+    '-held-doppelganger': (tester) =>
+        pumpYourCardHeldAs(tester, 'Doppelganger'),
+    // The Werewolf's three portraits, each held on the card.
+    for (final wolf in WerewolfPortrait.values)
+      '-held-werewolf-${wolf.name}': (tester) =>
+          _withWerewolf(wolf, () => pumpYourCardHeldAs(tester, 'Werewolf')),
     '-ready': const _NoMain(_done, pumpYourCardReady),
     '-x1.3': const _AtText(1.3, pumpYourCard),
+    '-held-minion-x1.6': const _AtText(1.6, pumpYourCardHeldMinion),
   }),
   ..._rebuilt('04-your-card', null, {
     '-waiting': const _NoMain(_waits, pumpYourCardWaiting),

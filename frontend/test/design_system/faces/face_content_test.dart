@@ -243,10 +243,15 @@ void main() {
     final face = FaceContent.roleText(RoleId.minion);
     final text = RoleText.of(RoleId.minion);
     expect(face.pages.single.name, 'Minion');
-    expect(face.pages.single.tag, 'Werewolf');
+    expect(face.pages.single.tag, 'Werewolf team');
+    expect(face.pages.single.rules?.role, text.role);
     expect(face.pages.single.lines, [
-      text.lines[1],
-      text.lines[2],
+      RoleCopy.nightLabel,
+      RoleCopy.minionNight,
+      RoleCopy.minionUnseen,
+      RoleCopy.winsLabel,
+      RoleCopy.minionWins,
+      RoleCopy.minionNoWerewolf,
       RoleCopy.shared,
     ]);
   });

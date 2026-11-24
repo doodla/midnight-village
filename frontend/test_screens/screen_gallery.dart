@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image/image.dart' as img;
 
 import '../test/helpers/truncated_text.dart';
 import 'reading_floor.dart';
@@ -119,11 +118,12 @@ Future<ScreenCapture> captureScreen(
 
 /// Writes [capture] for [entry] (and, when the entry has a mock, the
 /// side-by-side comparison). A capture without a picture writes nothing.
-ScreenResult saveScreen(
+Future<ScreenResult> saveScreen(
+  WidgetTester tester,
   ScreenEntry entry,
   ScreenCapture capture, {
   required int width,
-}) {
+}) async {
   final png = capture.png;
   if (png == null) return ScreenResult(capture, null);
   final dir = outputDir(width);
@@ -131,7 +131,8 @@ ScreenResult saveScreen(
     ..parent.createSync(recursive: true)
     ..writeAsBytesSync(png);
   if (entry.mock case final mock?) {
-    _writeComparison(
+    await _writeComparison(
+      tester,
       mock: File('$_mocksDir/$mock'),
       app: png,
       to: File('$dir/compare/${entry.id}.png'),
@@ -187,27 +188,49 @@ Future<Uint8List> _capturePng(WidgetTester tester) async {
 }
 
 /// The mock on the left, scaled to the app's height, and the app on the right.
-void _writeComparison({
+///
+/// Put together by the engine's own image code. (A pure-Dart image library
+/// did this before, and decoding, resizing and encoding took three quarters
+/// of a whole `just screens` run.)
+Future<void> _writeComparison(
+  WidgetTester tester, {
   required File mock,
   required Uint8List app,
   required File to,
-}) {
-  const gap = 24;
-  final appImage = img.decodePng(app)!;
-  final mockImage = img.copyResize(
-    img.decodePng(mock.readAsBytesSync())!,
-    height: appImage.height,
-    interpolation: img.Interpolation.cubic,
-  );
-  final canvas = img.Image(
-    width: mockImage.width + gap + appImage.width,
-    height: appImage.height,
-  )..clear(img.ColorRgb8(128, 128, 128));
-  img.compositeImage(canvas, mockImage);
-  img.compositeImage(canvas, appImage, dstX: mockImage.width + gap);
+}) async {
+  const gap = 24.0;
+  // Decoding and toImage only complete outside the fake test clock.
+  final png = await tester.runAsync(() async {
+    Future<ui.Image> decode(Uint8List bytes, {int? height}) async {
+      final codec = await ui.instantiateImageCodec(bytes, targetHeight: height);
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      return frame.image;
+    }
+
+    final appImage = await decode(app);
+    final mockImage = await decode(
+      mock.readAsBytesSync(),
+      height: appImage.height,
+    );
+    final width = mockImage.width + gap + appImage.width;
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder)
+      ..drawColor(const Color(0xFF808080), BlendMode.src)
+      ..drawImage(mockImage, Offset.zero, Paint())
+      ..drawImage(appImage, Offset(mockImage.width + gap, 0), Paint());
+    final picture = recorder.endRecording();
+    final sheet = await picture.toImage(width.toInt(), appImage.height);
+    final bytes = await sheet.toByteData(format: ui.ImageByteFormat.png);
+    for (final image in [appImage, mockImage, sheet]) {
+      image.dispose();
+    }
+    picture.dispose();
+    return bytes!.buffer.asUint8List();
+  });
   to
     ..parent.createSync(recursive: true)
-    ..writeAsBytesSync(img.encodePng(canvas));
+    ..writeAsBytesSync(png!);
 }
 
 /// The table printed at the end of a run: one line per entry of [entries]

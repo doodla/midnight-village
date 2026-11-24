@@ -25,6 +25,7 @@ import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 
 import 'harness_config.dart';
+import 'time_budget.dart';
 
 /// Boots the REAL widget tree against the harness backend for the UI runner
 /// (contract §D4), and captures `RepaintBoundary.toImage()` PNG filmstrips.
@@ -209,7 +210,7 @@ class UiHarness {
   }) async {
     container.listen(provider, (_, _) {});
     final waited = Stopwatch()..start();
-    while (waited.elapsed < const Duration(seconds: 20)) {
+    while (waited.elapsed < eventTimeout) {
       container.invalidate(provider);
       final round = Stopwatch()..start();
       while (round.elapsed < const Duration(seconds: 3)) {
@@ -248,14 +249,14 @@ class UiHarness {
         ..listen(liveGameProvider(gameId), (_, _) {});
       final waited = Stopwatch()..start();
       while (!container.read(myTableProvider).hasValue) {
-        if (waited.elapsed > const Duration(seconds: 15)) {
+        if (waited.elapsed > eventTimeout) {
           throw TimeoutException('/me/table/ did not load');
         }
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
       await container
           .read(liveGameProvider(gameId).future)
-          .timeout(const Duration(seconds: 15));
+          .timeout(eventTimeout);
     });
     container.read(appRouterProvider).go('/game/$gameId');
     await tester.pump();

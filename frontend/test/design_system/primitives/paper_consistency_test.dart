@@ -13,6 +13,7 @@ import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/primitives/chips.dart';
 import 'package:midnight_village/design_system/primitives/deckle.dart';
+import 'package:midnight_village/design_system/primitives/card_back_paper.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/paper_piece.dart';
 import 'package:midnight_village/design_system/primitives/progress_pips.dart';

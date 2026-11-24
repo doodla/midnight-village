@@ -3,9 +3,15 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 /// How long a wait may take for something the server does AT ONCE (an event
-/// sent in answer to a request, no timer involved). A wait for a timer takes
-/// [TimeBox.timeout] instead.
-const Duration eventTimeout = Duration(seconds: 10);
+/// sent in answer to a request, a read, no timer involved). A wait for a timer
+/// takes [TimeBox.timeout] instead.
+///
+/// The ONE ceiling of the harness: every wait polls its own condition and
+/// stops the moment it holds, so this costs nothing while tests pass. It is
+/// generous on purpose: a machine running other suites is slow, not broken
+/// (10 and 15 s ceilings failed runs that passed alone). No wait names a
+/// number of its own.
+const Duration eventTimeout = Duration(seconds: 30);
 
 /// Polls until [condition] holds. Bounded: throws a [StateError] naming
 /// [reason] (plus [context], if given) when [timeout] runs out. The one poller

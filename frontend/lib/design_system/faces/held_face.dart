@@ -7,7 +7,7 @@ import '../layout/space.dart';
 import '../primitives/art_picture.dart';
 import '../primitives/fit_line.dart';
 import '../primitives/paper_card.dart';
-import '../copy/role_text.dart';
+import '../primitives/role_rules.dart';
 import '../primitives/role_sheet_body.dart' show RoleHead;
 import '../skin/dress.dart';
 import '../skin/ground.dart';
@@ -27,8 +27,10 @@ import 'face_content.dart';
 /// and 08's My night.
 ///
 /// - [fill]: the face takes the whole box it is given (04: the card turns
-///   over in place, in the face-down card's own frame); the portrait takes
-///   what the words leave.
+///   over in place, in the face-down card's own frame, which takes the whole
+///   height between the screen's title and its foot); the words take what
+///   they need and the portrait the rest, its art whole in 3 by 4 as large
+///   as that allows, at most the card's inner width, centred.
 /// - Otherwise (a face drawn over the screen): as wide as it is given (most
 ///   of the screen: [widthFor]) and as tall as its words and a portrait of
 ///   its natural shape need, at most the height it is given; the portrait
@@ -38,9 +40,10 @@ import 'face_content.dart';
 /// the portrait less than [minPortraitShare] of the card's width, they step
 /// down to a compact type still at the reading floor (the name as a heading,
 /// the lines at 16); only when even that leaves too little is the whole card
-/// set smaller. The portrait is never a strip, and a short portrait is cut
-/// around the role's face (`ArtSet.portraitCrop`), never through it. Lines
-/// are balanced, so no paragraph ends on one word alone.
+/// set smaller. The portrait is never a strip, and a role's art is never
+/// cropped: it is shown whole in a window of its own shape, the paper beside
+/// it. The role's words are `RoleRules`. Lines are balanced, so no paragraph
+/// ends on one word alone.
 ///
 /// Hidden information: the words are left out of what a screen reader reads
 /// unless the player asked for them ([announce], the explicit activation).
@@ -74,10 +77,10 @@ class HeldFace extends StatelessWidget {
   /// A portrait's natural shape, height over width (S04: 318 over 286).
   static const portraitShape = 1.1;
 
-  /// The least of the card's width the portrait keeps (its height): enough
-  /// for any role's face, whole. The words step down first, then the whole
-  /// card is set smaller.
-  static const minPortraitShare = 0.55;
+  /// The least of the card's width the portrait keeps (its height): the
+  /// whole art (never cropped) still large enough to tell. The words step
+  /// down first, then the whole card is set smaller.
+  static const minPortraitShare = 0.46;
 
   /// The same with other pages stacked under the first: the first page's
   /// portrait gives up more, so the pages stay at the reading floor.
@@ -252,12 +255,15 @@ class _Words extends StatelessWidget {
               team: page.team,
               style: name.copyWith(color: ink),
             ),
-          for (final line in page.lines)
-            _Balanced(
-              line,
-              style: body.copyWith(color: ink),
-              strong: type.bodyStrong,
-            ),
+          if (page.rules case final rules?)
+            RoleRules(
+              rules,
+              body: body.copyWith(color: ink),
+              compact: compact,
+            )
+          else
+            for (final line in page.lines)
+              BalancedText(line, style: body.copyWith(color: ink)),
           for (final other in more) _PageRow(other),
         ],
       ),
@@ -323,47 +329,6 @@ class _PageRow extends StatelessWidget {
   }
 }
 
-/// A paragraph that never ends on one word alone (a widow): set at the full
-/// width, and only when its last line would hold a single word, as narrow
-/// as it can be in the same number of lines (CSS's `text-wrap: balance`),
-/// which brings a word or two down to keep it company.
-class _Balanced extends StatelessWidget {
-  const _Balanced(this.text, {required this.style, required this.strong});
-
-  final String text;
-  final TextStyle style;
-  final TextStyle strong;
-
-  @override
-  Widget build(BuildContext context) {
-    final scaler = MediaQuery.textScalerOf(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: RoleText.lineSpan(text, style, strong),
-          textScaler: scaler,
-          textDirection: Directionality.of(context),
-        );
-        final width = constraints.hasBoundedWidth
-            ? FitWords.widowFreeWidth(painter, constraints.maxWidth)
-            : null;
-        painter.dispose();
-        return Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: SizedBox(
-            // A hair over the measured width: the paragraph lays out as
-            // measured, whatever the rounding.
-            width: width == null
-                ? null
-                : math.min(constraints.maxWidth, width + 0.5),
-            child: Text.rich(RoleText.lineSpan(text, style, strong)),
-          ),
-        );
-      },
-    );
-  }
-}
-
 /// The face's portrait: a role, cut around its face; or the moon over the
 /// sleeping village (a page that saw no card).
 class _Portrait extends StatelessWidget {
@@ -378,7 +343,7 @@ class _Portrait extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final radius = BorderRadius.circular(skin.shape.radiusTiny);
-    return Container(
+    final framed = Container(
       // Dressed up the portrait has no frame (its shadow is its edge).
       foregroundDecoration: context.dress.isPaper
           ? null
@@ -391,22 +356,32 @@ class _Portrait extends StatelessWidget {
             ),
       child: ClipRRect(
         borderRadius: radius,
-        child: LayoutBuilder(
-          builder: (context, box) => switch (portrait) {
-            RoleFacePortrait(:final role) => ArtPicture(
-              context.roleArt(role),
-              focus: skin.art.portraitCrop(role, box.biggest),
-              decodeAt: HeldFace.portraitBox,
-            ),
-            MoonFacePortrait() => ArtPicture(
-              skin.art.sleepingVillage,
-              focus: moonFocus,
-              decodeAt: HeldFace.portraitBox,
-            ),
-          },
-        ),
+        child: switch (portrait) {
+          RoleFacePortrait(:final role) => ArtPicture(
+            context.roleArt(role),
+            decodeAt: HeldFace.portraitBox,
+          ),
+          MoonFacePortrait() => ArtPicture(
+            skin.art.sleepingVillage,
+            focus: moonFocus,
+            decodeAt: HeldFace.portraitBox,
+          ),
+        },
       ),
     );
+    // A role's art is never cropped (owner, 24 November 2026: "scale the
+    // image so the whole thing sits and showed in the frame"): its window
+    // takes the art's own shape, as large as the room allows, the paper
+    // showing beside it. The moon is a scene, cut around its moon.
+    return switch (portrait) {
+      RoleFacePortrait(:final role) => Center(
+        child: AspectRatio(
+          aspectRatio: context.roleArt(role).pixels.aspectRatio,
+          child: framed,
+        ),
+      ),
+      MoonFacePortrait() => framed,
+    };
   }
 }
 

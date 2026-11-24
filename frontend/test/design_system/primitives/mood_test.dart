@@ -15,6 +15,7 @@ import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
 import '../../helpers/painted_text.dart';
 import '../../helpers/pump_skinned.dart';
+import '../../helpers/real_wait.dart';
 
 // The mood is the ground under every dressed screen, so a word on it is read
 // against the lightest (or darkest) pixel it can really sit on: every pixel of
@@ -51,10 +52,11 @@ Future<Uint8List> _paint(
   );
   if (scene) {
     // The village's layers decode on real I/O; the picture takes them in.
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 800)),
+    await untilReal(
+      tester,
+      () => find.byType(RawImage).evaluate().isNotEmpty,
+      what: 'the mood\'s picture with the village in it',
     );
-    await tester.pump();
   }
   final boundary =
       key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
@@ -316,10 +318,11 @@ void main() {
       await tester.pumpWidget(
         _app(const Mood(kind: MoodKind.night, scene: true)),
       );
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 800)),
+      await untilReal(
+        tester,
+        () => Mood.composed == 1,
+        what: 'the mood made without its missing layer',
       );
-      await tester.pump();
       // Made, without the layer, and shown.
       expect(Mood.composed, 1);
       expect(find.byType(RawImage), findsOneWidget);

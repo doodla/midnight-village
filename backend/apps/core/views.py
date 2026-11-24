@@ -16,7 +16,6 @@ from rest_framework.generics import CreateAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -35,6 +34,7 @@ from .models import Lobby, LobbyMember, User
 from .name_generator import generate_display_name
 from .online import online_counts
 from .serializers import GuestCreateSerializer, LobbyCreateSerializer, LobbySerializer
+from .throttles import OnlineStatsThrottle, SignUpThrottle
 
 
 @api_view(["GET"])
@@ -60,7 +60,7 @@ class GuestCreateView(APIView):
     """Create a guest account with optional display name."""
 
     permission_classes = [AllowAny]
-    throttle_classes = [AnonRateThrottle]
+    throttle_classes = [SignUpThrottle]
 
     def post(self, request):
         serializer = GuestCreateSerializer(data=request.data)
@@ -528,12 +528,6 @@ class MyTableView(APIView):
 
     def get(self, request: Request) -> Response:
         return Response({"table": current_table(request.user.id)})  # type: ignore[misc]
-
-
-class OnlineStatsThrottle(AnonRateThrottle):
-    """Its own budget: the home screen polls this, guest sign-up must not pay for it."""
-
-    scope = "online_stats"
 
 
 class OnlineStatsView(APIView):

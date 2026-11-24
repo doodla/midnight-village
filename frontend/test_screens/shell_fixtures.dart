@@ -79,9 +79,14 @@ Future<void> pumpYourCardHeld(WidgetTester tester) async {
 
 /// 04 held on the Minion's phone: the longest role text. Game 9's deal
 /// (its deck holds the Minion), this phone dealt her (a value changed).
-Future<void> pumpYourCardHeldMinion(WidgetTester tester) async {
+Future<void> pumpYourCardHeldMinion(WidgetTester tester) =>
+    pumpYourCardHeldAs(tester, 'Minion');
+
+/// 04 held on the phone of whoever was dealt [role] (game 9's deal; a value
+/// changed), for the roles whose art or words are the widest cases.
+Future<void> pumpYourCardHeldAs(WidgetTester tester, String role) async {
   final me = sheet.recordedMe('me_auto_deck_9');
-  (me['your_role'] as Map<String, dynamic>)['original_role'] = 'Minion';
+  (me['your_role'] as Map<String, dynamic>)['original_role'] = role;
   await _shell(tester, me, learned: const {});
   await holdDown(tester, find.byType(FaceDownCard));
 }
