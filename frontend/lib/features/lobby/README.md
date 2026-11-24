@@ -199,8 +199,14 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   classifier every host action uses) is dropped and the lobby read again, never "Not
   sent." nor sent again; a change that never got an answer says "Not sent." with "Try
   again", which sends each such change again with only the keys no newer change has asked
-  for since (`_askedAt`), so it never undoes a newer value on the same key, answered or on
-  its way. A host role that moved says nothing. `TableSettings` reads the deck, the chip, the look and the number of players.
+  for since, so it never undoes a newer value on the same key, answered or on its way. A
+  host role that moved says nothing. The lane's rules are one pure value,
+  `domain/settings_lane.dart` (`SettingsLane`: the queue, the one change out, the pending
+  keys laid over the server's lobby, the lost changes and the one "Try again" slot shared
+  with the deal; unit tested in `test/features/lobby/domain/settings_lane_test.dart`, modelled
+  in `docs/dev/models/phone/lobby/`); `LobbyNotifier` is one class in two files:
+  `lobby_notifier.dart` what comes in (reads, socket, host moving) and `lobby_taps.dart`
+  what goes out (the taps, the requests one after another, "Try again", the deal, leaving). `TableSettings` reads the deck, the chip, the look and the number of players.
 - **Tests.** `test/features/lobby/` (`table_screens_test.dart` drives the screens through the
   routes on recorded lobby bodies, `test/helpers/table_setup.dart`: each chip's cards, a deck
   one card short, a player joining, a phone dropping and coming back, the 409; the deal's

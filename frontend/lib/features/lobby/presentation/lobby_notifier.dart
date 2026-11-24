@@ -16,9 +16,11 @@ import '../../../design_system/primitives/pending.dart' show RequestRefused;
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
+import '../domain/settings_lane.dart';
 import 'where_am_i_provider.dart';
 
 part 'lobby_notifier.g.dart';
+part 'lobby_taps.dart';
 
 /// A leave the server refused, with the words to show ([why]): never "Not
 /// sent.", which is only for a leave that did not reach the server.
@@ -105,7 +107,7 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 @Riverpod(retry: retryForever)
-class LobbyNotifier extends _$LobbyNotifier {
+class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   StreamSubscription<dynamic>? _wsSubscription;
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
   Timer? _noticeTimer;
@@ -140,55 +142,19 @@ class LobbyNotifier extends _$LobbyNotifier {
     }
   }
 
-  /// The host's changes on the settings lane (settings and practice), sent
-  /// one at a time in the order tapped and not answered yet, oldest first.
-  /// What the screen shows is the server's lobby with ALL of these over it,
-  /// as the server will apply them, so a tap shows at once, an event or a
-  /// refetch meanwhile never takes it back, and nothing judged from the
-  /// server's numbers (Deal, the seats, the practice limit) goes around one
-  /// ([LobbyState.pendingKeys]: `settling`).
-  final List<_Change> _pending = [];
-  Future<void> _settingsQueue = Future.value();
+  /// The host's changes on the settings lane (settings and practice): what
+  /// is asked and not answered, the one out, the changes that got no answer
+  /// and the one "Try again" slot ([SettingsLane]; sent by [_LobbyTaps]).
+  /// What the screen shows is the server's lobby with ALL pending changes
+  /// over it ([SettingsLane.over]), as the server will apply them, so a tap
+  /// shows at once, an event or a refetch meanwhile never takes it back, and
+  /// nothing judged from the server's numbers (Deal, the seats, the practice
+  /// limit) goes around one ([LobbyState.pendingKeys]: `settling`).
+  @override
+  SettingsLane _lane = SettingsLane.empty;
 
-  /// The number of the newest change asked, and per key the number of the
-  /// newest change that asked for it: a change sent again by "Try again"
-  /// keeps only the keys nothing newer has asked for, so it never undoes a
-  /// newer change on the same key (one that got through, or one on its way).
-  int _asked = 0;
-  final Map<String, int> _askedAt = {};
-
-  /// Changes that did not reach the server, oldest first ("Try again").
-  final List<_Change> _unsent = [];
-
-  /// What "Try again" does: the changes not sent, or the deal.
-  Future<void> Function()? _retry;
-
-  void _show(LobbyState server) => state = AsyncData(_withPending(server));
-
-  LobbyState _withPending(LobbyState lobby) {
-    var shown = lobby;
-    PracticeAsk? practice;
-    for (final change in _pending) {
-      switch (change) {
-        case _SettingsChange(:final patch):
-          shown = _mergeSettings(shown, patch);
-        case _PracticeChange(:final ask):
-          practice = (practice ?? const PracticeAsk()).then(ask);
-      }
-    }
-    return shown.copyWith(
-      pendingKeys: {for (final c in _pending) ...c.keys},
-      practiceAsk: practice,
-    );
-  }
-
-  static LobbyState _mergeSettings(LobbyState lobby, Map<String, Object?> p) =>
-      lobby.copyWith(
-        table: lobby.table.merged(p),
-        roleConfig: p['roles'] is Map<String, int>
-            ? p['roles']! as Map<String, int>
-            : lobby.roleConfig,
-      );
+  @override
+  void _show(LobbyState server) => state = AsyncData(_lane.over(server));
 
   /// The game ID from a `game_started` event. Consumers watch this to navigate.
   String? gameId;
@@ -321,6 +287,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// Reads the lobby again from the server. The host (the effective host) is
   /// whatever the server says, so a missed `host_changed` heals here. Calls
   /// made while a fetch is in flight share it, then run once more.
+  @override
   Future<void> refreshLobby() {
     if (!ref.mounted || state.value == null) return Future.value();
     final running = _refreshing;
@@ -376,6 +343,7 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   /// A freshly fetched lobby, keeping what only this phone knows: the game it
   /// has been told to open and the host lines.
+  @override
   LobbyState _adopt(LobbyState fresh) {
     final current = state.value;
     if (current == null) return fresh;
@@ -425,6 +393,7 @@ class LobbyNotifier extends _$LobbyNotifier {
   /// Runs a host-only call. A 403 means the role has just moved: the lobby is
   /// read again, a plain line says so, and [NoLongerHostException] is thrown
   /// (instead of an error dump).
+  @override
   Future<T> _hostAction<T>(Future<T> Function() call) async {
     try {
       return await call();
@@ -475,6 +444,7 @@ class LobbyNotifier extends _$LobbyNotifier {
 
   /// Records the started game and flips the table to in-game so listeners
   /// (the lobby screen) open it.
+  @override
   void _applyStartedGame(String id) {
     gameId = id;
     final current = _current;
@@ -493,203 +463,6 @@ class LobbyNotifier extends _$LobbyNotifier {
       if (id != null && ref.mounted && gameId == null) _applyStartedGame(id);
     } catch (e) {
       logger.d('Could not look up the running game ($e)');
-    }
-  }
-
-  // --- Public methods for user actions ---
-
-  /// The host picks a deck chip: the server builds that deck at the deal.
-  Future<void> chooseChip(DeckChip chip) =>
-      _changeSettings(LobbyService.deckChip(chip));
-
-  /// The host's own card list (the server's `deal` says whether it fits).
-  Future<void> useCustomDeck(Map<String, int> roles) =>
-      _changeSettings(LobbyService.customDeck(roles));
-
-  /// The host sets how many players the game is for (3 to 10), or opens the
-  /// table to whoever comes (null; offered only with an automatic deck, so a
-  /// deck of the host's own is never quietly dropped).
-  Future<void> setSeats(int? seats) => _changeSettings({'seats': seats});
-
-  /// The host starts a custom deck from [roles] (the deck shown), for
-  /// [seats] players when the table is open (a custom deck is built for a
-  /// number).
-  Future<void> startCustomDeck(Map<String, int> roles, {int? seats}) =>
-      _changeSettings({...LobbyService.customDeck(roles), 'seats': ?seats});
-
-  /// One tap on the grid: the custom deck as it now stands, stored at once
-  /// (the server's `deal` says whether it fits).
-  Future<void> setRoles(Map<String, int> roles) =>
-      _changeSettings({'roles': roles});
-
-  /// One length on the set-up page (a settings key, in seconds).
-  Future<void> setLength(String key, int seconds) =>
-      _changeSettings({key: seconds});
-
-  /// The host's hold on 03's word "Players", the hidden switch: practice
-  /// players on for this table; once on, with none seated, off again (the row
-  /// goes). With some seated a hold does nothing: they are taken away one by
-  /// one with the minus, so a thumb resting on the word never removes
-  /// everyone.
-  Future<void> togglePractice() {
-    final lobby = state.value;
-    if (lobby == null) return Future.value();
-    if (!lobby.practiceOn) {
-      return _change((n) => _PracticeChange(const PracticeAsk(on: true), n));
-    }
-    if (lobby.practiceCount > 0) return Future.value();
-    return _change((n) => _PracticeChange(const PracticeAsk(on: false), n));
-  }
-
-  /// How many practice players sit at the table (03's Practice stepper).
-  Future<void> setPracticeCount(int count) =>
-      _change((n) => _PracticeChange(PracticeAsk(count: count), n));
-
-  /// Sends [patch] on the settings lane ([_change]).
-  Future<void> _changeSettings(Map<String, Object?> patch) =>
-      _change((n) => _SettingsChange(patch, n));
-
-  /// Shows a change at once (over the server's lobby, with every change
-  /// before it) and sends it after them, one at a time, in the order tapped.
-  /// The answer is the server's lobby; a refusal drops it and reads the lobby
-  /// again (nothing to send again); no answer says "Not sent." with "Try
-  /// again" ([_resendUnsent]). [make] takes the change's number.
-  Future<void> _change(_Change Function(int number) make) {
-    final lobby = state.value;
-    if (lobby == null) return Future.value();
-    final change = make(++_asked);
-    for (final key in change.keys) {
-      _askedAt[key] = change.number;
-    }
-    _pending.add(change);
-    _show(lobby.copyWith(notSent: false));
-    return _settingsQueue = _settingsQueue.then((_) => _send(change));
-  }
-
-  Future<void> _send(_Change change) async {
-    // The table was left while this waited its turn: nothing to send.
-    if (!ref.mounted) return;
-    final service = ref.read(lobbyServiceProvider);
-    try {
-      final answer = await _hostAction(
-        () => playerRequest(
-          (door) => switch (change) {
-            _SettingsChange(:final patch) => service.patchSettings(
-              door,
-              code,
-              patch,
-            ),
-            _PracticeChange(:final ask) => service.setPractice(
-              door,
-              code,
-              on: ask.on,
-              count: ask.count,
-            ),
-          },
-        ),
-      );
-      if (!ref.mounted) return;
-      _pending.remove(change);
-      // The answer is the server's lobby with this change; what is still on
-      // its way goes over it.
-      _show(_adopt(answer));
-    } on NoLongerHostException {
-      // The role moved: the lobby was read again and this phone is a guest
-      // now, which its screen shows with no words.
-      _pending.remove(change);
-      if (ref.mounted) await refreshLobby();
-    } catch (e) {
-      if (!ref.mounted) return;
-      _pending.remove(change);
-      if (serverAnswered(e)) {
-        // An answer, not a loss: the server refused this change (the table
-        // moved under it: someone joined, another length changed first, the
-        // seats filled). It is dropped and the lobby read again.
-        logger.d('Change refused ($e)');
-        await refreshLobby();
-        return;
-      }
-      logger.d('Change not sent ($e)');
-      _unsent.add(change);
-      _retry = _resendUnsent;
-      final now = state.value;
-      if (now != null) {
-        state = AsyncData(_withPending(now).copyWith(notSent: true));
-      }
-      await refreshLobby();
-    }
-  }
-
-  /// "Try again" for changes not sent: each sent again with only the keys no
-  /// newer change has asked for since ([_askedAt]), so a newer value on the
-  /// same key, answered or on its way, is never undone; a change with
-  /// nothing left is not sent.
-  Future<void> _resendUnsent() async {
-    final unsent = [..._unsent];
-    _unsent.clear();
-    Future<void> last = Future.value();
-    for (final change in unsent) {
-      final keep = {
-        for (final key in change.keys)
-          if (_askedAt[key] == change.number) key,
-      };
-      if (keep.isEmpty) continue;
-      last = _change((n) => change.only(keep, n));
-    }
-    await last;
-  }
-
-  /// "Try again" after "Not sent.": the change (or the deal) that failed.
-  Future<void> retry() async {
-    final again = _retry;
-    _retry = null;
-    final now = state.value;
-    if (now != null) {
-      state = AsyncData(now.copyWith(notSent: false, dealRefused: null));
-    }
-    if (again != null) await again();
-  }
-
-  /// Deals (host only): the game id, or null when the deal did not happen.
-  /// No answer: "Not sent." with "Try again". A refusal: why, in the
-  /// player's words ([dealRefusal]), never a bare "Not sent.". A host role
-  /// that moved meanwhile says nothing: the screen is a guest's now.
-  Future<String?> deal() async {
-    final before = state.value;
-    if (before != null && before.dealRefused != null) {
-      state = AsyncData(before.copyWith(dealRefused: null));
-    }
-    try {
-      final id = await startGame();
-      _retry = null;
-      // The deal worked. 02's Deal stays busy (the caller's busy lasts as
-      // long as this call) until `/me/table/` names the next screen, so the
-      // button is never live again in the gap between the answer and the
-      // dusk. (`startGame` has made the table's game known, which has the
-      // table read again; a phone that listens to no table, or a read that
-      // is not wanted, waits for nothing.)
-      // A read that is failing frees the button all the same (the screen
-      // says "One moment" over the table while it is).
-      if (ref.mounted && ref.exists(myTableProvider)) {
-        await readAnswered(ref, myTableProvider);
-      }
-      return id;
-    } on NoLongerHostException {
-      return null;
-    } catch (e) {
-      if (!ref.mounted) return null;
-      final now = state.value;
-      final refusal = dealRefusal(e);
-      _retry = refusal.answered ? null : deal;
-      if (now != null) {
-        state = AsyncData(
-          now.copyWith(notSent: !refusal.answered, dealRefused: refusal.why),
-        );
-      }
-      // The table's new verdict sets the button (the screen keeps it busy
-      // until it is read).
-      if (refusal.answered) await refreshLobby();
-      return null;
     }
   }
 
@@ -739,62 +512,6 @@ class LobbyNotifier extends _$LobbyNotifier {
     r'^(Total role count|Masons must|Unknown role|Count for|.* requires at least|.* allows at most)',
   );
 
-  /// Starts the game (host only).
-  ///
-  /// Returns the game ID on success.
-  Future<String> startGame() async {
-    try {
-      final service = ref.read(lobbyServiceProvider);
-      final id = await _hostAction(
-        () => playerRequest((door) => service.startGame(door, code)),
-      );
-      // The host does not have to wait for the lobby event to open the game.
-      if (ref.mounted) _applyStartedGame(id);
-      return id;
-    } catch (e, stack) {
-      logger.e('Error starting game', error: e, stackTrace: stack);
-      rethrow;
-    }
-  }
-
-  /// Leaves the table. Done when the server says so, and also when it says
-  /// this phone is not at the table (an earlier tap reached it: a slow answer
-  /// and "Try again", a second tap) or that the table is gone (the last one
-  /// out closed it). With no answer at all, where the server says this phone
-  /// sits decides: off this table is done. Throws [LeaveRefused] with the
-  /// words to show for a refusal (the table started playing), and the error
-  /// only when this phone is still at the table and the server could not be
-  /// asked ("Not sent.").
-  Future<void> leave() async {
-    final service = ref.read(lobbyServiceProvider);
-    try {
-      await playerRequest((door) => service.leaveLobby(door, code));
-    } catch (e) {
-      // Already off the table: an earlier leave got there, or the table is
-      // gone (the last one out closed it).
-      if (e is NotFoundException ||
-          (e is ValidationException && e.code == _notAMember)) {
-        return;
-      }
-      if (serverAnswered(e)) {
-        logger.w('Leave refused: $e');
-        throw LeaveRefused(
-          e is UnhandledHttpException && e.statusCode == 409
-              ? BannerCopy.lobbyClosed
-              : BannerCopy.cannotLeave,
-        );
-      }
-      // No answer: did it get there anyway? The server says where we sit.
-      logger.w('Leave not answered: $e');
-      final where = await service.fetchMyTable();
-      if (where?.lobbyCode != code) return;
-      rethrow;
-    }
-  }
-
-  /// The server's code for a leave from a table this player is not at.
-  static const _notAMember = 'not_in_lobby';
-
   void _dispose() {
     _noticeTimer?.cancel();
     _connectionSubscription?.cancel();
@@ -804,48 +521,4 @@ class LobbyNotifier extends _$LobbyNotifier {
     _wsSubscription = null;
     _webSocket = null;
   }
-}
-
-/// One change of the host's on the settings lane, numbered in the order
-/// asked ([number]).
-sealed class _Change {
-  const _Change(this.number);
-
-  final int number;
-
-  /// The settings keys it changes.
-  Set<String> get keys;
-
-  /// The same change with only [keep] of its keys (never empty), numbered
-  /// [number].
-  _Change only(Set<String> keep, int number);
-}
-
-/// A `PATCH /lobbies/<code>/` of [patch].
-final class _SettingsChange extends _Change {
-  const _SettingsChange(this.patch, super.number);
-
-  final Map<String, Object?> patch;
-
-  @override
-  Set<String> get keys => patch.keys.toSet();
-
-  @override
-  _Change only(Set<String> keep, int number) => _SettingsChange({
-    for (final MapEntry(:key, :value) in patch.entries)
-      if (keep.contains(key)) key: value,
-  }, number);
-}
-
-/// A `POST /lobbies/<code>/practice/` of [ask].
-final class _PracticeChange extends _Change {
-  const _PracticeChange(this.ask, super.number);
-
-  final PracticeAsk ask;
-
-  @override
-  Set<String> get keys => const {PracticeAsk.key};
-
-  @override
-  _Change only(Set<String> keep, int number) => _PracticeChange(ask, number);
 }
