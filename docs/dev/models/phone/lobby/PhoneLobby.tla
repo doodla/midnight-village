@@ -20,7 +20,10 @@
 EXTENDS Naturals, Sequences, FiniteSets, TLC
 
 CONSTANTS MaxTaps, MaxFaults, MaxJoins, MaxDeals,
-          LATE  \* a request that got no answer in time may still reach the server later (#16)
+          LATE, \* a request that got no answer in time may still reach the server later (#16)
+          FIX_ASKED \* every change carries the time of its tap (`asked`) and the server drops a
+                   \* key whose stored ask is newer (#16, the server's half; the phone does not
+                   \* send it yet, so FALSE is the phone of today)
 
 Keys == {"deck", "seats", "prac"}
 \* one tap: the seats; a custom deck with its seats (startCustomDeck); practice
@@ -72,10 +75,14 @@ Answer(r, ans, lob) == rep' = IF r.live THEN {[n |-> r.n, ans |-> ans, lob |-> l
 SApply(r) ==
   /\ reqs' = reqs \ {r}
   /\ IF sDealt THEN Answer(r, "refused", sv) /\ UNCHANGED <<sv, badOrder, evq>>
-     ELSE LET nv == [k \in Keys |-> IF k \in r.keys THEN r.v ELSE sv[k]] IN
-          /\ sv' = nv /\ Answer(r, "taken", nv)
-          /\ badOrder' = (badOrder \/ \E k \in r.keys : r.v < sv[k])
-          /\ evq' = IF sock = "up" THEN Append(evq, [t |-> "upd", lob |-> nv]) ELSE evq
+     ELSE \* a value here IS the order it was asked in (v), so "the stored ask is newer" is
+          \* sv[k] > r.v; all keys stale: 409 stale_request, nothing stored, nothing broadcast
+          LET keep == IF FIX_ASKED THEN {k \in r.keys : r.v >= sv[k]} ELSE r.keys
+              nv == [k \in Keys |-> IF k \in keep THEN r.v ELSE sv[k]] IN
+          IF keep = {} THEN Answer(r, "refused", sv) /\ UNCHANGED <<sv, badOrder, evq>>
+          ELSE /\ sv' = nv /\ Answer(r, "taken", nv)
+               /\ badOrder' = (badOrder \/ \E k \in keep : r.v < sv[k])
+               /\ evq' = IF sock = "up" THEN Append(evq, [t |-> "upd", lob |-> nv]) ELSE evq
   /\ UNCHANGED <<sDealt, sock, joins, q, phase, shown, notSent, laneVars, readVars,
                  dq, pDealt, deals, histVars, taps, faults>>
 \* a 4xx: the table moved under the change (someone joined, the seats filled)

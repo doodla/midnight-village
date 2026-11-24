@@ -8,7 +8,7 @@
 J=${TLA2TOOLS:?set TLA2TOOLS to the path of tla2tools.jar}
 cd "$(dirname "$0")" || exit 1
 out=$(mktemp -d)
-names=${*:-"lobby known_a known_b known_b2 known_c known_late"}
+names=${*:-"lobby late known_a known_b known_b2 known_c known_late"}
 bad=0
 for n in $names; do
   s=$(date +%s)
