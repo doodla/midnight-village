@@ -1,14 +1,14 @@
 #!/bin/sh
 # Runs every configuration of PhoneLobby and checks each ends as recorded:
-# lobby.cfg holds every rule; each known_*.cfg is a KNOWN gap (README.md) and
+# lobby.cfg, heal.cfg and each rule_*.cfg hold their rules; each known_*.cfg is a KNOWN gap (README.md) and
 # must still break its rule. Exit 1 when any run ends otherwise (a gap closed:
-# move its rule into lobby.cfg; a new break: a finding). TLC logs go to a
+# rename it rule_<name>.cfg; a new break: a finding). TLC logs go to a
 # temporary folder; the summary to stdout.
 # usage: TLA2TOOLS=/path/to/tla2tools.jar ./runlobby.sh [name...]
 J=${TLA2TOOLS:?set TLA2TOOLS to the path of tla2tools.jar}
 cd "$(dirname "$0")" || exit 1
 out=$(mktemp -d)
-names=${*:-"lobby known_a known_b known_b2 known_c known_late"}
+names=${*:-"lobby rule_a rule_b rule_b2 rule_c heal known_late known_converge"}
 bad=0
 for n in $names; do
   s=$(date +%s)

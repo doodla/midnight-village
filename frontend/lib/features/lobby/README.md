@@ -199,12 +199,19 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   classifier every host action uses) is dropped and the lobby read again, never "Not
   sent." nor sent again; a change that never got an answer says "Not sent." with "Try
   again", which sends each such change again with only the keys no newer change has asked
-  for since, so it never undoes a newer value on the same key, answered or on its way. A
-  host role that moved says nothing. The lane's rules are one pure value,
-  `domain/settings_lane.dart` (`SettingsLane`: the queue, the one change out, the pending
-  keys laid over the server's lobby, the lost changes and the one "Try again" slot shared
-  with the deal; unit tested in `test/features/lobby/domain/settings_lane_test.dart`, modelled
-  in `docs/dev/models/phone/lobby/`); `LobbyNotifier` is one class in two files:
+  for since, so it never undoes a newer value on the same key, answered or on its way.
+  "Not sent." is derived from the lane, never stored: it shows exactly while such a change
+  waits (a tap on another key never hides it) or the deal did not go. An answered change
+  stays laid over the screen until nothing older can land (no read asked before its answer
+  is out, and its own `lobby_update` has come or the socket dropped), so a setting never
+  jumps back. A deal goes behind the lane: every lost change is sent again first, and one
+  of them lost or refused, or a refused value still on screen, keeps the deal back ("Not
+  sent."); "Try again" redoes every lost change and then the deal. A host role that moved
+  says nothing. The lane's rules are one pure value, `domain/settings_lane.dart`
+  (`SettingsLane`: the queue, the one change out, the answered changes still laid, the lost
+  changes, the deal behind them; unit tested in
+  `test/features/lobby/domain/settings_lane_test.dart`, modelled in
+  `docs/dev/models/phone/lobby/`); `LobbyNotifier` is one class in two files:
   `lobby_notifier.dart` what comes in (reads, socket, host moving) and `lobby_taps.dart`
   what goes out (the taps, the requests one after another, "Try again", the deal, leaving). `TableSettings` reads the deck, the chip, the look and the number of players.
 - **Tests.** `test/features/lobby/` (`table_screens_test.dart` drives the screens through the

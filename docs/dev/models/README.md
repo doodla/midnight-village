@@ -40,4 +40,4 @@ requests, answers, lost messages, timers and restarts inside a small bound.
 |---|---|---|---|
 | `night2/` | Server: a whole protocol-2 game, three phones | A resent Doppelganger look read as her follow-up | `fb229fb` |
 | `phone/` | One phone: the night board and the talk-to-next-game lanes | F1-F6 (stuck fetches, turn read from `kind`, results never loaded, lost play again) | `303f1df` |
-| `phone/lobby/` | The host's phone in the lobby: the settings lane, reads, socket, the shared "Try again" | Known gaps: a read crossing an answer flicks a setting back; a new tap hides "Not sent."; a lost deal takes the one "Try again"; a late request overtakes (#16) | not yet (known gaps) |
+| `phone/lobby/` | The host's phone in the lobby: the settings lane, reads, socket, "Not sent." and "Try again", the deal | A read crossing an answer flicks a setting back; a new tap hides "Not sent."; a lost deal takes the one "Try again"; still open: a late request overtakes (#16), a refused value kept by a failed read | gaps a, b, b2, c: branch `lobby-lane-gaps` |

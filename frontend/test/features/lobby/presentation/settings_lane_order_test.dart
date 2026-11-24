@@ -19,8 +19,8 @@ import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/mock_websocket.dart';
 
 // The lobby's settings lane (`lobby_notifier.dart`: `_change`, `_send`,
-// `_resendUnsent`, `retry`, `deal`) as it is TODAY, pinned so that lifting it
-// into a pure value changes nothing. The rules are the model's:
+// `_resendUnsent`, `retry`, `deal`; the lane's rules in `SettingsLane`) against
+// a stand-in server. The rules are the model's:
 // `docs/dev/models/phone/lobby/README.md` (`PhoneLobby.tla`).
 //
 // What is pinned here (and not elsewhere; `practice_players_test` pins + + −
@@ -34,10 +34,10 @@ import '../../../helpers/mock_websocket.dart';
 //   the refused or lost value stays shown until that read lands;
 // - "Try again" goes at the back of the queue, trimmed to the keys nothing
 //   newer asked for;
-// - the deal shares the one "Try again" slot; an answered deal empties it;
+// - a deal goes behind the lane: a lost change is sent again first;
 // - the host role moving mid-queue, and the table left with changes queued.
-// And the model's KNOWN gaps a, b (b2) and c, each as it behaves today: the
-// fix flips the one assertion marked KNOWN GAP.
+// And the model's gaps a, b (b2) and c, each on the trace that showed it,
+// now closed (each test names its rule and its run, `rule_*.cfg`).
 //
 // The stand-in server holds every request until the test answers it, so the
 // order of everything is the test's: payloads from `contract_samples/`.
@@ -416,8 +416,9 @@ void main() {
       expect(t.shown.table.seats, 7);
     });
 
-    test('the deal shares the one slot: a deal answered (taken or refused) '
-        'empties it, so Try again then sends nothing', () async {
+    test('a deal after a lost change sends the change again first, then the '
+        'deal; once both are answered (taken or refused) Try again sends '
+        'nothing', () async {
       for (final refused in [false, true]) {
         final t = await _Lane.open();
         unawaited(t.notifier.setSeats(5));
@@ -427,25 +428,29 @@ void main() {
 
         final dealt = t.notifier.deal();
         await _drain();
+        expect(t.theOneOut.body, {'seats': 5}, reason: 'the change first');
+        expect(t.shown.notSent, isFalse);
+        await t.take();
+        expect(t.theOneOut.what, 'DEAL');
         refused ? await t.refuse() : await t.take();
         await dealt;
-        // A refused deal says why and takes "Not sent." away. A taken deal
-        // leaves the line as it was (the game opens over it).
-        expect(t.shown.notSent, !refused, reason: 'refused: $refused');
+        // A refused deal says why; nothing is "Not sent." either way.
+        expect(t.shown.notSent, isFalse, reason: 'refused: $refused');
         if (refused) expect(t.shown.dealRefused, isNotNull);
 
         final before = t.sent.length;
         await t.notifier.retry();
         await _drain();
         expect(t.sent.length, before, reason: 'refused: $refused');
+        expect(t.settings['seats'], 5);
       }
     });
   });
 
-  group('KNOWN GAPS (docs/dev/models/phone/lobby/README.md): today\'s '
-      'behaviour; the fix flips the assertion marked KNOWN GAP', () {
-    test('KNOWN GAP (a), known_a.cfg: a read that crosses an answer shows '
-        'the old value until the next lobby_update', () async {
+  group('the model\'s gaps a, b, b2 and c, closed '
+      '(docs/dev/models/phone/lobby/README.md)', () {
+    test('(a) NoFlickerBack, rule_a.cfg: a read that crosses an answer never '
+        'shows the old value', () async {
       final t = await _Lane.open();
       t.holdReads = true;
       unawaited(t.notifier.setSeats(5));
@@ -458,17 +463,43 @@ void main() {
       expect(t.shown.table.seats, 5, reason: 'the answer');
 
       await t.landRead();
-      // KNOWN GAP (NoFlickerBack): the read served before the answer shows
-      // the old count. Fixed, this is 5.
-      expect(t.shown.table.seats, 4);
+      // The read was asked before the answer: the answer stays over it.
+      expect(t.shown.table.seats, 5);
+      expect(t.shown.settling, isFalse, reason: 'answered: Deal is live');
 
-      // It heals when the change's lobby_update arrives.
       await t.lobbyUpdate();
       expect(t.shown.table.seats, 5);
     });
 
-    test('KNOWN GAP (b), known_b.cfg: a new tap hides "Not sent." while the '
-        'lost change still waits for Try again', () async {
+    test('(a) NoFlickerBack, rule_a.cfg: the socket alone: the first tap\'s '
+        'lobby_update after the second tap\'s answer never shows the first '
+        'count', () async {
+      final t = await _Lane.open();
+      unawaited(t.notifier.setSeats(5));
+      unawaited(t.notifier.setSeats(6));
+      await _drain();
+      await t.take();
+      final first = t.json();
+      await t.take();
+      expect(t.shown.table.seats, 6);
+      t.ws.addServerEvent(
+        withValues(ContractSamples.map('ws/lobby/lobby_update'), {
+          'data': first,
+        }),
+      );
+      await _drain();
+      expect(t.shown.table.seats, 6, reason: 'the 5 is older than the answer');
+      // The second tap's own update: nothing older can come; the server's
+      // lobby shows as it is from here on.
+      await t.lobbyUpdate();
+      expect(t.shown.table.seats, 6);
+      t.settings['seats'] = 7;
+      await t.lobbyUpdate();
+      expect(t.shown.table.seats, 7);
+    });
+
+    test('(b) LostFlagged, rule_b.cfg: a new tap on another key leaves "Not '
+        'sent." while the lost change still waits for Try again', () async {
       final t = await _Lane.open();
       t.holdReads = true;
       unawaited(t.notifier.setSeats(5));
@@ -479,66 +510,91 @@ void main() {
 
       unawaited(t.notifier.togglePractice());
       await _drain();
-      // KNOWN GAP (LostFlagged): the lost count is still shown and Try again
-      // would still send it, with no word. Fixed, this is true.
-      expect(t.shown.notSent, isFalse);
+      expect(t.shown.notSent, isTrue);
       expect(t.shown.table.seats, 5);
 
       await t.landRead();
-      expect(t.shown.table.seats, 4, reason: 'flips back, still unsaid');
-      expect(t.shown.notSent, isFalse);
+      expect(t.shown.table.seats, 4, reason: "the server's, from the read");
+      expect(t.shown.notSent, isTrue, reason: 'still said, with Try again');
     });
 
-    test('KNOWN GAP (b2), known_b2.cfg: Try again sends a change whose '
-        '"Not sent." a later tap took away', () async {
+    test('(b2) NoHiddenResend, rule_b2.cfg: Try again sends a lost change '
+        'only while "Not sent." showed for it', () async {
       final t = await _Lane.open();
       unawaited(t.notifier.setSeats(5));
       await _drain();
       await t.lose();
       unawaited(t.notifier.togglePractice());
       await _drain();
-      expect(t.shown.notSent, isFalse);
-      await t.lose(); // practice is lost too: "Not sent." again
+      expect(t.shown.notSent, isTrue, reason: 'never hidden by the new tap');
+      await t.lose(); // practice is lost too
       expect(t.shown.notSent, isTrue);
 
       unawaited(t.notifier.retry());
       await _drain();
       await t.take();
       await t.take();
-      // KNOWN GAP (NoHiddenResend): the seats the host saw undone are sent
-      // again (oldest first). Fixed, only the practice switch is.
+      // Both were said all along: both go again, oldest first.
       expect(t.log.skip(2), [
         _patch({'seats': 5}),
         _practice({'on': true}),
       ]);
       expect(t.settings['seats'], 5);
+      expect(t.shown.notSent, isFalse);
     });
 
-    test('KNOWN GAP (c), known_c.cfg: a lost deal after a lost change: Try '
-        'again redoes only the deal', () async {
+    test(
+      '(c) RetryCoversAll, DealAsShown, rule_c.cfg: a lost change, then a '
+      'deal that did not go: Try again redoes both, the change first',
+      () async {
+        final t = await _Lane.open();
+        unawaited(t.notifier.setSeats(5));
+        await _drain();
+        await t.lose();
+        expect(t.shown.settling, isFalse, reason: 'Deal is live');
+
+        final dealt = t.notifier.deal();
+        await _drain();
+        expect(t.shown.table.seats, 5, reason: 'shown at once, as dealt');
+        await t.lose(); // the change, sent again first, is lost again
+        expect(await dealt, isNull, reason: 'the deal never went past it');
+        expect(t.shown.notSent, isTrue);
+
+        final again = t.notifier.retry();
+        await _drain();
+        await t.take();
+        await t.take();
+        await again;
+        expect(t.log, [
+          _patch({'seats': 5}),
+          _patch({'seats': 5}),
+          _patch({'seats': 5}),
+          'DEAL {}',
+        ]);
+        expect(t.settings['seats'], 5, reason: 'dealt as shown');
+      },
+    );
+
+    test('(c) DealAsShown: a refused value still on screen keeps the deal '
+        'back ("Not sent."); Try again after the read deals', () async {
       final t = await _Lane.open();
+      t.holdReads = true;
       unawaited(t.notifier.setSeats(5));
       await _drain();
-      await t.lose();
-      expect(t.shown.settling, isFalse, reason: 'Deal is live');
+      await t.refuse();
+      expect(t.shown.table.seats, 5, reason: 'until the read lands');
 
-      final dealt = t.notifier.deal();
-      await _drain();
-      await t.lose();
-      expect(await dealt, isNull);
+      expect(await t.notifier.deal(), isNull);
+      expect(t.out, isEmpty, reason: 'no deal past the refused 5');
       expect(t.shown.notSent, isTrue);
 
+      await t.landRead();
+      expect(t.shown.table.seats, 4);
       final again = t.notifier.retry();
       await _drain();
+      expect(t.theOneOut.what, 'DEAL');
       await t.take();
       await again;
-      // KNOWN GAP (RetryCoversAll): the lost seat count is never sent: the
-      // game is dealt for the old count. Fixed, the seats go too.
-      expect(t.log, [
-        _patch({'seats': 5}),
-        'DEAL {}',
-        'DEAL {}',
-      ]);
       expect(t.settings['seats'], 4);
     });
   });

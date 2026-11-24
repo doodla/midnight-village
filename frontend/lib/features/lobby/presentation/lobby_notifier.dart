@@ -225,6 +225,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
             unawaited(refreshLobby());
           } else if (s == WebSocketConnectionState.disconnected ||
               s == WebSocketConnectionState.reconnecting) {
+            // What the socket had not delivered is lost with it.
+            _lane = _lane.socketDropped();
             wasDown = readOnDrop(s, refreshLobby);
           }
         });
@@ -236,22 +238,15 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   }
 
   void _handleWebSocketEvent(dynamic rawMessage) {
+    final arriving = _working == null;
+    if (arriving) _hear(rawMessage);
     if (_buffering) {
       _buffered.add(rawMessage);
       return;
     }
     try {
-      final Map<String, dynamic> message;
-      if (rawMessage is String) {
-        message = json.decode(rawMessage) as Map<String, dynamic>;
-      } else if (rawMessage is Map<String, dynamic>) {
-        message = rawMessage;
-      } else {
-        logger.w(
-          'Unexpected WebSocket message type: ${rawMessage.runtimeType}',
-        );
-        return;
-      }
+      final message = _decoded(rawMessage);
+      if (message == null) return;
 
       final type = message['type'] as String?;
       if (type == null) {
@@ -274,6 +269,29 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
       }
     } catch (e, stack) {
       logger.e('Error handling lobby WS event', error: e, stackTrace: stack);
+    }
+  }
+
+  Map<String, dynamic>? _decoded(dynamic rawMessage) {
+    if (rawMessage is String) {
+      return json.decode(rawMessage) as Map<String, dynamic>;
+    }
+    if (rawMessage is Map<String, dynamic>) return rawMessage;
+    logger.w('Unexpected WebSocket message type: ${rawMessage.runtimeType}');
+    return null;
+  }
+
+  /// A `lobby_update` as it arrives (held or not: the socket's order is the
+  /// server's): the lane learns which of its changes have had their update
+  /// ([SettingsLane.heard]).
+  void _hear(dynamic rawMessage) {
+    try {
+      final message = _decoded(rawMessage);
+      if (message?['type'] != 'lobby_update') return;
+      final data = message!['data'] as Map<String, dynamic>?;
+      if (data != null) _lane = _lane.heard(LobbyState.fromJson(data));
+    } catch (e) {
+      logger.d('Lobby update not read ($e)');
     }
   }
 
@@ -310,9 +328,13 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     // on top of it.
     _buffering = true;
     _buffered.clear();
+    // While it is out, no answered change stops being laid over the screen
+    // (the read may be older than its answer).
+    _lane = _lane.readAsked();
     try {
       final newState = await ref.read(lobbyServiceProvider).fetchLobby(code);
       if (!ref.mounted) return;
+      _lane = _lane.serverShown();
       _show(_replayBuffered(_adopt(newState)));
     } on NotFoundException {
       // The table is gone (its last member left).
@@ -326,6 +348,7 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
       if (ref.mounted) _applyHeld();
     } finally {
       _buffering = false;
+      _lane = _lane.readEnded();
     }
   }
 
@@ -422,6 +445,7 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     final data = message['data'] as Map<String, dynamic>?;
     if (data == null) return;
     final fresh = LobbyState.fromJson(data);
+    _lane = _lane.serverShown();
     _set(
       fresh.copyWith(
         startedGameId: current.startedGameId,

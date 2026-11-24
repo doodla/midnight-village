@@ -79,8 +79,18 @@ mixin _LobbyTaps on _$LobbyNotifier {
     if (lobby == null) return Future.value();
     final (lane, _) = _lane.ask(make);
     _lane = lane;
-    _show(lobby.copyWith(notSent: _lane.notSent));
-    return _settingsQueue = _settingsQueue.then((_) => _send());
+    // Queued before it is shown: whatever showing sets off, the send is
+    // already in line.
+    final sent = _settingsQueue = _settingsQueue.then((_) => _send());
+    _show(lobby);
+    return sent;
+  }
+
+  /// Shows the lane's state over what is on screen (after a transition that
+  /// brings no lobby of the server's).
+  void _showLane() {
+    final now = state.value;
+    if (now != null) _show(now);
   }
 
   /// Sends the lane's next change: its turn has come (the one before it is
@@ -89,6 +99,8 @@ mixin _LobbyTaps on _$LobbyNotifier {
     // The table was left while this waited its turn: nothing to send.
     if (!ref.mounted) return;
     final (lane, change) = _lane.sendNext();
+    // One send is queued per change asked, and they run one at a time.
+    assert(change != null, 'a send queued with no change to send');
     if (change == null) return;
     _lane = lane;
     final service = ref.read(lobbyServiceProvider);
@@ -111,9 +123,9 @@ mixin _LobbyTaps on _$LobbyNotifier {
         ),
       );
       if (!ref.mounted) return;
-      _lane = _lane.settle();
+      _lane = _lane.taken(answer);
       // The answer is the server's lobby with this change; what is still on
-      // its way goes over it.
+      // its way goes over it (and this change, until nothing older can land).
       _show(_adopt(answer));
     } on NoLongerHostException {
       // The role moved: the lobby was read again and this phone is a guest
@@ -125,26 +137,25 @@ mixin _LobbyTaps on _$LobbyNotifier {
       if (serverAnswered(e)) {
         // An answer, not a loss: the server refused this change (the table
         // moved under it: someone joined, another length changed first, the
-        // seats filled). It is dropped and the lobby read again.
-        _lane = _lane.settle();
+        // seats filled). It is dropped and the lobby read again; a deal
+        // behind it does not go.
+        _lane = _lane.refused();
         logger.d('Change refused ($e)');
+        _showLane();
         await refreshLobby();
         return;
       }
       logger.d('Change not sent ($e)');
       _lane = _lane.lose();
-      final now = state.value;
-      if (now != null) {
-        state = AsyncData(_lane.over(now).copyWith(notSent: _lane.notSent));
-      }
+      _showLane();
       await refreshLobby();
     }
   }
 
-  /// "Try again" for changes not sent: each sent again with only the keys no
-  /// newer change has asked for since ([SettingsLane.takeResend]), so a
-  /// newer value on the same key, answered or on its way, is never undone; a
-  /// change with nothing left is not sent.
+  /// Every change not sent, again: each with only the keys no newer change
+  /// has asked for since ([SettingsLane.takeResend]), so a newer value on
+  /// the same key, answered or on its way, is never undone; a change with
+  /// nothing left is not sent.
   Future<void> _resendUnsent() async {
     final (lane, again) = _lane.takeResend();
     _lane = lane;
@@ -155,35 +166,50 @@ mixin _LobbyTaps on _$LobbyNotifier {
     await last;
   }
 
-  /// "Try again" after "Not sent.": the change (or the deal) that failed.
+  /// "Try again" after "Not sent.": every change not sent, oldest first, then
+  /// the deal if it did not go ([deal] sends the changes first itself).
   Future<void> retry() async {
-    final (lane, again) = _lane.takeRetry();
-    _lane = lane;
     final now = state.value;
-    if (now != null) {
-      state = AsyncData(
-        now.copyWith(notSent: _lane.notSent, dealRefused: null),
-      );
+    if (now != null && now.dealRefused != null) {
+      _show(now.copyWith(dealRefused: null));
     }
-    switch (again) {
-      case TryAgain.resend:
-        await _resendUnsent();
-      case TryAgain.deal:
-        await deal();
-      case null:
-        break;
+    if (_lane.dealHeld && !_lane.refusedShown) {
+      await deal();
+      return;
     }
+    await _resendUnsent();
   }
 
   /// Deals (host only): the game id, or null when the deal did not happen.
-  /// No answer: "Not sent." with "Try again". A refusal: why, in the
-  /// player's words ([LobbyNotifier.dealRefusal]), never a bare "Not
+  /// A deal never goes past a change not sent: every lost change goes again
+  /// first (shown at once), the deal behind them; one of them lost or
+  /// refused keeps it back, and so does a refused value still on screen:
+  /// "Not sent." with "Try again". No answer: the same. A refusal: why, in
+  /// the player's words ([LobbyNotifier.dealRefusal]), never a bare "Not
   /// sent.". A host role that moved meanwhile says nothing: the screen is a
   /// guest's now.
   Future<String?> deal() async {
     final before = state.value;
     if (before != null && before.dealRefused != null) {
-      state = AsyncData(before.copyWith(dealRefused: null));
+      _show(before.copyWith(dealRefused: null));
+    }
+    if (_lane.refusedShown) {
+      // A refused value is on screen until the lobby is read: a deal now
+      // would not deal what is shown.
+      _lane = _lane.dealLost();
+      _showLane();
+      return null;
+    }
+    unawaited(_resendUnsent());
+    _lane = _lane.dealBehind();
+    _showLane();
+    await _settingsQueue;
+    if (!ref.mounted) return null;
+    final (lane, go) = _lane.dealGoes();
+    _lane = lane;
+    if (!go) {
+      _showLane();
+      return null;
     }
     try {
       final id = await startGame();
@@ -207,11 +233,7 @@ mixin _LobbyTaps on _$LobbyNotifier {
       final now = state.value;
       final refusal = LobbyNotifier.dealRefusal(e);
       _lane = refusal.answered ? _lane.dealRefused() : _lane.dealLost();
-      if (now != null) {
-        state = AsyncData(
-          now.copyWith(notSent: _lane.notSent, dealRefused: refusal.why),
-        );
-      }
+      if (now != null) _show(now.copyWith(dealRefused: refusal.why));
       // The table's new verdict sets the button (the screen keeps it busy
       // until it is read).
       if (refusal.answered) await refreshLobby();
