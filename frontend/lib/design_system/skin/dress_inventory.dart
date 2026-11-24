@@ -207,14 +207,14 @@ const inventory = <PartEntry>[
     plain:
         'the role card: portrait with a hairline frame, a rule above the text',
     paper:
-        'the role card on paper, no frame and no rule; the same name, tag and lines as the sheet (`RoleHead`, `RoleText.lineSpan`)',
+        'the role card on paper, no frame and no rule; the same name, tag and rows as the sheet (`RoleHead`, `RoleRules`); the art of each role whole, in a window of its own shape',
   ),
   PartEntry(
     'RoleSheetBody',
     'primitives/role_sheet_body.dart',
     plain: 'portrait, tags and the role\'s words on paper',
     paper:
-        'the same on paper: the team tag above the name (`RoleHead`), "Night:" and "Wins:" in the strong face, the portrait a deckled picture',
+        'the same on paper: the team tag above the name (`RoleHead`), the rows of small labels and short lines (`RoleRules`), the portrait a deckled picture',
   ),
   PartEntry(
     'PeekBox',
@@ -484,6 +484,8 @@ const notAComponent = <String, String>{
   'primitives/paper_grain.dart': 'the paper\'s grain tile',
   'primitives/paper_light.dart': 'the screen\'s one light',
   'primitives/paper_piece.dart': 'the body of every paper component',
+  'primitives/role_rules.dart':
+      'the role text\'s rows, part of `HeldFace` and `RoleSheetBody`; draws only words',
   'primitives/scene_arrival.dart': 'a scene change\'s clock',
   'primitives/scene_switcher.dart': 'a scene change',
   'primitives/screen_frame.dart': 'the screen',
