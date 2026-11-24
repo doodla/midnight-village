@@ -16,6 +16,7 @@ import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/player_token.dart';
 import 'package:midnight_village/design_system/primitives/role_card.dart';
 import 'package:midnight_village/design_system/primitives/sliced_art.dart';
+import 'package:midnight_village/design_system/primitives/until_touched.dart';
 import 'package:midnight_village/design_system/primitives/vote_tag.dart';
 import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/primitives/you_seal.dart';
@@ -138,6 +139,10 @@ bool _current(Element e) => ModalRoute.of(e)?.isCurrent ?? true;
 /// own rules: whole on the screen ([heldFaceProblems]), its words not cut
 /// (the cut-text rule every state keeps).
 bool heldOpen(Element e) {
+  // A layer up until one touch puts it away is the same case (08's My night,
+  // up by itself as the talk opens): `untilTouchedProblems` asks its price.
+  if (e.widget is UntilTouched) return true;
+  if (e.findAncestorWidgetOfExactType<UntilTouched>() != null) return true;
   if (e.widget is HeldFace) return true;
   if (e.findAncestorWidgetOfExactType<HeldFace>() != null) return true;
   var holds = false;

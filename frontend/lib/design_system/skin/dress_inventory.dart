@@ -508,6 +508,8 @@ const notAComponent = <String, String>{
       'the role text\'s rows, part of `HeldFace` and `RoleSheetBody`; draws only words',
   'primitives/scene_arrival.dart': 'a scene change\'s clock',
   'primitives/scene_switcher.dart': 'a scene change',
+  'primitives/until_touched.dart':
+      'a mark, nothing drawn: a layer up until one touch puts it away',
   'primitives/screen_frame.dart': 'the screen',
   'primitives/tilted_paper.dart': 'turns paper a hair',
 };
