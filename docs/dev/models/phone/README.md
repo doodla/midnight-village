@@ -18,6 +18,7 @@ in `frontend/test/features/game/presentation/protocol_two_findings_test.dart` an
 | `night/chart/`, `night/chart-robber/` | Chart (`chart.mmd`) and report of the `FollowUpArmed` counterexample, for a Doppelganger who copied the Minion and the Robber. |
 | `day/PhoneDay.tla` | From the talk to the next game: the ready and vote lanes of the `Outbox`, `/me/`, `/me/table/`, the results, play again. |
 | `day/*.cfg`, `day/runday.sh` | Its runs. |
+| `lobby/` | A third model, of today's code (`7821a42`): the host's settings lane in the lobby (`lobby_notifier.dart`), with its own README, runs and known gaps. |
 
 The scripts look for TLC at `$TLA2TOOLS` (default: a path in the session that made them;
 set the variable). TLC logs are not kept.
