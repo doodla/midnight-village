@@ -39,7 +39,6 @@ Night: `StoredAsIntended` (the server stores what the player meant), `OnePerTurn
 | `v_oldserver` | `StoredAsIntended` | F4: without `chosen` in the request a resent look is stored as the follow-up (the server side was fixed in `fb229fb`). |
 | `day_outcome` | `OutcomeLoads` | F5: a failed `GET results/` was never fetched again. |
 | `day_screen` | `ScreenConverges` | F6: a lost play-again or deal event left the phone on the results. |
-| `day` | `TapOrder` | Accepted: a request processed late can overtake a newer tap of the same lane (needs a per-phone sequence number on the server; open item in `docs/dev/status.md`). |
 
 | `day_late` | `TapOrder` | KNOWN until the phone sends `asked` (#16): two taps on "Ready to vote" (on, then off); the first gets no answer, the second goes out and is stored, then the first arrives late and is stored over it: the server has "ready" for a player who last said "not ready". 6 states. The same for a changed vote. |
 
@@ -58,5 +57,5 @@ answered `409 stale_request` and stored nowhere. `day_asked` (`FIX_ASKED`, the s
 `day_late`) holds `TapOrder` (1,002,993 distinct states). The phone does not send `asked` yet,
 so `day_late` is the phone of today; it becomes a holding run when the phone sends it.
 Run one: `java -cp tla2tools.jar tlc2.TLC -config day_asked.cfg PhoneDay.tla` in `day/`.
-The older `day.cfg`, `day_OutcomeLoads.cfg` and `day_ScreenConverges.cfg` name no
-`HOST_MOVES_ON` and do not start; `day_late` replaces `day` for `TapOrder`.
+`day/runday.sh` runs every `day_*` run and fails when one ends otherwise than recorded here
+(`TLA2TOOLS=/path/to/tla2tools.jar day/runday.sh`).
