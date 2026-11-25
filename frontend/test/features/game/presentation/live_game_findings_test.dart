@@ -152,10 +152,11 @@ void main() {
       'after a taken choose, /me/ decides: still one left is armed again',
       () async {
         // A choose from a stale prompt is answered 200 and stored nowhere:
-        // only /me/ (chooses_left still 1) shows it was not taken.
+        // its answer says one is still left (a resend's answer carries the
+        // server's own `chooses_left`), so the phone reads /me/, which arms it.
         final seer = recordedMe('me_choose_prompt_seer');
         final setup = await phone(seer);
-        setup.answerPost('/action/', 'game/choose_resent');
+        setup.answerPost('/action/', 'game/choose_resent_doppelganger_look');
         setup.answerMe(seer); // the server still has chosen 0, one left
         await setup.notifier.choose(setup.game.me.stage!, const [SelfPick()]);
         await setup.settle();

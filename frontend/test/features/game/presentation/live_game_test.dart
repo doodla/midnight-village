@@ -212,12 +212,15 @@ void main() {
       expect(setup.game.me.prompt!.used, isTrue, reason: 'Chosen on the tap');
       expect((await first).forBoard, ChooseAnswer.taken);
       await setup.settle();
-      expect(setup.meFetches, 2, reason: 'one fetch after a taken choose');
+      expect(
+        setup.meFetches,
+        2,
+        reason: 'its answer says a turn follows (chooses_left 1): one fetch',
+      );
       // Her follow-up: the same stage, a new turn, not chosen.
       expect(setup.game.me.prompt!.turn, 1);
       expect(setup.game.me.prompt!.used, isFalse);
       // Her second choose goes out, and is shown chosen at once.
-      setup.answerMe(withPrompt(followUp, {'chosen': 2, 'chooses_left': 0}));
       setup.answerPost('/action/', 'game/choose_submitted_window1_second');
       final second = setup.notifier.choose(stage, const [
         CenterPick(0),
@@ -227,7 +230,8 @@ void main() {
       expect((await second).forBoard, ChooseAnswer.taken);
       await setup.settle();
       expect(setup.posts('/action/'), 2);
-      expect(setup.game.server.prompt!.used, isTrue);
+      expect(setup.meFetches, 2, reason: 'nothing left to choose: no fetch');
+      expect(setup.game.me.prompt!.used, isTrue);
     });
 
     test('any other phone in window 1 has nothing to send: a choose is '

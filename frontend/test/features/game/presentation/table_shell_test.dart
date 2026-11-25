@@ -493,8 +493,8 @@ void main() {
       });
     }
 
-    testWidgets('Choose: "Chosen" at once, one choose with the stage, then '
-        '/me/ again', (tester) async {
+    testWidgets('Choose: "Chosen" at once, one choose with the stage, and '
+        'its answer is the whole of it', (tester) async {
       final me = recordedMe('me_choose_prompt_seer');
       final s = await ShellSetup.pump(tester, me, learned: Cue.values.toSet());
       await s.settle(tester);
@@ -503,7 +503,6 @@ void main() {
       await tester.pump();
       expect(_button(tester), 'See Cleo');
       final fetched = s.meFetches;
-      s.answerMe(recordedMe('me_choose_chosen'));
       await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await tester.pump();
       expect(_button(tester), NightCopy.chosen);
@@ -513,7 +512,8 @@ void main() {
       expect(body['stage'], me['stage']);
       expect(body['action_type'], 'choose');
       expect(body['chosen'], 0);
-      expect(s.meFetches, greaterThan(fetched), reason: 'after a taken choose');
+      // The answer carries her look: no /me/ after it.
+      expect(s.meFetches, fetched, reason: 'one request per choose');
       expect(_button(tester), NightCopy.chosen);
       expect(find.text(BannerCopy.tryAgain), findsNothing);
       await s.close(tester);
