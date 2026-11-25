@@ -98,6 +98,24 @@ void main() {
     });
   });
 
+  test('a variant whose decode failed is not tried again this visit', () {
+    fakeAsync((async) {
+      final backend = FakeAudioBackend(decodeAtOnce: false);
+      final (engine, log) = started(backend);
+      backend.tap();
+      engine.theme(ThemeVariant.table);
+      backend.failDecode(tableFile);
+      async.flushMicrotasks();
+      for (final v in [null, ThemeVariant.table, null, ThemeVariant.table]) {
+        engine.theme(v);
+        async.flushMicrotasks();
+      }
+      expect(backend.decodes.where((p) => p == tableFile), hasLength(1));
+      expect(log.where((l) => l.contains(tableFile)), hasLength(1));
+      expect(engine.playing, isNull);
+    });
+  });
+
   int themesHeld(FakeAudioBackend b) =>
       b.held.where((p) => p != knockFile).length;
 

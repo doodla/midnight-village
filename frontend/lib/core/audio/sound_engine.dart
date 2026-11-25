@@ -28,6 +28,7 @@ class SoundEngine {
       _set,
       _pathOf,
       _log,
+      failed: _failed,
       changed: () => _guard('theme', _reconcile),
     );
   }
@@ -58,6 +59,10 @@ class SoundEngine {
   /// runs on that pointerup), so a microtask would clear it before the cue.
   bool _resumeAsked = false;
   int _asks = 0;
+
+  /// Files whose fetch or decode failed: given up on for this visit, so a
+  /// broken file costs one log line, not a fetch, a decode and a line per tap.
+  final _failed = <String>{};
 
   /// The cues' decoded clips (small; all kept).
   final _clips = <String, Clip>{};
@@ -93,7 +98,7 @@ class SoundEngine {
     _guard('fetch', () {
       for (final file in _set.cues.values) {
         final path = _pathOf(file);
-        if (path != null) _quiet('fetch $path', _backend.fetch(path));
+        if (path != null) _fetch(path);
       }
     });
   }
@@ -305,14 +310,15 @@ class SoundEngine {
 
   /// Decodes a cue (all of them are small and kept).
   void _decode(String path) {
-    if (_clips.containsKey(path) || !_decoding.add(path)) return;
+    if (_clips.containsKey(path) || _failed.contains(path)) return;
+    if (!_decoding.add(path)) return;
     final generation = _generation;
     final Future<Clip> decoded;
     try {
       decoded = _backend.decode(path);
     } on Object catch (e) {
       _decoding.remove(path);
-      _log('SoundEngine: could not decode $path: $e');
+      _gaveUp(path, e);
       return;
     }
     unawaited(
@@ -326,11 +332,25 @@ class SoundEngine {
           _clips[path] = clip;
         },
         onError: (Object e) {
-          if (generation == _generation) _decoding.remove(path);
-          _log('SoundEngine: could not decode $path: $e');
+          if (generation != _generation) return;
+          _decoding.remove(path);
+          _gaveUp(path, e);
         },
       ),
     );
+  }
+
+  void _fetch(String path) {
+    unawaited(
+      _backend
+          .fetch(path)
+          .then<void>((_) {}, onError: (Object e) => _gaveUp(path, e)),
+    );
+  }
+
+  void _gaveUp(String path, Object e) {
+    if (!_failed.add(path)) return;
+    _log('SoundEngine: could not load $path (not tried again): $e');
   }
 
   SoundFile? _cueNamed(String name) {

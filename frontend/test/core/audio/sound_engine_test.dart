@@ -95,6 +95,43 @@ void main() {
     });
   });
 
+  group('a broken file is given up on after one failure', () {
+    test('a cue whose fetch failed is never fetched, decoded or logged '
+        'again on later taps', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend()..unfetchable.add(knockFile);
+        final (engine, log) = started(backend);
+        async.flushMicrotasks();
+        for (var i = 0; i < 10; i++) {
+          backend.touch();
+          engine.play(knock);
+          async.flushMicrotasks();
+        }
+        expect(backend.fetches, [knockFile]);
+        expect(backend.decodes, isEmpty);
+        expect(log.single, contains(knockFile));
+        expect(backend.fired, isEmpty);
+      });
+    });
+
+    test('a cue whose decode failed is not tried again', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend(decodeAtOnce: false);
+        final (engine, log) = started(backend);
+        backend.tap();
+        backend.failDecode(knockFile);
+        async.flushMicrotasks();
+        for (var i = 0; i < 10; i++) {
+          backend.tap();
+          engine.play(knock);
+          async.flushMicrotasks();
+        }
+        expect(backend.decodes, [knockFile]);
+        expect(log.single, contains(knockFile));
+      });
+    });
+  });
+
   group('cues never pile up and burst late', () {
     test('a cue while the output is stopped and no activation asked it to '
         'run is dropped, not started into it', () {

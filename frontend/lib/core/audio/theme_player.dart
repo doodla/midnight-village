@@ -21,13 +21,18 @@ class ThemePlayer {
     this._set,
     this._pathOf,
     this._log, {
+    required Set<String> failed,
     required void Function() changed,
-  }) : _changed = changed;
+  }) : _failed = failed,
+       _changed = changed;
 
   final AudioBackend _backend;
   final SoundSet _set;
   final String? Function(SoundFile) _pathOf;
   final void Function(String) _log;
+
+  /// The engine's files given up on for this visit (one failure each).
+  final Set<String> _failed;
 
   /// Something ended or arrived: the engine brings things in line again.
   final void Function() _changed;
@@ -182,7 +187,7 @@ class ThemePlayer {
   }
 
   void _decode(String path) {
-    if (_decoding != null) return;
+    if (_decoding != null || _failed.contains(path)) return;
     _evict(keep: keptVariants - 1);
     if (_held.length >= keptVariants) return;
     final generation = _generation;
@@ -190,7 +195,7 @@ class ThemePlayer {
     try {
       decoded = _backend.decode(path);
     } on Object catch (e) {
-      _log('SoundEngine: could not decode $path: $e');
+      _gaveUp(path, e);
       return;
     }
     _decoding = path;
@@ -210,11 +215,18 @@ class ThemePlayer {
           _changed();
         },
         onError: (Object e) {
-          if (generation == _generation) _decoding = null;
-          _log('SoundEngine: could not decode $path: $e');
+          if (generation != _generation) return;
+          _decoding = null;
+          _gaveUp(path, e);
+          _changed();
         },
       ),
     );
+  }
+
+  void _gaveUp(String path, Object e) {
+    if (!_failed.add(path)) return;
+    _log('SoundEngine: could not decode $path (not tried again): $e');
   }
 
   void _release(Clip clip) {
