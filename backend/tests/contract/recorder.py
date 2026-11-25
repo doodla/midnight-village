@@ -256,6 +256,7 @@ class Table:
         send = getattr(client, method.lower())
         with self._capture_on_commit(execute=True), override_settings(DEBUG=debug):
             response = send(url, body, format="json")
+        self.last_response = response  # its headers, for tests that read them
         return response.status_code, json.loads(response.content or b"null")
 
     STAGE_ENDPOINTS = (
