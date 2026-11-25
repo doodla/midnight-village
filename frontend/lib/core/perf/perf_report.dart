@@ -10,25 +10,25 @@ abstract final class PerfWords {
   static const copyAll = 'Copy everything';
   static const clear = 'Clear';
   static const copied = 'Copied';
-  static const noTap = 'Tap anything: its time shows here.';
+  static const noTap = 'Tap anything:\nits time shows here.';
   static const legs =
-      'All from the finger. screen: first frame. left: the request left. '
-      'answer: its round trip. applied: the app had it. shown: the frame '
-      'after.';
+      'heard: finger to the app. screen: finger to the first frame. left: '
+      'finger to the request leaving. answer: its round trip. applied: the '
+      'answer to the app having it. shown: to the frame after. total: '
+      'finger to the last of these.';
 }
 
-/// The strip's line for the last tap that finished:
-/// "finger → screen 84 ms · request left 12 ms · answer 163 ms · worst 22 ms".
+/// The strip's two lines for the last tap that finished:
+/// "finger → screen 84 ms · request left 12 ms" and "answer 163 ms · worst
+/// 22 ms". Always two lines, so the strip never changes height (the app
+/// above it would be laid out again).
 String stripLine(TapRecord? tap) {
   if (tap == null) return PerfWords.noTap;
-  final parts = ['finger → screen ${_ms(tap.toScreen)}'];
-  if (tap.request != null) {
-    parts
-      ..add('request left ${_ms(tap.toLeft)}')
-      ..add('answer ${_ms(tap.roundTrip)}');
-  }
-  parts.add('worst ${_ms(tap.worstFrame)}');
-  return parts.join(' · ');
+  final screen = 'finger → screen ${_ms(tap.toScreen)}';
+  final worst = 'worst ${_ms(tap.worstFrame)}';
+  if (tap.request == null) return '$screen · no request\n$worst';
+  return '$screen · request left ${_ms(tap.toLeft)}\n'
+      'answer ${_ms(tap.roundTrip)} · $worst';
 }
 
 /// The report to paste in a chat: short (under 4,000 characters), plain.

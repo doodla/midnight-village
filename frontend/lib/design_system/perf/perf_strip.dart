@@ -123,6 +123,8 @@ class _Strip extends StatelessWidget {
                 valueListenable: recorder.finished,
                 builder: (context, tap, _) => Text(
                   stripLine(tap),
+                  // Two lines always: the strip keeps its height.
+                  maxLines: 2,
                   style: context.skin.typography.caption.copyWith(
                     color: context.ground.text,
                   ),
