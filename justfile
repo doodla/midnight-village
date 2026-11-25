@@ -126,7 +126,7 @@ test-integration:
 test-contract:
     {{backend_just}} test-contract
 
-# A whole game on a slowed phone (release web build, Chrome, CPU 4x): every screen, transition and tap against budgets; own backend. About 15 minutes. Usage: just phone-frames [--cpu 1|2|4] [--out f.json]
+# A whole game on a slowed phone (release web build, Chrome, CPU 4x): every screen, transition and tap against budgets; own backend. About 15 minutes. Usage: just phone-frames [--cpu 1|2|4] [--out f.json] [--perf dir] (the app's own ?perf=1 readout beside it: strip.png, sheet.png, report.txt, compare.txt)
 phone-frames *args:
     tool/phone_frames/run.sh {{args}}
 
