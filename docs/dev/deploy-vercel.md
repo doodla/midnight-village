@@ -115,6 +115,20 @@ thread and Django's connections are per thread.
   connection: a fresh one is tens of milliseconds, a reused one is the check's single
   round trip (a few).
 
+## Socket messages
+
+`channels_redis` sends one group message in four Redis round trips, one after another,
+before the answer leaves; a tap that closed the talk sent three (twelve round trips). The
+live layer is `apps.core.channel_layer.BatchingRedisChannelLayer`: the messages of one
+`send_after_commit` call go out in one pipeline (every group's members) and one script
+(every push), two round trips whatever they hold. Each socket still hears them in the
+order given (rising scores, also for a socket in two groups), and Redis holds exactly
+what `group_send` writes, so an instance on the previous build reads them as its own.
+Separate calls in one commit stay separate and in order (a timer change may sit between
+them). The direct sends of the lobby views (join, leave, settings, the deal's
+`game_started`) still use `group_send`. Sends stay before the answer: a function instance
+may be frozen once it has answered, so a send left for after could be lost.
+
 ## How timers work
 
 A timer is a named job with JSON params (`night_window`, `discussion_deadline`,

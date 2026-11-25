@@ -48,7 +48,7 @@ def test_the_settings_come_from_the_environment(monkeypatch):
     assert db["OPTIONS"]["sslmode"] == "require"
     assert (
         s.CHANNEL_LAYERS["default"]["BACKEND"]
-        == "channels_redis.core.RedisChannelLayer"
+        == "apps.core.channel_layer.BatchingRedisChannelLayer"
     )
     assert s.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"] == [ENV["REDIS_URL"]]
     assert s.ALLOWED_HOSTS == [

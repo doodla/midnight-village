@@ -37,7 +37,7 @@ BUDGET_FILE = Path(__file__).with_name("tap_budget.json")
 # a full table (the costliest today, a game socket opening and the night's close,
 # are in the high thirties). Raising it is a decision, not a re-record.
 CEILING = 40
-MEASURES = ("queries", "lock_span", "sends", "publishes")
+MEASURES = ("queries", "lock_span", "sends", "redis_trips", "publishes")
 RERECORD = "Re-record with `just tap-budget` and review the diff of tap_budget.json."
 
 

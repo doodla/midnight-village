@@ -31,8 +31,9 @@ with a Doppelganger who copies the host's Seer and looks in window 1 while the h
 every stage on itself (move on in both windows, end the talk, reveal the votes); it
 measures every request, timer
 firing and game socket opening: database round trips, row locks and how long the first is
-held, socket messages (each is 4 Redis round trips on the live server before the answer
-leaves) and timer messages (a queue send each). `test_tap_query_budget.py` holds two rules:
+held, socket messages and the Redis round trips they cost on the live server before the
+answer leaves (`redis_trips`: 2 per batch, one `send_after_commit` call;
+`apps/core/channel_layer.py`) and timer messages (a queue send each). `test_tap_query_budget.py` holds two rules:
 nothing costs more at ten seats than at three (a query per player fails, whatever the
 budget), and at ten seats each kind of request costs exactly what `tap_budget.json` says and
 never more than 40 round trips. A change that adds or removes a query fails until
@@ -43,6 +44,11 @@ Not played there: leave, practice players, the night results ack, the token refr
 the caller cannot see, for the `Server-Timing` header: the host's answers in two games that
 differ only in what the Doppelganger did carry the same live header (rounded time aside), and
 with the header's detail on they would not.
+
+The live server's channel layer and database pool are tested against the real thing:
+`tests/core/test_channel_layer.py` needs a Redis (`REDIS_TEST_URL`, which GitHub's backend
+job sets, else a `redis-server` on the PATH is started on a free port, else skipped) and
+`tests/core/test_db_pool.py` points the live settings' pool at the run's own database.
 
 ## Migration tests
 
