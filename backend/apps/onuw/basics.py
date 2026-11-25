@@ -11,7 +11,7 @@ another part of the service.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from apps.core import effects
@@ -22,7 +22,7 @@ from .engine.validation import (
     is_valid_timer_value,
     max_seconds_for,
 )
-from .models import Game
+from .models import Game, PlayerRole
 
 logger = logging.getLogger(__name__)
 
@@ -129,12 +129,17 @@ def build_game_state(game: Game) -> GameState:
     Reads all PlayerRole rows for the game and constructs the immutable
     state snapshot the engine needs.
     """
+    # pyrefly: ignore [missing-attribute]
+    return game_state_from(game, game.player_roles.all())
+
+
+def game_state_from(game: Game, prs: Iterable[PlayerRole]) -> GameState:
+    """``build_game_state`` from rows the caller has just read (all of the game's)."""
     player_roles: dict[int, str] = {}
     original_roles: dict[int, str] = {}
     doppelganger_copied: dict[int, str] = {}
 
-    # pyrefly: ignore [missing-attribute]
-    for pr in game.player_roles.all():
+    for pr in prs:
         player_roles[pr.user_id] = pr.current_role
         original_roles[pr.user_id] = pr.original_role
         if pr.original_role == "Doppelganger" and pr.night_action_data.get(

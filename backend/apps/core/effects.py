@@ -32,20 +32,32 @@ def send_after_commit(messages: list[tuple[str, dict[str, Any]]]) -> None:
     """Send channel messages (group, event) once the transaction commits.
 
     The payloads are built by the caller inside the transaction, so they
-    describe the state that is about to be committed.
+    describe the state that is about to be committed. One call is one batch: its
+    messages go out in the order given, together where the layer can
+    (``group_send_many``); separate calls stay separate, in the order they were
+    made, like every other after-commit effect between them.
     """
     channel_layer = get_channel_layer()
     if channel_layer is None or not messages:
         return
+    after_commit(lambda: _deliver(channel_layer, messages))
 
-    def _send() -> None:
+
+def _deliver(channel_layer: Any, messages: list[tuple[str, dict[str, Any]]]) -> None:
+    began = time.perf_counter()
+    # Asked of the class: a layer that really has it (a test's stand-in object
+    # answers any name).
+    if getattr(type(channel_layer), "group_send_many", None) is not None:
+        # The live layer sends the whole list at once, in order
+        # (apps/core/channel_layer.py): two Redis round trips, not four each.
+        async_to_sync(channel_layer.group_send_many)(messages)
+    else:
         send = async_to_sync(channel_layer.group_send)
         for group, event in messages:
-            began = time.perf_counter()
             send(group, event)
-            server_timing.note("sockets", time.perf_counter() - began)
-
-    after_commit(_send)
+    took = time.perf_counter() - began
+    for index in range(len(messages)):
+        server_timing.note("sockets", took if index == 0 else 0.0)
 
 
 def schedule_after_commit(
