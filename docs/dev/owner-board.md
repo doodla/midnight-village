@@ -110,7 +110,10 @@ Today's pictures and their urls: `docs/dev/owner-board/live-map.json`.
 
 ## Add sounds to choose by ear
 
-An item with `sounds` shows each take as a row: a big **Play** and a **Hear it on 10 phones**
+An item with `sounds` shows each take as a row: its `label` (one or two characters, like A, B,
+C, sit in a small dark circle at the left; any longer label, like "Hold to peek", is a plain
+heading line above the buttons that wraps and is never clipped, with the `note` under it), then a
+big **Play** and a **Hear it on 10 phones**
 (the take 10 times at fixed seeded offsets between 0 and 400 ms, the same every time, so the
 owner hears the table effect). Sound starts only from a tap. Under the takes the card shows its
 `choices` as usual; with exactly 4 choices and `sounds` they sit in one row.
