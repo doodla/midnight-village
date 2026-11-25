@@ -142,7 +142,8 @@ class _HoldCueState extends State<HoldCue> with SingleTickerProviderStateMixin {
         // Its own layer (`Ambient`'s): the breathing ring repaints itself,
         // never the paper round it (`paint_cache_test.dart`).
         return Ambient(
-          id: 'hold-cue',
+          // Never read: a loop with a cue has no rest to seed.
+          id: (HoldCue).toString(),
           still: 0,
           period: HoldCue.breath ~/ 2,
           curve: Curves.easeInOut,
