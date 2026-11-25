@@ -453,11 +453,24 @@ Web Audio, elsewhere it is silent for now (Android's own backend is a later piec
 
 Lengths (`SoundTiming`, `frontend/lib/core/audio/audio_backend.dart`): crossfade 1.5 s, theme in
 0.8 s, theme out 1.2 s, mute 60 ms, volume 40 ms, a cut voice 15 ms, the theme scheduled 20 ms
-ahead (so a switch lands on an exact sample; a cue starts at once). In a real browser
-(`frontend/tool/audio_proof/`), a cue's `start()` is called within half a millisecond of the
-pointerdown, and the theme renders sample-exact across loop ends and a switch.
+ahead or the output's own latency if more (so a switch lands on an exact sample; a cue starts at
+once), the longest cue 3 s, idle 4.2 s before an output with nothing to play sleeps.
+
+In a browser (`frontend/tool/audio_proof/`, last result in `result.json` beside it): headless
+Chromium as an Android phone (a touch profile, 412 wide, `page.touchscreen.tap`), launched with
+the autoplay rule `--autoplay-policy=document-user-activation-required`. It enforced the rule: a
+context made on load stays suspended, and one made and resumed on a touch's pointerdown stays
+suspended through the lift and the click (its resume never settles), which is why the engine
+waits for the lift. The engine's context is made on the first pointerup, running; the cue's
+`start()` is called 0.1 to 0.2 ms after the pointerup the tap handler fires on ("the call"),
+apart from what the device adds after it (base latency 10 ms, output latency 32 ms in headless,
+which renders to no real speaker); after the browser suspends the context, the next tap resumes
+it and its own cue starts; the theme renders sample-exact across loop ends and a switch. Not shown
+there: hiding the page (headless keeps it visible; simulated), Chrome on a real phone suspending
+on its own, Safari's interrupted state, and a real phone's latency and lead, which a phone must
+confirm.
 
 **Still to choose (the owner, by ear):** which cues exist and where they fire (a soft knock when
 the dead card turns over, the seal, the dawn were among the candidates); which stages take which
 variant and whether the night has the theme at all; the default volume; where a mute control
-sits. Until then no screen calls `Sounds`.
+sits. Until then nothing calls `Sounds`.

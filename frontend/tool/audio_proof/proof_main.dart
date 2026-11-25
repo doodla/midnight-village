@@ -34,10 +34,12 @@ void main() {
   final engine = SoundEngine(live, stand, log: (m) => web.console.log(m.toJS))
     ..start();
 
-  // The app's tap: a handler on the page, after the engine's own listener
-  // (which runs first, in the capture phase).
+  // The app's tap, as Flutter's onTap fires it: on the finger's lift
+  // (pointerup), in a handler on the page, after the engine's own listener
+  // (which runs first, in the capture phase, with a microtask checkpoint
+  // between the two).
   web.document.addEventListener(
-    'pointerdown',
+    'pointerup',
     ((web.Event _) => engine.play(knock)).toJS,
   );
 
