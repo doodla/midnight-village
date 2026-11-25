@@ -24,6 +24,15 @@ abstract final class SoundTiming {
   /// enough not to click.
   static const declick = Duration(milliseconds: 15);
 
+  /// The longest cue a look may have: the output stays awake this long
+  /// after one (a longer cue would be cut by [idle]).
+  static const longestCue = Duration(seconds: 3);
+
+  /// How long the output runs with nothing that can sound (no theme wanted)
+  /// before it is suspended, to spare the battery: the theme's fade out and
+  /// the longest cue ([themeOut] + [longestCue]).
+  static const idle = Duration(milliseconds: 4200);
+
   /// How far ahead a theme variant is scheduled, so it starts on an exact
   /// sample of the audio clock and lands in phase. The theme only: a cue
   /// starts at once.

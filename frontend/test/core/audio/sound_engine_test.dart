@@ -284,15 +284,15 @@ void main() {
   });
 
   group('mute and volume', () {
-    test('muted from the start decodes nothing; unmuted, the wanted theme '
-        'and the cues come', () {
+    test('muted from the start opens and decodes nothing; unmuted, the next '
+        'touch opens it and the wanted theme and the cues come', () {
       fakeAsync((async) {
         final backend = FakeAudioBackend();
         final (engine, _) = started(backend, muted: true);
         engine.theme(ThemeVariant.night);
-        backend.tap();
+        backend.touch();
         async.flushMicrotasks();
-        expect(backend.masterGain, 0);
+        expect(backend.opens, 0, reason: 'never opened while muted');
         expect(backend.decodes, isEmpty);
         expect(backend.fetches, isEmpty);
         engine.play(knock);
@@ -300,13 +300,28 @@ void main() {
 
         engine.setMuted(false);
         async.flushMicrotasks();
+        expect(backend.opens, 0, reason: 'outside a gesture');
+        backend.touch();
+        async.flushMicrotasks();
+        expect(backend.masterGain, 1);
+        expect(engine.playing, ThemeVariant.night);
+        engine.play(knock);
+        expect(backend.fired, [knockFile]);
+      });
+    });
+
+    test('unmuting an open output ramps the master back', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend();
+        final (engine, _) = started(backend);
+        backend.tap();
+        engine
+          ..setMuted(true)
+          ..setMuted(false);
         expect(backend.masterRamps.last, (
           1.0,
           SoundTiming.seconds(SoundTiming.mute),
         ));
-        expect(engine.playing, ThemeVariant.night);
-        engine.play(knock);
-        expect(backend.fired, [knockFile]);
       });
     });
 

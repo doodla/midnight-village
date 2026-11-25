@@ -142,7 +142,7 @@ void main() {
       expect(settings.value.volume, SoundLevel.standard.volume);
     });
 
-    test('muted on this device: started muted, nothing decoded', () {
+    test('muted on this device: started muted, nothing opened', () {
       fakeAsync((async) {
         SharedPreferences.setMockInitialValues({SoundSettings.mutedKey: '1'});
         final backend = FakeAudioBackend();
@@ -151,7 +151,7 @@ void main() {
         async.flushMicrotasks();
         backend.tap();
         async.flushMicrotasks();
-        expect(backend.masterGain, 0);
+        expect(backend.opens, 0);
         expect(backend.decodes, isEmpty);
       });
     });

@@ -43,6 +43,9 @@ class SoundEngine {
   double _volume;
   bool _hidden = false;
 
+  /// Puts the output to sleep when nothing can sound (see [_settle]).
+  Timer? _idle;
+
   /// Set while the gesture being handled asked a stopped output to run from
   /// inside a user activation: a cue of that same gesture may start (the
   /// output runs a moment later). Cleared on the next task, not the next
@@ -97,17 +100,19 @@ class SoundEngine {
   /// outside one starts suspended and may stay so). Every gesture asks a
   /// stopped output to run again (Chrome on Android suspends it on its own):
   /// `resume()` is cheap and idempotent, and one asked on a pointerdown may
-  /// stay pending, so nothing waits on an earlier one. Never throws.
+  /// stay pending, so nothing waits on an earlier one. Muted, nothing is
+  /// opened or woken. Never throws.
   void gesture({required bool activates}) {
     if (!_started) return;
     _guard('gesture', () {
-      if (_hidden) return;
+      if (_hidden || _muted) return;
       if (!_backend.isOpen) {
         if (!activates) return;
-        _backend.open(_muted ? 0 : _volume);
+        _backend.open(_volume);
         _opened();
       }
       if (_backend.state != AudioState.running) _resume(activated: activates);
+      _settle();
     });
   }
 
@@ -119,11 +124,13 @@ class SoundEngine {
     _hidden = !shown;
     _guard('visibility', () {
       if (!_backend.isOpen) return;
-      if (shown) {
-        _resume();
-      } else {
+      if (!shown) {
+        _idle?.cancel();
         _quiet('suspend', _backend.suspend());
+        return;
       }
+      if (!_muted && _theme.wanted != null) _resume();
+      _settle();
     });
   }
 
@@ -143,6 +150,7 @@ class SoundEngine {
         return;
       }
       _backend.fire(clip);
+      _settle();
     });
   }
 
@@ -151,7 +159,11 @@ class SoundEngine {
   void theme(ThemeVariant? variant) {
     if (variant == _theme.wanted) return;
     _theme.wanted = variant;
-    _guard('theme ${variant?.name}', _reconcile);
+    _guard('theme ${variant?.name}', () {
+      _reconcile();
+      _wake();
+      _settle();
+    });
   }
 
   void setMuted(bool muted) {
@@ -169,7 +181,9 @@ class SoundEngine {
           if (path != null) _decode(path);
         }
         _reconcile();
+        _wake();
       }
+      _settle();
     });
   }
 
@@ -193,6 +207,34 @@ class SoundEngine {
         AudioState.closed => false,
         _ => _resumeAsked,
       };
+
+  /// A stopped output asked to run again outside a gesture, when a theme is
+  /// wanted (a browser may hold it until the next touch, which asks again).
+  void _wake() {
+    if (!_backend.isOpen || _muted || _hidden || _theme.wanted == null) return;
+    final state = _backend.state;
+    if (state != AudioState.running && state != AudioState.closed) _resume();
+  }
+
+  /// Battery: an output left running renders silence. When nothing can
+  /// sound (muted, or no theme wanted) it is suspended once the mute ramp,
+  /// or the theme's fade out and the longest cue, are over
+  /// ([SoundTiming.idle]); the next gesture or [theme] wakes it.
+  void _settle() {
+    _idle?.cancel();
+    _idle = null;
+    if (!_backend.isOpen || _hidden) return;
+    if (!_muted && _theme.wanted != null) return;
+    _idle = Timer(_muted ? SoundTiming.mute : SoundTiming.idle, () {
+      _idle = null;
+      _guard('idle', () {
+        final quiet = _muted || _theme.wanted == null;
+        if (!_backend.isOpen || _hidden || !quiet) return;
+        if (_backend.state != AudioState.running) return;
+        _quiet('suspend', _backend.suspend());
+      });
+    });
+  }
 
   void _opened() {
     if (_muted) return;
