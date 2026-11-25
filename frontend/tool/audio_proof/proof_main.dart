@@ -104,7 +104,7 @@ Future<JSString> _offline(bool trim) async {
   final backend = WebAudioBackend(urlOf: (p) => p, create: () => offline);
   final engine = SoundEngine(backend, sounds)
     ..start()
-    ..gesture()
+    ..gesture(activates: true)
     ..theme(ThemeVariant.table);
   while (engine.playing == null) {
     await Future<void>.delayed(Duration.zero);

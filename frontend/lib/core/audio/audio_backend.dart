@@ -34,8 +34,9 @@ abstract final class SoundTiming {
       d.inMicroseconds / Duration.microsecondsPerSecond;
 }
 
-/// The state of the platform's audio output.
-enum AudioState { running, suspended, closed }
+/// The state of the platform's audio output, as Web Audio names it:
+/// `interrupted` is Safari's (a call, another app took the output).
+enum AudioState { running, suspended, interrupted, closed }
 
 /// A decoded sound the backend holds (on the web an `AudioBuffer`, kept in
 /// the browser: its samples never pass through Dart).
@@ -64,15 +65,26 @@ abstract interface class AudioBackend {
   /// Whether the output exists. Nothing creates it before [open].
   bool get isOpen;
 
-  /// Creates the output and its master gain at [gain]. Called inside a
-  /// user's gesture, where browsers allow sound.
+  /// Creates the output and its master gain at [gain]. Called only from a
+  /// gesture that is a user activation (browsers start sound only there; a
+  /// context made outside one starts suspended).
   void open(double gain);
+
+  /// Forgets a closed output and its master gain, so the next [open] makes
+  /// a new one.
+  void discard();
 
   AudioState get state;
 
   /// The audio clock, in seconds (frozen while suspended).
   double get now;
 
+  /// What the output adds between the clock and the speaker's buffer, in
+  /// seconds (0 when the platform does not say).
+  double get baseLatency;
+
+  /// Asks the output to run. Cheap and idempotent; outside a user
+  /// activation a browser may leave it pending until one.
   Future<void> resume();
 
   Future<void> suspend();
@@ -108,14 +120,23 @@ abstract interface class AudioBackend {
   });
 
   /// Ramps [voice] to silence over [seconds] from audio time [at] (now when
-  /// null), then stops and releases it. A crossfade gives both ramps the same
-  /// [at], so the two gains always sum to one.
-  void fadeOut(Voice voice, double seconds, {double? at});
+  /// null), then stops and releases it, and calls [ended] once it has
+  /// stopped. A crossfade gives both ramps the same [at], so the two gains
+  /// always sum to one. A later call on the same voice replaces an earlier
+  /// one (the last `stop()` wins, as in Web Audio).
+  void fadeOut(
+    Voice voice,
+    double seconds, {
+    double? at,
+    void Function()? ended,
+  });
 
   /// Calls [gesture] on every user gesture (a cheap listener for the life of
-  /// the page) and [visible] when the page or app is hidden or shown.
+  /// the page), with whether it is a user activation (a touch's pointerdown
+  /// is not; its pointerup, touchend and click are, as are a key and a
+  /// mouse's press), and [visible] when the page or app is hidden or shown.
   void listen({
-    required void Function() gesture,
+    required void Function(bool activates) gesture,
     required void Function(bool shown) visible,
   });
 }

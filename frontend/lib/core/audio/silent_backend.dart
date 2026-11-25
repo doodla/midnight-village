@@ -13,10 +13,16 @@ class SilentBackend implements AudioBackend {
   void open(double gain) => _open = true;
 
   @override
+  void discard() => _open = false;
+
+  @override
   AudioState get state => AudioState.running;
 
   @override
   double get now => 0;
+
+  @override
+  double get baseLatency => 0;
 
   @override
   Future<void> resume() async {}
@@ -54,11 +60,16 @@ class SilentBackend implements AudioBackend {
   }) => Voice(clip, variant);
 
   @override
-  void fadeOut(Voice voice, double seconds, {double? at}) {}
+  void fadeOut(
+    Voice voice,
+    double seconds, {
+    double? at,
+    void Function()? ended,
+  }) => ended?.call();
 
   @override
   void listen({
-    required void Function() gesture,
+    required void Function(bool activates) gesture,
     required void Function(bool shown) visible,
   }) {}
 }

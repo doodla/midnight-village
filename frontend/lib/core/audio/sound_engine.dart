@@ -38,7 +38,6 @@ class SoundEngine {
   bool _muted;
   double _volume;
   bool _hidden = false;
-  bool _resuming = false;
 
   ThemeVariant? _wanted;
   Voice? _current;
@@ -74,7 +73,10 @@ class SoundEngine {
     if (_started || _set.isEmpty) return;
     _started = true;
     _guard('listen', () {
-      _backend.listen(gesture: gesture, visible: visible);
+      _backend.listen(
+        gesture: (activates) => gesture(activates: activates),
+        visible: visible,
+      );
     });
     if (_muted) return;
     _guard('fetch', () {
@@ -85,14 +87,19 @@ class SoundEngine {
     });
   }
 
-  /// A user gesture: opens the output the first time (browsers allow sound
-  /// only from inside one), and resumes it whenever it is not running
-  /// (Chrome on Android suspends it on its own). Never throws.
-  void gesture() {
+  /// A user gesture, [activates] when it is a user activation (a touch's
+  /// pointerup, touchend or click, a key, a mouse's press; not a touch's
+  /// pointerdown). Only an activating one opens the output (a context made
+  /// outside one starts suspended and may stay so). Every gesture asks a
+  /// stopped output to run again (Chrome on Android suspends it on its own):
+  /// `resume()` is cheap and idempotent, and one asked on a pointerdown may
+  /// stay pending, so nothing waits on an earlier one. Never throws.
+  void gesture({required bool activates}) {
     if (!_started) return;
     _guard('gesture', () {
       if (_hidden) return;
       if (!_backend.isOpen) {
+        if (!activates) return;
         _backend.open(_muted ? 0 : _volume);
         _opened();
       }
@@ -101,7 +108,8 @@ class SoundEngine {
   }
 
   /// The page or app was hidden ([shown] false) or came back. Hidden is
-  /// silent; shown continues the loop where it was.
+  /// silent; shown continues the loop where it was. Each call asks at once
+  /// (no gate on one still on its way): the last one asked wins.
   void visible(bool shown) {
     if (!_started) return;
     _hidden = !shown;
@@ -174,7 +182,7 @@ class SoundEngine {
       !_muted &&
       !_hidden &&
       _backend.isOpen &&
-      (_backend.state == AudioState.running || _resuming);
+      _backend.state == AudioState.running;
 
   void _opened() {
     if (_muted) return;
@@ -186,26 +194,18 @@ class SoundEngine {
   }
 
   void _resume() {
-    if (_resuming || _hidden) return;
-    _resuming = true;
+    if (_hidden) return;
     final Future<void> resumed;
     try {
       resumed = _backend.resume();
     } on Object catch (e) {
-      _resuming = false;
       _log('SoundEngine: resume failed: $e');
       return;
     }
     unawaited(
       resumed.then(
-        (_) {
-          _resuming = false;
-          _guard('after resume', _reconcile);
-        },
-        onError: (Object e) {
-          _resuming = false;
-          _log('SoundEngine: resume refused: $e');
-        },
+        (_) => _guard('after resume', _reconcile),
+        onError: (Object e) => _log('SoundEngine: resume refused: $e'),
       ),
     );
   }

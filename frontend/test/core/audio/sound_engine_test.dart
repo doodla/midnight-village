@@ -47,7 +47,7 @@ void main() {
     final backend = FakeAudioBackend();
     final engine = SoundEngine(backend, SoundSet.empty)
       ..start()
-      ..gesture()
+      ..gesture(activates: true)
       ..theme(ThemeVariant.night)
       ..play(knock);
     expect(engine.playing, isNull);
@@ -77,7 +77,7 @@ void main() {
       expect(backend.fired, isEmpty);
       expect(backend.loops, isEmpty);
 
-      backend.gesture!();
+      backend.tap();
       async.flushMicrotasks();
       expect(backend.opens, 1);
       expect(engine.playing, ThemeVariant.table);
@@ -93,7 +93,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend();
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       async.flushMicrotasks();
       engine.play(knock);
       // No microtask flushed: it fired synchronously.
@@ -108,7 +108,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend(lengths: {tableFile: 4, nightFile: 4});
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       engine.theme(ThemeVariant.table);
       async.flushMicrotasks();
       final table = backend.loops.single;
@@ -137,7 +137,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend();
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       engine.theme(ThemeVariant.table);
       async.flushMicrotasks();
       backend.clock = 3;
@@ -154,7 +154,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend(decodeAtOnce: false);
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       engine.theme(ThemeVariant.table);
       backend.finishDecode(tableFile);
       async.flushMicrotasks();
@@ -180,7 +180,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend(decodeAtOnce: false);
       final (engine, log) = started(backend);
-      backend.gesture!();
+      backend.tap();
       engine.theme(ThemeVariant.table);
       backend.finishDecode(tableFile);
       async.flushMicrotasks();
@@ -196,7 +196,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend();
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       engine.theme(ThemeVariant.table);
       async.flushMicrotasks();
       backend.clock = 5;
@@ -209,7 +209,7 @@ void main() {
       expect(table.fadeLength, SoundTiming.seconds(SoundTiming.declick));
       expect(night.fadeLength, crossfade);
       expect(vote.variant, ThemeVariant.vote);
-      backend.clock = 5.5 + SoundTiming.seconds(SoundTiming.declick) + 0.001;
+      backend.clock = 5.5 + lead + 0.001;
       expect(backend.soundingLoops(), [night, vote]);
       expect(engine.voices, 2);
     });
@@ -219,7 +219,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend();
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       for (final (t, v) in [
         (0.0, ThemeVariant.table),
         (5.0, ThemeVariant.night),
@@ -237,7 +237,7 @@ void main() {
     fakeAsync((async) {
       final backend = FakeAudioBackend();
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       engine.theme(ThemeVariant.table);
       async.flushMicrotasks();
       backend.clock = 6;
@@ -265,7 +265,7 @@ void main() {
         },
       );
       final (engine, _) = started(backend, sounds: sounds);
-      backend.gesture!();
+      backend.tap();
       engine.theme(ThemeVariant.table);
       async.flushMicrotasks();
       expect(backend.loops.single.points, points);
@@ -290,7 +290,7 @@ void main() {
           },
         ),
       );
-      backend.gesture!();
+      backend.tap();
       async.flushMicrotasks();
       engine.play(knock);
       expect(backend.fired, [m4a]);
@@ -298,11 +298,11 @@ void main() {
   });
 
   group('the page hidden and shown', () {
-    test('hidden suspends and drops cues; shown resumes the loop', () {
+    test('hidden suspends and drops cues; shown resumes the same loop', () {
       fakeAsync((async) {
-        final backend = FakeAudioBackend();
+        final backend = FakeAudioBackend()..resumeNeedsGesture = false;
         final (engine, _) = started(backend);
-        backend.gesture!();
+        backend.tap();
         engine.theme(ThemeVariant.table);
         async.flushMicrotasks();
         backend.visible!(false);
@@ -320,48 +320,95 @@ void main() {
       });
     });
 
+    test('quick hidden, shown, hidden, shown: the last one wins, and a '
+        'resume left pending is no gate on the next touch', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend();
+        final (engine, _) = started(backend);
+        backend.tap();
+        engine.theme(ThemeVariant.table);
+        async.flushMicrotasks();
+        for (final shown in [false, true, false, true]) {
+          backend.visible!(shown);
+        }
+        async.flushMicrotasks();
+        // Shown outside a gesture: the resume waits for an activation.
+        expect(backend.state, AudioState.suspended);
+        backend.touch();
+        async.flushMicrotasks();
+        expect(backend.state, AudioState.running);
+        engine.play(knock);
+        expect(backend.fired, [knockFile]);
+      });
+    });
+
     test('a gesture while hidden opens nothing', () {
       final backend = FakeAudioBackend();
       started(backend);
       backend.visible!(false);
-      backend.gesture!();
+      backend.tap();
       expect(backend.opens, 0);
     });
   });
 
-  group('Chrome on Android suspending on its own', () {
-    test('the next gesture resumes a context that stopped running', () {
+  group('the first touch on Android', () {
+    test('pointerdown is no activation: nothing is opened on it; the '
+        'pointerup that follows opens a running output', () {
       fakeAsync((async) {
         final backend = FakeAudioBackend();
         final (engine, _) = started(backend);
-        backend.gesture!();
+        backend.send(activates: false);
+        expect(backend.opens, 0, reason: 'not on pointerdown');
+        backend.send(activates: true);
         async.flushMicrotasks();
-        expect(backend.resumes, 1);
-        backend.current = AudioState.suspended;
-        backend.gesture!();
-        async.flushMicrotasks();
-        expect(backend.resumes, 2);
+        expect(backend.opens, 1);
         expect(backend.state, AudioState.running);
         engine.play(knock);
         expect(backend.fired, [knockFile]);
-        backend.gesture!();
-        expect(backend.resumes, 2, reason: 'running: nothing to do');
+      });
+    });
+
+    test('a resume left pending by a pointerdown does not lock the later '
+        'gestures out: each asks again, and the activating one runs it', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend();
+        final (engine, _) = started(backend);
+        backend.tap();
+        async.flushMicrotasks();
+        // Chrome on Android suspends it on its own.
+        backend.current = AudioState.suspended;
+        backend.send(activates: false);
+        async.flushMicrotasks();
+        expect(backend.state, AudioState.suspended, reason: 'still pending');
+        backend.send(activates: false);
+        expect(backend.resumes, 2, reason: 'asked again, no gate');
+        backend.send(activates: true);
+        async.flushMicrotasks();
+        expect(backend.state, AudioState.running);
+        engine.play(knock);
+        expect(backend.fired, [knockFile]);
+        backend.tap();
+        expect(backend.resumes, 3, reason: 'running: nothing to do');
       });
     });
 
     test('a refused or failing resume never reaches the tap', () {
       fakeAsync((async) {
-        final backend = FakeAudioBackend()
-          ..resumeError = StateError('not allowed');
+        final backend = FakeAudioBackend();
         final (engine, log) = started(backend);
-        expect(() => backend.gesture!(), returnsNormally);
+        backend.tap();
+        async.flushMicrotasks();
+        backend
+          ..current = AudioState.suspended
+          ..resumeError = StateError('not allowed');
+        expect(backend.tap, returnsNormally);
         async.flushMicrotasks();
         expect(log.single, contains('refused'));
         engine.play(knock);
         expect(backend.fired, isEmpty, reason: 'not running: dropped');
 
         backend.resumeThrowsAtOnce = true;
-        expect(() => backend.gesture!(), returnsNormally);
+        expect(backend.tap, returnsNormally);
         expect(() => backend.visible!(true), returnsNormally);
         async.flushMicrotasks();
         expect(log.last, contains('resume failed'));
@@ -369,7 +416,7 @@ void main() {
         backend
           ..resumeThrowsAtOnce = false
           ..resumeError = null;
-        backend.gesture!();
+        backend.tap();
         async.flushMicrotasks();
         engine.play(knock);
         expect(backend.fired, [knockFile], reason: 'a later tap unlocks');
@@ -384,7 +431,7 @@ void main() {
         final backend = FakeAudioBackend();
         final (engine, _) = started(backend, muted: true);
         engine.theme(ThemeVariant.night);
-        backend.gesture!();
+        backend.tap();
         async.flushMicrotasks();
         expect(backend.masterGain, 0);
         expect(backend.decodes, isEmpty);
@@ -408,7 +455,7 @@ void main() {
       fakeAsync((async) {
         final backend = FakeAudioBackend();
         final (engine, _) = started(backend);
-        backend.gesture!();
+        backend.tap();
         engine.theme(ThemeVariant.table);
         async.flushMicrotasks();
         engine.setMuted(true);
@@ -422,7 +469,7 @@ void main() {
     test('the volume ramps the master, clamped to 0..1', () {
       final backend = FakeAudioBackend();
       final (engine, _) = started(backend);
-      backend.gesture!();
+      backend.tap();
       engine.setVolume(0.4);
       expect(backend.masterGain, 0.4);
       engine.setVolume(3);
@@ -436,7 +483,7 @@ void main() {
       final (engine, log) = started(backend);
       expect(() {
         engine
-          ..gesture()
+          ..gesture(activates: true)
           ..theme(ThemeVariant.table)
           ..play(knock)
           ..visible(false)

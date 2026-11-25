@@ -96,7 +96,7 @@ void main() {
         Sounds.startWith(sounds, () => backend, watchLifecycle: false);
         async.flushMicrotasks();
         expect(backend.opens, 0);
-        backend.gesture!();
+        backend.tap();
         async.flushMicrotasks();
         expect(backend.loops.single.variant, ThemeVariant.night);
       });
@@ -107,7 +107,7 @@ void main() {
         final backend = FakeAudioBackend();
         Sounds.startWith(sounds, () => backend, watchLifecycle: false);
         async.flushMicrotasks();
-        backend.gesture!();
+        backend.tap();
         Sounds.setVolume(0.25);
         async.flushMicrotasks();
         expect(backend.masterGain, 0.25);
@@ -149,7 +149,7 @@ void main() {
         Sounds.theme(ThemeVariant.night);
         Sounds.startWith(sounds, () => backend, watchLifecycle: false);
         async.flushMicrotasks();
-        backend.gesture!();
+        backend.tap();
         async.flushMicrotasks();
         expect(backend.masterGain, 0);
         expect(backend.decodes, isEmpty);

@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:web/web.dart' as web;
 
@@ -55,14 +56,30 @@ class WebAudioBackend implements AudioBackend {
   }
 
   @override
+  void discard() {
+    _context = null;
+    _master = null;
+  }
+
+  @override
   AudioState get state => switch (_context?.state) {
     'running' => AudioState.running,
     'closed' => AudioState.closed,
+    'interrupted' => AudioState.interrupted,
     _ => AudioState.suspended,
   };
 
   @override
   double get now => _context?.currentTime ?? 0;
+
+  @override
+  double get baseLatency {
+    final live = _live;
+    // Not every browser has it (older Safari): 0 then.
+    if (live == null || !(live as JSObject).has('baseLatency')) return 0;
+    final v = live.baseLatency;
+    return v.isFinite && v > 0 ? v : 0;
+  }
 
   @override
   Future<void> resume() async {
@@ -182,7 +199,12 @@ class WebAudioBackend implements AudioBackend {
   }
 
   @override
-  void fadeOut(Voice voice, double seconds, {double? at}) {
+  void fadeOut(
+    Voice voice,
+    double seconds, {
+    double? at,
+    void Function()? ended,
+  }) {
     final context = _context;
     if (context == null) return;
     final (source, gain) =
@@ -193,6 +215,7 @@ class WebAudioBackend implements AudioBackend {
     source.onended = ((web.Event _) {
       source.disconnect();
       gain.disconnect();
+      ended?.call();
     }).toJS;
     source.stop(from + seconds);
   }
@@ -215,6 +238,12 @@ class WebAudioBackend implements AudioBackend {
     param.linearRampToValueAtTime(to, start + s);
   }
 
+  /// The events that are a user activation whatever the pointer (HTML's
+  /// activation-triggering events). A touch's pointerdown is not one on
+  /// Android, so a context made or resumed there may stay suspended; a
+  /// mouse's pointerdown is, and [_activeNow] says so.
+  static const _activating = {'pointerup', 'touchend', 'click', 'keydown'};
+
   static const _gestures = [
     'pointerdown',
     'pointerup',
@@ -226,14 +255,16 @@ class WebAudioBackend implements AudioBackend {
 
   @override
   void listen({
-    required void Function() gesture,
+    required void Function(bool activates) gesture,
     required void Function(bool shown) visible,
   }) {
     // On the window, in the capture phase: it runs before the app sees the
     // event, so the tap that unlocks is already inside a gesture. Passive:
     // it never holds a scroll or a touch.
     final options = web.AddEventListenerOptions(capture: true, passive: true);
-    final onGesture = ((web.Event _) => gesture()).toJS;
+    final onGesture = ((web.Event e) => gesture(
+      _activating.contains(e.type) || _activeNow(),
+    )).toJS;
     for (final type in _gestures) {
       web.window.addEventListener(type, onGesture, options);
     }
@@ -243,5 +274,13 @@ class WebAudioBackend implements AudioBackend {
         web.document.visibilityState == 'visible',
       )).toJS,
     );
+  }
+
+  /// Whether the page holds a transient user activation now
+  /// (`navigator.userActivation.isActive`; false where it is missing).
+  static bool _activeNow() {
+    final navigator = web.window.navigator as JSObject;
+    if (!navigator.has('userActivation')) return false;
+    return web.window.navigator.userActivation.isActive;
   }
 }
