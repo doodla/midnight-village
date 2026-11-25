@@ -185,7 +185,10 @@ that only one phone gets because of its role or what it did at night; no `heavyI
 
 How it is built (`frontend/lib/design_system/feel/haptics.dart`): one `Haptics` class is the one place that asks for a vibration, and nothing else calls
 `HapticFeedback` (`haptics_only_here_test.dart` fails any direct call, as `fixture_sources_test.dart` does for fixtures).
-`tick`, `light` and `thud` take the touched widget's context and do nothing on the night's ground (so the call must be made from under the screen's own ground); there is no call for a card landing, and none may be added (the owner's line above). None throws; a test listens on the platform channel to see what fired. A
+`tick`, `light` and `thud` take the touched widget's context and do nothing on the night's ground (so the call must be made from under the screen's own ground);
+there is no call for a card landing, and none may be added (the owner's line above).
+None throws; a test listens on the platform channel to see what fired.
+A
 vibration goes with a visible change on the same frame and is never the only sign.
 
 Where there is nothing to vibrate it does nothing, and the screen is complete without it: a phone
@@ -274,7 +277,11 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 ### What a wait shows, over time
 
-One body for every place the app waits (`Waiting`), laid in the frame of the screen it waits for: the opening (the saved account, then `/me/table/`: 01's village and its title), 04's village and "Your card", 08's sky and "The village wakes", 09's band and "Who dies today?", 10's and 11's ground. The screen's frame is up in the first frame; nothing is held back.
+One body for every place the app waits (`Waiting`), laid in the frame of the screen it waits for:
+the opening (the saved account, then `/me/table/`: 01's village and its title), 04's village and "Your card", 08's sky and "The village wakes", 09's band and
+"Who dies today?", 10's and 11's ground.
+The screen's frame is up in the first frame;
+nothing is held back.
 
 | Wait so far | The player sees | Reduce motion |
 |---|---|---|
