@@ -196,7 +196,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
       if (e is ForbiddenException) _invalidateTable();
       final current = state.value;
       if (current == null) {
-        state = AsyncError(e, stack);
+        // Failing once is news; failing again is not (no frame for it).
+        if (!state.hasError) state = AsyncError(e, stack);
       } else {
         _update((s) => s.copyWith(fetchFailing: true));
         _armHealing(current.server);

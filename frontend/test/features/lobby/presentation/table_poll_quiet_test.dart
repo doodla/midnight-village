@@ -53,6 +53,36 @@ void main() {
     await setup.close(tester);
   });
 
+  testWidgets('02: the same answers ask for no frame at all', (tester) async {
+    final setup = await TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_seats_8_four_here'),
+      viewer: 'Tia',
+    );
+    await setup.settle(tester);
+    final asked = setup.http.requests
+        .where((r) => r.path.contains('/me/table/'))
+        .length;
+    var frames = 0;
+    for (var i = 0; i < 10; i++) {
+      await tester.binding.delayed(testHealTiming.tablePoll);
+      if (tester.binding.hasScheduledFrame) {
+        frames++;
+        await tester.pump();
+      }
+    }
+    expect(
+      setup.http.requests.where((r) => r.path.contains('/me/table/')).length,
+      greaterThan(asked + 5),
+      reason: 'the poll did ask, again and again',
+    );
+    // A frame is drawn whole on the web (CanvasKit): an answer that changed
+    // nothing draws none (the owner, 24 November 2026: "it felt like I was
+    // watching a ppt").
+    expect(frames, 0);
+    await setup.close(tester);
+  });
+
   testWidgets('03: the same on the deck', (tester) async {
     final setup = await TableSetup.pump(
       tester,

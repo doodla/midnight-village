@@ -25,7 +25,8 @@ part 'where_am_i_provider.g.dart';
 /// retried until it succeeds ([retryForever]). At a waiting table or a
 /// finished game, where only an event would say the table moved on, it is
 /// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
-/// a missed event heals. Null: at no table. Every answer is kept on the
+/// a missed event heals; a poll that brings the same answer is not a new
+/// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
 /// device as the last seat ([LastSeat]).
 ///
 /// A read asked for right after the server said where this player sits (an
@@ -60,9 +61,29 @@ Future<MyTable?> myTable(Ref ref) async {
       (table.status == TableStatus.waiting ||
           table.status == TableStatus.finished ||
           table.gamePhase == GamePhase.results)) {
-    poll = Timer(ref.read(healTimingProvider).tablePoll, () {
-      if (ref.mounted) ref.invalidateSelf();
-    });
+    void armPoll() {
+      poll = Timer(ref.read(healTimingProvider).tablePoll, () async {
+        if (!ref.mounted || !current) return;
+        final MyTable? read;
+        try {
+          read = await service.fetchMyTable();
+        } catch (_) {
+          // Not answered: read again the usual way (retried until it lands).
+          if (ref.mounted && current) ref.invalidateSelf();
+          return;
+        }
+        if (!ref.mounted || !current) return;
+        // The same answer tells nobody (no frame is drawn for it); one that
+        // moved is the next read, with no second request.
+        if (read == table) return armPoll();
+        if ((_userId(ref), read) case (final user?, final seat?)) {
+          ref.read(seatSeedProvider)._put(user, seat);
+        }
+        ref.invalidateSelf();
+      });
+    }
+
+    armPoll();
   }
   return table;
 }
