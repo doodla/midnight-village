@@ -180,6 +180,11 @@ LOGGING = {
     },
 }
 
+# Server-Timing detail (apps/core/server_timing.py): round trips, socket and timer
+# messages and each part's time. OFF here and on the live server: those counts can
+# depend on other players' hidden moves. On in development, the harness and tests.
+SERVER_TIMING_DETAIL = False
+
 # Rebuild the timers of games in progress when the server starts (the in-memory
 # timer registry is lost with the process). Off in the test settings.
 ONUW_RECOVER_TIMERS_ON_START = True

@@ -56,6 +56,10 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 # oracle, fire-timer) answering 403.
 DEBUG = False
 
+# The live Server-Timing header carries only the connection time and a rounded total:
+# its counts can depend on other players' hidden moves (apps/core/server_timing.py).
+SERVER_TIMING_DETAIL = False
+
 # Vercel writes this header itself from the connection it received: the address the
 # request limits count by (apps/core/throttles.py takes it only as one valid address).
 CLIENT_ADDRESS_HEADER = "HTTP_X_VERCEL_FORWARDED_FOR"

@@ -18,6 +18,9 @@ SECRET_KEY = "django-insecure-test-key-not-for-production"
 
 DEBUG = False
 
+# The Server-Timing header's counts and parts (off live: base.py says why).
+SERVER_TIMING_DETAIL = True
+
 # A socket event type with no handler is a bug in new code: fail, do not drop it
 # (production, base.py, drops it so an older instance keeps its sockets open).
 ONUW_STRICT_SOCKET_EVENTS = True
