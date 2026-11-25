@@ -297,6 +297,67 @@ void main() {
     });
   });
 
+  group('cues never pile up and burst late', () {
+    test('a cue while the output is stopped and no activation asked it to '
+        'run is dropped, not started into it', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend();
+        final (engine, _) = started(backend);
+        backend.tap();
+        async.flushMicrotasks();
+        backend.current = AudioState.suspended;
+        // A pointerdown asks for a resume that stays pending.
+        backend.send(activates: false);
+        for (var i = 0; i < 5; i++) {
+          engine.play(knock);
+        }
+        async.elapse(Duration.zero);
+        expect(backend.fired, isEmpty);
+        // The pointerup runs it: nothing stored bursts out.
+        backend.send(activates: true);
+        async.flushMicrotasks();
+        expect(backend.state, AudioState.running);
+        expect(backend.fired, isEmpty);
+        expect(backend.lateCues, isEmpty);
+      });
+    });
+
+    test('the cue of the very gesture that asked for the resume plays, '
+        'from a later listener of the same event too', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend();
+        final (engine, _) = started(backend);
+        backend.tap();
+        async.flushMicrotasks();
+        backend.current = AudioState.suspended;
+        backend.send(activates: true);
+        // The browser runs the microtasks between the engine's listener and
+        // the app's: the cue still belongs to this gesture.
+        async.flushMicrotasks();
+        engine.play(knock);
+        expect(backend.fired, [knockFile]);
+        expect(backend.lateCues, isEmpty);
+      });
+    });
+
+    test('the allowance ends with the gesture: a cue on the next task while '
+        'still stopped is dropped', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend();
+        final (engine, _) = started(backend);
+        backend.tap();
+        async.flushMicrotasks();
+        backend
+          ..current = AudioState.suspended
+          ..resumeError = StateError('not allowed');
+        backend.send(activates: true);
+        async.elapse(Duration.zero);
+        engine.play(knock);
+        expect(backend.fired, isEmpty);
+      });
+    });
+  });
+
   group('the page hidden and shown', () {
     test('hidden suspends and drops cues; shown resumes the same loop', () {
       fakeAsync((async) {
@@ -402,7 +463,7 @@ void main() {
           ..current = AudioState.suspended
           ..resumeError = StateError('not allowed');
         expect(backend.tap, returnsNormally);
-        async.flushMicrotasks();
+        async.elapse(Duration.zero);
         expect(log.single, contains('refused'));
         engine.play(knock);
         expect(backend.fired, isEmpty, reason: 'not running: dropped');

@@ -39,6 +39,15 @@ class SoundEngine {
   double _volume;
   bool _hidden = false;
 
+  /// Set while the gesture being handled asked a stopped output to run from
+  /// inside a user activation: a cue of that same gesture may start (the
+  /// output runs a moment later). Cleared on the next task, not the next
+  /// microtask: a browser runs the microtasks between the engine's capture
+  /// listener and the app's own handler of the same event (Flutter's tap
+  /// runs on that pointerup), so a microtask would clear it before the cue.
+  bool _resumeAsked = false;
+  int _asks = 0;
+
   ThemeVariant? _wanted;
   Voice? _current;
   final _outgoing = <(Voice, double)>[];
@@ -103,7 +112,7 @@ class SoundEngine {
         _backend.open(_muted ? 0 : _volume);
         _opened();
       }
-      if (_backend.state != AudioState.running) _resume();
+      if (_backend.state != AudioState.running) _resume(activated: activates);
     });
   }
 
@@ -123,8 +132,10 @@ class SoundEngine {
     });
   }
 
-  /// Fires [cue] now if it can sound now; otherwise drops it (a cue late is
-  /// worse than none).
+  /// Fires [cue] now if it can sound now: the output is running, or this
+  /// very gesture asked it to run from inside a user activation. Otherwise
+  /// it is dropped, never started into a stopped output to burst out late
+  /// with the others when it runs again (a cue late is worse than none).
   void play(Sfx cue) {
     _guard('play ${cue.name}', () {
       if (!_canSound) return;
@@ -182,7 +193,11 @@ class SoundEngine {
       !_muted &&
       !_hidden &&
       _backend.isOpen &&
-      _backend.state == AudioState.running;
+      switch (_backend.state) {
+        AudioState.running => true,
+        AudioState.closed => false,
+        _ => _resumeAsked,
+      };
 
   void _opened() {
     if (_muted) return;
@@ -193,7 +208,7 @@ class SoundEngine {
     _reconcile();
   }
 
-  void _resume() {
+  void _resume({bool activated = false}) {
     if (_hidden) return;
     final Future<void> resumed;
     try {
@@ -201,6 +216,13 @@ class SoundEngine {
     } on Object catch (e) {
       _log('SoundEngine: resume failed: $e');
       return;
+    }
+    if (activated) {
+      _resumeAsked = true;
+      final ask = ++_asks;
+      Timer.run(() {
+        if (ask == _asks) _resumeAsked = false;
+      });
     }
     unawaited(
       resumed.then(
