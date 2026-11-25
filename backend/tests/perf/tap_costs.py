@@ -8,8 +8,11 @@ socket opening: the database round trips it made (``queries``, with the SQL; eac
 atomic block's SAVEPOINT / RELEASE stand for the BEGIN / COMMIT the live server
 sends), the rows it locked
 (``SELECT ... FOR UPDATE``) and how many round trips the lock was then held for
-(``lock_span``), the socket messages it handed to the channel layer (``sends``: a
-Redis publish each on the live server, made before the answer leaves) and the timer
+(``lock_span``), the socket messages it handed to the channel layer (``sends``) and
+the Redis round trips they cost on the live server before the answer leaves
+(``redis_trips``: two per batch of messages sent together, ``apps/core/channel_layer.py``;
+the direct sends of the lobby views, join, leave, settings and the deal's
+``game_started``, still cost four each live and are not counted), the timer
 messages it published (``publishes``: a Vercel Queue send each there, also before the
 answer), and how long it took here. The deal is forced (``DEALT``) so that every seat
 holds a card that wakes and is told something: work done once per actor grows with the
@@ -72,10 +75,15 @@ class Cost:
     ms: float
     sends: int
     publishes: int
+    batches: int = 0
 
     @property
     def queries(self) -> int:
         return len(self.sql)
+
+    @property
+    def redis_trips(self) -> int:
+        return 2 * self.batches
 
     @property
     def locks(self) -> int:
@@ -178,6 +186,7 @@ class MeteredTable(Table):
     def _measured(self, what: str, outcome: dict[str, int]) -> Iterator[None]:
         before = _stage(self)
         sent = len(self.layer.sent)
+        batches = self.layer.batches
         published = self._published
         with CaptureQueriesContext(connection) as captured:
             started = time.perf_counter()
@@ -197,6 +206,7 @@ class MeteredTable(Table):
                 sql_ms=sum(float(q["time"]) for q in queries) * 1000,
                 ms=elapsed * 1000,
                 sends=len(self.layer.sent) - sent,
+                batches=self.layer.batches - batches,
                 publishes=self._published - published,
             )
         )

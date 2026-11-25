@@ -268,7 +268,8 @@ Every phone taps `POST .../ready/ {"ready": true, "stage": ...}` (`false` is 400
 The night opens (`start_night_phase`, idempotent under the Game lock, which also cancels `<id>:look`) when every player not gone past grace has looked, when the
 backstop fires, or when the host taps advance-wave (`advance_wave` at window 0 opens the first window; it used to raise).
 A tap that loses the race to the backstop names a stage that is over (409 `wrong_stage`).
-**One readiness rule:** `_stage_is_ready` (look and talk: `needed >= 1` and `done == needed`) and `_advance_stage_if_ready` are used by `set_ready` (a tap),
+**One readiness rule:** `_stage_is_ready` (look and talk: `needed >= 1` and `done == needed`) and `_advance_stage_if_ready` are used by `set_ready`
+(a tap; it decides from the count it has just sent, `_advance_if_counted_ready`, so the Game lock waits for one read of the players, not two; a vote lock likewise reads them once for its count, `_votes_ready` and the reveal),
 `_evaluate_presence` (a grace period ended, a phone came back: it re-checks, else re-announces the count) and `ensure_timers`
 (the look timer was lost: if everyone present has already looked it opens the night, else it rebuilds `:look` with the reconnect allowance).
 `_night_start_is_stuck` only applies when there is no deadline (a look stage is waiting for taps, not stuck), and `recover_timers` does not open a window-0

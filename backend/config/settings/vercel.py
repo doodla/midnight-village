@@ -24,6 +24,7 @@ import os
 from urllib.parse import unquote, urlparse
 
 from .base import *
+from .base import INSTALLED_APPS as _BASE_APPS
 
 
 def _env_list(name: str) -> list[str]:
@@ -52,6 +53,10 @@ def _database_from_url(url: str) -> dict:
 
 SECRET_KEY = os.environ["SECRET_KEY"]
 
+# Daphne's app only swaps in its own `runserver`; Vercel serves the ASGI app itself,
+# and loading it imports Twisted (about 0.17 s of every cold start).
+INSTALLED_APPS = [app for app in _BASE_APPS if app != "daphne"]
+
 # Never on: it also keeps the debug harness endpoints (forced assignment,
 # oracle, fire-timer) answering 403.
 DEBUG = False
@@ -74,7 +79,8 @@ DATABASES = {"default": _database_from_url(os.environ["DATABASE_URL"])}
 
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        # channels_redis, with a commit's messages sent at once (core/channel_layer.py).
+        "BACKEND": "apps.core.channel_layer.BatchingRedisChannelLayer",
         "CONFIG": {"hosts": [os.environ["REDIS_URL"]]},
     },
 }
