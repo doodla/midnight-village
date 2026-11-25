@@ -236,6 +236,13 @@ class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
     final down = FingerDown.instance.value;
     final moving = allowed && !down;
     if (widget.continuous) {
+      if (_still) {
+        // Reduce motion: the same sign, at rest at [still], not wherever
+        // the loop began.
+        _c.stop();
+        _c.value = widget.still;
+        return;
+      }
       if (moving && !_c.isAnimating) {
         unawaited(_c.repeat(reverse: widget.reverse));
       } else if (!moving && _c.isAnimating) {

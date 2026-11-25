@@ -407,4 +407,25 @@ void main() {
       expect(Ambient.sameLoop(a, other), isFalse);
     }
   });
+
+  testWidgets('reduce motion: a continuous loop rests at its still value, not '
+      'where the loop begins', (tester) async {
+    Animation<double>? loop;
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: Ambient.continuous(
+          still: 1,
+          period: _period,
+          builder: (context, l, _) {
+            loop = l;
+            return const SizedBox(width: 40, height: 40);
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(loop!.value, 1);
+    expect(SchedulerBinding.instance.transientCallbackCount, 0);
+  });
 }
