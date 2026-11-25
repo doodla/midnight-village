@@ -478,7 +478,7 @@ const inventory = <PartEntry>[
 /// they are, so a new file must say.
 const notAComponent = <String, String>{
   'primitives/countdown.dart':
-      'what a clock counts and its tick (Countdown, ClockTick): the clock '
+      'what a clock counts and its tick (Countdown and the tick that reads it): the clock '
       'primitives draw it, it draws nothing of its own',
   'primitives/card_link.dart':
       'geometry, nothing drawn: where a link between two cards is tied and how it bends; Twine paints it',
