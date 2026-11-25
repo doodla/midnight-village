@@ -1,0 +1,81 @@
+{
+ "direction": "f",
+ "scale_db": -2.95,
+ "bed_samples": 6400080,
+ "vote_samples": 1600020,
+ "vote_repeats_per_bed": 4,
+ "reveal_samples": 6400080,
+ "vote_rel_lu": -10.0,
+ "reveal_rel_lu": -6.0,
+ "mixes": {
+  "bed": {
+   "lufs": -20.59,
+   "sample_peak_db": -6.34,
+   "clipped": 0,
+   "mono_loss_db": 0.09
+  },
+  "bed+vote": {
+   "lufs": -20.19,
+   "sample_peak_db": -4.48,
+   "clipped": 0,
+   "mono_loss_db": 0.14
+  },
+  "bed+reveal": {
+   "lufs": -19.68,
+   "sample_peak_db": -4.96,
+   "clipped": 0,
+   "mono_loss_db": 0.61
+  },
+  "bed+vote+reveal": {
+   "lufs": -19.34,
+   "sample_peak_db": -3.5,
+   "clipped": 0,
+   "mono_loss_db": 0.6
+  }
+ },
+ "bed": {
+  "samples": 6400080,
+  "lufs": -20.59,
+  "sample_peak_db": -6.34,
+  "seam": {
+   "click_vs_median_db": 1.5,
+   "click_vs_p99_db": -35.7,
+   "sample_jump_percentile": 86.3,
+   "level_before_lufs": -19.97,
+   "level_after_lufs": -20.32,
+   "level_jump_db": -0.35,
+   "min_rms_50ms_db": -26.8,
+   "median_rms_db": -22.1
+  }
+ },
+ "layer-vote": {
+  "samples": 1600020,
+  "lufs": -30.59,
+  "sample_peak_db": -14.97,
+  "seam": {
+   "click_vs_median_db": -6.2,
+   "click_vs_p99_db": -34.0,
+   "sample_jump_percentile": 17.9,
+   "level_before_lufs": -30.99,
+   "level_after_lufs": -31.0,
+   "level_jump_db": -0.01,
+   "min_rms_50ms_db": -62.6,
+   "median_rms_db": -39.3
+  }
+ },
+ "layer-reveal": {
+  "samples": 6400080,
+  "lufs": -26.59,
+  "sample_peak_db": -12.72,
+  "seam": {
+   "click_vs_median_db": 2.5,
+   "click_vs_p99_db": -0.4,
+   "sample_jump_percentile": 35.2,
+   "level_before_lufs": -26.55,
+   "level_after_lufs": -26.83,
+   "level_jump_db": -0.27,
+   "min_rms_50ms_db": -35.8,
+   "median_rms_db": -30.8
+  }
+ }
+}

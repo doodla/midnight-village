@@ -1,0 +1,172 @@
+{
+ "tap": [
+  0.5,
+  0,
+  "A single soft fingertip tap on a sheet of thick handmade paper lying on a wooden table, one tiny dry papery tick, very short, very close, no echo, nothing else"
+ ],
+ "flip": [
+  0.8,
+  0,
+  "A single stiff paper card flipped over quickly and laid face up on a wooden table, one soft papery swish ending in a light flat tap, close and dry, nothing else"
+ ],
+ "deal": [
+  0.6,
+  0,
+  "One stiff paper card slid quickly across a cloth-covered wooden table, a short soft papery slide and a gentle stop, close and dry, nothing else"
+ ],
+ "night-falls": [
+  3.0,
+  0,
+  "Night falling over a quiet village: a soft low breath of wind, a candle flame snuffed with a tiny puff, and one deep warm soft bell-like tone fading slowly into silence, calm and gentle, nothing sudden, no voices"
+ ],
+ "your-turn": [
+  1.2,
+  0,
+  "One soft warm low wooden chime with a tiny glimmer of a small bell on top, gentle and inviting, very quiet, soft fading tail, calm, nothing else"
+ ],
+ "swap": [
+  0.8,
+  0,
+  "Two stiff paper cards quickly swapped on a wooden table, two quick soft papery slides crossing each other, light, close and dry, nothing else"
+ ],
+ "peek": [
+  0.9,
+  0,
+  "A secret glimpse: the corner of a paper card lifted with a faint soft shimmer of tiny glass bells, hushed and mysterious, very close, nothing else"
+ ],
+ "timer-low": [
+  2.0,
+  0,
+  "An old wooden clock ticking gently, four slow quiet ticks with a faint warm resonance, calm and soft, not urgent, close, nothing else"
+ ],
+ "ready-vote": [
+  1.2,
+  0,
+  "One gentle low knock on a wooden table followed by a soft warm bell tone, quiet, like an invitation to decide, fading softly, nothing else"
+ ],
+ "vote-cast": [
+  0.6,
+  0,
+  "A small heavy wooden token placed firmly on a wooden table, one soft round satisfying click-thud, close and dry, nothing else"
+ ],
+ "reveal": [
+  2.5,
+  0,
+  "A gentle mysterious reveal: a soft rising shimmer of small bells and a breath of wind ending on one deep warm soft drum hit with a soft fading tail, not loud, no voices"
+ ],
+ "village-wins": [
+  3.5,
+  0,
+  "A warm joyful little fanfare of small hand bells and a soft wooden xylophone rising to a bright major chord, a cosy village celebration, gentle, fading softly, no voices"
+ ],
+ "wolves-win": [
+  3.5,
+  0,
+  "A sly dark little musical sting: a low plucked cello and a soft muted horn sliding down into a minor chord, a faint wolf howl far away in the distance, mischievous not scary, fading softly"
+ ],
+ "dawn": [
+  3.0,
+  0,
+  "Dawn over a quiet village: a soft warm rising tone, a few distant gentle birds, one small brass bell struck softly, calm and bright, fading softly, nothing sudden"
+ ],
+ "join": [
+  0.8,
+  0,
+  "A soft welcoming two-note wooden chime, a small rising interval, warm and quiet, close, short fading tail, nothing else"
+ ],
+ "error": [
+  0.6,
+  0,
+  "A soft muted low double knock on wood, gentle and dull, like a polite no, quiet, close and dry, nothing else"
+ ],
+ "panel-open": [
+  0.5,
+  0,
+  "A folded sheet of thick paper opened smoothly, a short soft papery rustle, close and dry, nothing else"
+ ],
+ "panel-close": [
+  0.5,
+  0,
+  "A sheet of thick paper folded closed with a soft press, a short papery rustle ending in a soft pat, close and dry, nothing else"
+ ],
+ "hold-start": [
+  0.5,
+  0,
+  "A paper card slowly lifted a little off a wooden table, a tiny soft papery lift, hushed, very close, nothing else"
+ ],
+ "hold-release": [
+  0.5,
+  0,
+  "A paper card let go and settling flat on a wooden table, a tiny soft papery pat, hushed, very close, nothing else"
+ ],
+ "count-tick": [
+  0.5,
+  0,
+  "One single soft tick of an old wooden clock, warm, quiet, close and dry, nothing else"
+ ],
+ "lobby-bed": [
+  20.0,
+  1,
+  "Quiet night ambience outside a small village: a soft gentle breeze, distant crickets, a far-away owl hooting softly, the faint crackle of a candle flame, calm, peaceful and even, no music, no voices"
+ ],
+ "role-werewolf": [
+  1.8,
+  0,
+  "A soft wolf howl very far away across a valley at night with a breath of wind, short, gentle, not scary"
+ ],
+ "role-minion": [
+  1.0,
+  0,
+  "A sly little descending pluck of two notes on a low muted string, mischievous, quiet, nothing else"
+ ],
+ "role-mason": [
+  1.0,
+  0,
+  "Two soft taps of a small hammer on stone, close and gentle, a tiny stony ring, nothing else"
+ ],
+ "role-seer": [
+  1.5,
+  0,
+  "A soft crystal shimmer, a gentle glassy glimmer rising with a breath of air, mysterious and quiet, nothing else"
+ ],
+ "role-robber": [
+  1.0,
+  0,
+  "A quick soft sneaky rustle of a cloth pouch and the faint clink of two small coins, close and quiet, nothing else"
+ ],
+ "role-troublemaker": [
+  1.0,
+  0,
+  "A playful quick soft shuffle of two paper cards and a tiny mischievous wooden click, close and quiet, nothing else"
+ ],
+ "role-drunk": [
+  1.2,
+  0,
+  "A soft wobbly pluck on a detuned string with a lazy sliding pitch, playful and tipsy, quiet, nothing else"
+ ],
+ "role-insomniac": [
+  1.5,
+  0,
+  "A soft creak of an old wooden bed and a small match struck gently to light a candle, quiet, close, nothing else"
+ ],
+ "role-doppelganger": [
+  1.5,
+  0,
+  "A soft shimmering mirror-like swell, a gentle glassy reversed sound that folds back into itself, mysterious and quiet, nothing else"
+ ],
+ "night-falls-r": [
+  3.0,
+  0,
+  "One deep soft warm bronze bell struck once and slowly fading away, with a soft breath of night wind underneath, calm and gentle, nothing sudden, no voices, nothing else"
+ ],
+ "role-mason-r": [
+  0.8,
+  0,
+  "Exactly two soft taps of a small hammer on a block of stone, tap tap, close and gentle, a tiny stony ring, nothing else"
+ ],
+ "lobby-bed-r": [
+  30.0,
+  1,
+  "Quiet even night ambience outside a small village: a soft steady breeze, gentle distant crickets, the faint crackle of a candle flame, and just once a far-away owl hooting softly, calm and peaceful, no music, no voices"
+ ]
+}

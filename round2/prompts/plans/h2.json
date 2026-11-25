@@ -1,0 +1,103 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "text": "[Main theme, D minor]\n{lone cello motif in D minor}\n{viola answers}\n{heartbeat pulse on every beat}\n{distant wind}",
+    "duration_ms": 75000,
+    "positive_styles": [
+     "60 BPM, 4/4",
+     "D minor, sad minor-key harmony, mournful",
+     "a lone cello plays a slow mournful motif of a few notes in D minor, built on the minor third F natural",
+     "a viola answers it softly",
+     "a soft muffled heartbeat pulse on every beat",
+     "low strings hold slow dark D minor chords",
+     "a cold wind blowing far away through trees",
+     "lonely, uneasy, watchful, melancholic",
+     "minor key throughout, sad dark minor-key harmony, melancholic",
+     "instrumental, no vocals with words",
+     "dread and mystery, something is out there in the dark, never horror",
+     "a memorable motif that keeps returning",
+     "hypnotic, steady, pleasant to hear for an hour",
+     "quiet and sparse so it sits under people talking",
+     "starts immediately at full arrangement, no intro, same energy throughout, no build-up, no ending, no fade-out, seamless loop",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "happy",
+     "cheerful",
+     "bright",
+     "uplifting",
+     "hopeful",
+     "triumphant",
+     "playful",
+     "cute",
+     "bouncy",
+     "jaunty",
+     "lyrics",
+     "singing words",
+     "spoken words",
+     "rap",
+     "horror",
+     "jump scare",
+     "screams",
+     "loud hits",
+     "build-up",
+     "drop",
+     "intro",
+     "fade-out",
+     "ending"
+    ]
+   },
+   {
+    "text": "[Main theme, D minor]\n{lone cello motif in D minor}\n{viola answers}\n{heartbeat pulse on every beat}\n{distant wind}",
+    "duration_ms": 75000,
+    "positive_styles": [
+     "60 BPM, 4/4",
+     "D minor, sad minor-key harmony, mournful",
+     "a lone cello plays a slow mournful motif of a few notes in D minor, built on the minor third F natural",
+     "a viola answers it softly",
+     "a soft muffled heartbeat pulse on every beat",
+     "low strings hold slow dark D minor chords",
+     "a cold wind blowing far away through trees",
+     "lonely, uneasy, watchful, melancholic",
+     "minor key throughout, sad dark minor-key harmony, melancholic",
+     "instrumental, no vocals with words",
+     "dread and mystery, something is out there in the dark, never horror",
+     "a memorable motif that keeps returning",
+     "hypnotic, steady, pleasant to hear for an hour",
+     "quiet and sparse so it sits under people talking",
+     "starts immediately at full arrangement, no intro, same energy throughout, no build-up, no ending, no fade-out, seamless loop",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "happy",
+     "cheerful",
+     "bright",
+     "uplifting",
+     "hopeful",
+     "triumphant",
+     "playful",
+     "cute",
+     "bouncy",
+     "jaunty",
+     "lyrics",
+     "singing words",
+     "spoken words",
+     "rap",
+     "horror",
+     "jump scare",
+     "screams",
+     "loud hits",
+     "build-up",
+     "drop",
+     "intro",
+     "fade-out",
+     "ending"
+    ],
+    "context_adherence": "high"
+   }
+  ]
+ }
+}

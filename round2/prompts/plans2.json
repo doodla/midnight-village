@@ -1,0 +1,141 @@
+{
+ "_positive_common": [
+  "minor key throughout, sad dark minor-key harmony, melancholic",
+  "instrumental, no vocals with words",
+  "dread and mystery, something is out there in the dark, never horror",
+  "a memorable motif that keeps returning",
+  "hypnotic, steady, pleasant to hear for an hour",
+  "quiet and sparse so it sits under people talking",
+  "starts immediately at full arrangement, no intro, same energy throughout, no build-up, no ending, no fade-out, seamless loop",
+  "great production quality"
+ ],
+ "_negative_common": [
+  "happy",
+  "cheerful",
+  "bright",
+  "uplifting",
+  "hopeful",
+  "triumphant",
+  "playful",
+  "cute",
+  "bouncy",
+  "jaunty",
+  "lyrics",
+  "singing words",
+  "spoken words",
+  "rap",
+  "horror",
+  "jump scare",
+  "screams",
+  "loud hits",
+  "build-up",
+  "drop",
+  "intro",
+  "fade-out",
+  "ending"
+ ],
+ "g": {
+  "text": "[Main theme, A minor waltz]\n{detuned music box melody in A minor}\n{bowed glass chords}\n{low drone on A}",
+  "positive": [
+   "slow waltz in 3/4 at 72 BPM",
+   "A minor, a sad minor-key waltz, mournful",
+   "a slightly detuned old music box plays a slow, sad, haunting waltz melody in A minor",
+   "A minor, a sad minor-key waltz, mournful",
+   "a low dark drone on A underneath",
+   "a soft low plucked note on each downbeat",
+   "melancholic, eerie, moonlit, wistful"
+  ]
+ },
+ "h": {
+  "text": "[Main theme, F-sharp minor]\n{lone cello motif in F-sharp minor}\n{viola answers}\n{heartbeat pulse on every beat}\n{distant wind}",
+  "positive": [
+   "60 BPM, 4/4",
+   "F-sharp minor, sad minor-key harmony, mournful",
+   "a lone cello plays a slow mournful motif of a few notes that circles the notes F-sharp, A and C-sharp",
+   "a viola answers it softly",
+   "low strings hold slow dark minor chords",
+   "a soft muffled heartbeat pulse on every beat",
+   "a cold wind blowing far away through trees",
+   "lonely, uneasy, watchful, melancholic"
+  ]
+ },
+ "j": {
+  "text": "[Main theme, D minor]\n{nyckelharpa and hurdy-gurdy minor tune over a drone}\n{frame drum trance beat}\n{distant theremin like a howl}",
+  "positive": [
+   "80 BPM, 4/4",
+   "D minor, sad minor-key folk harmony, mournful",
+   "dark old-world folk",
+   "a nyckelharpa and a hurdy-gurdy play a sad, hypnotic minor tune on the notes D, F and A over a low drone on D",
+   "a low cello plays slow sad minor chords",
+   "a frame drum keeps a slow steady trance-like beat",
+   "far away, a theremin sings long gliding notes like a distant wolf howl, eerie but in tune",
+   "earthy, ritual, mysterious, melancholic"
+  ],
+  "negative_drop": [
+   "intro"
+  ]
+ },
+ "k": {
+  "text": "[Main theme, G minor]\n{harpsichord and pizzicato creeping figure}\n{chromatic descending bass}\n{distant tolling bell}",
+  "positive": [
+   "76 BPM, 4/4",
+   "G minor, minor-key harmony with a chromatic descending bass line",
+   "a harpsichord and pizzicato strings creep slowly through a sneaky minor-key figure that steps down chromatically",
+   "a deep distant church bell tolls softly every two bars",
+   "a low bowed double bass holds long dark notes",
+   "tiptoeing, suspicious, shadowy, like creeping through a dark house at midnight"
+  ]
+ },
+ "l": {
+  "text": "[Main theme, F minor]\n{hypnotic minor synth arpeggio with tape wobble}\n{slow deep bass}\n{eerie long-note lead}",
+  "positive": [
+   "88 BPM, 4/4",
+   "F minor, sad minor-key harmony",
+   "the arpeggio outlines minor chords built on the notes F, A-flat and C",
+   "a hypnotic endlessly repeating minor synth arpeggio on a warm detuned analog synthesizer with tape wobble and wow",
+   "a slow deep round synth bass that moves once a bar",
+   "a soft muffled steady kick and faint brushed noise",
+   "a dark airy pad",
+   "a simple eerie lead melody of a few long wobbling notes",
+   "woozy, ominous, nocturnal"
+  ]
+ },
+ "m": {
+  "text": "[Main theme, C minor]\n{distant church organ chords in C minor}\n{soft wordless choir-like pad}\n{old clock ticking on every beat}",
+  "positive": [
+   "60 BPM, 4/4",
+   "C minor, solemn minor-key harmony, mournful",
+   "a church pipe organ, very quiet and far away as if heard from outside a stone chapel at midnight",
+   "C minor, solemn minor-key harmony, mournful",
+   "C minor, solemn minor-key harmony, mournful",
+   "close by, an old wooden clock ticks steadily on every beat",
+   "cold, still, reverent, uneasy"
+  ]
+ },
+ "n": {
+  "text": "[Main theme, B harmonic minor lullaby]\n{celesta lullaby melody in B minor}\n{low strings sustained minor chords}\n{faint high string shimmer}",
+  "positive": [
+   "66 BPM, 4/4, gently rocking",
+   "B minor, harmonic minor with a raised A-sharp, sad minor-key harmony",
+   "a lullaby gone wrong, sad and mournful, never sweet",
+   "a celesta plays a gentle rocking lullaby melody in B harmonic minor that turns crooked and sad",
+   "B minor, harmonic minor with a raised A-sharp, sad minor-key harmony",
+   "a faint high bowed string shimmer",
+   "innocent on top, dread underneath, melancholic"
+  ]
+ },
+ "p": {
+  "text": "[Main theme, E minor]\n{sparse piano motif in E minor with long reverb}\n{steady low pulse on every beat}\n{faint creaking wood and wind}",
+  "positive": [
+   "66 BPM, 4/4, slow and steady",
+   "E minor, sad minor-key harmony, mournful",
+   "sparse solo piano with long soft reverb plays a slow haunting minor motif on the notes E, G and B",
+   "quiet low piano chords on every bar",
+   "a soft low pulse like a distant drum on every beat, steady and clearly audible",
+   "now and then the faint creak of old wooden floorboards",
+   "a faint cold wind far away",
+   "lonely, still, uneasy, melancholic",
+   "steady level, no quiet and loud sections"
+  ]
+ }
+}

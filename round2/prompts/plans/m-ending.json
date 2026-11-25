@@ -1,0 +1,52 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "1DCNK9aPRlvG7tybcv9h",
+    "range": {
+     "start_ms": 38050,
+     "end_ms": 46050
+    }
+   },
+   {
+    "text": "[Ending]\n{final cadence resolves home to the minor tonic}\n{last chord rings out and fades to silence}",
+    "duration_ms": 12000,
+    "positive_styles": [
+     "a short resolved ending of the same piece",
+     "same tempo 60 BPM and same key, C minor",
+     "one final cadence that settles on the minor tonic chord with a slight slow-down",
+     "the last dark minor chord rings out and fades to silence",
+     "quiet distant church pipe organ",
+     "soft wordless choir-like synth pad",
+     "old wooden clock ticking",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals",
+     "singing",
+     "lyrics",
+     "horror",
+     "jump scare",
+     "loud",
+     "new section",
+     "build-up",
+     "happy",
+     "bright",
+     "cheerful"
+    ],
+    "context_adherence": "high",
+    "conditioning_ref": {
+     "song_id": "1DCNK9aPRlvG7tybcv9h",
+     "range": {
+      "start_ms": 16050,
+      "end_ms": 46050
+     }
+    },
+    "condition_strength": "high"
+   }
+  ]
+ }
+}

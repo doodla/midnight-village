@@ -1,0 +1,52 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "9GVrk1EHUAcPy0AGxMiV",
+    "range": {
+     "start_ms": 151620,
+     "end_ms": 161620
+    }
+   },
+   {
+    "text": "[Ending]\n{final cadence resolves home}\n{last chord rings out and fades to silence}",
+    "duration_ms": 12000,
+    "positive_styles": [
+     "a short resolved ending of the same piece",
+     "same tempo 72 BPM and same key",
+     "the band plays one final cadence that resolves home with a slight slow-down",
+     "the last chord rings out warmly with a soft tape wobble and fades to silence",
+     "warm wobbly electric piano",
+     "soft round bass",
+     "small kalimba and faint whistling synth motif",
+     "faint vinyl crackle and night crickets",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals",
+     "singing",
+     "voice",
+     "choir",
+     "humming",
+     "horror",
+     "jump scare",
+     "loud",
+     "new section",
+     "build-up"
+    ],
+    "context_adherence": "high",
+    "conditioning_ref": {
+     "song_id": "9GVrk1EHUAcPy0AGxMiV",
+     "range": {
+      "start_ms": 131620,
+      "end_ms": 161620
+     }
+    },
+    "condition_strength": "high"
+   }
+  ]
+ }
+}

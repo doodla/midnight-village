@@ -1,0 +1,19 @@
+{
+ "take": "raw/theme-m1.mp3",
+ "render": "raw/theme-m1-ext.mp3",
+ "onset_match": 0.833,
+ "wave_match": 0.313,
+ "render_offset_samples": 5520015,
+ "join_s": 125.0,
+ "length_s": 185.03,
+ "seam": {
+  "click_vs_median_db": 7.5,
+  "click_vs_p99_db": -16.9,
+  "sample_jump_percentile": 83.4,
+  "level_before_lufs": -14.49,
+  "level_after_lufs": -15.77,
+  "level_jump_db": -1.29,
+  "min_rms_50ms_db": -21.4,
+  "median_rms_db": -19.2
+ }
+}

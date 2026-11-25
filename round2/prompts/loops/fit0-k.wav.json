@@ -1,0 +1,7 @@
+{
+ "src": "work/loop-k1x.wav",
+ "hp200_kept_before": 0.973,
+ "mono_loss_db_before": 1.91,
+ "hp200_kept_after": 0.973,
+ "mono_loss_db_after": 1.91
+}

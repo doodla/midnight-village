@@ -1,0 +1,8 @@
+{
+ "src": "work/loop-n2L.wav",
+ "hp200_kept_before": 1.0,
+ "mono_loss_db_before": 1.62,
+ "side_gain": 0.7,
+ "hp200_kept_after": 1.0,
+ "mono_loss_db_after": 0.87
+}

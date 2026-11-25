@@ -1,0 +1,55 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "9GVrk1EHUAcPy0AGxMiV",
+    "range": {
+     "start_ms": 151620,
+     "end_ms": 161620
+    }
+   },
+   {
+    "text": "[Night]",
+    "duration_ms": 120000,
+    "positive_styles": [
+     "sparse late-night version of the same piece",
+     "same tempo 72 BPM and same key",
+     "no drums at all, only a faint soft shaker now and then",
+     "bass plays half as many notes, very soft",
+     "melody appears only in quiet fragments with long gaps",
+     "darker, hushed, dreamy, eerie, still",
+     "warm wobbly electric piano",
+     "soft round bass",
+     "small kalimba and faint whistling synth motif",
+     "faint vinyl crackle and night crickets",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals",
+     "singing",
+     "voice",
+     "choir",
+     "humming",
+     "horror",
+     "jump scare",
+     "loud",
+     "drums",
+     "build-up",
+     "climax"
+    ],
+    "context_adherence": "high",
+    "conditioning_ref": {
+     "song_id": "9GVrk1EHUAcPy0AGxMiV",
+     "range": {
+      "start_ms": 131620,
+      "end_ms": 161620
+     }
+    },
+    "condition_strength": "medium"
+   }
+  ]
+ }
+}

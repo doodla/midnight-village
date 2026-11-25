@@ -1,0 +1,56 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "9GVrk1EHUAcPy0AGxMiV",
+    "range": {
+     "start_ms": 151620,
+     "end_ms": 161620
+    }
+   },
+   {
+    "text": "[Vote]\n{a soft ticking clock-like pulse enters}\n{chords turn suspended and unresolved}\n{bass repeats one insistent note}",
+    "duration_ms": 120000,
+    "positive_styles": [
+     "the same piece with gentle suspense for a secret vote",
+     "same tempo 72 BPM and same key",
+     "steady soft ticking pulse on a muted woodblock and closed hi-hat",
+     "chords held suspended and unresolved",
+     "bass repeats one insistent note in steady eighth notes",
+     "melody in a lower register, slightly uneasy",
+     "suspenseful but cosy, never scary, not loud, no build-up",
+     "warm wobbly electric piano",
+     "soft round bass",
+     "small kalimba and faint whistling synth motif",
+     "faint vinyl crackle and night crickets",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals",
+     "singing",
+     "voice",
+     "choir",
+     "humming",
+     "horror",
+     "jump scare",
+     "loud",
+     "big drums",
+     "drop",
+     "stinger"
+    ],
+    "context_adherence": "medium",
+    "conditioning_ref": {
+     "song_id": "9GVrk1EHUAcPy0AGxMiV",
+     "range": {
+      "start_ms": 131620,
+      "end_ms": 161620
+     }
+    },
+    "condition_strength": "medium"
+   }
+  ]
+ }
+}

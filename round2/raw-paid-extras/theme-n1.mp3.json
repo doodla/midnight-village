@@ -1,0 +1,31 @@
+{
+ "url": "https://api.elevenlabs.io/v1/music?output_format=mp3_48000_192",
+ "body": {
+  "prompt": "Instrumental loop, 66 BPM, 4/4, B minor, using the harmonic minor scale with a raised A-sharp, minor key throughout with no major sections. Instrumental only, no vocals with words. A lullaby gone wrong: a celesta plays a gentle, rocking, memorable lullaby melody in B harmonic minor that turns slightly crooked and sad; low cellos and double basses hold dark, slow, sustained chords underneath; a faint high bowed string shimmer. Innocent on top, dread underneath, like a nursery at night with something outside the window. Never horror, no jump scares, no sudden loud hits. Slow, hypnotic and pleasant to hear for an hour, sparse so it sits under people talking. Starts immediately with the full arrangement, no intro, same energy throughout, no build-up, no breakdown, no ending and no fade-out, so it can loop seamlessly.",
+  "music_length_ms": 150000,
+  "model_id": "music_v2_5",
+  "force_instrumental": true,
+  "store_for_inpainting": true
+ },
+ "headers": {
+  "Connection": "close",
+  "Content-Length": "3600620",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Methods": "POST, PATCH, OPTIONS, DELETE, GET, PUT",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Max-Age": "600",
+  "Alt-Svc": "h3=\":443\"; ma=2592000",
+  "Content-Type": "audio/mpeg",
+  "Date": "Wed, 25 Nov 2026 02:45:33 GMT",
+  "Server": "uvicorn",
+  "Song-Id": "eHx9IoEUfD02PgR71yvA",
+  "Strict-Transport-Security": "max-age=1800;",
+  "Vary": "Accept-Language",
+  "Via": "1.1 google",
+  "X-Region": "us-central1",
+  "X-Trace-Id": "c9aadf93c618c329f4c8d15606935be2"
+ },
+ "bytes": 3600620,
+ "secs": 11.0,
+ "credits_used": null
+}

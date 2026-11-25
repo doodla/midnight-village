@@ -1,0 +1,76 @@
+{
+ "url": "https://api.elevenlabs.io/v1/music?output_format=mp3_48000_192",
+ "body": {
+  "model_id": "music_v2_5",
+  "store_for_inpainting": true,
+  "composition_plan": {
+   "chunks": [
+    {
+     "song_id": "2qwne2fIdDeaKHKXDZv5",
+     "range": {
+      "start_ms": 130908,
+      "end_ms": 138908
+     }
+    },
+    {
+     "text": "[Ending]\n{final cadence resolves home to the minor tonic}\n{last chord rings out and fades to silence}",
+     "duration_ms": 12000,
+     "positive_styles": [
+      "a short resolved ending of the same piece",
+      "same tempo 66 BPM and same key, B minor",
+      "one final cadence that settles on the minor tonic chord with a slight slow-down",
+      "the last dark minor chord rings out and fades to silence",
+      "celesta",
+      "low cellos and double basses",
+      "faint high bowed string shimmer",
+      "instrumental",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "lyrics",
+      "horror",
+      "jump scare",
+      "loud",
+      "new section",
+      "build-up",
+      "happy",
+      "bright",
+      "cheerful"
+     ],
+     "context_adherence": "high",
+     "conditioning_ref": {
+      "song_id": "2qwne2fIdDeaKHKXDZv5",
+      "range": {
+       "start_ms": 108908,
+       "end_ms": 138908
+      }
+     },
+     "condition_strength": "high"
+    }
+   ]
+  }
+ },
+ "headers": {
+  "Connection": "close",
+  "Content-Length": "481004",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Methods": "POST, PATCH, OPTIONS, DELETE, GET, PUT",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Max-Age": "600",
+  "Alt-Svc": "h3=\":443\"; ma=2592000",
+  "Content-Type": "audio/mpeg",
+  "Date": "Wed, 25 Nov 2026 03:35:14 GMT",
+  "Server": "uvicorn",
+  "Song-Id": "7OSdS0kqoVssW1g8dZ7s",
+  "Strict-Transport-Security": "max-age=1800;",
+  "Vary": "Accept-Language",
+  "Via": "1.1 google",
+  "X-Region": "us-central1",
+  "X-Trace-Id": "a65fcc1dd2ba6312e7915c2822badbe5"
+ },
+ "bytes": 481004,
+ "secs": 2.8,
+ "credits_used": null
+}

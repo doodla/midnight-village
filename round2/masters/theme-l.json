@@ -1,0 +1,77 @@
+{
+ "name": "theme-l",
+ "src_loop": "work/fit-l.wav",
+ "gain_db": -5.9,
+ "samples": 6283741,
+ "seconds": 130.911,
+ "sample_rate": 48000,
+ "master": "./masters/theme-l.wav",
+ "master_ebur128": {
+  "lufs": -18.0,
+  "lra": 1.0,
+  "tp": -7.0
+ },
+ "sample_peak_dbfs": -6.97,
+ "spectrum": {
+  "centroid_hz": 175,
+  "sub<60_db": -13.1,
+  "low60-250_db": -1.1,
+  "mid250-2k_db": -7.7,
+  "hi2k-8k_db": -33.9,
+  "air>8k_db": -70.7
+ },
+ "copies": {
+  "m4a": {
+   "bytes": 1080734,
+   "kb": 1055.4,
+   "decoded_samples": 6284288,
+   "sample_delta": 547,
+   "ebur128": {
+    "lufs": -18.0,
+    "lra": 0.9,
+    "tp": -6.9
+   },
+   "seam_twice": {
+    "click_vs_median_db": 30.3,
+    "click_vs_p99_db": 17.6,
+    "sample_jump_percentile": 100.0,
+    "level_before_lufs": -17.94,
+    "level_after_lufs": -17.66,
+    "level_jump_db": 0.28,
+    "min_rms_50ms_db": -22.4,
+    "median_rms_db": -19.1
+   }
+  },
+  "ogg": {
+   "bytes": 1056471,
+   "kb": 1031.7,
+   "decoded_samples": 6283741,
+   "sample_delta": 0,
+   "ebur128": {
+    "lufs": -18.0,
+    "lra": 0.9,
+    "tp": -6.8
+   },
+   "seam_twice": {
+    "click_vs_median_db": 18.0,
+    "click_vs_p99_db": 5.4,
+    "sample_jump_percentile": 31.6,
+    "level_before_lufs": -17.87,
+    "level_after_lufs": -17.65,
+    "level_jump_db": 0.22,
+    "min_rms_50ms_db": -22.4,
+    "median_rms_db": -18.9
+   }
+  }
+ },
+ "seam_twice_master": {
+  "click_vs_median_db": 3.1,
+  "click_vs_p99_db": -9.6,
+  "sample_jump_percentile": 26.3,
+  "level_before_lufs": -17.88,
+  "level_after_lufs": -17.66,
+  "level_jump_db": 0.23,
+  "min_rms_50ms_db": -22.3,
+  "median_rms_db": -19.0
+ }
+}

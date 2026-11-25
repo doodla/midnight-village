@@ -1,0 +1,50 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "text": "[Night breakdown]\n{drums stop completely}\n{only soft organ pad and a few quiet melody notes}",
+    "duration_ms": 120000,
+    "positive_styles": [
+     "ambient breakdown of the same piece with the drums gone",
+     "same tempo 76 BPM and same key",
+     "only a soft sustained detuned organ pad and a very quiet round bass note on each bar",
+     "the wobbly tape-warped lead plays a few melody notes with long silences",
+     "very sparse, hushed, still, dark, dreamy, eerie",
+     "much quieter and emptier than before",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals",
+     "singing",
+     "voice",
+     "choir",
+     "humming",
+     "horror",
+     "jump scare",
+     "loud",
+     "drums",
+     "build-up",
+     "climax",
+     "drums",
+     "percussion",
+     "shaker",
+     "beat",
+     "groove",
+     "busy"
+    ],
+    "context_adherence": "low",
+    "conditioning_ref": {
+     "song_id": "8xkxIhq3gELjZDT7fOVj",
+     "range": {
+      "start_ms": 131940,
+      "end_ms": 161940
+     }
+    },
+    "condition_strength": "high"
+   }
+  ]
+ }
+}

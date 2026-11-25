@@ -1,0 +1,57 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "bXG5rdZltK9V2u0lXmW5",
+    "range": {
+     "start_ms": 130000,
+     "end_ms": 150000
+    }
+   },
+   {
+    "text": "[Main theme continues]\n{same creeping harpsichord and pizzicato figure}\n{same tempo, key and level}",
+    "duration_ms": 50000,
+    "positive_styles": [
+     "the same piece continues exactly as before, same arrangement, same level",
+     "76 BPM, 4/4, G minor",
+     "a harpsichord and pizzicato strings creep through the same sneaky minor-key figure",
+     "a deep distant church bell tolls softly",
+     "a low bowed double bass holds long dark notes",
+     "tiptoeing, suspicious, shadowy",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals with words",
+     "lyrics",
+     "singing",
+     "horror",
+     "jump scare",
+     "loud hits",
+     "new section",
+     "build-up",
+     "breakdown",
+     "drop",
+     "ending",
+     "fade-out",
+     "silence",
+     "intro",
+     "happy",
+     "bright",
+     "cheerful"
+    ],
+    "context_adherence": "high",
+    "conditioning_ref": {
+     "song_id": "bXG5rdZltK9V2u0lXmW5",
+     "range": {
+      "start_ms": 120000,
+      "end_ms": 150000
+     }
+    },
+    "condition_strength": "high"
+   }
+  ]
+ }
+}

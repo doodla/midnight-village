@@ -1,0 +1,31 @@
+{
+ "url": "https://api.elevenlabs.io/v1/music?output_format=mp3_48000_192",
+ "body": {
+  "prompt": "Instrumental loop, 76 BPM, 4/4, G minor, minor key throughout with no major sections. Instrumental only, no vocals with words. A harpsichord and pizzicato strings creep slowly through a sneaky, memorable, minor-key figure in G minor that steps down chromatically and repeats; a deep distant church bell tolls softly at the start of every two bars; a low bowed double bass holds long dark notes. Tiptoeing, suspicious and shadowy, like someone creeping through a dark house at midnight; not playful, not cute, not bouncy. Never horror, no jump scares, no sudden loud hits. Slow, hypnotic and pleasant to hear for an hour, sparse so it sits under people talking. Starts immediately with the full arrangement, no intro, same energy throughout, no build-up, no breakdown, no ending and no fade-out, so it can loop seamlessly.",
+  "music_length_ms": 150000,
+  "model_id": "music_v2_5",
+  "force_instrumental": true,
+  "store_for_inpainting": true
+ },
+ "headers": {
+  "Connection": "close",
+  "Content-Length": "3600620",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Methods": "POST, PATCH, OPTIONS, DELETE, GET, PUT",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Max-Age": "600",
+  "Alt-Svc": "h3=\":443\"; ma=2592000",
+  "Content-Type": "audio/mpeg",
+  "Date": "Wed, 25 Nov 2026 02:45:00 GMT",
+  "Server": "uvicorn",
+  "Song-Id": "bXG5rdZltK9V2u0lXmW5",
+  "Strict-Transport-Security": "max-age=1800;",
+  "Vary": "Accept-Language",
+  "Via": "1.1 google",
+  "X-Region": "us-central1",
+  "X-Trace-Id": "bebe45b90dc4d5cefe1653e4dfa00004"
+ },
+ "bytes": 3600620,
+ "secs": 10.8,
+ "credits_used": null
+}

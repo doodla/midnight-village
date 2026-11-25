@@ -1,0 +1,14 @@
+{
+ "l": {
+  "length_ms": 34000,
+  "prompt": "Instrumental percussion only, 88 BPM, 4/4. A soft, steady, suspenseful pulse for a secret vote at night: a muted woodblock ticking on every beat like an old clock, quiet closed hi-hat in eighth notes, a soft shaker. No pitched instruments, no melody, no chords, no bass, no fills, no build-up, no ending, the same throughout so it can loop seamlessly."
+ },
+ "n": {
+  "length_ms": 35000,
+  "prompt": "Instrumental percussion only, 66 BPM, 4/4. A soft, steady, suspenseful pulse for a secret vote at night: a muted clock-like tick on every beat, a soft brushed snare on beats two and four, a light shaker in eighth notes. No pitched instruments, no melody, no chords, no bass, no fills, no build-up, no ending, the same throughout so it can loop seamlessly."
+ },
+ "m": {
+  "length_ms": 30000,
+  "prompt": "Instrumental percussion only, 60 BPM, 4/4. A soft, steady, suspenseful pulse for a secret vote at night: a quiet rim click on beats two and four, a soft shaker in eighth notes, a gentle brush swirl. No pitched instruments, no melody, no chords, no bass, no fills, no build-up, no ending, the same throughout so it can loop seamlessly."
+ }
+}

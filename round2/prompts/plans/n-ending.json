@@ -1,0 +1,52 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "2qwne2fIdDeaKHKXDZv5",
+    "range": {
+     "start_ms": 130908,
+     "end_ms": 138908
+    }
+   },
+   {
+    "text": "[Ending]\n{final cadence resolves home to the minor tonic}\n{last chord rings out and fades to silence}",
+    "duration_ms": 12000,
+    "positive_styles": [
+     "a short resolved ending of the same piece",
+     "same tempo 66 BPM and same key, B minor",
+     "one final cadence that settles on the minor tonic chord with a slight slow-down",
+     "the last dark minor chord rings out and fades to silence",
+     "celesta",
+     "low cellos and double basses",
+     "faint high bowed string shimmer",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals",
+     "singing",
+     "lyrics",
+     "horror",
+     "jump scare",
+     "loud",
+     "new section",
+     "build-up",
+     "happy",
+     "bright",
+     "cheerful"
+    ],
+    "context_adherence": "high",
+    "conditioning_ref": {
+     "song_id": "2qwne2fIdDeaKHKXDZv5",
+     "range": {
+      "start_ms": 108908,
+      "end_ms": 138908
+     }
+    },
+    "condition_strength": "high"
+   }
+  ]
+ }
+}

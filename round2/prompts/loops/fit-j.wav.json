@@ -1,0 +1,8 @@
+{
+ "src": "work/loop-j3L.wav",
+ "hp200_kept_before": 0.837,
+ "mono_loss_db_before": 1.06,
+ "side_gain": 0.8,
+ "hp200_kept_after": 0.837,
+ "mono_loss_db_after": 0.71
+}

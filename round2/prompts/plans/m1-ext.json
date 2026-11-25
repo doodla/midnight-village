@@ -1,0 +1,57 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "sRu2tDiII8cgPBTSKqy7",
+    "range": {
+     "start_ms": 115000,
+     "end_ms": 135000
+    }
+   },
+   {
+    "text": "[Main theme continues]\n{same distant church organ chords and flute-stop melody}\n{same ticking clock}\n{same tempo, key and level}",
+    "duration_ms": 50000,
+    "positive_styles": [
+     "the same piece continues exactly as before, same arrangement, same level",
+     "60 BPM, 4/4, C minor",
+     "a quiet, distant church pipe organ with slow solemn minor chords and a simple flute-stop melody",
+     "a soft airy wordless choir-like synth pad",
+     "an old wooden clock ticks steadily on every beat",
+     "cold, still, reverent, uneasy",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals with words",
+     "lyrics",
+     "singing",
+     "horror",
+     "jump scare",
+     "loud hits",
+     "new section",
+     "build-up",
+     "breakdown",
+     "drop",
+     "ending",
+     "fade-out",
+     "silence",
+     "intro",
+     "happy",
+     "bright",
+     "cheerful"
+    ],
+    "context_adherence": "high",
+    "conditioning_ref": {
+     "song_id": "sRu2tDiII8cgPBTSKqy7",
+     "range": {
+      "start_ms": 105000,
+      "end_ms": 135000
+     }
+    },
+    "condition_strength": "high"
+   }
+  ]
+ }
+}

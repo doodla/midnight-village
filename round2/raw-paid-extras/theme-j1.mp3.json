@@ -1,0 +1,31 @@
+{
+ "url": "https://api.elevenlabs.io/v1/music?output_format=mp3_48000_192",
+ "body": {
+  "prompt": "Instrumental loop, 80 BPM, 4/4, E minor, minor key throughout with no major sections. Instrumental only, no vocals with words. Dark old-world folk: a hurdy-gurdy drones on E and plays a hypnotic, modal, memorable melody in E minor; a nyckelharpa answers with a short haunting phrase; a frame drum keeps a slow, steady, trance-like beat; far away, a bowed musical saw sings long gliding notes like a distant wolf howl, eerie but clearly musical and in tune. Earthy, ritual, mysterious, as if something watches from the dark forest. Never horror, no jump scares, no sudden loud hits. Hypnotic and pleasant to hear for an hour, uncluttered so it sits under people talking. Starts immediately with the full arrangement, no intro, same energy throughout, no build-up, no breakdown, no ending and no fade-out, so it can loop seamlessly.",
+  "music_length_ms": 150000,
+  "model_id": "music_v2_5",
+  "force_instrumental": true,
+  "store_for_inpainting": true
+ },
+ "headers": {
+  "Connection": "close",
+  "Content-Length": "3600620",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Methods": "POST, PATCH, OPTIONS, DELETE, GET, PUT",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Max-Age": "600",
+  "Alt-Svc": "h3=\":443\"; ma=2592000",
+  "Content-Type": "audio/mpeg",
+  "Date": "Wed, 25 Nov 2026 02:44:48 GMT",
+  "Server": "uvicorn",
+  "Song-Id": "MT6CDj8EASN1CZyeAWiG",
+  "Strict-Transport-Security": "max-age=1800;",
+  "Vary": "Accept-Language",
+  "Via": "1.1 google",
+  "X-Region": "us-central1",
+  "X-Trace-Id": "b8aefa1f697e1180ad906e8279fe7981"
+ },
+ "bytes": 3600620,
+ "secs": 11.3,
+ "credits_used": null
+}

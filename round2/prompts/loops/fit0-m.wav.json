@@ -1,0 +1,7 @@
+{
+ "src": "work/loop-m1x.wav",
+ "hp200_kept_before": 0.995,
+ "mono_loss_db_before": 1.88,
+ "hp200_kept_after": 0.995,
+ "mono_loss_db_after": 1.88
+}

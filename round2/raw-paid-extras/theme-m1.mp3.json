@@ -1,0 +1,31 @@
+{
+ "url": "https://api.elevenlabs.io/v1/music?output_format=mp3_48000_192",
+ "body": {
+  "prompt": "Instrumental loop, 60 BPM, 4/4, C minor, minor key throughout with no major sections. Instrumental only, no vocals with words. A church pipe organ, very quiet and far away as if heard from outside a stone chapel at midnight, plays slow, solemn minor chords in C minor and a simple, memorable melody on a soft flute stop; a soft, airy, wordless choir-like synth pad holds the chords behind it; close by, an old wooden clock ticks steadily on every beat. Cold, still, reverent and uneasy, as if something waits outside in the dark. Never horror, no jump scares, no sudden loud hits. Slow, hypnotic and pleasant to hear for an hour, quiet so it sits under people talking. Starts immediately with the full arrangement, no intro, same energy throughout, no build-up, no breakdown, no ending and no fade-out, so it can loop seamlessly.",
+  "music_length_ms": 150000,
+  "model_id": "music_v2_5",
+  "force_instrumental": true,
+  "store_for_inpainting": true
+ },
+ "headers": {
+  "Connection": "close",
+  "Content-Length": "3600620",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Allow-Methods": "POST, PATCH, OPTIONS, DELETE, GET, PUT",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Max-Age": "600",
+  "Alt-Svc": "h3=\":443\"; ma=2592000",
+  "Content-Type": "audio/mpeg",
+  "Date": "Wed, 25 Nov 2026 02:45:22 GMT",
+  "Server": "uvicorn",
+  "Song-Id": "sRu2tDiII8cgPBTSKqy7",
+  "Strict-Transport-Security": "max-age=1800;",
+  "Vary": "Accept-Language",
+  "Via": "1.1 google",
+  "X-Region": "us-central1",
+  "X-Trace-Id": "536d37a1cb78311a551dd01f48cb7617"
+ },
+ "bytes": 3600620,
+ "secs": 11.6,
+ "credits_used": null
+}

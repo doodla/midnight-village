@@ -1,0 +1,47 @@
+{
+ "name": "theme-f-ending",
+ "src_loop": "work/ending-f-1.wav",
+ "gain_db": 0.0,
+ "samples": 542400,
+ "seconds": 11.3,
+ "sample_rate": 48000,
+ "master": "sound2/masters/theme-f-ending.wav",
+ "master_ebur128": {
+  "lufs": -19.1,
+  "lra": 13.4,
+  "tp": -3.9
+ },
+ "sample_peak_dbfs": -3.86,
+ "spectrum": {
+  "centroid_hz": 170,
+  "sub<60_db": -6.2,
+  "low60-250_db": -2.1,
+  "mid250-2k_db": -8.7,
+  "hi2k-8k_db": -22.7,
+  "air>8k_db": -50.0
+ },
+ "copies": {
+  "m4a": {
+   "bytes": 93581,
+   "kb": 91.4,
+   "decoded_samples": 542720,
+   "sample_delta": 320,
+   "ebur128": {
+    "lufs": -19.1,
+    "lra": 13.3,
+    "tp": -4.0
+   }
+  },
+  "ogg": {
+   "bytes": 93153,
+   "kb": 91.0,
+   "decoded_samples": 542400,
+   "sample_delta": 0,
+   "ebur128": {
+    "lufs": -19.1,
+    "lra": 13.3,
+    "tp": -3.9
+   }
+  }
+ }
+}

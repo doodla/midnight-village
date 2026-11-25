@@ -1,0 +1,8 @@
+{
+ "src": "work/loop-l3L.wav",
+ "hp200_kept_before": 0.79,
+ "mono_loss_db_before": 0.44,
+ "harm_db": -3.0,
+ "hp200_kept_after": 0.853,
+ "mono_loss_db_after": 0.39
+}

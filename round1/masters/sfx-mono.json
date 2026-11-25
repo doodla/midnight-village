@@ -1,0 +1,263 @@
+{
+ "count-tick": {
+  "channels_before": 1,
+  "samples": 18960,
+  "seconds": 0.395,
+  "first_sound_ms": 9.0,
+  "peak_at_ms": 37.5,
+  "peak_dbfs": -7.0
+ },
+ "dawn": {
+  "channels_before": 2,
+  "mono_loss_db": 0.58,
+  "lr_corr": 0.88,
+  "samples": 144000,
+  "seconds": 3.0,
+  "first_sound_ms": 0.1,
+  "peak_at_ms": 7.6,
+  "peak_dbfs": -13.4
+ },
+ "deal": {
+  "channels_before": 1,
+  "samples": 24480,
+  "seconds": 0.51,
+  "first_sound_ms": 7.0,
+  "peak_at_ms": 294.5,
+  "peak_dbfs": -8.7
+ },
+ "error": {
+  "channels_before": 1,
+  "samples": 27360,
+  "seconds": 0.57,
+  "first_sound_ms": 0.5,
+  "peak_at_ms": 322.0,
+  "peak_dbfs": -7.0
+ },
+ "flip": {
+  "channels_before": 1,
+  "samples": 33120,
+  "seconds": 0.69,
+  "first_sound_ms": 4.9,
+  "peak_at_ms": 207.5,
+  "peak_dbfs": -7.2
+ },
+ "hold-release": {
+  "channels_before": 1,
+  "samples": 23040,
+  "seconds": 0.48,
+  "first_sound_ms": 0.2,
+  "peak_at_ms": 21.8,
+  "peak_dbfs": -7.0
+ },
+ "hold-start": {
+  "channels_before": 1,
+  "samples": 18480,
+  "seconds": 0.385,
+  "first_sound_ms": 0.8,
+  "peak_at_ms": 283.0,
+  "peak_dbfs": -7.0
+ },
+ "join": {
+  "channels_before": 1,
+  "samples": 31440,
+  "seconds": 0.655,
+  "first_sound_ms": 3.9,
+  "peak_at_ms": 26.2,
+  "peak_dbfs": -9.9
+ },
+ "lobby-bed": {
+  "channels_before": 2,
+  "mono_loss_db": 2.71,
+  "lr_corr": 0.1,
+  "samples": 1344000,
+  "seconds": 28.0,
+  "first_sound_ms": 0.0,
+  "peak_at_ms": 26695.8,
+  "peak_dbfs": -15.8
+ },
+ "night-falls": {
+  "channels_before": 2,
+  "mono_loss_db": 3.6,
+  "lr_corr": -0.17,
+  "samples": 144000,
+  "seconds": 3.0,
+  "first_sound_ms": 0.1,
+  "peak_at_ms": 2.0,
+  "peak_dbfs": -10.7
+ },
+ "panel-close": {
+  "channels_before": 1,
+  "samples": 18480,
+  "seconds": 0.385,
+  "first_sound_ms": 5.3,
+  "peak_at_ms": 200.9,
+  "peak_dbfs": -7.0
+ },
+ "panel-open": {
+  "channels_before": 1,
+  "samples": 20640,
+  "seconds": 0.43,
+  "first_sound_ms": 9.0,
+  "peak_at_ms": 222.4,
+  "peak_dbfs": -11.6
+ },
+ "peek": {
+  "channels_before": 1,
+  "samples": 19440,
+  "seconds": 0.405,
+  "first_sound_ms": 1.1,
+  "peak_at_ms": 298.9,
+  "peak_dbfs": -7.0
+ },
+ "ready-vote": {
+  "channels_before": 1,
+  "samples": 51120,
+  "seconds": 1.065,
+  "first_sound_ms": 6.0,
+  "peak_at_ms": 23.6,
+  "peak_dbfs": -7.0
+ },
+ "reveal": {
+  "channels_before": 2,
+  "mono_loss_db": 3.38,
+  "lr_corr": -0.09,
+  "samples": 114720,
+  "seconds": 2.39,
+  "first_sound_ms": 5.4,
+  "peak_at_ms": 471.2,
+  "peak_dbfs": -10.9
+ },
+ "role-doppelganger": {
+  "channels_before": 1,
+  "samples": 52800,
+  "seconds": 1.1,
+  "first_sound_ms": 2.6,
+  "peak_at_ms": 820.0,
+  "peak_dbfs": -9.0
+ },
+ "role-drunk": {
+  "channels_before": 1,
+  "samples": 57600,
+  "seconds": 1.2,
+  "first_sound_ms": 0.1,
+  "peak_at_ms": 32.2,
+  "peak_dbfs": -10.6
+ },
+ "role-insomniac": {
+  "channels_before": 1,
+  "samples": 56640,
+  "seconds": 1.18,
+  "first_sound_ms": 12.0,
+  "peak_at_ms": 36.6,
+  "peak_dbfs": -7.0
+ },
+ "role-mason": {
+  "channels_before": 1,
+  "samples": 22799,
+  "seconds": 0.475,
+  "first_sound_ms": 5.8,
+  "peak_at_ms": 247.8,
+  "peak_dbfs": -7.0
+ },
+ "role-minion": {
+  "channels_before": 1,
+  "samples": 47040,
+  "seconds": 0.98,
+  "first_sound_ms": 0.3,
+  "peak_at_ms": 32.2,
+  "peak_dbfs": -10.1
+ },
+ "role-robber": {
+  "channels_before": 1,
+  "samples": 42480,
+  "seconds": 0.885,
+  "first_sound_ms": 5.0,
+  "peak_at_ms": 435.9,
+  "peak_dbfs": -7.0
+ },
+ "role-seer": {
+  "channels_before": 1,
+  "samples": 64320,
+  "seconds": 1.34,
+  "first_sound_ms": 2.4,
+  "peak_at_ms": 406.6,
+  "peak_dbfs": -13.6
+ },
+ "role-troublemaker": {
+  "channels_before": 1,
+  "samples": 34320,
+  "seconds": 0.715,
+  "first_sound_ms": 1.6,
+  "peak_at_ms": 580.6,
+  "peak_dbfs": -7.0
+ },
+ "role-werewolf": {
+  "channels_before": 1,
+  "samples": 84480,
+  "seconds": 1.76,
+  "first_sound_ms": 0.2,
+  "peak_at_ms": 811.5,
+  "peak_dbfs": -14.0
+ },
+ "swap": {
+  "channels_before": 1,
+  "samples": 38400,
+  "seconds": 0.8,
+  "first_sound_ms": 0.6,
+  "peak_at_ms": 547.4,
+  "peak_dbfs": -7.0
+ },
+ "tap": {
+  "channels_before": 1,
+  "samples": 6891,
+  "seconds": 0.144,
+  "first_sound_ms": 0.0,
+  "peak_at_ms": 8.0,
+  "peak_dbfs": -7.0,
+  "note": "re-cut to start 8 ms before the tick (the take had a faint rustle before it)"
+ },
+ "timer-low": {
+  "channels_before": 1,
+  "samples": 78960,
+  "seconds": 1.645,
+  "first_sound_ms": 6.7,
+  "peak_at_ms": 1055.2,
+  "peak_dbfs": -7.0
+ },
+ "village-wins": {
+  "channels_before": 2,
+  "mono_loss_db": 0.04,
+  "lr_corr": 0.99,
+  "samples": 143040,
+  "seconds": 2.98,
+  "first_sound_ms": 5.8,
+  "peak_at_ms": 977.9,
+  "peak_dbfs": -7.3
+ },
+ "vote-cast": {
+  "channels_before": 1,
+  "samples": 16800,
+  "seconds": 0.35,
+  "first_sound_ms": 4.7,
+  "peak_at_ms": 30.6,
+  "peak_dbfs": -7.0
+ },
+ "wolves-win": {
+  "channels_before": 2,
+  "mono_loss_db": 0.14,
+  "lr_corr": 0.97,
+  "samples": 155280,
+  "seconds": 3.235,
+  "first_sound_ms": 5.5,
+  "peak_at_ms": 1035.0,
+  "peak_dbfs": -10.6
+ },
+ "your-turn": {
+  "channels_before": 1,
+  "samples": 57600,
+  "seconds": 1.2,
+  "first_sound_ms": 0.0,
+  "peak_at_ms": 2.1,
+  "peak_dbfs": -14.3
+ }
+}

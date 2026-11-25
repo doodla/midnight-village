@@ -1,0 +1,52 @@
+{
+ "model_id": "music_v2_5",
+ "store_for_inpainting": true,
+ "composition_plan": {
+  "chunks": [
+   {
+    "song_id": "OylrCqoO1BqiLCpTPbaT",
+    "range": {
+     "start_ms": 133920,
+     "end_ms": 141920
+    }
+   },
+   {
+    "text": "[Ending]\n{final cadence resolves home to the minor tonic}\n{last chord rings out and fades to silence}",
+    "duration_ms": 12000,
+    "positive_styles": [
+     "a short resolved ending of the same piece",
+     "same tempo 88 BPM and same key, F minor",
+     "one final cadence that settles on the minor tonic chord with a slight slow-down",
+     "the last dark minor chord rings out and fades to silence",
+     "warm detuned analog synthesizer arpeggio with tape wobble",
+     "slow deep round synth bass",
+     "dark airy pad",
+     "instrumental",
+     "great production quality"
+    ],
+    "negative_styles": [
+     "vocals",
+     "singing",
+     "lyrics",
+     "horror",
+     "jump scare",
+     "loud",
+     "new section",
+     "build-up",
+     "happy",
+     "bright",
+     "cheerful"
+    ],
+    "context_adherence": "high",
+    "conditioning_ref": {
+     "song_id": "OylrCqoO1BqiLCpTPbaT",
+     "range": {
+      "start_ms": 111920,
+      "end_ms": 141920
+     }
+    },
+    "condition_strength": "high"
+   }
+  ]
+ }
+}
