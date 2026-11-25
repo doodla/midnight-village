@@ -223,7 +223,16 @@ void main() {
         expect(find.byType(CandleGauge), findsOneWidget);
         // The picture says nothing to a screen reader: the number does.
         expect(
-          tester.getSemantics(find.byType(WorldTimer)).label,
+          tester
+              .getSemantics(
+                find
+                    .descendant(
+                      of: find.byType(WorldTimer),
+                      matching: find.byType(Semantics),
+                    )
+                    .first,
+              )
+              .label,
           '9 s',
           reason: '$share',
         );

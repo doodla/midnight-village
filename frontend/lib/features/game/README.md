@@ -199,9 +199,10 @@ There is one game flow: the screens read one model and one table.
 which one shows: 01 to 03 are `features/lobby` (its README);
 a game screen is built only from a `/me/` of its own phase (09 only from a voting `/me/`, and so on):
 while the table names a later phase than the `/me/` held, the screen shows its ground with nothing on it until its own `/me/` lands, never the earlier phase's
-values; `StageSeconds` gives a screen the seconds left of its stage from the server's deadline (none when the stage has none), and every stage with one shows it
-(04's look stage too: the candle and number on its headline's banner; `test/helpers/stage_clock.dart` holds every screen state to it), and `StageShare.left` how
-much of it is left for the sun and the vote's bar, from `/me/`'s `stage_started_at` and `deadline` (the same on every phone and after a restart);
+values; `stageCountdown` gives a screen the countdown of its stage from the server's deadline (none when the stage has none), which the screen hands to its clock
+and never reads (`Countdown`: only the clock's `ClockTick` turns it into seconds, so a second going by redraws the clock alone, `design_system/README.md`), and every stage with one shows it
+(04's look stage too: the candle and number on its headline's banner; `test/helpers/stage_clock.dart` holds every screen state to it); with `stage_started_at` the
+countdown also says how much of the stage is left (`StageShare.left`) for the candle's wax and the vote's bar (the same on every phone and after a restart);
 null while the server does not send `stage_started_at`, and then nothing of a share is drawn.
 A change of screen is a crossfade (`Motion.settle`) except two, which are the scenes the whole table shares (`SceneSwitcher`, `design_system/README.md`):
 the dusk (`table` or `deck` to `yourCard` or `nightBoard`) and the dawn (`yourCard` or `nightBoard` to `talk`), chosen by `_sceneBetween` from the two

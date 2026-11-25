@@ -1,8 +1,9 @@
-// "My night" held on 08 while the clock runs: the countdown rebuilds the
-// screen every second, and the picture story under the held note does no
-// layout work for it (it is not measured, laid out or built again), nor for a
-// fresh `/me/` that tells the same night. A new text size or phone does lay it
-// out again.
+// "My night" held on 08 while the screen is built again (a new clock handed
+// down, a fresh `/me/`; the clock's own tick no longer reaches the screen,
+// still_screen.dart): the picture story under the held note does no layout
+// work for it (it is not measured, laid out or built again), nor for a fresh
+// `/me/` that tells the same night. A new text size or phone does lay it out
+// again.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

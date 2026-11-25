@@ -199,6 +199,7 @@ class RenderClockRoom extends RenderProxyBox {
 
   BoxConstraints? _measuredIn;
   Object? _measuredForm;
+  Size? _measured;
 
   @override
   bool get isRepaintBoundary => true;
@@ -210,12 +211,15 @@ class RenderClockRoom extends RenderProxyBox {
       size = constraints.smallest;
       return;
     }
-    if (_measuredIn != constraints || _measuredForm != _form || !hasSize) {
+    if (_measured == null ||
+        _measuredIn != constraints ||
+        _measuredForm != _form) {
       child.layout(constraints, parentUsesSize: true);
+      _measured = child.size;
       _measuredIn = constraints;
       _measuredForm = _form;
     }
-    size = constraints.constrain(child.size);
+    size = constraints.constrain(_measured!);
     // Held at its size: tight, so the child is its own relayout boundary.
     child.layout(BoxConstraints.tight(size));
   }

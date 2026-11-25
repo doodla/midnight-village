@@ -27,7 +27,9 @@ void main() {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       final path = file.path.replaceAll(r'\', '/');
       if (clockPrimitives.contains(path)) continue;
-      if (RegExp(r'\bClockTick\b').hasMatch(file.readAsStringSync())) {
+      // Code, not the words about it.
+      final code = file.readAsStringSync().replaceAll(RegExp(r'//.*'), '');
+      if (RegExp(r'\bClockTick\b').hasMatch(code)) {
         users.add(path);
       }
     }
@@ -65,6 +67,7 @@ void main() {
     );
     expect(find.text('1:15'), findsOneWidget);
     final room = tester.getRect(find.byType(WorldTimer));
+    await tester.pump();
     var frames = 0;
     for (var i = 0; i < 30; i++) {
       now = now.add(const Duration(milliseconds: 100));
@@ -83,6 +86,10 @@ void main() {
       tester,
       const Center(child: WorldTimer.candle(countdown: Countdown.held(19))),
     );
+    // Its candle's picture decoded and drawn first.
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     for (var i = 0; i < 20; i++) {
       await tester.binding.delayed(const Duration(milliseconds: 100));
       expect(tester.binding.hasScheduledFrame, isFalse);

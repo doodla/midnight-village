@@ -144,6 +144,11 @@ Every state is also held to the stage clock (`test/helpers/stage_clock.dart`, ad
 a game screen whose `/me/` carries a `deadline` draws a clock with its number (`WorldTimer`, `SquareSky` or `TimerBand`) on the screen, a night candle on no
 card and no main button; `stage_clock_test.dart` places every timer the table sets (`Length`) as a stage clock or on the no-clock list, each with why
 (the owner, 24 November 2026: 04 had a deadline and no clock).
+Every state is also watched at rest (`test/helpers/still_screen.dart`, a second test per state in `sweep_run.dart`, "<id> at rest"):
+pumped until it settles, then for 16 s (past the 5 s game poll and the 15 s table poll), it asks for frames only from a source on `restSources`
+(the clock's `ClockTick`, `Ambient`, a focused `SkinField`'s cursor) or, until they move to `Ambient`, `movingToAmbient`, and each frame rebuilds and
+paints inside its source; a screen with none asks for no frame at all. Every clock on it is made to tick once with nothing else running: the tick
+rebuilds and paints inside the clock alone (the owner, 24 November 2026: "it felt like I was watching a ppt").
 `test/screen_cases/not_yet_swept.dart` lists the states that fail today, each with its fault in one line (`--dart-define=SWEEP_ALL=true` prints them);
 it only shrinks. A test presses with `pressLikeAFinger` (`test/helpers/finger.dart`):
 down, six frames of 16 ms, up. A plain `tester.tap` on anything that takes a tap fails the test
