@@ -19,7 +19,6 @@ import 'paper_mark.dart';
 import 'text_backing.dart';
 import '../skin/dress_style.dart';
 import 'fit_line.dart';
-import 'still.dart';
 
 /// [RoleCard]'s sizes. The thumbnails are at most their mock size and
 /// shrink, keeping their shape, when their parent is narrower.
@@ -165,15 +164,11 @@ class RoleCard extends StatelessWidget {
     // (`PaperParts.outSaturation`).
     if (context.dress.isPaper) {
       final picture = ArtPicture(context.roleArt(role), decodeAt: decodeAt);
-      // An out card's dim and faded colour are drawn into one still picture
-      // (`Still`), never a layer filled on every frame of the page; going in
-      // or out is a short fade, the picture made again on each of its frames.
-      return TweenAnimationBuilder<double>(
-        tween: Tween<double>(end: lit ? 1 : skin.dimmed),
+      // Not a `Still`: the card lies tilted, and a picture of it turned with
+      // the card is resampled and softens its edges (up to 30 levels).
+      return AnimatedOpacity(
         duration: Motion.quick,
-        builder: (context, opacity, card) => opacity >= 1
-            ? card!
-            : Still(spill: Space.lg, opacity: opacity, child: card!),
+        opacity: lit ? 1 : skin.dimmed,
         child: DeckledPicture(
           id: role.name,
           elevation: lit ? context.ground.elevation.selected : Elevation.none,

@@ -58,12 +58,17 @@ class Still extends StatelessWidget {
   @visibleForTesting
   static int made = 0;
 
+  /// Every [Still] drawn live, for a test that compares the pictures with
+  /// what they stand for.
+  @visibleForTesting
+  static bool debugAllLive = false;
+
   @override
   Widget build(BuildContext context) {
     if (isInside(context)) return child;
     return _StillMark(
       child: _StillBox(
-        live: live || SceneArrival.maybeOf(context) != null,
+        live: debugAllLive || live || SceneArrival.maybeOf(context) != null,
         spill: spill,
         opacity: opacity,
         ratio: MediaQuery.maybeDevicePixelRatioOf(context) ?? 1,
@@ -177,7 +182,7 @@ class RenderStill extends RenderProxyBox {
       }
       return;
     }
-    final bounds = (Offset.zero & size).inflate(_spill);
+    final bounds = _onPixels();
     final layer = OffsetLayer();
     final inner = PaintingContext(layer, bounds);
     inner.paintChild(child, Offset.zero);
@@ -197,6 +202,28 @@ class RenderStill extends RenderProxyBox {
         ..filterQuality = FilterQuality.low
         ..color = Color.fromRGBO(0, 0, 0, _opacity),
     );
+  }
+
+  /// The box to draw the picture of, in this box's own coordinates: as
+  /// large as it with its spill, and lying on whole device pixels, so the
+  /// picture is drawn one pixel to one pixel and what is inside keeps the
+  /// place it has between pixels when drawn live (a card in a grid at a
+  /// fraction of a pixel). Under a scale or a turn it is the plain box.
+  Rect _onPixels() {
+    final r = _ratio;
+    final spill = (_spill * r).ceil() / r;
+    final m = getTransformTo(null);
+    final plain =
+        m.entry(0, 1) == 0 &&
+        m.entry(1, 0) == 0 &&
+        (m.entry(0, 0) - r).abs() < 1e-6 &&
+        (m.entry(1, 1) - r).abs() < 1e-6;
+    if (!plain) return (Offset.zero & size).inflate(spill);
+    final x = m.entry(0, 3), y = m.entry(1, 3);
+    final dx = (x - x.floorToDouble()) / r, dy = (y - y.floorToDouble()) / r;
+    final w = ((size.width + dx) * r).ceil() / r;
+    final h = ((size.height + dy) * r).ceil() / r;
+    return Rect.fromLTWH(-dx, -dy, w, h).inflate(spill);
   }
 
   bool _nothingMovesInside(RenderObject root) {

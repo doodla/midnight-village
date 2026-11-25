@@ -720,7 +720,8 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   All ten tokens are drawn; a token id this app does not know (`TokenId.fromServer` gives null) is a plain disc.
 - **What a frame costs (Shadow paper)**: on the web every frame draws every layer of the screen again, whatever changed, so the still parts are drawn once.
   `Still` (`primitives/still.dart`) draws what is inside it ONCE into one picture at the screen's pixel ratio, made again only when something inside changes (a size, a picture decoded), and a frame draws that picture:
-  `ScreenFrame`'s header picture with its fade (the mask is in the picture, never filled on a frame), each run of a `LayeredArt` between two slots (the moon's shadow blended once; a slot, the end board's sun, sits between the runs, live), and an out card on 03 (its dim and faded colour; `spill` leaves room for a shadow).
+  `ScreenFrame`'s header picture with its fade (the mask is in the picture, never filled on a frame), each run of a `LayeredArt` between two slots (the moon's shadow blended once; a slot, the end board's sun, sits between the runs, live).
+  A `Still` can carry an opacity and room for a shadow (`spill`); its picture lies on whole device pixels, so it is the same pixels as drawn live (`still_pixels_test.dart`), but not under a turn: a tilted card stays live (its picture would be resampled).
   `Mood` is its own such picture (composed once per size and light).
   Nothing inside a `Still` moves by itself: a thing that moves (the coming candle or mist, a breathing cue) sits ABOVE it in a `Stack`, in its own repaint boundary, so its frames never make the picture again (a repaint boundary inside one is refused in debug builds; `still_test.dart`).
   While a scene brings its screen in (`SceneArrival`) a `Still` is drawn live: its layers travel on every frame.
