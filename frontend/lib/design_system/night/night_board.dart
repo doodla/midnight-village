@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/router/back_policy.dart';
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
 import '../layout/space.dart';
@@ -18,6 +19,7 @@ import '../primitives/paper_card.dart';
 import '../primitives/paper_piece.dart';
 import '../skin/dress_style.dart';
 import '../primitives/primary_button.dart';
+import '../primitives/until_touched.dart';
 import '../primitives/screen_frame.dart';
 import '../primitives/text_backing.dart';
 import '../skin/art_set.dart' show LayeredSceneId;
@@ -76,6 +78,7 @@ class NightBoard extends ConsumerStatefulWidget {
     required this.selfId,
     required this.prompt,
     required this.face,
+    this.told = false,
     required this.dealt,
     required this.secondsLeft,
     this.share,
@@ -103,6 +106,14 @@ class NightBoard extends ConsumerStatefulWidget {
 
   /// What "You" shows while held.
   final FaceContent face;
+
+  /// [face] begins with a result to read (`NightReport.readsOn`). When a
+  /// Choose of this board is taken and its answer is what brought it (it was
+  /// not there when Choose was pressed), the face opens by itself, once, as
+  /// a held one shows; the first touch anywhere (or Back) puts it away.
+  /// Held again, "You" shows it as before. A board built with the result
+  /// already there never opens it.
+  final bool told;
 
   /// The role this phone was DEALT (`NightReport.dealt`), which "You" shows
   /// face up, its portrait and its name (owner, 23 November 2026: a card
@@ -178,6 +189,17 @@ class _NightBoardState extends ConsumerState<NightBoard>
   late List<NightPick>? _sent = _usedUp(widget.prompt);
   var _failed = false;
 
+  /// [NightBoard.told] when Choose was pressed.
+  var _toldBefore = false;
+
+  /// A Choose was taken and its answer has not reached the widget yet: the
+  /// next widget it gets says whether the answer brought a result.
+  var _answered = false;
+
+  /// The result is up by itself, until a touch.
+  @override
+  var _opened = false;
+
   /// The candle's cuts have been asked for.
   var _candleWarmed = false;
 
@@ -208,10 +230,26 @@ class _NightBoardState extends ConsumerState<NightBoard>
       _picks = [];
       _sent = _usedUp(widget.prompt);
       _failed = false;
+      _answered = false;
+      _opened = false;
     } else {
       // The server counted a choose this board did not send.
       _sent ??= _usedUp(widget.prompt);
     }
+    _openResult();
+  }
+
+  /// Opens the result once, when it arrived with the answer to this board's
+  /// own Choose: the first widget after the answer decides, whichever way.
+  void _openResult() {
+    if (!_answered) return;
+    _answered = false;
+    if (widget.told && !_toldBefore) _opened = true;
+  }
+
+  @override
+  void _putAway() {
+    if (_opened) setState(() => _opened = false);
   }
 
   @override
@@ -247,7 +285,10 @@ class _NightBoardState extends ConsumerState<NightBoard>
   };
 
   void _choose() {
-    setState(() => _sent = _picks);
+    setState(() {
+      _sent = _picks;
+      _toldBefore = widget.told;
+    });
     _send();
   }
 
@@ -268,8 +309,7 @@ class _NightBoardState extends ConsumerState<NightBoard>
           .onChoose(widget.prompt.stage, _sent!)
           .then(
             (answer) => switch (answer) {
-              ChooseAnswer.taken when current() =>
-                ref.read(learnedCuesProvider.notifier).learn(Cue.nightChoose),
+              ChooseAnswer.taken when current() => _taken(),
               ChooseAnswer.notSent => failed(),
               ChooseAnswer.refused when current() => setState(
                 () => _sent = null,
@@ -279,6 +319,16 @@ class _NightBoardState extends ConsumerState<NightBoard>
             onError: (Object _) => failed(),
           ),
     );
+  }
+
+  void _taken() {
+    if (!_opened && (widget.told && !_toldBefore)) {
+      // The answer was already in the widget when this ran.
+      setState(() => _opened = true);
+    } else {
+      _answered = true;
+    }
+    unawaited(ref.read(learnedCuesProvider.notifier).learn(Cue.nightChoose));
   }
 
   String _caption(NightPick pick) => switch (pick) {
@@ -308,10 +358,13 @@ class _NightBoardState extends ConsumerState<NightBoard>
   }
 
   @override
-  Widget build(BuildContext context) => DressScope(
-    dress: widget.dress ?? NightBoard.defaultDress,
-    child: Builder(builder: _screen),
-  );
+  Widget build(BuildContext context) {
+    final board = DressScope(
+      dress: widget.dress ?? NightBoard.defaultDress,
+      child: Builder(builder: _screen),
+    );
+    return _withResult(board);
+  }
 
   Widget _screen(BuildContext context) {
     final skin = context.skin;

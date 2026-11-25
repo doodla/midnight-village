@@ -1122,11 +1122,11 @@ def test_a_refused_choose_is_given_up_not_redriven_at_every_read(table, caplog):
     real = choose_night.submit_choose
     calls: list[int] = []
 
-    def refuse_practice(game, user_id, picks, stage, answered):
+    def refuse_practice(game, user_id, picks, stage, answered, **kw):
         if user_id in (b1, b2):
             calls.append(user_id)
-            return ["refused for the test"]
-        return real(game, user_id, picks, stage, answered)
+            return ["refused for the test"], {}
+        return real(game, user_id, picks, stage, answered, **kw)
 
     with (
         patch("apps.onuw.choose_night.submit_choose", side_effect=refuse_practice),

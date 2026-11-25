@@ -1211,7 +1211,9 @@ def _plain_choose_table(run: Recording) -> None:
         ACTION,
         {"action_type": "choose", "picks": [_player(t, "Cleo")]},
         status=200,
-        about="A phone's choose: the same answer whatever the role.",
+        about="The Seer's choose: her look is settled the moment she chooses, so "
+        "the answer carries it (`night_results`, as /me/ lists it now) and "
+        "`chooses_left` 0.",
     )
     t.record(
         "game/choose_submitted_villager",
@@ -1220,7 +1222,7 @@ def _plain_choose_table(run: Recording) -> None:
         ACTION,
         {"action_type": "choose", "picks": [{"self": True}]},
         status=200,
-        about="The same answer for a player with nothing to choose.",
+        about="A player with nothing to choose: the same keys, nothing learned.",
     )
     t.record(
         "game/choose_resent",
@@ -1276,10 +1278,29 @@ def _plain_choose_table(run: Recording) -> None:
         "Ana",
         ME,
         status=200,
-        about="/me/ after choosing: the prompt says how many chooses were sent.",
+        about="/me/ after choosing: the prompt says how many chooses were sent, "
+        "and the Seer's look is listed while the window is still open.",
     )
-    _choose(t, "Ben", [_player(t, "Ana")])
-    _choose(t, "Dev", [_player(t, "Ana"), _player(t, "Ben")])
+    t.record(
+        "game/choose_submitted_robber",
+        "POST",
+        "Ben",
+        ACTION,
+        {"action_type": "choose", "picks": [_player(t, "Ana")]},
+        status=200,
+        about="The Robber's choose: the card she takes is settled at once (only "
+        "the Seer, who moves nothing, resolves before her).",
+    )
+    t.record(
+        "game/choose_submitted_troublemaker",
+        "POST",
+        "Dev",
+        ACTION,
+        {"action_type": "choose", "picks": [_player(t, "Ana"), _player(t, "Ben")]},
+        status=200,
+        about="The Troublemaker's choose: her swap names only her own picks, so it "
+        "is settled at once.",
+    )
     _choose(t, "Cleo", [{"center_index": 0}])
     window_stage = t.stage_now()
     t.fire("{game_id}:wave:2")  # every phone with a choice has: the minimum's close

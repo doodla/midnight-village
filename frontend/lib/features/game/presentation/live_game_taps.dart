@@ -77,13 +77,22 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
     }
     switch (reply.answer) {
       case ChooseAnswer.taken:
-        _setOutbox(box.withCurrent(_confirming(item)));
-        // After ANY taken choose the phone reads `/me/` and trusts its
-        // `chosen` and `chooses_left` (contract, section 5): the same
-        // on the wire for every role, and how the Doppelganger's follow-up
-        // turn arrives. A ready or a pick whose echo differs fetches too.
-        if (item.lane == OutboxLane.choose ||
-            _echoDiffers(item.request, reply.body)) {
+        // A taken choose's answer is this phone's results as `/me/` lists
+        // them now, held with the tap until a later `/me/` lists them
+        // (contract, section 5). `/me/` is read only when the answer says
+        // another turn follows (the Doppelganger's follow-up arrives that
+        // way), or when an older server answered with its status alone. A
+        // ready or a pick whose echo differs fetches too.
+        final learned = item.lane == OutboxLane.choose ? reply.learned : null;
+        _setOutbox(
+          box.withCurrent(
+            _confirming(item).copyWith(learned: learned?.results),
+          ),
+        );
+        final turnFollows =
+            item.lane == OutboxLane.choose &&
+            (learned == null || learned.choosesLeft > 0);
+        if (turnFollows || _echoDiffers(item.request, reply.body)) {
           unawaited(refresh());
         }
       case ChooseAnswer.stale:

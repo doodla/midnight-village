@@ -1,0 +1,14 @@
+{
+  "status": "submitted",
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "swap_with_player",
+      "revealed_info": {
+        "target_name": "Ana",
+        "new_role": "Seer"
+      }
+    }
+  ],
+  "chooses_left": 0
+}

@@ -21,6 +21,8 @@ class TeachingHold extends ConsumerStatefulWidget {
     this.replay,
     this.onRevealed,
     this.inPlace = false,
+    this.open = false,
+    this.onRevealChanged,
   });
 
   final Widget Function(bool teaching) cover;
@@ -37,6 +39,10 @@ class TeachingHold extends ConsumerStatefulWidget {
   /// The face turns over in the cover's own box ([HoldToReveal.inPlace]).
   final bool inPlace;
 
+  /// The face is up by itself ([HoldToReveal.open]), and says when it hides.
+  final bool open;
+  final ValueChanged<bool>? onRevealChanged;
+
   @override
   ConsumerState<TeachingHold> createState() => _TeachingHoldState();
 }
@@ -50,6 +56,8 @@ class _TeachingHoldState extends ConsumerState<TeachingHold> {
       target: widget.target,
       face: widget.face,
       inPlace: widget.inPlace,
+      open: widget.open,
+      onRevealChanged: widget.onRevealChanged,
       onRevealed: () {
         ref.read(learnedCuesProvider.notifier).learn(Cue.hold);
         widget.onRevealed?.call();

@@ -423,6 +423,9 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   once a pick has begun a card that cannot join it is dimmed
   (`PickRule.dims`, read from the `shapes` only; nothing dims before the first tap, for every role, so the board shows no role to a neighbour: a Seer's player pick dims everything else, her center card dims the players and leaves the other two center cards lit, a Robber's player dims the center and the other players, a Drunk's center card dims the players and the other two; "You" alone is no pick and is never dimmed; the card back and its token dim (`FaceDownCard.dimmed`, the skin's `dimmed` opacity), its name stays in full ink, and a tap on a dimmed card still switches the pick: `FaceDownCard.semanticHint` says "Switches your pick", since a dimmed vote row is switched off);
   Choose shows "Chosen" at once and never waits;
+  a result the choose's answer brought (`NightBoard.told`, `NightReport.readsOn`; not one the board was built with) opens by itself, once, as a held face shows
+  (`HoldToReveal.open`, nothing counts or is learned),
+  until the first touch anywhere (an `UntilTouched` layer) or Back; held again, "You" shows it; the Insomniac and every phone with no choose open nothing;
   one Choose per turn, and the board re-arms only on a new stage or turn
   (`ChoosePrompt.turn`, read from the server's `chosen` and `chooses_left`, never from the prompt's `kind`: it changes only when the server arms another turn, the Doppelganger's follow-up);
   a phone whose turn the server already has (`chooses_left` 0, `ChoosePrompt.used`) starts at "Chosen".

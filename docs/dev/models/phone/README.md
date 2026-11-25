@@ -62,3 +62,14 @@ so `day_late` is the phone of today; it becomes a holding run when the phone sen
 Run one: `java -cp tla2tools.jar tlc2.TLC -config day_asked.cfg PhoneDay.tla` in `day/`.
 `day/runday.sh` runs every `day_*` run and fails when one ends otherwise than recorded here
 (`TLA2TOOLS=/path/to/tla2tools.jar day/runday.sh`).
+
+**A result at the choose (branch `night-result-now`, 25 November 2026).** `ANSWER_CARRIES`
+models the phone of that branch: a taken choose's answer carries the caller's results and its
+prompt's `chooses_left` (the server's count right after the request), and the phone fetches
+`/me/` after it only when that is above 0 (her follow-up turn) or the answer is a 409; a taken
+answer with 0 left keeps the tap confirming (its results shown) until a later fetch. The
+results themselves are not modelled (the phone shows them from the answer; nothing waits on
+them). Every earlier run sets it FALSE (the phone before it). With it: `v_actor_now` (the
+Seer) holds every rule (236,521 distinct states), `v_robber_now` (`FIX_RETRY`, a Doppelganger
+who copies the Robber) holds every rule including `FollowUpArmed` (782,417), `v_minion_now`
+(`FIX_RETRY`, `FIX_TURN`, the Minion) holds every rule (782,417). The runs are `v_*_now.cfg` in `night/`.

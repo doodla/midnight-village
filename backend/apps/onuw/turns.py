@@ -54,6 +54,13 @@ def chose_count(pr: PlayerRole, window: int) -> int:
     return count if type(count) is int else 0
 
 
+def early_key(window: int) -> str:
+    """Where a player's settled result of an open window waits for its close, in
+    their own ``night_action_data`` (``choose_night._early_entry``): the very
+    night-log entry the close will write. Dropped when the window closes."""
+    return f"early_{window}"
+
+
 def prompt_role(pr: PlayerRole, window: int) -> str | None:
     """The role the caller's prompt acts as: their acting role in the window, except
     a Doppelganger whose one look is over (a second choose does nothing)."""

@@ -8,8 +8,39 @@ part of 'night_board.dart';
 mixin _NightBoardPieces on ConsumerState<NightBoard> {
   // What this half uses of the other, defined in [_NightBoardState].
   abstract List<NightPick> _picks;
+  bool get _opened;
+  void _putAway();
   void _tap(NightPick pick);
   Widget _fidget(NightPick pick, Widget card);
+
+  /// The board with, over it while a result is up by itself, the layer that
+  /// takes the first touch (and Back) and puts it away. The board keeps its
+  /// place in the tree either way, so opening rebuilds nothing of it.
+  Widget _withResult(Widget board) => BackHandler(
+    open: _opened,
+    onBack: _putAway,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        board,
+        if (_opened)
+          Positioned.fill(
+            child: UntilTouched(
+              child: Semantics(
+                button: true,
+                label: RoleSheetCopy.close,
+                onTap: _putAway,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTapDown: (_) => _putAway(),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
 
   /// The other seats in [layout]'s rows, then the band in front of the
   /// player; what is to spare (little: the cards grew to the room) goes in
@@ -252,6 +283,10 @@ mixin _NightBoardPieces on ConsumerState<NightBoard> {
     return TeachingHold(
       target: NightCopy.you,
       face: widget.face,
+      open: _opened,
+      onRevealChanged: (shown) {
+        if (!shown) _putAway();
+      },
       cover: (teaching) => GestureDetector(
         onTap: pick,
         behavior: HitTestBehavior.opaque,

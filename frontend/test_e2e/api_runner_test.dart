@@ -114,7 +114,7 @@ void main() {
     };
 
     test('window 1: her look is read at once and arms her follow-up; window 2 '
-        'holds every result until the last phone WITH a choice has chosen; a '
+        'tells a result settled at the choose at once, the rest when it closes; a '
         'phone with nothing to choose sends nothing and is never waited for; '
         'nothing is sent to one player', () async {
       final t = await table(fastTimers);
@@ -211,7 +211,10 @@ void main() {
           timeout: eventTimeout,
         );
       }
-      for (final p in [bob, carol, dave]) {
+      // Bob was told what his own choose settled at once; Carol has not
+      // chosen and Dave has nothing to choose: nothing yet.
+      expect(await results(bob), hasLength(1), reason: 'Bob, at his choose');
+      for (final p in [carol, dave]) {
         expect(await results(p), isEmpty, reason: '${p.displayName} early');
       }
       expect((await controller.oracle()).currentWave, 2);

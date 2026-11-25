@@ -15,23 +15,40 @@ class NightReport {
   /// `night_results`.
   factory NightReport.fromMe(Map<String, dynamic> me) {
     final role = me['your_role'] as Map<String, dynamic>;
-    final results = (me['night_results'] as List).cast<Map<String, dynamic>>();
-    List<Map<String, dynamic>> wave(int n) => [
-      for (final entry in results)
-        if (entry['wave'] == n) entry,
-    ];
     // Window 1 runs, and every phone has its page, when the deck holds the
     // Doppelganger (spec section 3), whoever holds her.
     final windowOneRan = (me['roles_in_game'] as List).any(
       (entry) => serverRole((entry as Map)['role']) == RoleId.doppelganger,
     );
+    return NightReport._of(
+      serverRole(role['original_role']),
+      (me['night_results'] as List).cast<Map<String, dynamic>>(),
+      windowOneRan: windowOneRan,
+    );
+  }
+
+  factory NightReport._of(
+    RoleId dealt,
+    List<Map<String, dynamic>> results, {
+    required bool windowOneRan,
+  }) {
+    List<Map<String, dynamic>> wave(int n) => [
+      for (final entry in results)
+        if (entry['wave'] == n) entry,
+    ];
     final second = wave(2);
     return NightReport._(
-      dealt: serverRole(role['original_role']),
+      dealt: dealt,
       windowOne: windowOneRan ? WindowOneResult.fromEntries(wave(1)) : null,
       saw: second.isEmpty ? null : NightResult.fromEntry(second.first),
     );
   }
+
+  /// The same night with [results] (a `/me/`'s `night_results`) as what it
+  /// told: the list a taken choose answers with, a result settled at the
+  /// choose among them.
+  NightReport withResults(List<Map<String, dynamic>> results) =>
+      NightReport._of(dealt, results, windowOneRan: windowOne != null);
 
   final RoleId dealt;
 
@@ -57,18 +74,27 @@ class NightReport {
       dealt: dealt,
       prompt: prompt.kind,
       windowOne: prompt.window == 2 ? windowOne : null,
+      saw: prompt.window == 2 ? saw : null,
     ),
   };
 
   /// The night told this phone something: a result of window 2 other than
   /// "You slept." or "You did nothing.", or the Doppelganger's copy. Only
   /// then does 08 open with My night open once (spec section 7).
-  bool get tellsSomething =>
-      windowOne is CopiedResult ||
-      switch (saw) {
-        null || SleptResult() || DidNothingResult() => false,
-        _ => true,
-      };
+  bool get tellsSomething => windowOne is CopiedResult || _tells(saw);
+
+  static bool _tells(NightResult? result) => switch (result) {
+    null || SleptResult() || DidNothingResult() => false,
+    _ => true,
+  };
+
+  /// "You" on the board for [prompt] begins with a result to read: the one
+  /// window 2 told, or what the Doppelganger's follow-up showed in window 1.
+  /// The board opens it by itself when a choose's answer brings it.
+  bool readsOn(ChoosePrompt prompt) => switch (windowOne) {
+    final CopiedResult look when prompt.window == 1 => _tells(look.followUp),
+    _ => prompt.window == 2 && _tells(saw),
+  };
 
   /// 08's My night.
   FaceContent get myNight => FaceContent.myNight(

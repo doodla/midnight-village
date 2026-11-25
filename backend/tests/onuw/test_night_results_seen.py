@@ -134,17 +134,17 @@ class TestSeenCount:
     def test_an_ack_cannot_cover_a_result_that_is_not_visible_yet(
         self, make_night
     ) -> None:
-        """The Doppelganger's look is listed while window 1 is open, her follow-up
-        only once it closes: an ack sent before that is clamped to what she can see,
-        so the follow-up is still shown after a restart."""
+        """The Doppelganger's look is listed while window 1 is open; as the Minion
+        her follow-up (no choice: the close runs it) only once it closes: an ack
+        sent before that is clamped to what she can see, so the follow-up is still
+        shown after a restart."""
         night = make_night(
-            {"d": "Doppelganger", "s": "Seer", "w": "Werewolf", "v": "Villager"},
+            {"d": "Doppelganger", "m": "Minion", "w": "Werewolf", "v": "Villager"},
             ["Robber", "Tanner", "Hunter"],
             night_min_window_seconds=5,
         )
         night.start()
-        night.post("d", "peek_player", {"player_id": night.users["s"].id})
-        night.post("d", "peek_center", {"center_indices": [0, 1]})
+        night.post("d", "peek_player", {"player_id": night.users["m"].id})
         assert night.refresh().current_wave == 1  # it waits out its minimum
         assert len(me(night, "d")["night_results"]) == 1  # the look only
 

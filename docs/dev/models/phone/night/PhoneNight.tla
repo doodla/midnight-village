@@ -19,6 +19,8 @@ CONSTANTS ROLE,          \* "dopp" | "actor" | "sleeper"
           FIXED_SERVER,  \* the server after fb229fb (chosen required)
           FIX_RETRY,     \* proposed: a failed /me/ is retried with backoff also after the first load
           FIX_TURN,      \* proposed: turn and used read from chooses_left (server 0f1f309)
+          ANSWER_CARRIES, \* night-result-now: a taken choose answers the caller's results and
+                         \* chooses_left; the phone re-reads /me/ only when that is above 0
           MaxFaults, MaxRestarts, MaxTaps
 
 Keys == {<<1, 0>>, <<1, 1>>, <<2, 0>>}
@@ -114,8 +116,10 @@ SProcess(r) ==
              /\ copied' = (copied \/ (ROLE = "dopp" /\ w = 1 /\ c = 0))
              /\ badStore' = (badStore \/ r.turn # c)
         ELSE UNCHANGED <<cnt, stored, copied, badStore>>
+     \* the answer's chooses_left: the prompt as the server holds it after this request
      /\ reps' = IF r.live /\ r.inst = inst
-                THEN reps \cup {[id |-> r.id, ans |-> IF ans = "store" THEN "taken" ELSE ans]}
+                THEN reps \cup {[id |-> r.id, ans |-> IF ans = "store" THEN "taken" ELSE ans,
+                                 cl |-> View(sv, cnt', copied').cl]}
                 ELSE reps
      /\ UNCHANGED <<sv, inst, loaded, snap, cur, conts, fetch, board, ev, intent, taps, ids, faults, restarts>>
 
@@ -209,7 +213,9 @@ TapTryAgain ==
 
 (* ---------------- answers ---------------- *)
 \* _send after `await _service.send`, then the board's .then
-Answer(c0, ans, reps2, reqs2) ==
+\* cl: the answer's chooses_left (ANSWER_CARRIES); a taken answer with 0 left needs no
+\* /me/: the item stays confirming (its results shown) until a later fetch
+Answer(c0, ans, cl, reps2, reqs2) ==
   LET match == cur.id = c0.id
       c2 == IF ~match THEN cur
             ELSE CASE ans \in {"taken", "stale"} -> [cur EXCEPT !.leg = "conf"]
@@ -222,13 +228,14 @@ Answer(c0, ans, reps2, reqs2) ==
      /\ cur' = c2 /\ bKey' = b.k /\ bSent' = bs
      /\ bFailed' = (b.f \/ (c0.b /\ ~b.reset /\ ans = "notSent"))
      /\ conts' = IF b.reset THEN NotCurrent(cs) ELSE cs
-     /\ IF match /\ ans \in {"taken", "stale"} THEN Refresh(c2) ELSE UNCHANGED <<fq, fc, again>>
+     /\ IF match /\ ans \in {"taken", "stale"} /\ ~(ANSWER_CARRIES /\ ans = "taken" /\ cl = 0)
+        THEN Refresh(c2) ELSE UNCHANGED <<fq, fc, again>>
      /\ UNCHANGED <<server, inst, loaded, snap, fv, retryArmed, ev, intent, taps, ids, restarts>>
 
 Reply ==
   \E r \in reps, c0 \in conts :
     /\ c0.k = "send" /\ c0.id = r.id
-    /\ Answer(c0, r.ans, reps \ {r}, reqs) /\ UNCHANGED faults
+    /\ Answer(c0, r.ans, r.cl, reps \ {r}, reqs) /\ UNCHANGED faults
 
 \* no answer in time (receiveTimeout): notSent. The request may still arrive
 \* later (delayed), or never (lost); an answer already on its way is lost.
@@ -236,7 +243,7 @@ Timeout ==
   \E c0 \in conts :
     /\ c0.k = "send" /\ faults < MaxFaults /\ faults' = faults + 1
     /\ \E lose \in BOOLEAN :
-         Answer(c0, "notSent", {x \in reps : x.id # c0.id},
+         Answer(c0, "notSent", 0, {x \in reps : x.id # c0.id},
                 {IF x.id = c0.id /\ x.inst = inst THEN [x EXCEPT !.live = FALSE] ELSE x :
                    x \in {y \in reqs : ~(lose /\ y.id = c0.id /\ y.inst = inst)}})
 

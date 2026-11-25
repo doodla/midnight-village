@@ -103,8 +103,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 - **The server decides.** Screens show what `/me/` says. `screenFor` is the one server-state
   to screen table; the only local inputs are `LocalSteps`.
 - **Taps change what others can see at once, never on the response.** All taps go
-  through the one `Outbox`; a choose is never sent twice for a turn; after any taken choose
-  the phone re-reads `/me/` and trusts `chosen` and `chooses_left`. A phone with nothing to
+  through the one `Outbox`; a choose is never sent twice for a turn; a taken choose's answer
+  carries the results (the board opens one by itself, once), and `/me/` is re-read only when a turn follows. A phone with nothing to
   choose sends no choose at all; its board has no button.
 - **Every request a player's tap makes goes through `playerRequest`**
   (`core/requests/player_request.dart`), and the tapped control shows it (`Pending`): busy in

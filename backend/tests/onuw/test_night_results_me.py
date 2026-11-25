@@ -15,6 +15,7 @@ import pytest
 from rest_framework import status
 
 from apps.core.wire import public_name
+from apps.onuw.engine.night import settled_at_choose
 from apps.onuw.engine.state import NightAction
 from apps.onuw.models import Game, Phase
 from apps.onuw.night_results import _client_action_type
@@ -72,8 +73,12 @@ class TestNightResultsInMe:
         play_window_two(night)  # the Robber has not chosen: the window is open
 
         assert night.refresh().current_wave == 2
+        # Only a result settled at its owner's choose shows (engine.night.
+        # settled_at_choose); everything else waits for the close.
         for name in ROLES:
-            assert me(night, name)["night_results"] == []
+            for result in me(night, name)["night_results"]:
+                role = night.role_of(name).original_role
+                assert settled_at_choose(2, role), (name, result)
         # and nothing by socket either
         assert not PER_PLAYER_NIGHT_EVENTS & set(night.all_event_types())
 

@@ -249,6 +249,12 @@ In the physical game, the narrator counts to approximately 10 after each role ca
   swap the server makes (see Action Optionality)
 - The server progresses to the next wave automatically when the timer expires or all expected actions are received
 - The Doppelganger may need extra time since they must peek first and then potentially perform a follow-up action
+- A player learns their result the moment they choose when nothing that resolves before them in the window can change it
+  (product owner, 25 November 2026: "It should show when the person selects"): the Seer (first of the movers' group, and nothing
+  before her moves a card), the Robber (only the Seer, who moves nothing, is before her), the Troublemaker and the Drunk (they learn
+  only their own picks), a lone Werewolf's centre look, and the Doppelganger's follow-up (window 1 holds only her). The Insomniac and
+  the team views still learn at the window's close: every swap of the window comes before the Insomniac's look. A choice cannot be
+  changed once made, so nothing shown is taken back (API: `api-contract-v2.md`, section 5, "Own results")
 
 ## State Mutation Rules
 

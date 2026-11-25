@@ -1,0 +1,14 @@
+{
+  "status": "submitted",
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "swap_others",
+      "revealed_info": {
+        "player1_name": "Ana",
+        "player2_name": "Ben"
+      }
+    }
+  ],
+  "chooses_left": 0
+}

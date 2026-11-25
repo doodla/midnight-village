@@ -21,7 +21,7 @@ from rest_framework import status
 from apps.core.wire import public_name, wire_time
 from apps.onuw import night_flow, night_window, turns
 from apps.onuw.models import Game, Phase, PlayerRole
-from tests.onuw.stages import current_stage, staged
+from tests.onuw.stages import current_stage, outside, staged
 from tests.onuw.test_night_windows import Night
 from tests.onuw.test_presence import drop
 
@@ -423,7 +423,9 @@ class TestIdenticalAnswers:
         }
 
         assert {r.status_code for r in replies.values()} == {status.HTTP_200_OK}
-        assert {r.content for r in replies.values()} == {b'{"status":"submitted"}'}
+        assert {outside(r.content) for r in replies.values()} == {
+            b'{"status":"submitted"}'
+        }
 
     @pytest.mark.parametrize(
         "table",
@@ -464,7 +466,7 @@ class TestIdenticalAnswers:
         chooses = 2 if night.game.current_wave == 1 else 1
 
         contents = {
-            choose(night, name, [SELF]).content
+            outside(choose(night, name, [SELF]).content)
             for name in table
             for _ in range(chooses)
         }
@@ -877,10 +879,12 @@ class TestWindowOne:
         choose(night, "dop", [player(night, "seer")])  # copies the Seer
         choose(night, "dop", [center(0), center(1)])  # her follow-up: look at two
 
-        assert len(results(night, "dop")) == 1  # the follow-up waits for the close
+        # Settled at her choose (nothing else acts in window 1): shown at once.
+        at_once = results(night, "dop")
         night.fire_timer(1)
 
         looks = results(night, "dop")
+        assert looks == at_once
         assert [r["action_type"] for r in looks] == ["peek_player", "peek_center"]
         assert looks[1]["revealed_info"]["roles"] == ["Villager", "Tanner"]
         assert night.game.current_wave == 2
@@ -1182,7 +1186,7 @@ class TestNightUniformity:
             window = night.game.current_wave
             for name in night.users:
                 for _ in range(2 if window == 1 else 1):
-                    answers.append(choose(night, name, [SELF]).content)
+                    answers.append(outside(choose(night, name, [SELF]).content))
             if (
                 night.refresh().phase == Phase.NIGHT
                 and night.game.current_wave == window
@@ -1299,7 +1303,7 @@ class TestTheSetting:
         reply = choose(night, "seer", [player(night, "wolf")])
 
         assert reply.status_code == status.HTTP_200_OK
-        assert reply.data == {"status": "submitted"}
+        assert reply.data["status"] == "submitted"
         assert chosen_now(night, "seer") == 1
 
     def test_a_server_that_does_not_allow_untimed_nights_refuses_zero_timers(
@@ -1614,7 +1618,7 @@ class TestTablesLookAlike:
         for index, name in enumerate(names):
             other = names[(index + 1) % len(names)]
             reply = choose(night, name, [player(night, other)])
-            replies.append((reply.status_code, reply.content))
+            replies.append((reply.status_code, outside(reply.content)))
         # Everyone chose, 3 s into an 8 s minimum: the close is deferred.
         deferred = night.timer_delays(2)[-1]
         night.fire_timer(2)

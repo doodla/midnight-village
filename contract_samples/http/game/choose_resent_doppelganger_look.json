@@ -1,3 +1,15 @@
 {
-  "status": "submitted"
+  "status": "submitted",
+  "night_results": [
+    {
+      "wave": 1,
+      "action_type": "peek_player",
+      "revealed_info": {
+        "target_name": "Ben",
+        "role": "Seer",
+        "copied_role": "Seer"
+      }
+    }
+  ],
+  "chooses_left": 1
 }
