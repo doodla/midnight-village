@@ -20,6 +20,7 @@ from django.db.utils import ConnectionHandler
 
 import pytest
 
+from apps.core import server_timing
 from apps.core.pooled_postgres.base import DatabaseWrapper
 
 pytestmark = pytest.mark.django_db
@@ -83,6 +84,26 @@ def test_a_warm_instance_borrows_the_same_connection_again(pooled):
     third = _a_request(pooled)
 
     assert first == second == third
+
+
+def test_the_header_says_connect_only_when_a_connection_was_opened(pooled):
+    # What `Server-Timing` shows live: the first request on an instance opens a
+    # connection (`connect`), the next ones borrow it again (no `connect`).
+    server_timing.install()
+
+    def connect_part() -> list[float] | None:
+        server_timing._current.parts = {}
+        try:
+            _a_request(pooled)
+            return server_timing._current.parts.get("connect")
+        finally:
+            server_timing._current.parts = None
+
+    first, second, third = connect_part(), connect_part(), connect_part()
+
+    assert first is not None and first[0] == 1
+    assert second is None
+    assert third is None
 
 
 def test_connections_that_died_while_frozen_cost_the_next_request_no_back_off(pooled):

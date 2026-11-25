@@ -111,9 +111,10 @@ thread and Django's connections are per thread.
   Marketplace sets, "Verified by the first deploy") idle connections cost the database
   nothing; on a direct host they count against its `max_connections` (about 100 on the
   smallest Neon compute), so the worst case above is the one to watch there.
-* **Seen live.** `Server-Timing`'s `connect` is the time to get the request's
-  connection: a fresh one is tens of milliseconds, a reused one is the check's single
-  round trip (a few).
+* **Seen live.** `Server-Timing` has a `connect` part only when the request had a
+  connection opened for it (21 to 30 ms on every signed-in request before the pool,
+  `tool/deployed_timing.py`); a connection the pool lends again has none, so on a warm
+  instance most answers carry no `connect` at all.
 
 ## Socket messages
 

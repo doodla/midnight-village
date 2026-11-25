@@ -48,6 +48,10 @@ def _checked(pool_box: dict[str, Any]) -> Any:
     return check
 
 
+# Set on a connection the pool has just opened; taken off when it is first lent.
+NEW = "_opened_for_the_pool"
+
+
 class DatabaseWrapper(postgresql.DatabaseWrapper):
     @property
     def pool(self) -> Any:
@@ -70,7 +74,7 @@ class DatabaseWrapper(postgresql.DatabaseWrapper):
             pool = ConnectionPool(
                 kwargs=connect_kwargs,
                 open=False,  # opened by the first request that needs it
-                configure=self._configure_connection,
+                configure=self._configure_new,
                 check=_checked(box),
                 **options,
             )
@@ -78,3 +82,20 @@ class DatabaseWrapper(postgresql.DatabaseWrapper):
             # As Django's: the first thread to set it wins.
             self._connection_pools.setdefault(self.alias, pool)
         return self._connection_pools[self.alias]
+
+    # Whether this request's connection was lent again by the pool (no TCP, TLS or
+    # sign-in): the Server-Timing header then has no ``connect`` part.
+    reused_connection = False
+
+    def _configure_new(self, connection: Any) -> None:
+        """The pool's ``configure``: runs once per connection it opens."""
+        self._configure_connection(connection)
+        setattr(connection, NEW, True)
+
+    def get_new_connection(self, conn_params: Any) -> Any:
+        self.reused_connection = False
+        connection = super().get_new_connection(conn_params)
+        self.reused_connection = self.pool is not None and not vars(connection).pop(
+            NEW, False
+        )
+        return connection
