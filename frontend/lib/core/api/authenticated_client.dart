@@ -35,6 +35,7 @@ class AuthenticatedClient {
                },
              ),
            ) {
+    _dio.httpClientAdapter = LeavesHere(_dio.httpClientAdapter);
     _dio.interceptors.add(interceptor);
     if (dio == null) {
       _dio.interceptors.add(StalePageInterceptor());

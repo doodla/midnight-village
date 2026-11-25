@@ -26,6 +26,7 @@ class ApiClient {
               },
             ),
           ) {
+    _dio.httpClientAdapter = LeavesHere(_dio.httpClientAdapter);
     if (dio == null) {
       _dio.interceptors.add(StalePageInterceptor());
       if (Env.isDev) _dio.interceptors.add(LoggingInterceptor());

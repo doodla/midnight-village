@@ -108,6 +108,14 @@ class _Phone {
   final _Device device;
   final gameWs = MockWebSocketChannel();
 
+  /// Another tab of this browser changed the saved session (the browser's
+  /// `storage` event, which the app's token holder reads back on).
+  final _otherTab = StreamController<void>.broadcast();
+  void anotherTabWrote(Map<String, String?> values) {
+    device.values.addAll(values);
+    _otherTab.add(null);
+  }
+
   /// The lobby's socket is the app's own [ReconnectingWebSocket] over a
   /// fake connection, whose opening the test may hold ([holdLobbySocket],
   /// then [openLobbySocket]); else it opens at once.
@@ -143,7 +151,10 @@ class _Phone {
     }
 
     // One holder of the tokens for the app and its sockets, as in the app.
-    final tokens = TokenStorage(storage: device);
+    final tokens = TokenStorage(
+      storage: device,
+      otherTabWrites: _otherTab.stream,
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -804,7 +815,7 @@ void main() {
       await phone.open(tester);
       await _until(tester, () => find.byType(JoinView).evaluate().isNotEmpty);
       // Another tab of the same browser signs in meanwhile.
-      phone.device.values.addAll(_signedIn(_goodToken).values);
+      phone.anotherTabWrote(_signedIn(_goodToken).values);
 
       await tester.enterText(find.byType(EditableText).first, 'Bo');
       await tester.pump();
