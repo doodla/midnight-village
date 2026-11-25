@@ -1,6 +1,8 @@
 # One Night Ultimate Werewolf: Daybreak — Expansion Overview
 
-Daybreak is the first expansion for ONUW. It adds 11 new roles, the Artifact token system, Shield tokens, and a fourth center card mechanic. All Daybreak roles can be freely mixed with base game roles.
+Daybreak is the first expansion for ONUW.
+It adds 11 new roles, the Artifact token system, Shield tokens, and a fourth center card mechanic.
+All Daybreak roles can be freely mixed with base game roles.
 
 **Not in v1 scope.** This document is for future planning.
 
@@ -26,7 +28,9 @@ Daybreak is the first expansion for ONUW. It adds 11 new roles, the Artifact tok
 
 ### New Mechanics
 
-1. **Shield Token (Sentinel)** — A physical token placed on a card. The shielded card cannot be viewed, moved, or receive an Artifact. Blocks even the Drunk's mandatory swap if placed on the Drunk's card.
+1. **Shield Token (Sentinel)** — A physical token placed on a card.
+   The shielded card cannot be viewed, moved, or receive an Artifact.
+   Blocks even the Drunk's mandatory swap if placed on the Drunk's card.
 
 2. **Artifact Tokens (Curator)** — 6 face-down tokens, one placed randomly on a player. The recipient secretly views it after the night. Artifacts can override role and team:
 
@@ -41,7 +45,9 @@ Daybreak is the first expansion for ONUW. It adds 11 new roles, the Artifact tok
 
    Artifacts that change role also remove passive abilities (Hunter's kill-on-death, Tanner's win condition).
 
-3. **Center Werewolf Card (Alpha Wolf)** — When Alpha Wolf is in play, a fourth center-area card is added (a Werewolf card placed perpendicular to the 3 center cards). All roles that interact with center cards can also interact with this card.
+3. **Center Werewolf Card (Alpha Wolf)** — When Alpha Wolf is in play, a fourth center-area card is added
+   (a Werewolf card placed perpendicular to the 3 center cards).
+   All roles that interact with center cards can also interact with this card.
 
 4. **Face-Up Cards (Revealer)** — A face-up card is public information during discussion. If Revealer flips a Werewolf or Tanner, it must be flipped back down.
 

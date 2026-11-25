@@ -32,77 +32,304 @@ imports only the ones before it (`tests/onuw/test_module_directions.py`).
 
 ## The night: two windows
 
-**Night phase runs in two windows** (`Game.current_wave` holds the window number: 1 or 2; 0 is the look stage at night and the value outside night). `RoleDefinition.wave` is the *order group* (position in the wake order), not a phase of the game; action-log entries are tagged with it so the log stays in wake order.
+**Night phase runs in two windows** (`Game.current_wave` holds the window number: 1 or 2; 0 is the look stage at night and the value outside night).
+`RoleDefinition.wave` is the *order group* (position in the wake order), not a phase of the game;
+action-log entries are tagged with it so the log stays in wake order.
 
-1. **Window 1 — the Doppelganger.** Runs whenever the Doppelganger card is in the deck (dealt or in the center), even if nobody can act. It lasts **exactly** `night_doppelganger_window_seconds` (default 10) whatever happens in it: one timer is set when it opens, nothing reschedules it, and `phase_deadline` is the real close time. `0` (untimed tables only, see below) turns the fixed length off: window 1 then ends when the Doppelganger has looked (and, when her copy chooses in window 1, sent her follow-up); nobody else has anything to choose there. Her look resolves in her own first choose; a follow-up as Seer/Robber/Troublemaker/Drunk/Minion resolves when the window closes; anything not chosen takes the role's default.
+1. **Window 1 — the Doppelganger.** Runs whenever the Doppelganger card is in the deck (dealt or in the center), even if nobody can act.
+   It lasts **exactly** `night_doppelganger_window_seconds` (default 10) whatever happens in it:
+   one timer is set when it opens, nothing reschedules it, and `phase_deadline` is the real close time.
+   `0` (untimed tables only, see below) turns the fixed length off:
+   window 1 then ends when the Doppelganger has looked (and, when her copy chooses in window 1, sent her follow-up);
+   nobody else has anything to choose there.
+   Her look resolves in her own first choose;
+   a follow-up as Seer/Robber/Troublemaker/Drunk/Minion resolves when the window closes;
+   anything not chosen takes the role's default.
 
-2. **Window 2 — everyone else at once.** Always runs. Nothing is resolved until the window closes; then the engine resolves, each step seeing the table after the previous one: team views (group 2), Seer -> Robber -> Troublemaker -> Drunk (group 3, Doppelganger before the real role), Insomniac (group 4). Engine entry points: `get_required_actions_for_window`, `resolve_window` (`resolve_night` still takes actions keyed by order group 1-4).
+2. **Window 2 — everyone else at once.** Always runs.
+   Nothing is resolved until the window closes;
+   then the engine resolves, each step seeing the table after the previous one:
+   team views (group 2), Seer -> Robber -> Troublemaker -> Drunk (group 3, Doppelganger before the real role), Insomniac (group 4).
+   Engine entry points: `get_required_actions_for_window`, `resolve_window` (`resolve_night` still takes actions keyed by order group 1-4).
 
-- **Timing** (every length here is the table's own setting; nothing else may add a wait): window 2 closes when EVERY present phone (not gone past grace; a phone still inside grace holds it) has chosen once, but never sooner than `night_min_window_seconds` (default 8) after it opened (`_close_or_defer` schedules the close for that moment), else at `night_wave_seconds` (default 30), so the close time cannot say who had a choice. Host "advance" closes any window immediately. Timer settings (`card_look_seconds` 0-120, `night_wave_seconds`, `night_min_window_seconds`, `night_doppelganger_window_seconds`, `discussion_seconds`, `voting_seconds`; and `disconnect_grace_seconds`, 0-60; `host_handover_seconds`, 0-600) are validated in `validate_onuw_settings` (integers 0-3600; min window <= `night_wave_seconds` when that is > 0); `get_timer_seconds` falls back to the default on a bad stored value. `ONUW_ALLOW_UNTIMED_NIGHT` (base False; True in the test, development and harness settings) gates `night_wave_seconds` / `night_doppelganger_window_seconds` of 0 and `night_min_window_seconds` under 5 (`engine.validation.validate_night_timing`): refused at the lobby and at the deal where it is False. A stored `night_protocol` key (older code wrote 1 or 2) is ignored everywhere. A lobby PATCH validates only the keys it gives (`validate_onuw_settings(changed=...)`), and the deal clamps stored timer values the server refuses today (`engine.validation.clamp_night_timing`: a night timer of 0 is dropped so its default applies, a minimum window under 5 becomes 5, an out-of-range value is dropped), so a table older code stored is never stuck; the game gets the clamped settings (`deal.dealt_settings`).
+- **Timing** (every length here is the table's own setting; nothing else may add a wait):
+  window 2 closes when EVERY present phone (not gone past grace; a phone still inside grace holds it) has chosen once, but never sooner than
+  `night_min_window_seconds` (default 8) after it opened (`_close_or_defer` schedules the close for that moment), else at `night_wave_seconds` (default 30), so
+  the close time cannot say who had a choice.
+  Host "advance" closes any window immediately.
+  Timer settings
+  (`card_look_seconds` 0-120, `night_wave_seconds`, `night_min_window_seconds`, `night_doppelganger_window_seconds`, `discussion_seconds`, `voting_seconds`; and `disconnect_grace_seconds`, 0-60; `host_handover_seconds`, 0-600)
+  are validated in `validate_onuw_settings` (integers 0-3600; min window <= `night_wave_seconds` when that is > 0);
+  `get_timer_seconds` falls back to the default on a bad stored value.
+  `ONUW_ALLOW_UNTIMED_NIGHT` (base False; True in the test, development and harness settings) gates `night_wave_seconds` / `night_doppelganger_window_seconds`
+  of 0 and `night_min_window_seconds` under 5 (`engine.validation.validate_night_timing`):
+  refused at the lobby and at the deal where it is False.
+  A stored `night_protocol` key (older code wrote 1 or 2) is ignored everywhere.
+  A lobby PATCH validates only the keys it gives (`validate_onuw_settings(changed=...)`), and the deal clamps stored timer values the server refuses today
+  (`engine.validation.clamp_night_timing`: a night timer of 0 is dropped so its default applies, a minimum window under 5 becomes 5, an out-of-range value is dropped),
+  so a table older code stored is never stuck;
+  the game gets the clamped settings (`deal.dealt_settings`).
 
-- **Side effects after commit:** every WebSocket send and `timers.schedule` / `cancel` in the night flow goes through `transaction.on_commit` (`_send_after_commit`, `_schedule_after_commit`, `_cancel_after_commit`), so a rollback leaves nothing sent or rescheduled. Payloads are built inside the transaction. Job exceptions are logged by `make_idempotent_callback`. How to test these: `tests/README.md`.
+- **Side effects after commit:** every WebSocket send and `timers.schedule` / `cancel` in the night flow goes through `transaction.on_commit`
+  (`_send_after_commit`, `_schedule_after_commit`, `_cancel_after_commit`), so a rollback leaves nothing sent or rescheduled.
+  Payloads are built inside the transaction.
+  Job exceptions are logged by `make_idempotent_callback`.
+  How to test these: `tests/README.md`.
 
-- **Dealt-card rule:** who wakes as a Werewolf or Mason, who acts in every step, and who a Minion sees is decided by the card DEALT (`state.original_roles`) plus a Doppelganger who copied that role, never the card held mid-night. A stolen Werewolf card does not make the thief a Werewolf; the player it was taken from still wakes (and can be the "lone" Werewolf). Winning is still decided by the card held at the end.
+- **Dealt-card rule:** who wakes as a Werewolf or Mason, who acts in every step, and who a Minion sees is decided by the card DEALT (`state.original_roles`)
+  plus a Doppelganger who copied that role, never the card held mid-night.
+  A stolen Werewolf card does not make the thief a Werewolf;
+  the player it was taken from still wakes (and can be the "lone" Werewolf).
+  Winning is still decided by the card held at the end.
 
-- **Drunk never skips.** A Drunk (or a Doppelganger who copied the Drunk) whose choose meant nothing, who chose nothing, or who is gone past the grace period, is swapped by the server (`night_window._timeout_action`): center index from `drunk_timeout_center_index(random_seed, player_id, 3)` (a dedicated `random.Random` seeded from the game seed, the label `drunk-timeout` and the player id), resolved when the window closes like a chosen swap, logged as a normal `swap_with_center` entry with `"made_by_server": true`; their own result says `{"card_index", "nothing_chosen": true}`.
+- **Drunk never skips.** A Drunk (or a Doppelganger who copied the Drunk) whose choose meant nothing, who chose nothing, or who is gone past the grace period,
+  is swapped by the server (`night_window._timeout_action`):
+  center index from `drunk_timeout_center_index(random_seed, player_id, 3)`
+  (a dedicated `random.Random` seeded from the game seed, the label `drunk-timeout` and the player id), resolved when the window closes like a chosen swap,
+  logged as a normal `swap_with_center` entry with `"made_by_server": true`;
+  their own result says `{"card_index", "nothing_chosen": true}`.
 
 - **Results** are stored per window (`night_action_data["wave_<window>_result"]`); a player gets at most one in window 2.
 
-**Action types in the log:** `peek_player`, `peek_center`, `swap_with_player`, `swap_with_center`, `swap_others`, `see_team`, `none`, `skip` (Seer, Robber, Troublemaker and the Doppelganger's look whose choose meant nothing). Phones never send these: the only night request is `choose` (below). Roles: the 12 of `docs/specs/onuw/roles.md`.
+**Action types in the log:** `peek_player`, `peek_center`, `swap_with_player`, `swap_with_center`, `swap_others`, `see_team`, `none`, `skip`
+(Seer, Robber, Troublemaker and the Doppelganger's look whose choose meant nothing).
+Phones never send these: the only night request is `choose` (below).
+Roles: the 12 of `docs/specs/onuw/roles.md`.
 
 ## The choose night (`choose_night.py`, `engine/choose.py`)
 
-**Every phone with a choice sends a `choose`** (a phone whose prompt is `none` sends nothing and is never waited for; one it sends anyway is taken alike). The night's request handling lives in `apps/onuw/choose_night.py` (choose storage, the prompt, the one group event, the close rule) and `apps/onuw/protocol.py` (the stage tokens), behind a few narrow hooks in `services`. `POST .../action/ {"action_type": "choose", "picks": [...], "chosen": n, "stage": ...}` from any player (the app sends it only from a phone with a choice), 0 to 2 distinct ordered picks (`{"player_id": n}`, `{"center_index": n}`, `{"self": true}`; a pick of your own id is `self`). The PURE `engine/choose.py` parses the picks (`parse_picks`: malformed = not a list, over 2, an item that is not exactly one known key with a plain JSON integer / `true`, a stranger, an off-board centre index, a duplicate) and reads them per role (`interpret_choice`: Seer two centre picks or the first other player; Robber the first other player; Troublemaker two other players; Drunk the first centre card; a LONE Werewolf the first centre card; the Doppelganger's look the first other player; everything else nothing; the first valid action in tap order, "You" never a target). A pick that reads as nothing is NOT an error: it is stored as "chose, nothing valid" and the window close applies the role's timeout default (a Drunk is swapped by the server with `made_by_server`, team views and the Insomniac still happen, a lone Werewolf still learns it is alone, Seer / Robber / Troublemaker / the look skip). A Doppelganger's follow-up is read as the copied role. **One look:** her FIRST choose in window 1 is her look whatever it holds; if it holds no other player she has not copied and her second choose does nothing.
+**Every phone with a choice sends a `choose`** (a phone whose prompt is `none` sends nothing and is never waited for; one it sends anyway is taken alike).
+The night's request handling lives in `apps/onuw/choose_night.py` (choose storage, the prompt, the one group event, the close rule) and `apps/onuw/protocol.py`
+(the stage tokens), behind a few narrow hooks in `services`.
+`POST .../action/ {"action_type": "choose", "picks": [...], "chosen": n, "stage": ...}` from any player (the app sends it only from a phone with a choice), 0 to
+2 distinct ordered picks (`{"player_id": n}`, `{"center_index": n}`, `{"self": true}`; a pick of your own id is `self`).
+The PURE `engine/choose.py` parses the picks
+(`parse_picks`: malformed = not a list, over 2, an item that is not exactly one known key with a plain JSON integer / `true`, a stranger, an off-board centre index, a duplicate)
+and reads them per role
+(`interpret_choice`: Seer two centre picks or the first other player; Robber the first other player; Troublemaker two other players; Drunk the first centre card; a LONE Werewolf the first centre card; the Doppelganger's look the first other player; everything else nothing; the first valid action in tap order, "You" never a target).
+A pick that reads as nothing is NOT an error:
+it is stored as "chose, nothing valid" and the window close applies the role's timeout default
+(a Drunk is swapped by the server with `made_by_server`, team views and the Insomniac still happen, a lone Werewolf still learns it is alone, Seer / Robber / Troublemaker / the look skip).
+A Doppelganger's follow-up is read as the copied role.
+**One look:** her FIRST choose in window 1 is her look whatever it holds;
+if it holds no other player she has not copied and her second choose does nothing.
 
-**Identical answers:** every choose is `200 {"status": "submitted"}`; the only refusals are `wrong_stage` (409: the request names a stage that is over, including the look stage), `already_chosen` (409: a phone may send two chooses in window 1 and one in window 2; phones send ONE, only the Doppelganger a second, and the server takes a second from anyone so its ANSWER is no tell, though her extra request is visible on the network, an accepted tell; 409 only for a choose answering a prompt that is used up) and `bad_request` (400, malformed; any other `action_type` too), none depending on role (403 for a stranger).
+**Identical answers:** every choose is `200 {"status": "submitted"}`;
+the only refusals are `wrong_stage` (409: the request names a stage that is over, including the look stage), `already_chosen`
+(409: a phone may send two chooses in window 1 and one in window 2; phones send ONE, only the Doppelganger a second, and the server takes a second from anyone so its ANSWER is no tell, though her extra request is visible on the network, an accepted tell; 409 only for a choose answering a prompt that is used up)
+and `bad_request` (400, malformed; any other `action_type` too), none depending on role (403 for a stranger).
 
-**Resends:** every choose carries `chosen`, the prompt's `chosen` it answers (required: missing / not a plain non-negative JSON integer = 400 `bad_request`); under the Game lock, after the stage check, `chosen` LOWER than the stored count is a resend of a choose already taken (its answer was lost): the same 200, nothing stored, read or sent; higher = 400 `bad_request`; equal = a new choose. So a 200 only says the server holds a choose for the prompt named: after ANY choose the phone re-reads `/me/` and trusts `chosen` / `chooses_left`. Without it a resent look was counted as the Doppelganger's second choose and read as her follow-up (found by the model in `docs/dev/models/night2/`). Every other request is safe twice by what it does or because its first copy ended the stage (`tests/onuw/test_resend.py`; table in `docs/specs/onuw/api-contract-v2.md`, section 9). The count is `night_action_data["chose_<window>"]` (no new column; kept by `persist_wave_results`). **A late tap:** `vote` and `ready` may carry `asked` (`apps/core/asked.py`); `PlayerRole.asked` keeps `{lane: [stage, asked]}` (lanes `vote`, `ready`) of the newest applied request. Inside the service's own transaction, with the PlayerRole locked, after every other check (`wrong_stage`, `vote_locked` and the same-lock 200, `invalid_target`, the look's one-way ready), an entry for the SAME stage with a GREATER `asked` raises `StaleRequestError(newest)`: 409 `stale_request` with `newest`, the stored `asked` it lost to (the player's own row, so never another player's number), nothing stored or sent. An applied request with `asked` stores its entry even when the value did not change. `choose`, the results ack and the stage-ending requests never read it.
+**Resends:** every choose carries `chosen`, the prompt's `chosen` it answers (required: missing / not a plain non-negative JSON integer = 400 `bad_request`);
+under the Game lock, after the stage check, `chosen` LOWER than the stored count is a resend of a choose already taken (its answer was lost):
+the same 200, nothing stored, read or sent;
+higher = 400 `bad_request`; equal = a new choose.
+So a 200 only says the server holds a choose for the prompt named:
+after ANY choose the phone re-reads `/me/` and trusts `chosen` / `chooses_left`.
+Without it a resent look was counted as the Doppelganger's second choose and read as her follow-up (found by the model in `docs/dev/models/night2/`).
+Every other request is safe twice by what it does or because its first copy ended the stage
+(`tests/onuw/test_resend.py`; table in `docs/specs/onuw/api-contract-v2.md`, section 9).
+The count is `night_action_data["chose_<window>"]` (no new column; kept by `persist_wave_results`).
+**A late tap:** `vote` and `ready` may carry `asked` (`apps/core/asked.py`);
+`PlayerRole.asked` keeps `{lane: [stage, asked]}` (lanes `vote`, `ready`) of the newest applied request.
+Inside the service's own transaction, with the PlayerRole locked, after every other check
+(`wrong_stage`, `vote_locked` and the same-lock 200, `invalid_target`, the look's one-way ready), an entry for the SAME stage with a GREATER `asked` raises
+`StaleRequestError(newest)`: 409 `stale_request` with `newest`, the stored `asked` it lost to (the player's own row, so never another player's number), nothing
+stored or sent. An applied request with `asked` stores its entry even when the value did not change.
+`choose`, the results ack and the stage-ending requests never read it.
 
-**Events:** a window opens with ONE group event `night.window {window, deadline}` (client `night_window`); there is NO per-player event in the night at all, and no event when a window closes (the next `night_window` or `phase_change` follows in the same commit). The Doppelganger's look is not sent either: it is in her `/me/`.
+**Events:** a window opens with ONE group event `night.window {window, deadline}` (client `night_window`);
+there is NO per-player event in the night at all, and no event when a window closes (the next `night_window` or `phase_change` follows in the same commit).
+The Doppelganger's look is not sent either:
+it is in her `/me/`.
 
-**`GET /me/`:** `action_prompt` is present for every player in an open window with one shape (`engine.choose.build_choose_prompt`: `window`, `kind` = `none|seer|robber|troublemaker|drunk|lone_werewolf|doppelganger_look`, `role_acting_as` (your own), `shapes` (which picks would do something, as data: alternatives such as `[{"players":1},{"center":2}]`, `any` = one card of the board; picking "You" or nothing always does nothing; the server's reading stays the authority, a pick outside the shapes safely does nothing), `action_types: ["choose"]`, `max_picks`, `max_chooses` (what the server ACCEPTS: two from anyone in window 1), `chosen` (echoed by the next choose), `chooses_left` (0 or 1: what this phone should still send; 0 from the start when `kind` is `none`, so a sleeper sends nothing; 1 again only for the Doppelganger's armed follow-up, which her own `kind` already says; `engine.choose.chooses_left`), and the same board for everybody; no teammates; a lone Werewolf's `kind` states its real option).
+**`GET /me/`:** `action_prompt` is present for every player in an open window with one shape
+(`engine.choose.build_choose_prompt`: `window`, `kind` = `none|seer|robber|troublemaker|drunk|lone_werewolf|doppelganger_look`, `role_acting_as` (your own), `shapes` (which picks would do something, as data: alternatives such as `[{"players":1},{"center":2}]`, `any` = one card of the board; picking "You" or nothing always does nothing; the server's reading stays the authority, a pick outside the shapes safely does nothing), `action_types: ["choose"]`, `max_picks`, `max_chooses` (what the server ACCEPTS: two from anyone in window 1), `chosen` (echoed by the next choose), `chooses_left` (0 or 1: what this phone should still send; 0 from the start when `kind` is `none`, so a sleeper sends nothing; 1 again only for the Doppelganger's armed follow-up, which her own `kind` already says; `engine.choose.chooses_left`), and the same board for everybody; no teammates; a lone Werewolf's `kind` states its real option).
 
-**Stages.** `GET /me/` carries an opaque `stage` (`protocol.stage_token`: look, `w1`, `w2`, talk or vote plus a piece of the GAME's id, so a token from an earlier game, even the same stage after play again, never matches). `choose`, `ready`, `vote` (pick and lock) and the host's `advance-wave`, `end-discussion` and `reveal-votes` must send it back (missing or not a string: 400 `bad_request`); a request for a stage that is no longer the game's is `409 {"detail": "That stage is over.", "code": "wrong_stage"}`, the same for every role and every endpoint, decided under the Game lock (`protocol.require_stage`), storing nothing. So a late tap can never land in the next stage, and a host request aimed at one stage never ends the next (the host's end-discussion or reveal outside its stage is this same 409).
+**Stages.** `GET /me/` carries an opaque `stage`
+(`protocol.stage_token`: look, `w1`, `w2`, talk or vote plus a piece of the GAME's id, so a token from an earlier game, even the same stage after play again, never matches).
+`choose`, `ready`, `vote` (pick and lock) and the host's `advance-wave`, `end-discussion` and `reveal-votes` must send it back
+(missing or not a string: 400 `bad_request`);
+a request for a stage that is no longer the game's is `409 {"detail": "That stage is over.", "code": "wrong_stage"}`, the same for every role and every
+endpoint, decided under the Game lock (`protocol.require_stage`), storing nothing.
+So a late tap can never land in the next stage, and a host request aimed at one stage never ends the next
+(the host's end-discussion or reveal outside its stage is this same 409).
 
-**Closing (every stage ends the moment everyone present has done their part; nothing adds to a table's settings):** look = all ready; talk = all ready; vote = all locked; window 2 = every present phone with a choice has chosen (`turns.turn_open`: a phone whose prompt is `none` is never waited for, dropped or not; a choose it sends anyway is taken alike and does nothing), subject to `night_min_window_seconds`; a table where every phone is away waits for one to come back; window 1 keeps its fixed length.
+**Closing (every stage ends the moment everyone present has done their part; nothing adds to a table's settings):** look = all ready;
+talk = all ready; vote = all locked; window 2 = every present phone with a choice has chosen
+(`turns.turn_open`: a phone whose prompt is `none` is never waited for, dropped or not; a choose it sends anyway is taken alike and does nothing), subject to
+`night_min_window_seconds`; a table where every phone is away waits for one to come back;
+window 1 keeps its fixed length.
 
-**What differs between roles in a `choose` request (documented, and visible only to someone timing the network; the app's rule is that a phone changes what others can see immediately on tap, never on the response).** `choose_night.submit_choose` does the same work for every caller: lock the Game, check the stage, lock the caller's row, build the game state, parse the picks against the table, read the caller's acting role, store the picks and count them, and run the close check in the SAME transaction. Measured by `just server-timing` (database round trips per request, the account lookup included): 12 for every role (the close check reads the game state to know which phones still have a choice), 17 for the last choose of window 2 whoever sends it (it also schedules the window's close at its minimum length); a Doppelganger's FIRST choose in window 1 costs 19, the 7 extra being her look resolving in her request (`night_window._resolve_doppelganger_look`: it needs her copied role for her follow-up). The live server's `Server-Timing` header carries no counts and only a rounded total for this reason (`apps/core/server_timing.py`, `SERVER_TIMING_DETAIL` off), so the difference stays as small as network noise. `persist_wave_results` writes only the rows that changed, all in one statement (`bulk_update`), so the close of a busy window costs the same at ten seats as at three.
+**What differs between roles in a `choose` request
+(documented, and visible only to someone timing the network; the app's rule is that a phone changes what others can see immediately on tap, never on the response).**
+`choose_night.submit_choose` does the same work for every caller:
+lock the Game, check the stage, lock the caller's row, build the game state, parse the picks against the table, read the caller's acting role, store the picks
+and count them, and run the close check in the SAME transaction.
+Measured by `just server-timing` (database round trips per request, the account lookup included):
+12 for every role (the close check reads the game state to know which phones still have a choice), 17 for the last choose of window 2 whoever sends it
+(it also schedules the window's close at its minimum length);
+a Doppelganger's FIRST choose in window 1 costs 19, the 7 extra being her look resolving in her request
+(`night_window._resolve_doppelganger_look`: it needs her copied role for her follow-up).
+The live server's `Server-Timing` header carries no counts and only a rounded total for this reason (`apps/core/server_timing.py`, `SERVER_TIMING_DETAIL` off),
+so the difference stays as small as network noise.
+`persist_wave_results` writes only the rows that changed, all in one statement (`bulk_update`), so the close of a busy window costs the same at ten seats as at
+three.
 
-**Old job names.** The timer jobs are `night_window`, `card_look`, `discussion_deadline`, `voting_deadline` and core's `grace_expired`, `presence_check`, `host_handover`: the same names the code before the cleanup scheduled, so a job queued by an older instance runs here (each callback locks the Game and re-checks the phase and window, so a stale one does nothing).
+**Old job names.** The timer jobs are `night_window`, `card_look`, `discussion_deadline`, `voting_deadline` and core's `grace_expired`, `presence_check`,
+`host_handover`: the same names the code before the cleanup scheduled, so a job queued by an older instance runs here
+(each callback locks the Game and re-checks the phase and window, so a stale one does nothing).
 
 ## Timers survive a restart (memory backend)
 
-The stored `Game.phase_deadline` / `night_window_opened_at` are the truth. `recovery.recover_timers()` (never under the queue backend: `run_startup_recovery` returns at once) runs once at server start (`run_startup_recovery()`, called from `config/asgi.py`; it runs in a short-lived joined thread so it works even when the server imports the app inside a running event loop, and closes that thread's DB connections; switched off by `ONUW_RECOVER_TIMERS_ON_START = False` in the test settings, never runs in migrations or management commands, tolerates an unmigrated DB). It does NOT reset presence (`apps/core/README.md`), opens a night that crashed before its first window, calls `ensure_timers(game)` for every game in night / discussion / voting, then `timers.rearm_from_table()` re-arms every other stored timer (presence checks) that has no thread here. `ensure_timers` re-creates what is missing (`timers.is_scheduled(key)` is the cheap check): the phase or window timer (a deadline that is overdue or less than `RECOVERY_RECONNECT_ALLOWANCE_SECONDS` = 15 s away is first moved to now + 15 s and persisted, so phones can reconnect before the vote is revealed or the night closes; the same happens in the lazy path only when the timer is genuinely missing; the extension depends only on the clock, so the fixed Doppelganger window's length still says nothing about her), the night's deferred "everyone acted, minimum length not passed" close (due at the minimum, not the deadline), and dropped players' grace timers. The Doppelganger window only ever gets its fixed deadline. `GameMeView` calls `ensure_timers` on every fetch, so a game also repairs lazily. Safe in several workers: every callback locks the Game row and checks the phase, and the night callbacks check the window number (`_auto_advance_wave`), so a stale window-1 timer cannot close window 2. A minimum-length (deferred) close re-checks readiness under the lock when it fires (a player treated as gone may have come back); if the window is no longer ready it puts the normal deadline timer back, and a reached deadline always closes. A phase with no deadline (`discussion_seconds`/`voting_seconds`/`night_wave_seconds` = 0) has no timer by design: only the host (or, for the vote, the last voter) moves it.
+The stored `Game.phase_deadline` / `night_window_opened_at` are the truth.
+`recovery.recover_timers()` (never under the queue backend: `run_startup_recovery` returns at once) runs once at server start
+(`run_startup_recovery()`, called from `config/asgi.py`; it runs in a short-lived joined thread so it works even when the server imports the app inside a running event loop, and closes that thread's DB connections; switched off by `ONUW_RECOVER_TIMERS_ON_START = False` in the test settings, never runs in migrations or management commands, tolerates an unmigrated DB).
+It does NOT reset presence (`apps/core/README.md`), opens a night that crashed before its first window, calls `ensure_timers(game)` for every game in night /
+discussion / voting, then `timers.rearm_from_table()` re-arms every other stored timer (presence checks) that has no thread here.
+`ensure_timers` re-creates what is missing (`timers.is_scheduled(key)` is the cheap check):
+the phase or window timer
+(a deadline that is overdue or less than `RECOVERY_RECONNECT_ALLOWANCE_SECONDS` = 15 s away is first moved to now + 15 s and persisted, so phones can reconnect before the vote is revealed or the night closes; the same happens in the lazy path only when the timer is genuinely missing; the extension depends only on the clock, so the fixed Doppelganger window's length still says nothing about her),
+the night's deferred "everyone acted, minimum length not passed" close (due at the minimum, not the deadline), and dropped players' grace timers.
+The Doppelganger window only ever gets its fixed deadline.
+`GameMeView` calls `ensure_timers` on every fetch, so a game also repairs lazily.
+Safe in several workers: every callback locks the Game row and checks the phase, and the night callbacks check the window number (`_auto_advance_wave`), so a
+stale window-1 timer cannot close window 2.
+A minimum-length (deferred) close re-checks readiness under the lock when it fires (a player treated as gone may have come back);
+if the window is no longer ready it puts the normal deadline timer back, and a reached deadline always closes.
+A phase with no deadline (`discussion_seconds`/`voting_seconds`/`night_wave_seconds` = 0) has no timer by design:
+only the host (or, for the vote, the last voter) moves it.
 
 ## Missed night results and the ack
 
-**Missed night results.** `GET /me/` has `night_results`: the caller's own results for closed windows, `[{"wave", "action_type", "revealed_info"}]`, built from the night log by `night_results.client_action_result`. One entry per result in window order (a Doppelganger with a follow-up gets two in window 1), the caller's own skips included (`{"nothing_chosen": true}`), nothing for a window still open except the Doppelganger's own look (listed as soon as it resolves), nothing of anyone else's. Role names in `revealed_info` are canonical (`"Werewolf"`), `copied_role` as always; a `peek_center` result has `center_indices` (in the order of `roles`); a result that is the role's default because the picks meant nothing (or there was no choose) has `"nothing_chosen": true` (the caller's own `skip` entries, the Drunk's server swap, a lone Werewolf with no centre card; `night_results._transform_revealed_info`).
+**Missed night results.** `GET /me/` has `night_results`:
+the caller's own results for closed windows, `[{"wave", "action_type", "revealed_info"}]`, built from the night log by `night_results.client_action_result`.
+One entry per result in window order (a Doppelganger with a follow-up gets two in window 1), the caller's own skips included (`{"nothing_chosen": true}`),
+nothing for a window still open except the Doppelganger's own look (listed as soon as it resolves), nothing of anyone else's.
+Role names in `revealed_info` are canonical (`"Werewolf"`), `copied_role` as always;
+a `peek_center` result has `center_indices` (in the order of `roles`);
+a result that is the role's default because the picks meant nothing (or there was no choose) has `"nothing_chosen": true`
+(the caller's own `skip` entries, the Drunk's server swap, a lone Werewolf with no centre card; `night_results._transform_revealed_info`).
 
-**Night results ack.** `GET /me/` has `night_results_seen` (the caller's own count, `PlayerRole.night_results_seen`); `POST /api/onuw/games/<id>/night-results/seen/` with `{"seen": n}` (a plain JSON integer 0-10, else 400 `bad_request`; 404 unknown game, 403 not a player) answers `{"night_results_seen": <stored>}`. `night_results.acknowledge_night_results` clamps `n` to the number of `night_results` the caller can see NOW (so an ack can never run ahead of what the phone was shown) and raises the stored count with ONE `UPDATE ... SET n = GREATEST(n, :value)` (no Game lock, never lowers). The client shows `night_results[night_results_seen:]` and acks after each window's dawn screen, sleepers too. `tests/onuw/test_payloads_no_leak.py` sweeps the v2 payloads for foreign role names.
+**Night results ack.** `GET /me/` has `night_results_seen` (the caller's own count, `PlayerRole.night_results_seen`);
+`POST /api/onuw/games/<id>/night-results/seen/` with `{"seen": n}` (a plain JSON integer 0-10, else 400 `bad_request`; 404 unknown game, 403 not a player)
+answers `{"night_results_seen": <stored>}`.
+`night_results.acknowledge_night_results` clamps `n` to the number of `night_results` the caller can see NOW
+(so an ack can never run ahead of what the phone was shown) and raises the stored count with ONE `UPDATE ... SET n = GREATEST(n, :value)`
+(no Game lock, never lowers). The client shows `night_results[night_results_seen:]` and acks after each window's dawn screen, sleepers too.
+`tests/onuw/test_payloads_no_leak.py` sweeps the v2 payloads for foreign role names.
 
 ## Lock-in voting
 
-`POST .../vote/` takes `{"target_player_id": <JSON integer>, "lock": <bool>, "stage": ...}` (`lock` is required; anything else is 400 `bad_request`: no coercion). A vote is *picked* (`PlayerRole.vote_target`, `has_acted` false, changeable, NO socket event at all) and then *locked* (`has_acted`, final; any pick or lock after it is 409 `vote_locked`, except the SAME lock again (a resend whose answer was lost): `{"status": "submitted"}`, nothing stored or sent). Answers: locked `{"status": "submitted"}`, picked `{"status": "picked", "target_player_id": N}` (the stored target). The body names the `stage` (see "Stages"). Errors carry `code` (`wrong_stage`, `wrong_phase`, `invalid_target`, `bad_request`, `vote_locked`; `detail` is one string, the first message, as every refusal's is). `voting.submit_vote(game, voter, target, *, lock=True)` is ONE transaction: Game lock, phase re-checked, voter's PlayerRole lock, validate, store; a lock sends the group `progress {stage: "vote", done, needed}` (counts of the players not gone past grace) after commit (**nobody is ever told who locked**; the players list has no per-player vote flag), then reveals if `_votes_ready` (so two last locks reveal once and a vote cannot land after the reveal). **At any reveal every stored pick counts, locked or not** (`reveal_votes` reads `vote_target` for everyone; a dropped player's pick and an unlocked Hunter's pick count): it is a rule of the spec (`voting-and-resolution.md`), not an accident. `progress` is also sent when the vote opens (`done` 0) and when presence changes `needed` (`_evaluate_presence`). `/me/` has `player_id` (the caller's own id), `stage`, `my_vote` (the caller's own `{target_player_id, locked}` while voting, else null), `ready` (own flag, at the look stage and in the talk), `progress` (`readiness.stage_progress`), `vote_targets` (while voting: the valid targets, every player id but the caller's, in seat order, exactly what `submit_vote` accepts; `my_vote.locked` says whether you may still change; else null) and `stage_started_at` (when the timed stage open now opened, in `deadline`'s format, the same on every phone; null whenever `deadline` is; kept in `Game.night_window_opened_at`, which the look stage, each night window, the talk and the vote set when they open, so the reconnect allowance moves only the deadline). The debug oracle has `vote_locked` per player next to `votes`, and `ready` per player.
+`POST .../vote/` takes `{"target_player_id": <JSON integer>, "lock": <bool>, "stage": ...}`
+(`lock` is required; anything else is 400 `bad_request`: no coercion).
+A vote is *picked* (`PlayerRole.vote_target`, `has_acted` false, changeable, NO socket event at all) and then *locked*
+(`has_acted`, final; any pick or lock after it is 409 `vote_locked`, except the SAME lock again (a resend whose answer was lost): `{"status": "submitted"}`, nothing stored or sent).
+Answers: locked `{"status": "submitted"}`, picked `{"status": "picked", "target_player_id": N}` (the stored target).
+The body names the `stage` (see "Stages").
+Errors carry `code`
+(`wrong_stage`, `wrong_phase`, `invalid_target`, `bad_request`, `vote_locked`; `detail` is one string, the first message, as every refusal's is).
+`voting.submit_vote(game, voter, target, *, lock=True)` is ONE transaction:
+Game lock, phase re-checked, voter's PlayerRole lock, validate, store;
+a lock sends the group `progress {stage: "vote", done, needed}` (counts of the players not gone past grace) after commit
+(**nobody is ever told who locked**; the players list has no per-player vote flag), then reveals if `_votes_ready`
+(so two last locks reveal once and a vote cannot land after the reveal).
+**At any reveal every stored pick counts, locked or not**
+(`reveal_votes` reads `vote_target` for everyone; a dropped player's pick and an unlocked Hunter's pick count):
+it is a rule of the spec (`voting-and-resolution.md`), not an accident.
+`progress` is also sent when the vote opens (`done` 0) and when presence changes `needed` (`_evaluate_presence`).
+`/me/` has `player_id` (the caller's own id), `stage`, `my_vote` (the caller's own `{target_player_id, locked}` while voting, else null), `ready`
+(own flag, at the look stage and in the talk), `progress` (`readiness.stage_progress`), `vote_targets`
+(while voting: the valid targets, every player id but the caller's, in seat order, exactly what `submit_vote` accepts; `my_vote.locked` says whether you may still change; else null)
+and `stage_started_at`
+(when the timed stage open now opened, in `deadline`'s format, the same on every phone; null whenever `deadline` is; kept in `Game.night_window_opened_at`, which the look stage, each night window, the talk and the vote set when they open, so the reconnect allowance moves only the deadline).
+The debug oracle has `vote_locked` per player next to `votes`, and `ready` per player.
 
 ## Ready to vote (the talk)
 
-`POST .../ready/ {"ready": <bool>, "stage": ...}` (`ReadyView`, `voting.set_ready`; strict bool else 400 `bad_request`; 403 not a player; 409 `wrong_stage` outside the talk and the look stage, or for a stage that is over) toggles `PlayerRole.phase_ready` (reset by `transition_to_discussion`) and answers `{"status": "ok", "ready": <stored>}`. One transaction (Game lock, PlayerRole lock, phase re-checked): every tap recounts `needed` (players not gone past grace) and sends `progress {stage: "talk", done, needed}`; when `done == needed >= 1` it calls `end_discussion`, the host button's own function, so a tap racing the host or the talk's deadline ends the talk once (the loser names a stage that is over: 409 `wrong_stage`). The talk never WAITS: readiness can only end it early, and there are NO grace timers in the talk, so a talker who went away is only left out of `needed` on the next tap; a phone that had been gone past grace coming back sends the new count (`register_connection`) but never ends the talk.
+`POST .../ready/ {"ready": <bool>, "stage": ...}`
+(`ReadyView`, `voting.set_ready`; strict bool else 400 `bad_request`; 403 not a player; 409 `wrong_stage` outside the talk and the look stage, or for a stage that is over)
+toggles `PlayerRole.phase_ready` (reset by `transition_to_discussion`) and answers `{"status": "ok", "ready": <stored>}`.
+One transaction (Game lock, PlayerRole lock, phase re-checked):
+every tap recounts `needed` (players not gone past grace) and sends `progress {stage: "talk", done, needed}`;
+when `done == needed >= 1` it calls `end_discussion`, the host button's own function, so a tap racing the host or the talk's deadline ends the talk once
+(the loser names a stage that is over: 409 `wrong_stage`).
+The talk never WAITS: readiness can only end it early, and there are NO grace timers in the talk, so a talker who went away is only left out of `needed` on the
+next tap; a phone that had been gone past grace coming back sends the new count (`register_connection`) but never ends the talk.
 
 ## Look stage (`card_look_seconds`)
 
-A game setting, 0 to 120, default 0 = off = the deal opens the first window at once. When > 0 the deal (`night_flow.begin_night`, called last by `GameStartView._deal`) does NOT open a window: the game stays in night, window 0, with `phase_deadline` = now + the setting (`_in_look_stage`: night, window 0, a deadline set) and a `card_look` timer (key `<game id>:look`, scheduled ONLY when the setting is > 0, so an old instance never gets a job it cannot run), and sends `progress {stage: "look", done: 0, needed}`. Every phone taps `POST .../ready/ {"ready": true, "stage": ...}` (`false` is 400 `bad_request`: looking is one way); `ready` in a night window names a stage that does not take it (409 `wrong_stage`). The night opens (`start_night_phase`, idempotent under the Game lock, which also cancels `<id>:look`) when every player not gone past grace has looked, when the backstop fires, or when the host taps advance-wave (`advance_wave` at window 0 opens the first window; it used to raise). A tap that loses the race to the backstop names a stage that is over (409 `wrong_stage`). **One readiness rule:** `_stage_is_ready` (look and talk: `needed >= 1` and `done == needed`) and `_advance_stage_if_ready` are used by `set_ready` (a tap), `_evaluate_presence` (a grace period ended, a phone came back: it re-checks, else re-announces the count) and `ensure_timers` (the look timer was lost: if everyone present has already looked it opens the night, else it rebuilds `:look` with the reconnect allowance). `_night_start_is_stuck` only applies when there is no deadline (a look stage is waiting for taps, not stuck), and `recover_timers` does not open a window-0 night that has a look deadline. `advance-wave` names the `stage` like every stage request (409 `wrong_stage` for one that is over). The debug fire-timer accepts `key: "look"`; `current` already finds it. `/me/` `progress` is `{"stage": "look", ...}`, `ready` is the caller's own flag, `deadline` is the look deadline, `action_prompt` is null for everyone.
+A game setting, 0 to 120, default 0 = off = the deal opens the first window at once.
+When > 0 the deal (`night_flow.begin_night`, called last by `GameStartView._deal`) does NOT open a window:
+the game stays in night, window 0, with `phase_deadline` = now + the setting (`_in_look_stage`: night, window 0, a deadline set) and a `card_look` timer
+(key `<game id>:look`, scheduled ONLY when the setting is > 0, so an old instance never gets a job it cannot run), and sends
+`progress {stage: "look", done: 0, needed}`.
+Every phone taps `POST .../ready/ {"ready": true, "stage": ...}` (`false` is 400 `bad_request`: looking is one way);
+`ready` in a night window names a stage that does not take it (409 `wrong_stage`).
+The night opens (`start_night_phase`, idempotent under the Game lock, which also cancels `<id>:look`) when every player not gone past grace has looked, when the
+backstop fires, or when the host taps advance-wave (`advance_wave` at window 0 opens the first window; it used to raise).
+A tap that loses the race to the backstop names a stage that is over (409 `wrong_stage`).
+**One readiness rule:** `_stage_is_ready` (look and talk: `needed >= 1` and `done == needed`) and `_advance_stage_if_ready` are used by `set_ready` (a tap),
+`_evaluate_presence` (a grace period ended, a phone came back: it re-checks, else re-announces the count) and `ensure_timers`
+(the look timer was lost: if everyone present has already looked it opens the night, else it rebuilds `:look` with the reconnect allowance).
+`_night_start_is_stuck` only applies when there is no deadline (a look stage is waiting for taps, not stuck), and `recover_timers` does not open a window-0
+night that has a look deadline. `advance-wave` names the `stage` like every stage request (409 `wrong_stage` for one that is over).
+The debug fire-timer accepts `key: "look"`;
+`current` already finds it. `/me/` `progress` is `{"stage": "look", ...}`, `ready` is the caller's own flag, `deadline` is the look deadline, `action_prompt` is
+null for everyone.
 
 ## Automatic deck and create defaults
 
-Lobby settings may say `deck: "auto"` (or `"custom"`) and `deck_chip` (`simple|classic|chaos`, default simple; validated at PATCH and deal). With `auto` the host's card list is ignored and the DEAL (`GameStartView._deal`, under the Lobby row lock) builds the deck for the players at the table now from `engine/decks.py` `DECK_TABLE` (3 to 10 players x 3 chips, each exactly players + 3 legal cards) into the GAME's settings only: the lobby keeps saying `auto`, so play again with one more player deals the next row. The doc table in `docs/specs/onuw/recommended-setups.md` ("Automatic Decks") is compared with `DECK_TABLE` by `tests/onuw/test_auto_deck.py`, which also checks all 24 rows are legal decks. `POST /api/lobbies/` takes an optional `defaults: "v2"` (any other value: 400 `bad_request`) that `GameHooks.default_settings` answers with `hooks.APP_DEFAULTS` (`card_look_seconds` 30, `deck` auto, `deck_chip` simple, and NOTHING else: no timer length and never the Doppelganger's window, which stay the table's own settings or the server's existing defaults); settings given in the body win; without `defaults` nothing is written. The merged settings are validated at create (400 `bad_request` with the errors).
+Lobby settings may say `deck: "auto"` (or `"custom"`) and `deck_chip` (`simple|classic|chaos`, default simple; validated at PATCH and deal).
+With `auto` the host's card list is ignored and the DEAL (`GameStartView._deal`, under the Lobby row lock) builds the deck for the players at the table now from
+`engine/decks.py` `DECK_TABLE` (3 to 10 players x 3 chips, each exactly players + 3 legal cards) into the GAME's settings only:
+the lobby keeps saying `auto`, so play again with one more player deals the next row.
+The doc table in `docs/specs/onuw/recommended-setups.md` ("Automatic Decks") is compared with `DECK_TABLE` by `tests/onuw/test_auto_deck.py`, which also checks
+all 24 rows are legal decks. `POST /api/lobbies/` takes an optional `defaults: "v2"` (any other value: 400 `bad_request`) that `GameHooks.default_settings`
+answers with `hooks.APP_DEFAULTS`
+(`card_look_seconds` 30, `deck` auto, `deck_chip` simple, and NOTHING else: no timer length and never the Doppelganger's window, which stay the table's own settings or the server's existing defaults);
+settings given in the body win; without `defaults` nothing is written.
+The merged settings are validated at create (400 `bad_request` with the errors).
 
 ## The deal and the table before it (`apps/onuw/deal.py`)
 
-`deal_refusal(lobby, members)` is the ONE rule for "can this table be dealt now" (all but the host check): the table is waiting and `validate_onuw_settings` passes for this many players. **There is no ready check**, so a guest who joins and closes the app cannot block the deal (the lobby has no ready flag any more; its column is dropped, core migration 0012). `GameStartView._deal` refuses with it (400 `{"detail": ...}`). The lobby body of every table and every `lobby_update` (`GameHooks.lobby_extras`, `apps/core/README.md`) carry `deck_preview` (the automatic deck the deal would build for the table's size, `deal.table_size`: the number it is set for, else the players here now; `engine.decks.auto_deck`, the deal's own call: `{role: count}` like `settings.roles`; null for a custom deck or a size with no automatic deck) and `deal` `{"ok", "need", "have", "seats"}` (`ok` = `deal_refusal` is None, so it can never disagree with the deal; `seats` the number the table is set for or null; `need` = size + 3; `have` = the cards in the deck the deal would use, 0 if none). `tests/onuw/test_lobby_table_extras.py` and `test_table_seats.py` deal sweeps of table states and compare.
+`deal_refusal(lobby, members)` is the ONE rule for "can this table be dealt now" (all but the host check):
+the table is waiting and `validate_onuw_settings` passes for this many players.
+**There is no ready check**, so a guest who joins and closes the app cannot block the deal
+(the lobby has no ready flag any more; its column is dropped, core migration 0012).
+`GameStartView._deal` refuses with it (400 `{"detail": ...}`).
+The lobby body of every table and every `lobby_update` (`GameHooks.lobby_extras`, `apps/core/README.md`) carry `deck_preview`
+(the automatic deck the deal would build for the table's size, `deal.table_size`: the number it is set for, else the players here now; `engine.decks.auto_deck`, the deal's own call: `{role: count}` like `settings.roles`; null for a custom deck or a size with no automatic deck)
+and `deal` `{"ok", "need", "have", "seats"}`
+(`ok` = `deal_refusal` is None, so it can never disagree with the deal; `seats` the number the table is set for or null; `need` = size + 3; `have` = the cards in the deck the deal would use, 0 if none).
+`tests/onuw/test_lobby_table_extras.py` and `test_table_seats.py` deal sweeps of table states and compare.
 
-The body also carries `deck_cards` (`deal.deck_cards`: the roles the table would deal, face up for every viewer, in every state: a custom deck as picked so far, an automatic deck for the table's size or, at an open table of fewer than 3, for 3) `lengths` (`deal.lengths`: every timer setting the server reads, as a game dealt now would run with it: `engine.validation.running_lengths` of the deal's clamped settings), `length_ranges` and `seats_range`. **One rule table for the lengths** (`engine/validation.py`: `LENGTH_DEFAULTS`, which `basics` reads its defaults from; `length_ranges`; `length_errors`, the only length check a PATCH and the deal get; `clamp_night_timing`, what the deal does to what older code stored): a range never depends on its own key, so the body's ranges are exactly what a PATCH takes. The rules: 0 to the key's most; unless untimed nights are allowed, a night window at least 1 s and the shortest window at least 5 s; the shortest window no longer than the window; and, unless untimed games are allowed (development, tests, the harness: games driven by hand), no game waits for good (`DEADLINE_KEYS`: with `disconnect_grace_seconds` 0 nobody is ever counted gone, so the window, the talk and the vote each need a clock; with any of them at 0 the grace period is at least 1 s; the deal drops a stored grace of 0 beside a stage with no clock). The sweep checks the production rules. `tests/onuw/test_lengths_never_freeze.py` plays a whole game with a dead phone for every key at each end of its range from several stored tables. In a game the body's `deck_cards` and `deal.have` are the deck the newest game was dealt (`_dealt_deck`). So the set-up page edits every length holding no rule.
+The body also carries `deck_cards`
+(`deal.deck_cards`: the roles the table would deal, face up for every viewer, in every state: a custom deck as picked so far, an automatic deck for the table's size or, at an open table of fewer than 3, for 3)
+`lengths`
+(`deal.lengths`: every timer setting the server reads, as a game dealt now would run with it: `engine.validation.running_lengths` of the deal's clamped settings),
+`length_ranges` and `seats_range`. **One rule table for the lengths**
+(`engine/validation.py`: `LENGTH_DEFAULTS`, which `basics` reads its defaults from; `length_ranges`; `length_errors`, the only length check a PATCH and the deal get; `clamp_night_timing`, what the deal does to what older code stored):
+a range never depends on its own key, so the body's ranges are exactly what a PATCH takes.
+The rules: 0 to the key's most; unless untimed nights are allowed, a night window at least 1 s and the shortest window at least 5 s;
+the shortest window no longer than the window;
+and, unless untimed games are allowed (development, tests, the harness: games driven by hand), no game waits for good
+(`DEADLINE_KEYS`: with `disconnect_grace_seconds` 0 nobody is ever counted gone, so the window, the talk and the vote each need a clock; with any of them at 0 the grace period is at least 1 s; the deal drops a stored grace of 0 beside a stage with no clock).
+The sweep checks the production rules. `tests/onuw/test_lengths_never_freeze.py` plays a whole game with a dead phone for every key at each end of its range
+from several stored tables. In a game the body's `deck_cards` and `deal.have` are the deck the newest game was dealt (`_dealt_deck`).
+So the set-up page edits every length holding no rule.
 
-**A table set for a number** (`settings.seats`, 3 to 10; `engine.validation.seats_of`, `validate_seats`): the host picks how many the game is for, sets everything up for that number, and the table waits. `need` and `deck_preview` are for that number, so they never move when people join or leave; the deal (`validate_onuw_settings` with `changed=None`) needs exactly that many here; a join past it is `lobby_full` (`GameHooks.seat_limit`, read by `core.lobbies.add_member` under the Lobby lock); a PATCH may change it any time before the deal within `seats_range` (`engine.validation.seats_range`: never below the players here, never above `max_players`; 400 otherwise). Absent or null is an open table (every table before the key; a new table, `APP_DEFAULTS` writes none): it deals to whoever is there, as before. A PATCH that gives `roles` checks only each role's own limits (a known role, 0 to its most, Masons in pairs), not the deck's size or the head count: a deck being built is stored card by card and `deal` reports whether it fits; the deal checks everything.
+**A table set for a number** (`settings.seats`, 3 to 10; `engine.validation.seats_of`, `validate_seats`):
+the host picks how many the game is for, sets everything up for that number, and the table waits.
+`need` and `deck_preview` are for that number, so they never move when people join or leave;
+the deal (`validate_onuw_settings` with `changed=None`) needs exactly that many here;
+a join past it is `lobby_full` (`GameHooks.seat_limit`, read by `core.lobbies.add_member` under the Lobby lock);
+a PATCH may change it any time before the deal within `seats_range`
+(`engine.validation.seats_range`: never below the players here, never above `max_players`; 400 otherwise).
+Absent or null is an open table (every table before the key; a new table, `APP_DEFAULTS` writes none):
+it deals to whoever is there, as before.
+A PATCH that gives `roles` checks only each role's own limits (a known role, 0 to its most, Masons in pairs), not the deck's size or the head count:
+a deck being built is stored card by card and `deal` reports whether it fits;
+the deal checks everything.
 
 ## Practice players: the server plays them (`practice.py`, `engine/practice.py`)
 
@@ -146,8 +373,35 @@ the step and the seat (`practice_rng`) and logged at INFO.
 
 ## Night timeline (results)
 
-`GET .../results/` (results phase only, members only, as before) has `night_timeline`: `{seats, cards, dealt, steps, final, center_moved}` built by the PURE `engine/timeline.py` (`build_night_timeline`) FORWARDS from the dealt cards (`PlayerRole.original_role` by seat, `Game.dealt_center_cards`) and `Game.night_actions_log` (`ActionLogEntry.to_dict` is the one log format). Cards have stable ids (`k0..k<n-1>` by seat, then the three centre cards) and a server-set `werewolf` flag (a Werewolf card, or a Doppelganger card whose holder COPIED Werewolf: it is a werewolf card for whoever ends the night holding it, `docs/specs/onuw/doppelganger.md` Team Resolution Rule); each step is one log entry in WAKE order (the engine resolves team views in SEAT order, so inside order group 2 the timeline re-sorts to Werewolves, Minion, Masons with a stable sort; team views move no cards; `see_team` rows of one role in one group merge into ONE step with all its actors, dealt ones first, a Doppelganger who copied the role among them and named in `doppelganger_actors`; a Doppelganger-Minion acts in window 1 and keeps her own step) with `actors`, `doppelganger_actors`, `action` (`copy`, `see_team`, `peek_player`, `peek_center` (a lone Werewolf's look too), `swap_with_player`, `swap_others`, `swap_with_center`, `look_own`, `skip`), `looked_at` (card ids as the table was at that step), `moves`, `team`, `copied_role`, `made_by_server` and `positions_after`. A game dealt before `dealt_center_cards` recovers the centre with `recover_dealt_center` (undo the logged swaps from the final table and require the players' cards to equal their dealt roles). The undo checks ONLY that the players' cards come back to their dealt roles (the centre it returns is what the log implies). `night_results.night_timeline_for` is a presentation boundary: ANY failure answers `night_timeline: null` so the rest of the results still show; a refusal for a game from before the centre was stored is logged once at WARNING, anything else at ERROR. The proof is in the tests, not a runtime self-check: the replay's final table equals the engine's for all 29 reference games and 1500 seeded random nights, with the actions collected the way the server collects them (`tests/onuw/night_rules_reference.engine_night`: seat order, a Doppelganger's follow-up last) and seats the reverse of player-id order (`tests/onuw/test_night_timeline.py`).
+`GET .../results/` (results phase only, members only, as before) has `night_timeline`:
+`{seats, cards, dealt, steps, final, center_moved}` built by the PURE `engine/timeline.py` (`build_night_timeline`) FORWARDS from the dealt cards
+(`PlayerRole.original_role` by seat, `Game.dealt_center_cards`) and `Game.night_actions_log` (`ActionLogEntry.to_dict` is the one log format).
+Cards have stable ids (`k0..k<n-1>` by seat, then the three centre cards) and a server-set `werewolf` flag
+(a Werewolf card, or a Doppelganger card whose holder COPIED Werewolf: it is a werewolf card for whoever ends the night holding it, `docs/specs/onuw/doppelganger.md` Team Resolution Rule);
+each step is one log entry in WAKE order
+(the engine resolves team views in SEAT order, so inside order group 2 the timeline re-sorts to Werewolves, Minion, Masons with a stable sort; team views move no cards; `see_team` rows of one role in one group merge into ONE step with all its actors, dealt ones first, a Doppelganger who copied the role among them and named in `doppelganger_actors`; a Doppelganger-Minion acts in window 1 and keeps her own step)
+with `actors`, `doppelganger_actors`, `action`
+(`copy`, `see_team`, `peek_player`, `peek_center` (a lone Werewolf's look too), `swap_with_player`, `swap_others`, `swap_with_center`, `look_own`, `skip`),
+`looked_at` (card ids as the table was at that step), `moves`, `team`, `copied_role`, `made_by_server` and `positions_after`.
+A game dealt before `dealt_center_cards` recovers the centre with `recover_dealt_center`
+(undo the logged swaps from the final table and require the players' cards to equal their dealt roles).
+The undo checks ONLY that the players' cards come back to their dealt roles (the centre it returns is what the log implies).
+`night_results.night_timeline_for` is a presentation boundary:
+ANY failure answers `night_timeline: null` so the rest of the results still show;
+a refusal for a game from before the centre was stored is logged once at WARNING, anything else at ERROR.
+The proof is in the tests, not a runtime self-check:
+the replay's final table equals the engine's for all 29 reference games and 1500 seeded random nights, with the actions collected the way the server collects
+them (`tests/onuw/night_rules_reference.engine_night`: seat order, a Doppelganger's follow-up last) and seats the reverse of player-id order
+(`tests/onuw/test_night_timeline.py`).
 
 ## Debug affordances (DEBUG only)
 
-For the integration harness there are `DEBUG`-gated affordances (all 403 in production, each with a rejection test): a forced-assignment / seed override on game start (`GameStartView`), a `debug-state` full-state oracle (its `connected` is real socket presence; `pending_timers` lists the armed timers), and a `debug-fire-timer` hook (`wave:1` / `wave:2` close that night window now; `current` ignores grace timers) — see `apps/onuw/debug.py` + `debug_views.py`. Game timers are per-game settings, so the harness and `tools/game_driver.py` set `night_min_window_seconds`, `night_doppelganger_window_seconds` (and the other timers) to 0 for speed. Boot the harness backend with `just harness-serve` (`config.settings.harness`: `DEBUG=True`, throwaway DB `midnight_village_harness`, `127.0.0.1:$HARNESS_PORT` or a free port it prints). `tools/game_driver.py` is a CLI that drives a whole ONUW game through these. Full docs: `docs/dev/debug-harness/`.
+For the integration harness there are `DEBUG`-gated affordances (all 403 in production, each with a rejection test):
+a forced-assignment / seed override on game start (`GameStartView`), a `debug-state` full-state oracle
+(its `connected` is real socket presence; `pending_timers` lists the armed timers), and a `debug-fire-timer` hook
+(`wave:1` / `wave:2` close that night window now; `current` ignores grace timers) — see `apps/onuw/debug.py` + `debug_views.py`.
+Game timers are per-game settings, so the harness and `tools/game_driver.py` set `night_min_window_seconds`, `night_doppelganger_window_seconds`
+(and the other timers) to 0 for speed. Boot the harness backend with `just harness-serve`
+(`config.settings.harness`: `DEBUG=True`, throwaway DB `midnight_village_harness`, `127.0.0.1:$HARNESS_PORT` or a free port it prints).
+`tools/game_driver.py` is a CLI that drives a whole ONUW game through these.
+Full docs: `docs/dev/debug-harness/`.

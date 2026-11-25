@@ -4,6 +4,26 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 24 November 2026, playing the live app on an Android phone (412 points wide) and a friend's Pixel, in Chrome (verbatim)
+
+> The game was very choppy.
+
+> it felt like I was watching a ppt. Every tap was delayed and took a second to respond. I felt pretty bad watching it on my friends phone, which was a pixel. High end enough
+
+> There was a lot of lag
+
+They played in the browser (Chrome) and say it was everywhere.
+
+> Explore all directions and improve systematically. Surface hard trade-offs if any. But in general, use your judgement
+
+> let's add some atmosphere to the game as well. Use 11labs for the audio. The earlier sounds were just bad. I want something nice, eery and it should be loopable for the main theme. Think how classic balatro is. That feeling ( with an appropriate vibe ). Proper sfx as well.
+
+> let's also work on visual atmosphere. The game should come alive now
+
+> I'm looking for micro joy moments as well. It should feel like a labour of love 💞
+
+OPEN. Measured (branch `perf-frames`): `just phone-frames` plays a whole game on a phone profile (the release web build, Chrome, CPU slowed 4x, or 1x and 2x for a fast phone) and reports, for every screen, transition and tap, the frames over 16 and 50 ms, the worst frame, the long tasks, the time to content, and for a tap the time to the first changed pixel, to its final state and to the server's answer; it fails when a budget is broken. The causes, ranked, are the next pieces.
+
 ## 24 November 2026, playing the live app with friends: the start and play again (written, verbatim)
 
 > updates are really slow. Someone starts the game and it takes forever for my screen to update. Same with restarts as well

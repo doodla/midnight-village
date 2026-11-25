@@ -26,7 +26,8 @@ The base game. Single night phase, 3 center cards, Doppelganger copies roles. Se
 | Theme | Werewolf village (dawn) |
 | App required | No |
 
-First expansion. Introduces the Artifact token system (Curator), Shield tokens (Sentinel), a fourth center card (Alpha Wolf), and roles where all have abilities (no plain Villagers). See [daybreak-overview.md](daybreak-overview.md) for full specs.
+First expansion. Introduces the Artifact token system (Curator), Shield tokens (Sentinel), a fourth center card (Alpha Wolf), and roles where all have abilities
+(no plain Villagers). See [daybreak-overview.md](daybreak-overview.md) for full specs.
 
 ### One Night Ultimate Vampire (2015/2016)
 
@@ -38,9 +39,14 @@ First expansion. Introduces the Artifact token system (Curator), Shield tokens (
 | Theme | Gothic vampire |
 | App required | No |
 
-Major mechanical departure. Introduces the **Dusk phase** (pre-night mark distribution) and the **Mark system** — 29 tokens that alter player roles and allegiances mid-game. Marks include: Mark of the Vampire (team conversion), Mark of Fear (blocks night action), Mark of Love (linked death), Mark of Disease (voters can't win), Mark of Traitor, Mark of the Assassin.
+Major mechanical departure. Introduces the **Dusk phase** (pre-night mark distribution) and the **Mark system** — 29 tokens that alter player roles and
+allegiances mid-game. Marks include: Mark of the Vampire (team conversion), Mark of Fear (blocks night action), Mark of Love (linked death), Mark of Disease
+(voters can't win), Mark of Traitor, Mark of the Assassin.
 
-**Key roles:** Vampire, The Master, The Count, Renfield (Vampire team); Diseased, Cupid, Instigator, Priest, Marksman, Pickpocket, Gremlin (Village); Assassin, Apprentice Assassin (Independent); Copycat.
+**Key roles:** Vampire, The Master, The Count, Renfield (Vampire team);
+Diseased, Cupid, Instigator, Priest, Marksman, Pickpocket, Gremlin (Village);
+Assassin, Apprentice Assassin (Independent);
+Copycat.
 
 ### One Night Ultimate Alien (2016/2017)
 
@@ -52,7 +58,9 @@ Major mechanical departure. Introduces the **Dusk phase** (pre-night mark distri
 | Theme | Sci-fi / extraterrestrial |
 | App required | **Yes (mandatory)** |
 
-The only game in the series where the app is required. Several roles (Psychic, Rascal, Exposer) receive **randomized instructions from the app** that vary each game, making the night phase non-deterministic without the app. Also introduces physical interaction mechanics (Cow extends fist, Aliens tap adjacent players).
+The only game in the series where the app is required.
+Several roles (Psychic, Rascal, Exposer) receive **randomized instructions from the app** that vary each game, making the night phase non-deterministic without
+the app. Also introduces physical interaction mechanics (Cow extends fist, Aliens tap adjacent players).
 
 **Key roles:** Alien, Groob & Zerb (paired rival leaders), Oracle, Cow, Leader, Psychic, Rascal, Exposer, Synthetic Alien (independent), Blob (adjacent team conversion), Mortician.
 
@@ -68,9 +76,12 @@ The only game in the series where the app is required. Several roles (Psychic, R
 | Theme | Superhero comic books |
 | App required | No |
 
-Heroes (SCOOP team) vs. Super Villains. Many roles are functional analogs of base ONUW roles with new names and themes. Introduces physical interaction mechanics (Evilometer, Annoying Lad) and the Temptress role (injects extra villain card into game mid-night).
+Heroes (SCOOP team) vs. Super Villains. Many roles are functional analogs of base ONUW roles with new names and themes.
+Introduces physical interaction mechanics (Evilometer, Annoying Lad) and the Temptress role (injects extra villain card into game mid-night).
 
-**Key roles:** Temptress, Dr. Peeker, Rapscallion, Henchman #7 (Villain); Evilometer, Annoying Lad, Detector, Role Retriever, Voodoo Lou, Switcheroo, Self-Awareness Girl, Flipper (Hero); Mad Scientist, Intern (Independent); Mirror Man, Innocent Bystander.
+**Key roles:** Temptress, Dr. Peeker, Rapscallion, Henchman #7 (Villain);
+Evilometer, Annoying Lad, Detector, Role Retriever, Voodoo Lou, Switcheroo, Self-Awareness Girl, Flipper (Hero);
+Mad Scientist, Intern (Independent); Mirror Man, Innocent Bystander.
 
 ### One Night Ultimate Bonus Roles (2019)
 
@@ -84,11 +95,13 @@ Heroes (SCOOP team) vs. Super Villains. Many roles are functional analogs of bas
 
 Consolidates the earlier Bonus Packs 1–4 (minus alternate artwork). Designed to work with any One Night game. Includes player number tokens for positions 11 and 12.
 
-**Roles:** Aura Seer, Cursed, Prince, Apprentice Tanner, Beholder, Thing (that goes bump in the night), Squire, Body Snatcher, Empath, Nostradamus, Family Man, Windy Wendy, Defender-er, The Sponge, Ricochet Rhino, Innocent Bystander.
+**Roles:** Aura Seer, Cursed, Prince, Apprentice Tanner, Beholder, Thing (that goes bump in the night), Squire, Body Snatcher, Empath, Nostradamus, Family Man,
+Windy Wendy, Defender-er, The Sponge, Ricochet Rhino, Innocent Bystander.
 
 **Artifact tokens:** Bow of the Hunter, Cloak of the Prince, Sword of the Bodyguard, Mist of the Vampire, Dagger of the Traitor, Alien Artifact.
 
-**Note:** Several Bonus Roles (Cursed, Prince, Ricochet Rhino) have **vote-phase mechanics** rather than night-phase mechanics. This requires hooks in the elimination resolver, not just the night engine.
+**Note:** Several Bonus Roles (Cursed, Prince, Ricochet Rhino) have **vote-phase mechanics** rather than night-phase mechanics.
+This requires hooks in the elimination resolver, not just the night engine.
 
 ### One Night Ultimate Werewolf: Epic Battle (2020)
 
