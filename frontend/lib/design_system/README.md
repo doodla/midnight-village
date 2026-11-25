@@ -370,7 +370,8 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   The debug toolbar's "Reset learned cues" calls `ref.read(learnedCuesProvider.notifier).reset()`.
   `TeachOnce` shows a cue until learned, or for 3 s after its `CueReplay` fires (a tap on a locked gate);
   `TeachingHold` is a `HoldToReveal` with the hold cue
-  (`HoldCue`: a plain ring with "Hold" in it that breathes and fills while held (`HoldPress`), gone once learned; no thumbprint);
+  (`HoldCue`: a plain ring with "Hold" in it that breathes three times, then rests still, the same sign, and breathes once more after a tap that was not a hold
+  (on the card, `HoldPress.taps`, or the locked gate, `CueReplay.of`); it fills while held (`HoldPress`), gone once learned; no thumbprint);
   `CueWave` is the board's lift and the vote rows' nudge.
   Reduce motion makes them still.
 - **Never silently disabled**: `PrimaryButton` and `SecondaryButton` take no `onPressed` of null.
@@ -751,11 +752,10 @@ The audit and the numbers: `docs/design/type-audit.md`.
 The room the smaller type freed is not used yet:
 a design round follows.
 
-## Press and Ambient (`feel/`: the motion layer; no part uses them yet)
+## Press and Ambient (`feel/`: the motion layer)
 
 One press and one loop for the whole kit, so a tap answers the frame the finger lands and nothing idles unseen (`docs/design/feel.md`, principles 1, 3 and 6).
-Today each tappable primitive keeps its own `_touch` and the three loops (`WaitingSign`, `LanternMark`, `HoldCue`) their own `repeat`;
-they move onto these one at a time, in a later piece.
+The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no part presses through `Pressable` yet (each tappable primitive keeps its own `_touch`, a later piece).
 
 - **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
   The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
@@ -771,7 +771,14 @@ they move onto these one at a time, in a later piece.
   Its own `RepaintBoundary`. Adopting it:
   `Pressable(builder: (context, press, child) => PressSink(press: press, by: dip, child: child), child: GestureDetector(onTap: onTap, child: paper))`
 - **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock
-  (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`; today's three loops are a dated list that only shrinks).
+  (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`, with no exceptions).
+  An effect is a small layer over a still picture, and a screen at rest draws nothing most of the time, so it plays in **bursts**:
+  `cycles` rounds (1 by default), then a true rest at its `still` (0 or 1; no ticker, no frame asked for, one `Timer` wakes the next burst)
+  for a gap between `Motion.restLeast` and `Motion.restMost` (8 to 16 s) taken from its `id` (`Ambient.restFor`: every phone the same).
+  Given an `AmbientCue` it rests for good after its burst, until `cue.again()` (teaching: `HoldCue` breathes three times, then once more after a tap that was not a hold).
+  `Ambient.continuous` loops with no rest and is asked for by name, only for something whose job is to show a wait (`WaitingSign`).
+  It **yields to the finger**: while any pointer is down anywhere (`FingerDown`, one global route on the pointer router for every `Ambient`)
+  it holds where it is and asks for no frame, so the press's frame never queues behind decoration; it goes on after the last lift.
   It ticks only while the app is in front
   (`AppForeground`, one lifecycle observer for every `Ambient`: `resumed` or `inactive`, which is still on screen; not `hidden` or `paused`), its `TickerMode`
   is on (a covered or leaving screen) and its owner's `running` holds;
@@ -782,7 +789,7 @@ they move onto these one at a time, in a later piece.
   The loop drives paint only, in its own `RepaintBoundary`:
   hand it to a painter's `repaint:` or a `FadeTransition`, never an `AnimatedBuilder` round the child.
   Adopting it:
-  `Ambient(still: 1, period: Motion.waitLoop, builder: (context, loop, child) => CustomPaint(painter: _Glow(loop), child: child))`, where `_Glow` passes `loop` as `super(repaint: loop)`.
+  `Ambient(id: 'window-glow', still: 1, builder: (context, loop, child) => CustomPaint(painter: _Glow(loop), child: child))`, where `_Glow` passes `loop` as `super(repaint: loop)`.
 
 ## Scene changes (the dusk and the dawn)
 
