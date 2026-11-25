@@ -265,14 +265,11 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
       if (_revealedIn != me.stage) unawaited(_remember(me));
       if (mounted) setState(() => _revealedIn = me.stage);
     },
-    cover: (teaching) => Carried(
-      tag: 'your-card',
-      child: FaceDownCard(
-        size: FaceDownSize.hero,
-        cardWidth: width,
-        cardHeight: height,
-        hold: teaching,
-      ),
+    cover: (teaching) => FaceDownCard(
+      size: FaceDownSize.hero,
+      cardWidth: width,
+      cardHeight: height,
+      hold: teaching,
     ),
   );
 

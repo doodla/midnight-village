@@ -28,7 +28,7 @@ class _AtmoNightFallState extends State<AtmoNightFall>
     with SingleTickerProviderStateMixin {
   late final _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1100),
+    duration: const Duration(milliseconds: 1500),
     value: 1,
   );
 
@@ -88,8 +88,12 @@ class _Veil extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final reach = _ease(v / 0.4) * (size.height + 160);
-    final strength = 0.62 * (1 - _ease((v - 0.4) / 0.6));
+    final reach =
+        Curves.easeInOut.transform((v / 0.4).clamp(0.0, 1.0)) *
+        (size.height + 160);
+    final strength =
+        0.62 *
+        (1 - Curves.easeIn.transform(((v - 0.45) / 0.55).clamp(0.0, 1.0)));
     if (strength <= 0) return;
     final edge = reach - 160;
     canvas.drawRect(

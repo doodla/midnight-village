@@ -132,15 +132,17 @@ class AtmoCandleAir extends StatelessWidget {
     }
     final u = (t - start) / visit;
     if (u < 0 || u > 1) return const [];
-    final size = flameHeight * 0.9;
+    // Never smaller than a moth can be seen: 18 px, its loops to match.
+    final unit = math.max(flameHeight, 16.0);
+    final size = math.max(unit * 0.9, 18.0);
     // In from the upper right, two loose loops round the flame, out left.
     final arrive = smoothStep(0, 0.2, u);
     final leave = smoothStep(0.8, 1, u);
     final a = 2 * math.pi * (u * 2.2);
-    final r = flameHeight * (1.1 + 0.3 * math.sin(a * 1.7));
+    final r = unit * (1.1 + 0.3 * math.sin(a * 1.7));
     final loop = flame + Offset(math.cos(a) * r * 1.3, math.sin(a) * r * 0.6);
-    final from = flame + Offset(flameHeight * 6, -flameHeight * 5);
-    final to = flame + Offset(-flameHeight * 7, -flameHeight * 4);
+    final from = flame + Offset(unit * 6, -unit * 5);
+    final to = flame + Offset(-unit * 7, -unit * 4);
     final p = Offset.lerp(Offset.lerp(from, loop, arrive), to, leave)!;
     final wing = 0.55 + 0.45 * math.sin(2 * math.pi * t * 7).abs();
     return [
@@ -170,7 +172,7 @@ class _DustPainter extends CustomPainter {
   final Color light;
   final double unit;
 
-  static const count = 11;
+  static const count = 15;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -190,7 +192,7 @@ class _DustPainter extends CustomPainter {
           math.sin(math.pi * y).clamp(0.0, 1.0);
       if (a <= 0.02) continue;
       paint.color = light.withValues(alpha: a);
-      canvas.drawCircle(p, 0.6 + 0.8 * s2, paint);
+      canvas.drawCircle(p, 0.9 + 1.1 * s2, paint);
     }
   }
 
@@ -216,7 +218,7 @@ class _AtmoDealState extends State<AtmoDeal>
     with SingleTickerProviderStateMixin {
   late final _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 820),
+    duration: const Duration(milliseconds: 1100),
   );
 
   @override
@@ -246,12 +248,12 @@ class _AtmoDealState extends State<AtmoDeal>
       builder: (context, child) {
         // A short pause while the dusk lowers the screen, then the throw.
         final v = const Interval(
-          0.25,
-          0.85,
+          0.42,
+          0.88,
           curve: Curves.easeOutCubic,
         ).transform(_c.value);
-        final settle = _c.value > 0.8
-            ? math.sin(math.pi * (_c.value - 0.8) / 0.2) * 0.022
+        final settle = _c.value > 0.86
+            ? math.sin(math.pi * (_c.value - 0.86) / 0.14) * 0.025
             : 0.0;
         final size = MediaQuery.sizeOf(context);
         return PaintShift(

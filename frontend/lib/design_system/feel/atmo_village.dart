@@ -45,10 +45,10 @@ abstract final class AtmoVillage {
   /// How lit window [i] is at [t]: each keeps its own slow hours (lit for
   /// about a fifth of a cycle of 26 to 63 s), fading over about 2 s.
   static double windowLight(int i, double t) {
-    final period = 26 + 37 * frac(i * 0.618 + 0.2);
+    final period = 18 + 22 * frac(i * 0.618 + 0.2);
     final u = frac(t / period + frac(i * 0.414));
-    const on = 0.2;
-    final fade = 1.8 / period;
+    const on = 0.24;
+    final fade = 1.5 / period;
     if (u > on) return 0;
     return smoothStep(0, fade, u) * (1 - smoothStep(on - fade, on, u));
   }
@@ -255,7 +255,7 @@ class _MistStrip extends CustomPainter {
     path.close();
     canvas.drawPath(
       path,
-      Paint()..color = Color.fromRGBO(196, 202, 228, 0.10 + 0.04 * i),
+      Paint()..color = Color.fromRGBO(196, 202, 228, 0.14 + 0.05 * i),
     );
   }
 

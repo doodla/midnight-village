@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import '../feel/atmo.dart';
+import '../feel/atmo_village.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
@@ -232,22 +234,65 @@ class _MoodState extends State<Mood> {
               maxWidth: size.width,
               minHeight: size.height,
               maxHeight: size.height,
-              child: image != null
-                  ? RawImage(
-                      image: image,
-                      width: size.width,
-                      height: size.height,
-                      scale: ratio,
-                      fit: BoxFit.fill,
-                    )
-                  // Till the layers are decoded: the ground and the lights.
-                  : CustomPaint(size: size, painter: _LivePainter(spec)),
+              child: _atmo(
+                spec,
+                image != null
+                    ? RawImage(
+                        image: image,
+                        width: size.width,
+                        height: size.height,
+                        scale: ratio,
+                        fit: BoxFit.fill,
+                      )
+                    // Till the layers are decoded: the ground and the lights.
+                    : CustomPaint(size: size, painter: _LivePainter(spec)),
+              ),
             ),
           );
         },
       ),
     );
   }
+}
+
+/// PROTOTYPE (atmosphere): over the table's village (the lantern mood's, at
+/// the foot) the windows light and the mist drifts; else [picture] as it is.
+Widget _atmo(_Spec spec, Widget picture) {
+  final windows = Atmo.has(AtmoEffect.windows);
+  final mist = Atmo.has(AtmoEffect.mist);
+  if (spec.sceneId != LayeredSceneId.nightVillage ||
+      spec.kind != MoodKind.lantern ||
+      !(windows || mist)) {
+    return picture;
+  }
+  final box = spec.sceneRect;
+  final g = SceneGeometry.cover(
+    spec.art.layeredScene(LayeredSceneId.nightVillage),
+    box.size,
+  );
+  return Stack(
+    children: [
+      picture,
+      Positioned.fromRect(
+        rect: box,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (windows)
+              AtmoWindows(
+                toBox: (r) =>
+                    Rect.fromPoints(g.point(r.topLeft), g.point(r.bottomRight)),
+              ),
+            if (mist)
+              AtmoMist(
+                top: g.point(const Offset(0, 640)).dy,
+                bottom: g.point(const Offset(0, 790)).dy,
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 /// What a picture is of; its key in the cache.

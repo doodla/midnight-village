@@ -87,6 +87,11 @@ abstract final class Atmo {
     };
   }
 
+  /// A time-lapse for the clips (`?atmo_speed=4`): the ambient clock runs
+  /// this many times faster. 1 in the app.
+  static final double speed =
+      double.tryParse(Uri.base.queryParameters['atmo_speed'] ?? '') ?? 1;
+
   static int _fps() =>
       int.tryParse(Uri.base.queryParameters['atmo_fps'] ?? '')?.clamp(5, 60) ??
       30;
@@ -118,7 +123,7 @@ class AmbientClock extends ChangeNotifier implements ValueListenable<double> {
 
   /// Seconds the clock has run (it stands still while nobody looks).
   @override
-  double get value => _watch.elapsedMicroseconds / 1e6;
+  double get value => _watch.elapsedMicroseconds / 1e6 * Atmo.speed;
 
   void _onState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
