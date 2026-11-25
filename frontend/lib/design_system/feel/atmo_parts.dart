@@ -155,7 +155,7 @@ class AtmoCandleAir extends StatelessWidget {
           alignment: Alignment.center,
           transform: Matrix4.diagonal3Values(wing, 1, 1),
           child: const Image(
-            image: AssetImage('assets/skins/shadow_paper/tokens/moth.webp'),
+            image: AssetImage('assets/skins/shadow_paper/atmo/moth.webp'),
             filterQuality: FilterQuality.medium,
           ),
         ),
