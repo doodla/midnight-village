@@ -138,7 +138,7 @@ an effect is a small layer over a still picture, never a reason to draw the scre
 - **Burst and rest**: it plays one round (or a few), then truly rests at its still look (no frame at all) for `restLeast` to `restMost`, then plays again.
   Only something whose job is to show a wait loops without rest (`Ambient.continuous`: the waiting sign's lanterns).
 - **Teaching is finite**: the hold cue breathes three times, then stands still (still the sign);
-  it breathes once more only after a tap that was not a hold (on the card or the locked Ready), never once learned.
+  it breathes once more only after a tap on the locked Ready before a hold, never once learned.
 - **Yield to the finger**: while any finger is down anywhere, every loop holds where it is and draws nothing, so the frame that answers the press never waits behind decoration;
   it goes on after the lift.
 - It runs only with the app in front, its screen not covered, and motion allowed (reduce motion: its still look).
@@ -262,7 +262,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Release | The card turns back through its edge to its back at once, never slower than `press`; let go mid-turn it goes back from where it is, taken again it goes on from there | `press` | Cut | exists (pass 3) |
 | A reveal counts (0.8 s seen) | "Ready" locked becomes amber; the ring stops for good | `press` | Cut | exists |
 | The card arrives (first game) | The `hold` ring breathes three times (1.4 s each), then stands still on the card: the same ring and word, nothing drawing. While any finger is down, it holds | 3 × 1400 ms | Ring still, visible | exists |
-| A tap on the card or on "Ready" before holding | The ring breathes once more, then rests; on a phone that has learned it, "Ready" shows the ring for 3 s; the button does not move | 1400 ms; 3 s | Ring still, visible | exists |
+| A tap on "Ready" before holding | The ring breathes once more, then rests; on a phone that has learned it, "Ready" shows the ring for 3 s; the button does not move | 1400 ms; 3 s | Ring still, visible | exists |
 | "Ready" tapped | "Ready ✓", settled (no fill or outline), the pips count up on the tap, not on the answer. No vibration | `press` | Cut | exists |
 | Everyone ready, or the backstop | All phones go to the board together; night to night, so a plain crossfade, no wipe | `settle` | Cut | exists |
 

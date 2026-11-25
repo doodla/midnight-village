@@ -370,8 +370,8 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   The debug toolbar's "Reset learned cues" calls `ref.read(learnedCuesProvider.notifier).reset()`.
   `TeachOnce` shows a cue until learned, or for 3 s after its `CueReplay` fires (a tap on a locked gate);
   `TeachingHold` is a `HoldToReveal` with the hold cue
-  (`HoldCue`: a plain ring with "Hold" in it that breathes three times, then rests still, the same sign, and breathes once more after a tap that was not a hold
-  (on the card, `HoldPress.taps`, or the locked gate, `CueReplay.of`); it fills while held (`HoldPress`), gone once learned; no thumbprint);
+  (`HoldCue`: a plain ring with "Hold" in it that breathes three times, then rests still, the same sign, and breathes once more after a tap on the locked gate
+  (`CueReplay.of`); it fills while held (`HoldPress`), gone once learned; no thumbprint);
   `CueWave` is the board's lift and the vote rows' nudge.
   Reduce motion makes them still.
 - **Never silently disabled**: `PrimaryButton` and `SecondaryButton` take no `onPressed` of null.
@@ -775,7 +775,7 @@ The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no p
   An effect is a small layer over a still picture, and a screen at rest draws nothing most of the time, so it plays in **bursts**:
   `cycles` rounds (1 by default), then a true rest at its `still` (0 or 1; no ticker, no frame asked for, one `Timer` wakes the next burst)
   for a gap between `Motion.restLeast` and `Motion.restMost` (8 to 16 s) taken from its `id` (`Ambient.restFor`: every phone the same).
-  Given an `AmbientCue` it rests for good after its burst, until `cue.again()` (teaching: `HoldCue` breathes three times, then once more after a tap that was not a hold).
+  Given an `AmbientCue` it rests for good after its burst, until `cue.again()` (teaching: `HoldCue` breathes three times, then once more after a tap on the locked gate).
   `Ambient.continuous` loops with no rest and is asked for by name, only for something whose job is to show a wait (`WaitingSign`).
   It **yields to the finger**: while any pointer is down anywhere (`FingerDown`, one global route on the pointer router for every `Ambient`)
   it holds where it is and asks for no frame, so the press's frame never queues behind decoration; it goes on after the last lift.

@@ -17,8 +17,8 @@ import 'teach_once.dart';
 /// play spec, section 2): while [teaching], a plain ring on a veil of the
 /// night with the word "Hold" in it; the ring breathes [breaths] times
 /// (scale 1.00 to 1.06, 1.4 s each) and then stands still, the same sign at
-/// rest; it breathes once more after a tap that was not a hold (on the card,
-/// or the screen's locked gate: [CueReplay]). While the card is held it fills
+/// rest; it breathes once more after a tap on the screen's locked gate before
+/// a hold ([CueReplay]). While the card is held it fills
 /// clockwise in the time a reveal takes to count. Once learned, nothing: the
 /// card is a card. With reduced motion the ring stands still and fills at
 /// once.
@@ -66,10 +66,9 @@ class HoldCue extends StatefulWidget {
 }
 
 class _HoldCueState extends State<HoldCue> with SingleTickerProviderStateMixin {
-  /// One more breath: a tap that was not a hold, here or on the gate.
+  /// One more breath: a tap on the screen's locked gate before a hold.
   final _again = AmbientCue();
   CueReplay? _replay;
-  int? _taps;
   late final _fill = AnimationController(
     vsync: this,
     // From the face showing to the reveal counting.
@@ -84,9 +83,6 @@ class _HoldCueState extends State<HoldCue> with SingleTickerProviderStateMixin {
       _replay?.removeListener(_breatheAgain);
       _replay = replay?..addListener(_breatheAgain);
     }
-    final taps = HoldPress.tapsOf(context);
-    if (_taps != null && taps > _taps!) _breatheAgain();
-    _taps = taps;
     _sync();
   }
 

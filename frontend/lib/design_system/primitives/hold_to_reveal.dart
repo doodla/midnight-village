@@ -18,30 +18,18 @@ import 'paper_light.dart';
 enum _Shown { held, activated }
 
 /// Whether the [HoldToReveal] round this cover is being held now: the
-/// hold cue's ring fills while it is ([HoldCue]); and how many taps that were
-/// not a hold it has had (the cue breathes once more after one).
+/// hold cue's ring fills while it is ([HoldCue]).
 class HoldPress extends InheritedWidget {
-  const HoldPress({
-    super.key,
-    required this.held,
-    this.taps = 0,
-    required super.child,
-  });
+  const HoldPress({super.key, required this.held, required super.child});
 
   final bool held;
-  final int taps;
 
   /// False outside a [HoldToReveal].
   static bool of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<HoldPress>()?.held ?? false;
 
-  /// 0 outside a [HoldToReveal].
-  static int tapsOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<HoldPress>()?.taps ?? 0;
-
   @override
-  bool updateShouldNotify(HoldPress old) =>
-      old.held != held || old.taps != taps;
+  bool updateShouldNotify(HoldPress old) => old.held != held;
 }
 
 /// A secret behind press-and-hold (first-time play spec, section 2): [cover]
@@ -147,9 +135,6 @@ class _HoldToRevealState extends State<HoldToReveal>
 
   /// A finger is on the card (before it is a hold): the card dips.
   var _touching = false;
-
-  /// Fingers lifted before they were a hold ([HoldPress.taps]).
-  var _taps = 0;
   Timer? _counts;
 
   bool get _visible => _shown != null;
@@ -310,7 +295,6 @@ class _HoldToRevealState extends State<HoldToReveal>
               onPointerDown: (_) => _touch(true),
               onPointerUp: (_) {
                 _touch(false);
-                if (_shown == null && mounted) setState(() => _taps++);
                 _release();
               },
               onPointerCancel: (_) {
@@ -341,7 +325,6 @@ class _HoldToRevealState extends State<HoldToReveal>
                 // Hidden information: the cover sets the size, shown or not.
                 child: HoldPress(
                   held: _shown == _Shown.held,
-                  taps: _taps,
                   child: widget.inPlace ? _turned(context) : widget.cover,
                 ),
               ),

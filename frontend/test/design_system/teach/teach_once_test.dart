@@ -189,8 +189,9 @@ void main() {
   });
 
   testWidgets('the ring breathes three times and rests, still and asking no '
-      'frame; a tap that was not a hold, on the card or on the locked gate, '
-      'breathes it once more', (tester) async {
+      'frame; a tap on the locked gate before a hold breathes it once more', (
+    tester,
+  ) async {
     double scale() => tester
         .widget<ScaleTransition>(
           find.descendant(
@@ -225,9 +226,7 @@ void main() {
 
     await pressLikeAFinger(tester, find.byType(FaceDownCard));
     await run(HoldCue.breath ~/ 4);
-    expect(scale(), greaterThan(1), reason: 'a tap on the card: once more');
-    await run(HoldCue.breath);
-    await resting('after the card');
+    await resting('a tap on the card asks nothing of it');
 
     await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await run(HoldCue.breath ~/ 4);
