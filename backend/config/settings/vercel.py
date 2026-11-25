@@ -24,6 +24,7 @@ import os
 from urllib.parse import unquote, urlparse
 
 from .base import *
+from .base import INSTALLED_APPS as _BASE_APPS
 
 
 def _env_list(name: str) -> list[str]:
@@ -51,6 +52,10 @@ def _database_from_url(url: str) -> dict:
 
 
 SECRET_KEY = os.environ["SECRET_KEY"]
+
+# Daphne's app only swaps in its own `runserver`; Vercel serves the ASGI app itself,
+# and loading it imports Twisted (about 0.17 s of every cold start).
+INSTALLED_APPS = [app for app in _BASE_APPS if app != "daphne"]
 
 # Never on: it also keeps the debug harness endpoints (forced assignment,
 # oracle, fire-timer) answering 403.
