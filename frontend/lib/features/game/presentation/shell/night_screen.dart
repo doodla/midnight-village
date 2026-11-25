@@ -50,6 +50,7 @@ class NightScreen extends ConsumerWidget {
         selfId: me.playerId,
         prompt: prompt,
         face: me.report.you(prompt),
+        told: me.report.readsOn(prompt),
         dealt: me.report.dealt,
         // An untimed window (a debug setting): the candle alone.
         secondsLeft: seconds,

@@ -240,6 +240,8 @@ My night UP on the board once, the note pressed (`TalkView.openNight`);
 `TalkScreen` decides it on its first frame and sends the ack after that frame;
 the first touch anywhere puts it away and does nothing else, and so does Back (a `BackHandler` open only while it is up);
 a restart after the ack opens nothing. Otherwise the first time it is held sends the ack (which declines once done).
+On the night board a result that came with the choose's answer opens by itself on "You" the same way, once per result and in this session only
+(`NightBoard`, no ack: a reload mid-window finds it on a hold, and the talk still opens My night, whose ack is what `night_results_seen` counts).
 On the cobbles (`BoardFoot`) the screen's one amber action "Ready to vote" with the count under its words ("2 of 6 ready", `PrimaryButton(detail:)`), "Ready ✓"
 in navy once tapped (`PrimaryButton.on`), tapped again to take it back, never locked, a toggle through the ready lane (`setReady(!ready)`).
 The host has no controls on 08 (spec: no host button);

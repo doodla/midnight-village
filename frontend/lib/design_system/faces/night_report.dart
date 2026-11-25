@@ -81,12 +81,20 @@ class NightReport {
   /// The night told this phone something: a result of window 2 other than
   /// "You slept." or "You did nothing.", or the Doppelganger's copy. Only
   /// then does 08 open with My night open once (spec section 7).
-  bool get tellsSomething =>
-      windowOne is CopiedResult ||
-      switch (saw) {
-        null || SleptResult() || DidNothingResult() => false,
-        _ => true,
-      };
+  bool get tellsSomething => windowOne is CopiedResult || _tells(saw);
+
+  static bool _tells(NightResult? result) => switch (result) {
+    null || SleptResult() || DidNothingResult() => false,
+    _ => true,
+  };
+
+  /// "You" on the board for [prompt] begins with a result to read: the one
+  /// window 2 told, or what the Doppelganger's follow-up showed in window 1.
+  /// The board opens it by itself when a choose's answer brings it.
+  bool readsOn(ChoosePrompt prompt) => switch (windowOne) {
+    final CopiedResult look when prompt.window == 1 => _tells(look.followUp),
+    _ => prompt.window == 2 && _tells(saw),
+  };
 
   /// 08's My night.
   FaceContent get myNight => FaceContent.myNight(

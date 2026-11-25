@@ -15,7 +15,7 @@ import 'paper_flip.dart';
 import 'paper_light.dart';
 
 /// How the face came to be shown.
-enum _Shown { held, activated }
+enum _Shown { held, activated, opened }
 
 /// Whether the [HoldToReveal] round this cover is being held now: the
 /// hold cue's ring fills while it is ([HoldCue]).
@@ -78,7 +78,17 @@ class HoldToReveal extends StatefulWidget {
     this.onRevealChanged,
     this.inPlace = false,
     this.away = false,
+    this.open = false,
   });
+
+  /// The face is up by itself, on its first page, while this is true (a
+  /// result that has just arrived): drawn as a held one is, above the card's
+  /// centre. It is not a reveal (nothing counts, nothing is learned), and the
+  /// next hold shows the first page again. The screen puts it away (its own
+  /// layer takes the first touch) by setting this false; the face also
+  /// hides, as any does, when the app leaves the foreground or another route
+  /// covers it, and [onRevealChanged] then says so.
+  final bool open;
 
   final Widget cover;
 
@@ -148,6 +158,33 @@ class _HoldToRevealState extends State<HoldToReveal>
   Duration? _lifted;
 
   bool get _visible => _shown != null;
+
+  @override
+  void didUpdateWidget(HoldToReveal old) {
+    super.didUpdateWidget(old);
+    if (widget.open == old.open) return;
+    if (widget.open) {
+      // The portal cannot be opened while the tree is being built.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.open) _open();
+      });
+    } else if (_shown == _Shown.opened) {
+      _hide();
+    }
+  }
+
+  void _open() {
+    if (_covered || _shown == _Shown.opened) return;
+    _stopTimers();
+    final wasVisible = _visible;
+    setState(() {
+      _shown = _Shown.opened;
+      _anchor = const Offset(0.5, 0.5);
+      _showings = 0;
+    });
+    _portal.show();
+    if (!wasVisible) widget.onRevealChanged?.call(true);
+  }
 
   @override
   void initState() {
@@ -374,7 +411,7 @@ class _HoldToRevealState extends State<HoldToReveal>
     face: (context) => IgnorePointer(
       child: HeldFace(
         content: widget.face,
-        page: _showings - 1,
+        page: math.max(0, _showings - 1),
         announce: _shown == _Shown.activated,
         fill: true,
       ),
@@ -418,7 +455,7 @@ class _HoldToRevealState extends State<HoldToReveal>
         ),
         child: HeldFace(
           content: widget.face,
-          page: _showings - 1,
+          page: math.max(0, _showings - 1),
           announce: _shown == _Shown.activated,
         ),
       ),

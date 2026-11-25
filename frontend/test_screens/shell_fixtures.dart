@@ -153,25 +153,9 @@ Future<void> pumpNightTroublemakerLong(WidgetTester tester) async {
   }
 }
 
-/// 06 after Choose: "Chosen", the pick still lifted; the server's answer and
-/// the `/me/` after it have landed.
-Future<void> pumpNightChosen(WidgetTester tester) async {
-  final setup = await _shell(tester, sheet.recordedMe('me_choose_prompt_seer'));
-  setup
-    ..answerPost('/action/', 'game/choose_submitted_seer')
-    ..answerMe(sheet.recordedMe('me_choose_chosen'));
-  await pressLikeAFinger(tester, find.text(sheet.cleo.name).last);
-  await tester.pump();
-  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
-  await setup.settle(tester);
-}
-
-/// 06 right after Choose, "You" held: what the choose's answer brought, on
-/// its first page (the Seer's look at Cleo; [robber]: the card she took).
-Future<void> pumpNightChosenSeen(
-  WidgetTester tester, {
-  bool robber = false,
-}) async {
+/// 06 right after Choose: "Chosen", and what the choose's answer brought
+/// open by itself (the Seer's look at Cleo; [robber]: the card she took).
+Future<void> pumpNightChosen(WidgetTester tester, {bool robber = false}) async {
   final prompt = robber ? 'me_choose_prompt_robber' : 'me_choose_prompt_seer';
   final setup = await _shell(tester, sheet.recordedMe(prompt));
   setup.answerPost(
@@ -183,6 +167,21 @@ Future<void> pumpNightChosenSeen(
   await tester.pump();
   await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
   await setup.settle(tester);
+}
+
+/// 06 right after the Robber's Choose: her new card open by itself.
+Future<void> pumpNightRobberChosen(WidgetTester tester) =>
+    pumpNightChosen(tester, robber: true);
+
+/// 06 after Choose, the result put away by a touch, then "You" held: the
+/// result again, on its first page.
+Future<void> pumpNightChosenSeen(
+  WidgetTester tester, {
+  bool robber = false,
+}) async {
+  await pumpNightChosen(tester, robber: robber);
+  await pressAtLikeAFinger(tester, const Offset(8, 300));
+  await tester.pump();
   await holdDown(
     tester,
     find.ancestor(
