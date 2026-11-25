@@ -370,7 +370,8 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   The debug toolbar's "Reset learned cues" calls `ref.read(learnedCuesProvider.notifier).reset()`.
   `TeachOnce` shows a cue until learned, or for 3 s after its `CueReplay` fires (a tap on a locked gate);
   `TeachingHold` is a `HoldToReveal` with the hold cue
-  (`HoldCue`: a plain ring with "Hold" in it that breathes and fills while held (`HoldPress`), gone once learned; no thumbprint);
+  (`HoldCue`: a plain ring with "Hold" in it that breathes three times, then rests still, the same sign, and breathes once more after a tap on the locked gate
+  (`CueReplay.of`); it fills while held (`HoldPress`), gone once learned; no thumbprint);
   `CueWave` is the board's lift and the vote rows' nudge.
   Reduce motion makes them still.
 - **Never silently disabled**: `PrimaryButton` and `SecondaryButton` take no `onPressed` of null.
@@ -752,6 +753,52 @@ rows 38 (table), 48 (vote's fallback), 52 (vote, count), tokens 26 to 38, button
 The audit and the numbers: `docs/design/type-audit.md`.
 The room the smaller type freed is not used yet:
 a design round follows.
+
+## Press and Ambient (`feel/`: the motion layer)
+
+One press and one loop for the whole kit, so a tap answers the frame the finger lands and nothing idles unseen (`docs/design/feel.md`, principles 1, 3 and 6).
+The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no part presses through `Pressable` yet (each tappable primitive keeps its own `_touch`, a later piece).
+
+- **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
+  The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
+  it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, or a slide past the tap's slop from where it landed, on the screen as
+  the tap measures it (just off the part's edge but within the slop it stays down: the tap still fires)
+  (`holds: true`, for a hold, only on the lift or cancel), over `Motion.quick` on `Motion.land` (a settle under a tenth past rest).
+  It never joins the gesture arena: the `GestureDetector`, `InkWell` or `HoldToReveal` inside fires exactly when it would without it
+  (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through;
+  it runs when the part is built, never per frame, so only a paint layer listens.
+  `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest).
+  Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws).
+  A locked part keeps `enabled` and still answers;
+  only a part that must not move turns it off.
+  Its own `RepaintBoundary`. Adopting it:
+  `Pressable(builder: (context, press, child) => PressSink(press: press, by: dip, child: child), child: GestureDetector(onTap: onTap, child: paper))`
+- **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock
+  (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`, with no exceptions).
+  An effect is a small layer over a still picture, and a screen at rest draws nothing most of the time, so it plays in **bursts**:
+  `cycles` rounds (1 by default), then a true rest at its `still` (0 or 1; no ticker, no frame asked for, one `Timer` wakes the next burst)
+  for a gap between `Motion.restLeast` and `Motion.restMost` (8 to 16 s) taken from its `id` (`Ambient.restFor`: every phone the same).
+  Given an `AmbientCue` it rests for good after its burst, until `cue.again()` (teaching: `HoldCue` breathes three times, then once more after a tap on the locked gate).
+  `Ambient.continuous` loops with no rest and is asked for by name, only for something whose job is to show a wait (`WaitingSign`, `LanternMark` while a tap's request is on its way).
+  It **yields to the finger** (`FingerDown`, one global route on the pointer router for every `Ambient`), so the press's frame never queues behind decoration:
+  a touch **ends a burst** under way: it goes to its `still` at once, without animating, and counts as played (a burst with a cue stays still until `cue.again()`);
+  its rest does not run while a pointer is down and starts after the last lift plus `Motion.settle`, so after a tap no burst schedules any frame.
+  A burst asked for under a finger (`cue.again()`) waits for the settle, then plays.
+  `Ambient.continuous` only holds where it is while a pointer is down and goes on `Motion.settle` after the last lift
+  (the frames where the tap commits and its answer comes in draw nothing else).
+  A lift never heard does not hold it for good: a removed or hovering device lets go of its pointers, and the app leaving the front lets go of all.
+  Its `id`, `still`, `cycles` and mode are fixed for its life (asserted): a different loop is a new key.
+  It ticks only while the app is in front
+  (`AppForeground`, one lifecycle observer for every `Ambient`: `resumed` or `inactive`, which is still on screen; not `hidden` or `paused`), its `TickerMode`
+  is on (a covered or leaving screen) and its owner's `running` holds;
+  stopped, it holds where it was and goes on from there.
+  With reduce motion it rests at its declared `still`.
+  No visibility check beyond these: a part scrolled out of a lazy list is not built, and a screen under a sheet still shows through the scrim, so it keeps
+  living there. Period `Motion.ambient` and curve `Motion.breathe` by default (there and back; `reverse: false` for a turn).
+  The loop drives paint only, in its own `RepaintBoundary`:
+  hand it to a painter's `repaint:` or a `FadeTransition`, never an `AnimatedBuilder` round the child.
+  Adopting it:
+  `Ambient(id: 'window-glow', still: 1, builder: (context, loop, child) => CustomPaint(painter: _Glow(loop), child: child))`, where `_Glow` passes `loop` as `super(repaint: loop)`.
 
 ## Scene changes (the dusk and the dawn)
 

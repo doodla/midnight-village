@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../feel/ambient.dart';
 import '../skin/paper_parts.dart';
 import '../skin/skin.dart';
 import '../skin/dress.dart';
@@ -14,15 +15,32 @@ class PaperLantern extends StatelessWidget {
   const PaperLantern({
     super.key,
     required this.width,
-    required this.lit,
+    required double this.lit,
     this.cord = 0,
-  });
+  }) : loop = null,
+       litAt = null;
+
+  /// Lit by a loop ([Ambient]'s): it burns [litAt] the loop's value, and
+  /// only its paint follows the loop.
+  const PaperLantern.driven({
+    super.key,
+    required this.width,
+    required Animation<double> this.loop,
+    required double Function(double t) this.litAt,
+    this.cord = 0,
+  }) : lit = null;
 
   /// The body's width; the lantern is [heightFor] it tall, cord included.
   final double width;
 
   /// How brightly it burns, 0 to 1.
-  final double lit;
+  final double? lit;
+
+  final Animation<double>? loop;
+  final double Function(double t)? litAt;
+
+  /// How brightly it burns now, 0 to 1 (a driven one: at its loop's value).
+  double get burning => (lit ?? litAt!(loop!.value)).clamp(0, 1).toDouble();
 
   /// The cord it hangs on, above the cap.
   final double cord;
@@ -44,7 +62,9 @@ class PaperLantern extends StatelessWidget {
       size: Size(width, heightFor(width, cord)),
       painter: _LanternPainter(
         cord: cord,
-        lit: lit.clamp(0, 1),
+        steady: lit,
+        loop: loop,
+        litAt: litAt,
         paper: ground.paper,
         rib: ground.hairline,
         cap: ground.paperEdge,
@@ -62,7 +82,9 @@ class PaperLantern extends StatelessWidget {
 class _LanternPainter extends CustomPainter {
   _LanternPainter({
     required this.cord,
-    required this.lit,
+    required this.steady,
+    required this.loop,
+    required this.litAt,
     required this.paper,
     required this.rib,
     required this.cap,
@@ -72,13 +94,17 @@ class _LanternPainter extends CustomPainter {
     required this.stroke,
     required this.parts,
     this.cut = false,
-  });
+  }) : super(repaint: loop);
 
   /// Dressed up: every part is a filled shape of paper (the cord a thin strip,
   /// the ribs slivers), no stroke and no outline.
   final bool cut;
   final double cord;
-  final double lit;
+  final double? steady;
+  final Animation<double>? loop;
+  final double Function(double t)? litAt;
+
+  double get lit => (steady ?? litAt!(loop!.value)).clamp(0, 1).toDouble();
   final Color paper;
   final Color rib;
   final Color cap;
@@ -90,6 +116,7 @@ class _LanternPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final lit = this.lit;
     final w = size.width;
     final capH = PaperLantern.capHeight(w);
     final bodyH = PaperLantern.bodyHeight(w);
@@ -226,7 +253,9 @@ class _LanternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LanternPainter old) =>
+      // By value: a driven one is handed a new [litAt] on every build.
       old.lit != lit ||
+      old.loop != loop ||
       old.cord != cord ||
       old.paper != paper ||
       old.glow != glow ||
@@ -235,60 +264,43 @@ class _LanternPainter extends CustomPainter {
 }
 
 /// The mark beside a button's words while its tap is on its way: a small
-/// lantern in the label's own ink, its flame breathing; a button that is
+/// lantern in the label's own ink, its flame breathing for as long as the
+/// tap is on its way ([Ambient.continuous]); a button that is
 /// busy also sinks into its shadow (`PrimaryButton`). It sits where it does
 /// not move the words (the buttons lay it in their own padding). With reduce
 /// motion the flame burns steadily.
-class LanternMark extends StatefulWidget {
+class LanternMark extends StatelessWidget {
   const LanternMark({super.key, required this.size, this.color});
 
   /// The lantern's height.
   final double size;
   final Color? color;
 
-  @override
-  State<LanternMark> createState() => _LanternMarkState();
-}
-
-class _LanternMarkState extends State<LanternMark>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _breath = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  );
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _breath.stop();
-      _breath.value = 1;
-    } else if (!_breath.isAnimating) {
-      _breath.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _breath.dispose();
-    super.dispose();
-  }
+  /// One way of the flame's breath.
+  static const breath = Duration(milliseconds: 1200);
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.color ?? context.ground.text;
+    final color = this.color ?? context.ground.text;
     final stroke = context.skin.shape.stroke;
+    final cut = context.dress.isPaper;
+    final cast = context.ground.shadow;
     return ExcludeSemantics(
-      child: AnimatedBuilder(
-        animation: _breath,
-        builder: (context, _) => CustomPaint(
-          size: Size(widget.size * 0.7, widget.size),
+      // Its job is to show the wait: it breathes for as long as the tap is
+      // on its way, with no rest (a still flame on a slow request reads as
+      // stuck).
+      child: Ambient.continuous(
+        still: 1,
+        period: breath,
+        curve: Curves.linear,
+        builder: (context, breath, _) => CustomPaint(
+          size: Size(size * 0.7, size),
           painter: _MarkPainter(
             color: color,
-            flame: 0.35 + 0.65 * _breath.value,
+            breath: breath,
             stroke: stroke,
-            cut: context.dress.isPaper,
-            cast: context.ground.shadow,
+            cut: cut,
+            cast: cast,
           ),
         ),
       ),
@@ -299,14 +311,17 @@ class _LanternMarkState extends State<LanternMark>
 class _MarkPainter extends CustomPainter {
   _MarkPainter({
     required this.color,
-    required this.flame,
+    required this.breath,
     required this.stroke,
     this.cut = false,
     this.cast = const Color(0x00000000),
-  });
+  }) : super(repaint: breath);
 
   final Color color;
-  final double flame;
+  final Animation<double> breath;
+
+  /// How large and bright the flame burns now.
+  double get flame => 0.35 + 0.65 * breath.value;
   final double stroke;
 
   /// Dressed up: a lantern cut from paper (cap, body and foot filled, the
@@ -316,9 +331,10 @@ class _MarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final flame = this.flame;
     final w = size.width;
     final h = size.height;
-    if (cut) return _paintCut(canvas, w, h);
+    if (cut) return _paintCut(canvas, w, h, flame);
     final line = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -352,7 +368,7 @@ class _MarkPainter extends CustomPainter {
     );
   }
 
-  void _paintCut(Canvas canvas, double w, double h) {
+  void _paintCut(Canvas canvas, double w, double h, double flame) {
     final cap = h * 0.1;
     final shape = Path()
       ..addRRect(
@@ -393,5 +409,5 @@ class _MarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_MarkPainter old) =>
-      old.flame != flame || old.color != color || old.cut != cut;
+      old.breath != breath || old.color != color || old.cut != cut;
 }

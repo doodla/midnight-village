@@ -10,6 +10,20 @@ import 'learned_store.dart';
 /// 2), for a newcomer on a phone that has already learned it.
 class CueReplay extends ChangeNotifier {
   void replay() => notifyListeners();
+
+  /// The replay of the nearest [TeachOnce] above (null where it has none):
+  /// a cue that rests once taught listens, to play once more (`HoldCue`).
+  static CueReplay? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ReplayScope>()?.replay;
+}
+
+class _ReplayScope extends InheritedWidget {
+  const _ReplayScope({required this.replay, required super.child});
+
+  final CueReplay? replay;
+
+  @override
+  bool updateShouldNotify(_ReplayScope old) => old.replay != replay;
 }
 
 /// Builds [builder] with `teaching: true` while this device has not learned
@@ -76,6 +90,9 @@ class _TeachOnceState extends ConsumerState<TeachOnce> {
     final learned = ref.watch(
       learnedCuesProvider.select((cues) => cues.contains(widget.cue)),
     );
-    return widget.builder(context, !learned || _replaying != null);
+    return _ReplayScope(
+      replay: widget.replay,
+      child: widget.builder(context, !learned || _replaying != null),
+    );
   }
 }

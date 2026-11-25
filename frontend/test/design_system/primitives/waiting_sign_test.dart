@@ -42,7 +42,7 @@ void main() {
       for (final l in tester.widgetList<PaperLantern>(
         find.byType(PaperLantern),
       ))
-        l.lit,
+        l.burning,
     ];
     expect(lit(), hasLength(3));
     final peak = [0.0, 0.0, 0.0];
@@ -61,6 +61,20 @@ void main() {
     expect(peak.every((p) => p > 0.9), isTrue, reason: 'each burns in turn');
     expect(find.text(BannerCopy.slow), findsNothing);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the wait ending takes its loop with it: nothing ticks after', (
+    tester,
+  ) async {
+    await pumpSkinned(tester, const Waiting());
+    await tester.pump(Motion.signAfter);
+    await tester.pump(Motion.settle);
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    await pumpSkinned(tester, const SizedBox());
+    await tester.pump();
+    expect(find.byType(WaitingSign), findsNothing);
+    expect(tester.binding.transientCallbackCount, 0);
+    expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
   testWidgets('a long wait is named once, plainly', (tester) async {
@@ -109,6 +123,41 @@ void main() {
       isFalse,
       reason: 'nothing turns, so no frame is asked for',
     );
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a busy mark breathes for as long as the tap is on its way: '
+      'no rest that would read as stuck', (tester) async {
+    await pumpSkinned(tester, const LanternMark(size: 16));
+    for (var t = Duration.zero; t < Motion.restMost * 2; t += Motion.settle) {
+      expect(tester.binding.transientCallbackCount, greaterThan(0));
+      await tester.pump(Motion.settle);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the sign built again with nothing changed paints nothing '
+      'again', (tester) async {
+    var shown = true;
+    List<CustomPainter> painters() => [
+      for (final p in tester.widgetList<CustomPaint>(
+        find.descendant(
+          of: find.byType(PaperLantern),
+          matching: find.byType(CustomPaint),
+        ),
+      ))
+        p.painter!,
+    ];
+    await pumpSkinned(tester, WaitingSign(shown: shown));
+    final before = painters();
+    shown = true;
+    await pumpSkinned(tester, WaitingSign(shown: shown));
+    final after = painters();
+    expect(after, hasLength(3));
+    for (var i = 0; i < 3; i++) {
+      expect(identical(after[i], before[i]), isFalse, reason: 'built again');
+      expect(after[i].shouldRepaint(before[i]), isFalse);
+    }
     await tester.pumpWidget(const SizedBox());
   });
 }
