@@ -23,6 +23,7 @@ from .engine.state import ActionResult, NightAction
 from .engine.timeline import TimelineError, build_night_timeline, recover_dealt_center
 from .models import Game, Phase, PlayerRole
 from .protocol import NIGHT_WINDOWS
+from .turns import early_key
 
 logger = logging.getLogger(__name__)
 
@@ -173,13 +174,6 @@ def client_action_result(
     )
 
 
-def early_key(window: int) -> str:
-    """Where a player's settled result of an open window waits for its close, in
-    their own ``night_action_data`` (``choose_night._early_entry``): the very
-    night-log entry the close will write. Dropped when the window closes."""
-    return f"early_{window}"
-
-
 def player_names(game: Game) -> dict[int, str]:
     """Every player's public name, by id (what results name players by)."""
     rows = PlayerRole.objects.filter(game=game).select_related("user")
@@ -237,7 +231,9 @@ def night_results_for_player(
     player_names: dict[int, str],
     own_data: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """The caller's own night results for every window that has closed.
+    """The caller's own night results: every window that has closed, and at night
+    what is already settled in the open one (the Doppelganger's look, a result
+    settled at the choose: ``_visible_result_entries``).
 
     Rebuilt from the stored night log (``client_action_result``). One entry per
     result, in window order (a Doppelganger with a follow-up gets two in window 1:

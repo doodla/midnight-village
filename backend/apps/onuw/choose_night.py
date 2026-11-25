@@ -51,6 +51,8 @@ from typing import Any
 
 from django.db import transaction
 
+from apps.core.wire import public_name
+
 from . import basics, night_flow, night_results, night_window, readiness, turns
 from .engine.choose import (
     Interpretation,
@@ -102,13 +104,38 @@ def submit_choose(
 
     ``answered`` is the request's ``chosen``: the count the prompt it answers showed.
     Lower than the stored count = a resend (the first answer was lost): success,
-    nothing stored, nothing read. Equal = a new choose. Higher = 400.
+    nothing stored; it gets the answer the first one did. Equal = a new choose.
+    Higher = 400.
 
-    ONE transaction, Game lock then the player's row: check the stage, the count,
-    the shape of the picks (against the table), read what the picks mean for the
-    caller's acting role, store, count, and close the window if everyone it waits
-    for has chosen. The caller is known to play in this game (the view checked).
+    The choose is ONE transaction (``_take_choose``), Game lock then the player's
+    row. The answer is read AFTER it commits, outside the lock (other phones are not
+    kept waiting for it), and can never undo a choose: if it cannot be built the
+    choose still stands and the answer is the bare ``{"status": "submitted"}`` (the
+    phone then reads ``GET /me/``). The caller is known to play in this game (the
+    view checked).
     """
+    errors = _take_choose(game, user_id, raw_picks, stage, answered)
+    if errors or not answer:
+        return errors, {}
+    try:
+        return [], answer_for(game.id, user_id)
+    except Exception:
+        logger.exception(
+            "Could not build the answer to a choose of player %s in game %s",
+            user_id,
+            game.id,
+        )
+        return [], {}
+
+
+def _take_choose(
+    game: Game, user_id: int, raw_picks: object, stage: str, answered: int
+) -> list[str]:
+    """The locked, all-or-nothing part of a choose: check the stage, the count, the
+    shape of the picks (against the table), read what the picks mean for the
+    caller's acting role, store (with the early entry), count, and close the
+    window if everyone it waits for has chosen. Returns the errors (empty = taken,
+    or a resend of one already taken)."""
     with transaction.atomic():
         game = Game.objects.select_for_update().get(id=game.id)
         require_stage(game, stage, expected=NIGHT_CHOOSE_STAGES)
@@ -119,9 +146,9 @@ def submit_choose(
         if answered < chosen:
             # Already taken: the same answer the original got, and nothing else
             # (no store, no reading, no close check), whoever sends it.
-            return [], answer_for(game, user_id) if answer else {}
+            return []
         if answered > chosen:
-            return [CHOOSE_BAD_COUNT], {}
+            return [CHOOSE_BAD_COUNT]
         if chosen >= max_chooses(window):
             raise basics.AlreadyActedError(CHOOSE_ALREADY)
 
@@ -133,7 +160,7 @@ def submit_choose(
             center_count=len(game.center_cards),
         )
         if picks is None:
-            return [CHOOSE_BAD_PICKS], {}
+            return [CHOOSE_BAD_PICKS]
 
         acting = turns.get_player_acting_role_for_wave(pr, window)
         # One look: a Doppelganger who has not copied has had her look (her first
@@ -161,10 +188,10 @@ def submit_choose(
                 data["targets"] = reading.targets
             # What the close will show the caller, when nothing else chosen in
             # the window can change it: shown from now on (``night_results``).
-            data.pop(night_results.early_key(window), None)
+            data.pop(turns.early_key(window), None)
             early = _early_entry(game, state, user_id, window, acting, reading)
             if early is not None and has_turn:
-                data[night_results.early_key(window)] = early
+                data[turns.early_key(window)] = early
         pr.night_action_data = data
         pr.has_acted = True
         pr.save(update_fields=["night_action_data", "has_acted"])
@@ -175,7 +202,7 @@ def submit_choose(
             night_window._resolve_doppelganger_look(game)
         if readiness._night_ready_to_close(game):
             night_flow._close_or_defer(game)
-        return [], answer_for(game, user_id) if answer else {}
+        return []
 
 
 def _early_entry(
@@ -209,24 +236,43 @@ def _early_entry(
     try:
         resolved, _ = resolve_wave(state, [action], group)
     except Exception:
+        # The close will meet the same action and apply its own fallback; the
+        # phone just gets nothing early. Loud, so a missing result can be explained.
+        logger.exception(
+            "No early result for player %s (%s) in game %s", user_id, acting, game.id
+        )
         return None
     return resolved.action_log[-1].to_dict()
 
 
-def answer_for(game: Game, user_id: int) -> dict[str, Any]:
-    """What a taken ``choose`` answers besides its status, read fresh under the
-    lock after the store (and any close it caused): the caller's own
+def answer_for(game_id: Any, user_id: int) -> dict[str, Any]:
+    """What a taken ``choose`` answers besides its status: the caller's own
     ``night_results`` as ``GET /me/`` lists them now, and the ``chooses_left`` of
-    the caller's prompt (0 once the window is over). The same keys, and the same
-    reads, for every caller; nothing about anyone else."""
-    game = Game.objects.get(id=game.id)
-    pr = PlayerRole.objects.get(game=game, user_id=user_id)
-    prompt = prompt_for(game, pr)
+    the caller's prompt (0 once the window is over). Read after the choose
+    committed, in ONE query (every row of the game, with its user and its game): the
+    names, the table and the caller's own row. The same keys, and the same read,
+    for every caller; nothing about anyone else."""
+    rows = list(
+        PlayerRole.objects.filter(game_id=game_id).select_related("game", "user")
+    )
+    pr = next(row for row in rows if row.user_id == user_id)
+    game = pr.game
+    window = game.current_wave
+    left = 0
+    if game.phase == Phase.NIGHT and window in (1, 2):
+        left = build_choose_prompt(
+            basics.game_state_from(game, rows),
+            user_id,
+            window,
+            turns.prompt_role(pr, window),
+            turns.chose_count(pr, window),
+        )["chooses_left"]
+    names = {row.user_id: public_name(row.user) for row in rows}
     return {
         "night_results": night_results.night_results_for_player(
-            game, user_id, night_results.player_names(game), pr.night_action_data
+            game, user_id, names, pr.night_action_data
         ),
-        "chooses_left": prompt["chooses_left"] if prompt is not None else 0,
+        "chooses_left": left,
     }
 
 

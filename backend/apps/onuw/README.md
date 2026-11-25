@@ -116,14 +116,15 @@ A Doppelganger's follow-up is read as the copied role.
 if it holds no other player she has not copied and her second choose does nothing.
 
 **Answers alike:** every choose is `200 {"status": "submitted", "night_results": [...], "chooses_left": n}`
-(`choose_night.answer_for`: the caller's own results as `/me/` lists them right after it, and its prompt's count; the same keys and the same reads for every caller);
+(`choose_night.answer_for`: the caller's own results as `/me/` lists them right after it, and its prompt's count; the same keys and the same ONE read for every caller;
+it is read after the choose commits, outside the Game lock, and can never undo the choose: if it cannot be built the answer is the bare `{"status": "submitted"}` (logged) and the phone reads `/me/`);
 the only refusals are `wrong_stage` (409: the request names a stage that is over, including the look stage), `already_chosen`
 (409: a phone may send two chooses in window 1 and one in window 2; phones send ONE, only the Doppelganger a second, and the server takes a second from anyone so its ANSWER is no tell, though her extra request is visible on the network, an accepted tell; 409 only for a choose answering a prompt that is used up)
 and `bad_request` (400, malformed; any other `action_type` too), none depending on role (403 for a stranger).
 
 **Resends:** every choose carries `chosen`, the prompt's `chosen` it answers (required: missing / not a plain non-negative JSON integer = 400 `bad_request`);
 under the Game lock, after the stage check, `chosen` LOWER than the stored count is a resend of a choose already taken (its answer was lost):
-the same 200, nothing stored, read or sent;
+the same 200 with the same answer (read from what is stored: the early entry included, so never a second look), nothing stored or sent, no close check;
 higher = 400 `bad_request`; equal = a new choose.
 So a 200 only says the server holds a choose for the prompt named:
 the phone keeps the answer's results and re-reads `/me/` only when `chooses_left` is above 0 (her follow-up) or the answer has no results (an older server).
@@ -210,7 +211,9 @@ nothing for a window still open except the Doppelganger's own look (listed as so
 Settled (`engine.night.settled_at_choose`, from the roles alone): no step resolving before the caller's in the window can move a card the result shows,
 so the Seer, the Robber, the Troublemaker, the Drunk (her server swap too: it is seeded), a lone Werewolf's centre look and the Doppelganger's follow-up as any of them; not the Insomniac.
 `choose_night._early_entry` resolves the caller's action alone on the table as it is, exactly as the close will, and keeps the log entry in their `night_action_data` (`early_<window>`);
-the close drops it (`persist_wave_results`) as the log takes the same entry (`tests/onuw/test_night_result_now.py` plays seeded games both ways).
+the close drops it (`persist_wave_results`) as the log takes the same entry
+(the one way they could differ is an engine failure that sends the close to its last resort, defaults for all: `night_window._resolve_window_safely` then logs an error naming the players who had been shown a result)
+(`tests/onuw/test_night_result_now.py` plays seeded games both ways).
 Role names in `revealed_info` are canonical (`"Werewolf"`), `copied_role` as always;
 a `peek_center` result has `center_indices` (in the order of `roles`);
 a result that is the role's default because the picks meant nothing (or there was no choose) has `"nothing_chosen": true`

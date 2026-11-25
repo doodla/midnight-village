@@ -347,8 +347,9 @@ def resolve_window(
     table before the Robber moves.
 
     Results are returned in resolution order.  Log entries are tagged with
-    their order group.  Callers deliver results to players only after this
-    returns, i.e. when the window has closed.
+    their order group.  A result that ``settled_at_choose`` calls settled may be
+    given to its player at the choose (the close then writes the same entry); every
+    other result is delivered only after this returns, when the window has closed.
     """
     new_state, by_group = _resolve_window_by_group(state, actions, window)
     flat: list[ActionResult] = []
