@@ -44,7 +44,7 @@ def test_the_settings_come_from_the_environment(monkeypatch):
     assert db["CONN_MAX_AGE"] == 0
     assert (
         s.CHANNEL_LAYERS["default"]["BACKEND"]
-        == "channels_redis.core.RedisChannelLayer"
+        == "apps.core.channel_layer.BatchingRedisChannelLayer"
     )
     assert s.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"] == [ENV["REDIS_URL"]]
     assert s.ALLOWED_HOSTS == [

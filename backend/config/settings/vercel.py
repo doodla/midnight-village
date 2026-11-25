@@ -79,7 +79,8 @@ DATABASES = {"default": _database_from_url(os.environ["DATABASE_URL"])}
 
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        # channels_redis, with a commit's messages sent at once (core/channel_layer.py).
+        "BACKEND": "apps.core.channel_layer.BatchingRedisChannelLayer",
         "CONFIG": {"hosts": [os.environ["REDIS_URL"]]},
     },
 }
