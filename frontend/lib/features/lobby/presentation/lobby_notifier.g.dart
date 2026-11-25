@@ -164,8 +164,8 @@ String _$lobbyWebSocketFactoryHash() =>
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and seats this phone in the game; a lobby
+/// ahead of the phone asks where it sits (lobby_seat.dart).
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
@@ -188,8 +188,8 @@ const lobbyProvider = LobbyNotifierFamily._();
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and seats this phone in the game; a lobby
+/// ahead of the phone asks where it sits (lobby_seat.dart).
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 final class LobbyNotifierProvider
@@ -210,8 +210,8 @@ final class LobbyNotifierProvider
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
   /// A table runs several games one after another: every start sets a new
-  /// [LobbyState.startedGameId], and a lobby opened while a game is already
-  /// running (the start event came before the socket was up) looks the game up.
+  /// [LobbyState.startedGameId] and seats this phone in the game; a lobby
+  /// ahead of the phone asks where it sits (lobby_seat.dart).
   /// Its first read heals like every fetch a screen depends on: retried until
   /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
   const LobbyNotifierProvider._({
@@ -250,7 +250,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'46e480bcd1c834c70b2bcd0ef9eb6902d6eb0f45';
+String _$lobbyNotifierHash() => r'c18fd1acc7c802ddd1821d8adbe92e7d512bcc21';
 
 /// Manages lobby state for a given lobby code.
 ///
@@ -268,8 +268,8 @@ String _$lobbyNotifierHash() => r'46e480bcd1c834c70b2bcd0ef9eb6902d6eb0f45';
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and seats this phone in the game; a lobby
+/// ahead of the phone asks where it sits (lobby_seat.dart).
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
@@ -307,8 +307,8 @@ final class LobbyNotifierFamily extends $Family
   /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
   ///
   /// A table runs several games one after another: every start sets a new
-  /// [LobbyState.startedGameId], and a lobby opened while a game is already
-  /// running (the start event came before the socket was up) looks the game up.
+  /// [LobbyState.startedGameId] and seats this phone in the game; a lobby
+  /// ahead of the phone asks where it sits (lobby_seat.dart).
   /// Its first read heals like every fetch a screen depends on: retried until
   /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 
@@ -335,8 +335,8 @@ final class LobbyNotifierFamily extends $Family
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and seats this phone in the game; a lobby
+/// ahead of the phone asks where it sits (lobby_seat.dart).
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 

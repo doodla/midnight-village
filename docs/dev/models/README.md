@@ -1,6 +1,9 @@
 # Models of ordering and concurrency
 
-> These models predate the protocol-1 cleanup (20 November 2026): they speak of "protocol 2", the contract's "Third amendment" (now `docs/specs/onuw/api-contract-v2.md`, sections 5 and 9), `ProtocolTwoGameNotifier` (now `LiveGameNotifier`), the server module night2 (now `apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names); the one flow they model is the only one left.
+> These models predate the protocol-1 cleanup (20 November 2026):
+> they speak of "protocol 2", the contract's "Third amendment" (now `docs/specs/onuw/api-contract-v2.md`, sections 5 and 9), `ProtocolTwoGameNotifier`
+> (now `LiveGameNotifier`), the server module night2 (now `apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names);
+> the one flow they model is the only one left.
 
 Logic whose bugs live in the order of events (the server's stage handling, the phone's
 outbox and fetch loop) is checked with small TLA+ models, one focused slice at a time.
@@ -40,4 +43,5 @@ requests, answers, lost messages, timers and restarts inside a small bound.
 |---|---|---|---|
 | `night2/` | Server: a whole protocol-2 game, three phones | A resent Doppelganger look read as her follow-up | `fb229fb` |
 | `phone/` | One phone: the night board and the talk-to-next-game lanes | F1-F6 (stuck fetches, turn read from `kind`, results never loaded, lost play again) | `303f1df` |
+| `phone/seat/` | One phone between tables and games: events that seat it, `/me/table/` reads, the lobby's player list, leaving, sockets opening, drops, sleep, resume | A deal missed while the socket was down healed only on the poll; a late `game_started` put the phone back in a game it was past; an event sent before a new screen's socket listened was missed; a seat built from a stale player list stranded a phone that had left | `start-lands-fast` |
 | `phone/lobby/` | The host's phone in the lobby: the settings lane, reads, socket, "Not sent." and "Try again", the deal | A read crossing an answer flicks a setting back; a new tap hides "Not sent."; a lost deal takes the one "Try again"; still open: a late request overtakes (#16), a refused value kept by a failed read | gaps a, b, b2, c: branch `lobby-lane-gaps` |

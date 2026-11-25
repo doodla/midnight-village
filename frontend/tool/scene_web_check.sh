@@ -10,16 +10,16 @@ cd "$(dirname "$0")/.."
 OUT="${1:-$(mktemp -d)}"
 export CHROME="${CHROME:-/usr/bin/google-chrome}"
 # Two builds: the card's hold ring still (a later game) and breathing (a first game).
-flutter build web --release -t test_screens/scene_demo_main.dart --no-web-resources-cdn \
-  --output "$OUT/web" >/dev/null
-flutter build web --release -t test_screens/scene_demo_main.dart --no-web-resources-cdn \
-  --dart-define=RING=true --output "$OUT/web-ring" >/dev/null
+# Each is built again only when what goes into it changed (tool/web_build_cached.sh).
+WEB="$(tool/web_build_cached.sh --release -t test_screens/scene_demo_main.dart --no-web-resources-cdn 2>/dev/null)"
+WEB_RING="$(tool/web_build_cached.sh --release -t test_screens/scene_demo_main.dart --no-web-resources-cdn \
+  --dart-define=RING=true 2>/dev/null)"
 free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1])'; }
 PORT="$(free_port)"
 PORT_RING="$(free_port)"
-(cd "$OUT/web" && python3 -m http.server "$PORT" >/dev/null 2>&1) &
+(cd "$WEB" && python3 -m http.server "$PORT" >/dev/null 2>&1) &
 SERVER=$!
-(cd "$OUT/web-ring" && python3 -m http.server "$PORT_RING" >/dev/null 2>&1) &
+(cd "$WEB_RING" && python3 -m http.server "$PORT_RING" >/dev/null 2>&1) &
 SERVER_RING=$!
 trap 'kill $SERVER $SERVER_RING 2>/dev/null || true' EXIT
 mkdir -p "$OUT/pw"

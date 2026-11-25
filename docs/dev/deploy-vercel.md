@@ -213,15 +213,81 @@ before real players can use it.
 
 ## The app (web and Android)
 
-* **Web**: its own Vercel project `midnight-village-app` (root `frontend`, build `bash tool/vercel_build.sh`, output `build/web`, `frontend/vercel.json` sends app routes (any path that is not under `/assets/` and has no file extension) to `index.html`, so a table's link, `<origin>/join/<code>`, opens the app on a cold load, while a file that is not there (`/assets/...`, anything with an extension) is a real 404, never the app's page; the app uses the path URL strategy, no `#`). Vercel's builders have no Flutter, so the script fetches the pinned version and builds with `--dart-define=ENV=prod --dart-define=API_ORIGIN=<server origin>`. Flutter's service worker (offline-first, Flutter 3.38's default) serves repeat visits from its cache. `web/flutter_bootstrap.js` is inlined in `index.html`, which the worker always fetches from the network first, so the page always knows the deployed build. A first visit loads at once and registers the worker only once the app's own start is in (01's picture and the secrets' art, `lib/core/web/start_done_web.dart`), never waiting for it; that visit is not cached by it, so the first return still revalidates its files. A returning phone after a deploy has Flutter's loader update the worker before the app loads, for at most 4 s: if the new worker is in within that, the phone runs the new build on that first open; if not (a slow line), the old worker still serves the cached app for that one open, and the next open runs the new build. `just web-smoke` (`frontend/tool/web_smoke/`, CI job "Web page smoke") builds the page twice and checks a first visit, a return and a deploy in Chrome. **Removing or renaming a file the app draws.** The new worker drops from its cache every file the new build does not list, the moment the new build arrives, but a tab or installed app left open keeps running the old code, which asks the server for it and is answered with the app's page (no picture). So a picture a screen stops drawing stays in `assets/` as a copy of its successor (`ArtSet.retired`, `frontend/lib/design_system/skin/art_set.dart`) until no phone runs a build that draws it. 23 November 2026: the single `werewolf.webp` replaced by three portraits left an open app with an empty Werewolf; a reload fixes one, the kept copy prevents it. **Upgrading Flutter.** From 3.41 Flutter drops this worker (flutter/flutter#156910): the page then needs long cache headers on hashed files (`--web-content-hash`) in `frontend/vercel.json` instead. Any upgrade that changes the engine has one more risk: a phone whose worker update misses the 4 s runs the NEW inlined bootstrap (new engine revision, new CanvasKit) with the OLD cached `main.dart.js` for that one open, which can fail to start; the next open is the new build. Check that case with `just web-smoke` and a slow `main.dart.js` before shipping an engine change. `API_ORIGIN` is a project environment variable (currently `https://midnight-village-anthelion.vercel.app`). Production address: `https://midnight-village-app-anthelion.vercel.app`; production branch `main`.
-* **The server must know the app's address**: add its host to `ALLOWED_HOSTS` (the socket origin check uses it) and its origin to `CORS_ALLOWED_ORIGINS` on the server project; both are set for the address above. A new app address needs both, then a server redeploy.
-* **The toolbar**: a build with no `ENV` is prod and has no `/debug` toolbar; dev is explicit (`--dart-define=ENV=dev`, which the just recipes, the harness and CI pass). `tool/vercel_build.sh` also runs `tool/check_release_has_no_debug.sh` on `build/web` and fails the deploy if the toolbar is in it.
-* **Android** (sideloaded APK): `API_ORIGIN=<server origin> PUBLIC_ORIGIN=<web app origin> tool/build_android.sh` (`just build-android` in `frontend/`), which runs `flutter build apk --release --split-per-abi --dart-define=ENV=prod --dart-define=API_ORIGIN=... --dart-define=PUBLIC_ORIGIN=...` with the Android SDK (platform 36, build-tools 36.0.0) installed and `ANDROID_HOME` set. The web app's production origin is `https://midnight-village-app-anthelion.vercel.app` (above). The main manifest declares INTERNET (Flutter adds it only to the debug manifest); the scanner's plugin adds CAMERA.
-  * **Which file to hand out:** the workflow publishes the arm64 one ("Android app download", below); by hand it is `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` (nearly every phone since 2017). `app-armeabi-v7a-release.apk` is for old 32-bit phones and `app-x86_64-release.apk` for emulators. They are split by processor because one universal APK holds all three and is about 72 MB (sizes of each: see the build's own listing; the script prints them).
-  * **`PUBLIC_ORIGIN` is required for a release build.** Without a public https origin the app would draw no QR code and share no link, so the build stops, saying what to pass: the script checks both origins first (`PUBLIC_ORIGIN` is an origin only, no path, query or fragment: the manifest opens `<host>/join/` links, which a path would put out of reach), and `android/app/build.gradle.kts` stops any release task whose `--dart-define=PUBLIC_ORIGIN` is missing, not https or has a path (debug builds and tests are not affected: they need none).
-  * **The signing key is public, on purpose** (owner's decision, 22 November 2026: "Just put it in the repo ... App is not being sent to the play store yet. Custom installs only. We'll rotate it when publishing"): `frontend/android/release-key/` (keystore, `key.properties`, README). Release builds sign with it; anyone can sign an app with it; **replace it with a private key kept as a build secret before any store release.** The app id is unchanged (`com.midnightvillage.midnight_village`). An APK signed with the old debug key does not update in place (Android refuses a new key over an old one), so anyone with an older APK **uninstalls once**.
-  * **Table links open the installed app** (Android App Links): the manifest's `https://<PUBLIC_ORIGIN host>/join/` intent filter (`autoVerify`; the host comes from the same `PUBLIC_ORIGIN`, never written in the manifest) and the web app's `/.well-known/assetlinks.json` (`frontend/web/.well-known/`, served as application/json by `vercel.json`) naming the package and the key's SHA-256 (`09:0C:3F:15:6B:0D:B8:95:43:A1:FB:8C:80:AD:45:07:27:34:C5:2B:CB:B6:7B:89:68:A6:4D:2F:F7:E6:3B:A7`; a test fails if the file and the key disagree). The file holds no origin: it is the same for any host that serves it. Android checks it when the app is installed; with the app not installed (or not verified) the link opens in the browser, which is the web app. A new web origin needs an APK built with its `PUBLIC_ORIGIN`.
-  * **The scan action** (01 "Join a table") uses the camera inside the app: Android through CameraX and ML Kit (the `mobile_scanner` package, BSD-3; the barcode model is bundled in the APK, so no Play services download), the web through the browser's `getUserMedia`, which needs https (localhost counts) and the player's permission. Browsers with a built-in barcode detector (Chrome on Android, Safari 17 and later) decode natively. The others (Firefox, Safari before 17, desktop Chrome on Windows and Linux) load a decoder, zxing-wasm 3.1.6 (MIT; about 40 KB of script and a 947 KB .wasm), **from the app's own files** `web/zxing/` the first time the scanner opens: nothing from a CDN, no third-party request. The pin, the licence and how it was made: `frontend/tool/zxing_wasm.sh` (`--check` verifies it). The web app's own `main.dart.js` grows by 93 KB (27 KB gzipped) for the scanner. Refused, no camera or an insecure page: one line and typing.
+* **Web**: its own Vercel project `midnight-village-app`
+  (root `frontend`, build `bash tool/vercel_build.sh`, output `build/web`, `frontend/vercel.json` sends app routes (any path that is not under `/assets/` and has no file extension) to `index.html`, so a table's link, `<origin>/join/<code>`, opens the app on a cold load, while a file that is not there (`/assets/...`, anything with an extension) is a real 404, never the app's page; the app uses the path URL strategy, no `#`).
+  Vercel's builders have no Flutter, so the script fetches the pinned version and builds with `--dart-define=ENV=prod --dart-define=API_ORIGIN=<server origin>`.
+  Flutter's service worker (offline-first, Flutter 3.38's default) serves repeat visits from its cache.
+  `web/flutter_bootstrap.js` is inlined in `index.html`, which the worker always fetches from the network first, so the page always knows the deployed build.
+  A first visit loads at once and registers the worker only once the app's own start is in
+  (01's picture and the secrets' art, `lib/core/web/start_done_web.dart`), never waiting for it;
+  that visit is not cached by it, so the first return still revalidates its files.
+  A returning phone after a deploy has Flutter's loader update the worker before the app loads, for at most 4 s:
+  if the new worker is in within that, the phone runs the new build on that first open;
+  if not (a slow line), the old worker still serves the cached app for that one open, and the next open runs the new build.
+  `just web-smoke` (`frontend/tool/web_smoke/`, CI job "Web page smoke") builds the page twice and checks a first visit, a return and a deploy in Chrome.
+  **Removing or renaming a file the app draws.** The new worker drops from its cache every file the new build does not list, the moment the new build arrives,
+  but a tab or installed app left open keeps running the old code, which asks the server for it and is answered with the app's page (no picture).
+  So a picture a screen stops drawing stays in `assets/` as a copy of its successor (`ArtSet.retired`, `frontend/lib/design_system/skin/art_set.dart`) until no
+  phone runs a build that draws it. 23 November 2026:
+  the single `werewolf.webp` replaced by three portraits left an open app with an empty Werewolf;
+  a reload fixes one, the kept copy prevents it.
+  **Upgrading Flutter.** From 3.41 Flutter drops this worker (flutter/flutter#156910):
+  the page then needs long cache headers on hashed files (`--web-content-hash`) in `frontend/vercel.json` instead.
+  Any upgrade that changes the engine has one more risk:
+  a phone whose worker update misses the 4 s runs the NEW inlined bootstrap (new engine revision, new CanvasKit) with the OLD cached `main.dart.js` for that one
+  open, which can fail to start; the next open is the new build.
+  Check that case with `just web-smoke` and a slow `main.dart.js` before shipping an engine change.
+  `API_ORIGIN` is a project environment variable (currently `https://midnight-village-anthelion.vercel.app`).
+  Production address: `https://midnight-village-app-anthelion.vercel.app`;
+  production branch `main`.
+* **The server must know the app's address**:
+  add its host to `ALLOWED_HOSTS` (the socket origin check uses it) and its origin to `CORS_ALLOWED_ORIGINS` on the server project;
+  both are set for the address above. A new app address needs both, then a server redeploy.
+* **The toolbar**: a build with no `ENV` is prod and has no `/debug` toolbar;
+  dev is explicit (`--dart-define=ENV=dev`, which the just recipes, the harness and CI pass).
+  `tool/vercel_build.sh` also runs `tool/check_release_has_no_debug.sh` on `build/web` and fails the deploy if the toolbar is in it.
+* **Android** (sideloaded APK): `API_ORIGIN=<server origin> PUBLIC_ORIGIN=<web app origin> tool/build_android.sh` (`just build-android` in `frontend/`), which
+  runs `flutter build apk --release --split-per-abi --dart-define=ENV=prod --dart-define=API_ORIGIN=... --dart-define=PUBLIC_ORIGIN=...` with the Android SDK
+  (platform 36, build-tools 36.0.0) installed and `ANDROID_HOME` set.
+  The web app's production origin is `https://midnight-village-app-anthelion.vercel.app` (above).
+  The main manifest declares INTERNET (Flutter adds it only to the debug manifest);
+  the scanner's plugin adds CAMERA.
+  * **Which file to hand out:** the workflow publishes the arm64 one ("Android app download", below);
+    by hand it is `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` (nearly every phone since 2017).
+    `app-armeabi-v7a-release.apk` is for old 32-bit phones and `app-x86_64-release.apk` for emulators.
+    They are split by processor because one universal APK holds all three and is about 72 MB
+    (sizes of each: see the build's own listing; the script prints them).
+  * **`PUBLIC_ORIGIN` is required for a release build.** Without a public https origin the app would draw no QR code and share no link, so the build stops,
+    saying what to pass: the script checks both origins first
+    (`PUBLIC_ORIGIN` is an origin only, no path, query or fragment: the manifest opens `<host>/join/` links, which a path would put out of reach), and
+    `android/app/build.gradle.kts` stops any release task whose `--dart-define=PUBLIC_ORIGIN` is missing, not https or has a path
+    (debug builds and tests are not affected: they need none).
+  * **The signing key is public, on purpose**
+    (owner's decision, 22 November 2026: "Just put it in the repo ... App is not being sent to the play store yet. Custom installs only. We'll rotate it when publishing"):
+    `frontend/android/release-key/` (keystore, `key.properties`, README).
+    Release builds sign with it; anyone can sign an app with it;
+    **replace it with a private key kept as a build secret before any store release.** The app id is unchanged (`com.midnightvillage.midnight_village`).
+    An APK signed with the old debug key does not update in place (Android refuses a new key over an old one), so anyone with an older APK **uninstalls once**.
+  * **Table links open the installed app** (Android App Links):
+    the manifest's `https://<PUBLIC_ORIGIN host>/join/` intent filter
+    (`autoVerify`; the host comes from the same `PUBLIC_ORIGIN`, never written in the manifest) and the web app's `/.well-known/assetlinks.json`
+    (`frontend/web/.well-known/`, served as application/json by `vercel.json`) naming the package and the key's SHA-256
+    (`09:0C:3F:15:6B:0D:B8:95:43:A1:FB:8C:80:AD:45:07:27:34:C5:2B:CB:B6:7B:89:68:A6:4D:2F:F7:E6:3B:A7`; a test fails if the file and the key disagree).
+    The file holds no origin: it is the same for any host that serves it.
+    Android checks it when the app is installed;
+    with the app not installed (or not verified) the link opens in the browser, which is the web app.
+    A new web origin needs an APK built with its `PUBLIC_ORIGIN`.
+  * **The scan action** (01 "Join a table") uses the camera inside the app:
+    Android through CameraX and ML Kit (the `mobile_scanner` package, BSD-3; the barcode model is bundled in the APK, so no Play services download), the web
+    through the browser's `getUserMedia`, which needs https (localhost counts) and the player's permission.
+    Browsers with a built-in barcode detector (Chrome on Android, Safari 17 and later) decode natively.
+    The others (Firefox, Safari before 17, desktop Chrome on Windows and Linux) load a decoder, zxing-wasm 3.1.6
+    (MIT; about 40 KB of script and a 947 KB .wasm), **from the app's own files** `web/zxing/` the first time the scanner opens:
+    nothing from a CDN, no third-party request.
+    The pin, the licence and how it was made:
+    `frontend/tool/zxing_wasm.sh` (`--check` verifies it).
+    The web app's own `main.dart.js` grows by 93 KB (27 KB gzipped) for the scanner.
+    Refused, no camera or an insecure page: one line and typing.
 * **Deployment Protection is off on both projects** so phones need no Vercel login.
 
 ## What an open app does when a new build goes live
@@ -251,13 +317,15 @@ app" above); an open one was never updated.
   `mayReloadNow`: never while a `playerRequest` is out (`playerRequestsOut`), a game tap is
   queued, in flight or unsent (`Outbox.hasTapsOnTheWay`), a host's change is on its way, a name or
   code is typed on 01 (`JoinDraft`; it is also kept in the tab's `sessionStorage` and restored
-  after any reload), text is in the focused field, or the camera scanner is open. Then at once on
-  01, at a table before the deal (02, 03), on the results (11) and on "You're at another table.".
-  **In a running game (04, the night board, 08, 09, the count 10) never on a phase change or on
-  the timer** (a player must not enter the night or the vote with a cold reload inside a timed
-  stage): only when the tab becomes visible again after being hidden for more than 5 seconds, and
-  nothing is in flight; otherwise it waits for the results (11) or the table. Nothing is shown or
-  said.
+  after any reload), text is in the focused field, or the camera scanner is open. Then (owner,
+  24 November 2026, "Reload only when nobody waits") **at once only on 01**, and **everywhere else
+  only when the tab becomes visible again after being hidden for more than 5 seconds** (the
+  "back after a while away" notion the resume already had, `NewBuild.awayFor`), and nothing is in
+  flight. Everywhere else is the table (02, 03), "You're at another table." and a running game
+  (04, the night board, 08, 09, the count 10): never because a screen changed, a build was learned
+  of or the timer ran, so reaching the table after "play again" never stalls a restart on a full
+  reload. Known and accepted cost: a phone left open at the table across several games keeps the
+  old build until it is hidden and comes back, or reaches 01. Nothing is shown or said.
 - Before reloading the page asks its service worker to update (`registration.update()`) and waits
   for the new worker to take over (the generated worker skips waiting and claims its clients),
   for at most 10 seconds (`renewWorker`). Nothing is unregistered and no cache is deleted, so a
@@ -300,12 +368,27 @@ deploy-safe for it (`Deploy-safe changes` below), and the owner installs a new f
 
 Friends get the app from one stable address; nobody builds or hands out a file by hand any more.
 
-* **How it is built:** the workflow `.github/workflows/android-download.yml` ("Android App Download") runs on every push to `main` that touches `frontend/**` and on manual dispatch ("Run workflow"). It runs `frontend/tool/build_android.sh` with `API_ORIGIN=https://midnight-village-anthelion.vercel.app` and `PUBLIC_ORIGIN=https://midnight-village-app-anthelion.vercel.app` (Flutter 3.38.10, Java 17, the runner's Android SDK), signed with the public key in `frontend/android/release-key/`.
-* **Where it goes:** the arm64 APK (nearly every phone since 2017; the script builds one APK per processor, so no universal one) is uploaded as `midnight-village.apk` to one rolling GitHub release, tag `android-latest`, replacing the previous file (uploaded under a temporary name, retried, then the old asset is deleted and the new one renamed through the REST API, so the release is never without a file; only from `main`; the release notes name the commit it was built from). The release is created on the first run, marked not "latest".
-* **The address:** `https://github.com/doodla/midnight-village/releases/download/android-latest/midnight-village.apk` (the repository is public). The web app's short address `https://midnight-village-app-anthelion.vercel.app/app` redirects there (`redirects` in `frontend/vercel.json`, a temporary 307, answered before the single-page rewrite; the app's router has no `/app`). The web app's first screen (01) shows a quiet "Get the app" link that opens `/app`, only in an Android browser.
+* **How it is built:** the workflow `.github/workflows/android-download.yml` ("Android App Download") runs on every push to `main` that touches `frontend/**`
+  and on manual dispatch ("Run workflow").
+  It runs `frontend/tool/build_android.sh` with `API_ORIGIN=https://midnight-village-anthelion.vercel.app` and
+  `PUBLIC_ORIGIN=https://midnight-village-app-anthelion.vercel.app` (Flutter 3.38.10, Java 17, the runner's Android SDK), signed with the public key in
+  `frontend/android/release-key/`.
+* **Where it goes:** the arm64 APK (nearly every phone since 2017; the script builds one APK per processor, so no universal one) is uploaded as
+  `midnight-village.apk` to one rolling GitHub release, tag `android-latest`, replacing the previous file
+  (uploaded under a temporary name, retried, then the old asset is deleted and the new one renamed through the REST API, so the release is never without a file; only from `main`; the release notes name the commit it was built from).
+  The release is created on the first run, marked not "latest".
+* **The address:** `https://github.com/doodla/midnight-village/releases/download/android-latest/midnight-village.apk` (the repository is public).
+  The web app's short address `https://midnight-village-app-anthelion.vercel.app/app` redirects there
+  (`redirects` in `frontend/vercel.json`, a temporary 307, answered before the single-page rewrite; the app's router has no `/app`).
+  The web app's first screen (01) shows a quiet "Get the app" link that opens `/app`, only in an Android browser.
 * **First merge:** the link on 01 exists about ten minutes before the first file does (the build has to finish); until then it leads to a not-found page.
-* **Not a check:** it never runs on pull requests and is not in `docs/dev/main-ruleset.json`; it has `contents: write` on its one job only. A failed build does not block anything; the previous file stays. `guardrails/tests/test_workflows.py` holds it to those rules.
-* **Untested until the first run on `main`:** the workflow itself (it cannot run off GitHub); check the Actions tab after the first merge that touches `frontend/`, and that the asset downloads. Anyone with an older APK signed with another key uninstalls once (above).
+* **Not a check:** it never runs on pull requests and is not in `docs/dev/main-ruleset.json`;
+  it has `contents: write` on its one job only.
+  A failed build does not block anything; the previous file stays.
+  `guardrails/tests/test_workflows.py` holds it to those rules.
+* **Untested until the first run on `main`:** the workflow itself (it cannot run off GitHub);
+  check the Actions tab after the first merge that touches `frontend/`, and that the asset downloads.
+  Anyone with an older APK signed with another key uninstalls once (above).
 
 ## The check after each merge
 
@@ -365,12 +448,40 @@ for the socket step, against a local server that serves sockets.
 ## Deploy-safe changes
 
 The previous code serves while `migrate` runs on every deploy (every deployment of `main` builds and migrates the shared database). Checked by tests and `just check`, not by habit:
-- **Migrations are frozen once pushed.** Every push migrates the live database; to change the schema again, add a NEW migration, never edit a pushed one. `just check` runs `makemigrations --check --dry-run` (a model change without its migration fails the gate and CI).
+- **Migrations are frozen once pushed.** Every push migrates the live database;
+  to change the schema again, add a NEW migration, never edit a pushed one.
+  `just check` runs `makemigrations --check --dry-run` (a model change without its migration fails the gate and CI).
 - **No application code in a migration** (no `from apps...`): copy what it needs, frozen. `tests/test_migration_rules.py` scans every migration file.
-- **`SET LOCAL lock_timeout = '5s'` is the first operation** of every migration from 0010 on (same test), so an ALTER that cannot get its lock fails the build instead of blocking the live site behind it.
-- **Every new NOT NULL column has a `db_default`** (and a Python `default`), because the old code's INSERTs omit it. A backfill touches only what it must (finished tables stay blank) and new code treats a blank value as "not backfilled yet" (a blank token is filled at the deal).
-- **A column is removed in two pushes.** The previous code's model still has the field, so every INSERT it makes names the column: drop it in one push and those INSERTs fail from the migration until the new build is promoted (every join, for `LobbyMember`). Push 1: take the field out of the model with `SeparateDatabaseAndState` (state only) and give the column a database default, so both builds can write (`core/migrations/0011_lobbymember_is_ready_left_to_the_database.py` is the pattern, with its test). Push 2, once push 1 is live: drop the column (`core/migrations/0012_lobbymember_drop_is_ready.py`, database only, with its test and a frozen INSERT in push 1's shape). After push 2 a build from before push 1 can neither read nor write that table (its model still selects the column, so every lobby page fails, not only a join): roll forward instead. Rollback floor today: commit e8f50b5 (#81), where `is_ready` left the model.
-- **The previous build is run against the new schema, on every pull request with a migration.** `just previous-build-check` (`tool/previous_build_check.sh`, a step of GitHub's "Backend Checks") checks out main, puts this change's migrations in it, builds a database from them and runs main's own tests on it. A migration the serving build cannot live with fails there (dropping `is_ready` in one push fails with "column is_ready does not exist" in every test that seats a player). It covers one step back, which is what a deploy does; a rollback further back is a decision, not a check.
-- **A migration that moves or fills data gains a case in the migration test** (that the previous build can still read and write is the previous-build check's job, above; no new frozen INSERT is needed for it). `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then back and forward again. `just test` runs it as a second pass (`just test-migrations`, about 5 s); CI runs `just test`.
-- **A new socket event type reaches instances that have no handler:** consumers extend `core.consumers.TolerantJsonWebsocketConsumer`, which logs an unknown type at WARNING and drops it (and raises when `ONUW_STRICT_SOCKET_EVENTS` is true: test, development and harness settings, so a misspelled type in new code still fails the suite).
-- **Rolling back past practice players** (code without `apps/core/practice.py`) while practice tables exist: the old handover and owner-leaving code does not skip them, so it could hand a table to a practice account (and the old app would show them as people). Before such a rollback, close those tables (every `LobbyMember` whose username starts with `practice-`).
+- **`SET LOCAL lock_timeout = '5s'` is the first operation** of every migration from 0010 on (same test), so an ALTER that cannot get its lock fails the build
+  instead of blocking the live site behind it.
+- **Every new NOT NULL column has a `db_default`** (and a Python `default`), because the old code's INSERTs omit it.
+  A backfill touches only what it must (finished tables stay blank) and new code treats a blank value as "not backfilled yet"
+  (a blank token is filled at the deal).
+- **A column is removed in two pushes.** The previous code's model still has the field, so every INSERT it makes names the column:
+  drop it in one push and those INSERTs fail from the migration until the new build is promoted (every join, for `LobbyMember`).
+  Push 1: take the field out of the model with `SeparateDatabaseAndState` (state only) and give the column a database default, so both builds can write
+  (`core/migrations/0011_lobbymember_is_ready_left_to_the_database.py` is the pattern, with its test).
+  Push 2, once push 1 is live: drop the column
+  (`core/migrations/0012_lobbymember_drop_is_ready.py`, database only, with its test and a frozen INSERT in push 1's shape).
+  After push 2 a build from before push 1 can neither read nor write that table
+  (its model still selects the column, so every lobby page fails, not only a join):
+  roll forward instead. Rollback floor today:
+  commit e8f50b5 (#81), where `is_ready` left the model.
+- **The previous build is run against the new schema, on every pull request with a migration.** `just previous-build-check`
+  (`tool/previous_build_check.sh`, a step of GitHub's "Backend Checks") checks out main, puts this change's migrations in it, builds a database from them and
+  runs main's own tests on it. A migration the serving build cannot live with fails there
+  (dropping `is_ready` in one push fails with "column is_ready does not exist" in every test that seats a player).
+  It covers one step back, which is what a deploy does;
+  a rollback further back is a decision, not a check.
+- **A migration that moves or fills data gains a case in the migration test**
+  (that the previous build can still read and write is the previous-build check's job, above; no new frozen INSERT is needed for it).
+  `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds
+  old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then
+  back and forward again. `just test` runs it as a second pass (`just test-migrations`, about 5 s);
+  CI runs `just test`.
+- **A new socket event type reaches instances that have no handler:** consumers extend `core.consumers.TolerantJsonWebsocketConsumer`, which logs an unknown
+  type at WARNING and drops it
+  (and raises when `ONUW_STRICT_SOCKET_EVENTS` is true: test, development and harness settings, so a misspelled type in new code still fails the suite).
+- **Rolling back past practice players** (code without `apps/core/practice.py`) while practice tables exist:
+  the old handover and owner-leaving code does not skip them, so it could hand a table to a practice account (and the old app would show them as people).
+  Before such a rollback, close those tables (every `LobbyMember` whose username starts with `practice-`).

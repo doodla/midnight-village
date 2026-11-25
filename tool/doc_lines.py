@@ -38,6 +38,8 @@ SKIPPED = (
     "contract_samples/",
     "frontend/ios/",
     "frontend/android/",
+    ".claude/skills/",  # skills as their makers wrote them: an update would undo a reflow
+    "docs/design/feel.md",  # FOR NOW: being edited on another branch (25 Nov); take this line out after
 )
 
 FENCE = re.compile(r"^\s*(```|~~~)")
@@ -108,9 +110,25 @@ def broken(text: str, room: int) -> list[str]:
     return lines
 
 
+def front_matter(lines: list[str]) -> int:
+    """How many first lines are the file's front matter (YAML between two `---`
+    lines at the very top: an agent's or a skill's description), never prose."""
+    if not lines or lines[0].strip() != "---":
+        return 0
+    for number, line in enumerate(lines[1:], 2):
+        if line.strip() == "---":
+            return number
+    return 0
+
+
 def reflowed(text: str) -> str:
     out, fenced = [], False
-    for line in text.split("\n"):
+    lines = text.split("\n")
+    head = front_matter(lines)
+    for number, line in enumerate(lines, 1):
+        if number <= head:
+            out.append(line)
+            continue
         if FENCE.match(line):
             fenced = not fenced
         if fenced or FENCE.match(line) or len(line) <= LIMIT or not is_prose(line):
@@ -137,7 +155,11 @@ def reflowed(text: str) -> str:
 def long_lines(text: str) -> list[tuple[int, int]]:
     """[(line number, length)] of the prose lines over LIMIT that could be broken."""
     found, fenced = [], False
-    for number, line in enumerate(text.split("\n"), 1):
+    lines = text.split("\n")
+    head = front_matter(lines)
+    for number, line in enumerate(lines, 1):
+        if number <= head:
+            continue
         if FENCE.match(line):
             fenced = not fenced
             continue

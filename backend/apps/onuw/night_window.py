@@ -421,15 +421,16 @@ def persist_wave_results(
     game.night_actions_log = log
     game.save(update_fields=["center_cards", "night_actions_log", "updated_at"])
 
-    # Write only the rows that changed: one read, then an update for each card that
-    # moved (a window with no swap writes no role at all) and one save for each
-    # player who got a result.
+    # Write only the rows that changed, all in one statement: one read, then one
+    # update for every row whose card moved or whose player got a result (none
+    # when nothing changed), not one per player.
     rows = {pr.user_id: pr for pr in PlayerRole.objects.filter(game=game)}
+    touched: dict[int, PlayerRole] = {}
     for pid, role in new_state.player_roles.items():
         pr = rows.get(pid)
         if pr is not None and pr.current_role != role:
-            PlayerRole.objects.filter(game=game, user_id=pid).update(current_role=role)
             pr.current_role = role
+            touched[pid] = pr
 
     # Store action results in each player's night_action_data
     changed: dict[int, dict[str, Any]] = {}
@@ -444,7 +445,13 @@ def persist_wave_results(
             if "copied_role" in result.revealed_info:
                 data["copied_role"] = result.revealed_info["copied_role"]
     for pid, data in changed.items():
-        PlayerRole.objects.filter(game=game, user_id=pid).update(night_action_data=data)
+        rows[pid].night_action_data = data
+        touched[pid] = rows[pid]
+    # Both fields are written for every touched row (one read a moment ago): safe
+    # because every writer of a PlayerRole holds the Game row lock first, as this does.
+    PlayerRole.objects.bulk_update(
+        list(touched.values()), ["current_role", "night_action_data"]
+    )
 
 
 def transition_to_discussion(game: Game) -> None:

@@ -83,7 +83,8 @@ class ShellSetup {
   /// (`/game/<id>`, under a router whose `/` is [home]) instead of the
   /// shell; [userId] is the signed-in player when [me] does not say (a
   /// malformed `/me/`); [wakelock] is the platform's (one that refuses, for
-  /// a test of that); [before] changes the answers before the first frame.
+  /// a test of that); [healTiming] is how it heals (the tests' fast one
+  /// unless given); [before] changes the answers before the first frame.
   /// [appRoutes] opens the app's own routes at home (`HomeGate`, its back
   /// policy, the browser history the app keeps) instead of the shell alone.
   static Future<ShellSetup> pump(
@@ -99,6 +100,7 @@ class ShellSetup {
     bool appRoutes = false,
     int? userId,
     FakeWakelockService? wakelock,
+    HealTiming healTiming = testHealTiming,
     void Function(ShellSetup setup)? before,
   }) async {
     // This device's storage (learned cues, the stage its card was seen in):
@@ -132,6 +134,7 @@ class ShellSetup {
         entry: entry,
         appRoutes: appRoutes,
         userId: userId ?? me['player_id'] as int,
+        healTiming: healTiming,
       ),
     );
     await tester.pump();
@@ -170,6 +173,7 @@ class ShellSetup {
     required bool entry,
     required bool appRoutes,
     required int userId,
+    required HealTiming healTiming,
   }) {
     final client = AuthenticatedClient.forTesting(dio: http.dio);
     return ProviderScope(
@@ -195,7 +199,7 @@ class ShellSetup {
           (ref, id) => _connection.stream,
         ),
         appResumesProvider.overrideWith((ref) => _resumes.stream),
-        healTimingProvider.overrideWithValue(testHealTiming),
+        healTimingProvider.overrideWithValue(healTiming),
         clockProvider.overrideWithValue(() => clock),
         wakelockServiceProvider.overrideWithValue(wakelock),
         // The screen gallery pins the back so its pictures are stable.

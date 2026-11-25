@@ -17,7 +17,7 @@ import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
 import '../../../helpers/live_game_setup.dart' show testHealTiming;
 
-// The seat an answer names (`SeatSeed`, `seatFromAnswer`): used by the one
+// The seat an answer names (`SeatSeed`, `seatFromServer`): used by the one
 // read asked for with it, for its own account, never kept for a later read.
 
 class _Service extends Mock implements LobbyService {}
@@ -121,7 +121,7 @@ void main() {
     final p = _phone();
     expect(p.container.exists(myTableProvider), isFalse);
 
-    seatFromAnswer(p.ref, _ana, MyTable.seatedAt(_lobby, viewerId: _ana)!);
+    seatFromServer(p.ref, _ana, MyTable.seatedAt(_lobby, viewerId: _ana)!);
     // Much later, a screen reads it.
     final sub = p.container.listen(myTableProvider, (_, _) {});
     addTearDown(sub.close);
@@ -139,7 +139,7 @@ void main() {
     clearInteractions(p.service);
     final seat = MyTable.seatedAt(_lobby, viewerId: _ana)!;
 
-    seatFromAnswer(p.ref, _ana, seat);
+    seatFromServer(p.ref, _ana, seat);
 
     expect(await p.container.read(myTableProvider.future), same(seat));
     verifyNever(p.service.fetchMyTable);

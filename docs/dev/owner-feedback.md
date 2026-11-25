@@ -24,6 +24,25 @@ They played in the browser (Chrome) and say it was everywhere.
 
 OPEN. Measured (branch `perf-frames`): `just phone-frames` plays a whole game on a phone profile (the release web build, Chrome, CPU slowed 4x, or 1x and 2x for a fast phone) and reports, for every screen, transition and tap, the frames over 16 and 50 ms, the worst frame, the long tasks, the time to content, and for a tap the time to the first changed pixel, to its final state and to the server's answer; it fails when a budget is broken. The causes, ranked, are the next pieces.
 
+## 24 November 2026, playing the live app with friends: the start and play again (written, verbatim)
+
+> updates are really slow. Someone starts the game and it takes forever for my screen to update. Same with restarts as well
+
+> 5-7 seconds ish. But that feels like forever.
+
+HANDLED (branch `start-lands-fast`): the socket and the server were fast; the phone was not.
+A phone that missed `game_started` or `play_again` (its socket down at that moment, the phone
+asleep) waited at 02 for the 15 s poll; now any lobby that says the table is in a game, the
+socket coming back and the app coming back read where the phone sits at once. And the event
+itself moves the screen (the dusk on `game_started`, 02 on `play_again`), the reads filling in
+behind. `just phone-timing` measures tap to guest screen on a slowed phone against a budget.
+
+## 24 November 2026, when an open app reloads itself to a new version (the owner's board: a button, not their words)
+
+> Reload only when nobody waits
+
+HANDLED (branch `reload-when-quiet`): the app reloads to a new version only at the first screen (01), or when the app comes back after a while away (the tab visible again after more than 5 seconds hidden, the notion the resume already had; no new timer). Never at the table (02, 03), never during a game, never right after "play again" (reaching 02 had reloaded at once and stalled some restarts on a full reload while friends waited). Known and accepted cost: a phone left open at the table across several games keeps the old version until then. The rule: `mayReloadNow` (`frontend/lib/features/game/domain/reload_rule.dart`); it replaces the 23 November rule (at once at a table before the deal).
+
 ## 24 November 2026, timers in the live game (verbatim)
 
 > there's no timer in some stages, even though there's one under the hood
@@ -59,7 +78,7 @@ HANDLED by this piece: the set-up page cannot be left with a wrong count (it say
 
 > (Seen in the live app, 23 November 2026: a tab left open showed a blank red box where the Werewolf should be.)
 
-HANDLED: an app left open now notices a newer build (`/commit.txt`) and reloads itself at a safe moment (in a game only when the tab comes back after a while away, never on a phase change) and lands in the same seat on the same screen (nothing shown, nothing said; the rule is in `docs/dev/deploy-vercel.md`, "What an open app does when a new build goes live"); a file that is not there is a real 404 and never the app's page; and a file removed from the bundle without a retired copy fails a test (`asset_release_test.dart`).
+HANDLED: an app left open now notices a newer build (`/commit.txt`) and reloads itself at a safe moment (23 November rule: at once at a table before the deal, in a game only when the tab comes back after a while away, never on a phase change; replaced 24 November, see the top of this file) and lands in the same seat on the same screen (nothing shown, nothing said; the rule is in `docs/dev/deploy-vercel.md`, "What an open app does when a new build goes live"); a file that is not there is a real 404 and never the app's page; and a file removed from the bundle without a retired copy fails a test (`asset_release_test.dart`).
 
 > The timers aren't really explained as such but I guess that's a pretty minor thing.
 

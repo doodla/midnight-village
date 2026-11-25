@@ -70,8 +70,9 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
 - **The app renews itself for a new build** (`lib/core/update/`, the rule `mayReloadNow` in
   `features/game/domain/reload_rule.dart`, `docs/dev/deploy-vercel.md`): it knows its commit
   (`BUILD_COMMIT`), reads `/commit.txt`, and reloads at a safe moment through the cold opening, so
-  a seated player lands in their seat. In a running game it never reloads on a phase change or the
-  timer, only when the tab comes back after a while away. It updates the service worker and waits
+  a seated player lands in their seat. Only on 01 at once; at the table and in a running game it
+  never reloads on a screen change, a phase change or the timer, only when the tab comes back after
+  a while away (owner, 24 November 2026: "Reload only when nobody waits"). It updates the service worker and waits
   for it to take over before reloading; it never deletes the worker or its caches. Nothing is
   shown. A build with no commit (local, tests, the
   installed app) never looks. A new place that shows a screen or starts a request must not break
@@ -81,6 +82,8 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
   bundle at the main branch (origin/main), else `tool/release_assets.json`) until it is an `ArtSet.retired` copy or
   a dated `removedOnPurpose` line in `tool/release_assets.json`; `just record-assets` refuses
   while one is uncovered, so regenerating cannot hide a removal.
+- **A tool that needs the built web app asks for it**: `out=$(tool/web_build_cached.sh <flutter build web arguments>)`,
+  never its own `flutter build web`: the build is made again only when what goes into it changed (a minute, else a blink).
 - **`vercel.json` is judged as Vercel compiles it**: `tool/web_smoke/routes.test.cjs` (run by
   `just web-smoke`, which needs `@vercel/routing-utils` from `just web-smoke-setup`), never by
   reading a `source` as a plain pattern.
@@ -130,7 +133,9 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 - **Names are never cut**: they wrap between words or are set smaller (`FitWords`, `FitLine`),
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
-  for anything that says something true; no uppercase micro-labels; one amber fill per screen (08's "Ready to vote" is its one, the owner's choice of 23 November 2026); a selection is lift plus outline, never amber.
+  for anything that says something true; no uppercase micro-labels;
+  one amber fill per screen (08's "Ready to vote" is its one, the owner's choice of 23 November 2026);
+  a selection is lift plus outline, never amber.
 - **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks
   `ScreenFrame(dress: Dress.paper)`; sizes, angles and colours are the skin's, never a number
   in a screen. Detail: `docs/app-rules.md`, "The dress", and `lib/design_system/README.md`.
@@ -143,7 +148,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   board, from its top, only while held. Nothing vibrates on a card (owner, 23 November 2026).
 - **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
   the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
-  at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is (`lib/design_system/README.md`, "Where information a player asks for appears").
+  at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is
+  (`lib/design_system/README.md`, "Where information a player asks for appears").
 
 ## Screens
 

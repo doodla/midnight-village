@@ -98,8 +98,10 @@ void main() {
     });
   }
 
-  testWidgets('Deal: answered, then the table cannot be read: Deal is freed '
-      'and "One moment" says so; sent once', (tester) async {
+  testWidgets('Deal: answered while the table cannot be read: the answer is '
+      'where the host sits, so the game comes all the same; sent once', (
+    tester,
+  ) async {
     final setup = await TableSetup.pump(
       tester,
       lobby: v2Lobby('detail_auto_deck_5'),
@@ -118,11 +120,13 @@ void main() {
     await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
     await setup.settle(tester);
     await setup.settle(tester);
+    final shell = find.byType(PrimaryButton);
     expect(
-      tester.widget<PrimaryButton>(find.byType(PrimaryButton).last).busy,
-      isFalse,
+      shell.evaluate().where((e) => (e.widget as PrimaryButton).busy),
+      isEmpty,
     );
-    expect(find.text(BannerCopy.offline), findsOneWidget);
+    expect(find.text(TableCopy.start), findsNothing, reason: 'past 02');
+    expect(find.text(BannerCopy.offline), findsNothing);
     expect(setup.count('POST', '/onuw/lobbies/${setup.code}/start/'), 1);
     await setup.close(tester);
   });

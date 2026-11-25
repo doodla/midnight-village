@@ -120,6 +120,15 @@ class Reflow(unittest.TestCase):
         for line in after.split("\n")[1:]:
             self.assertIsNone(self.tool.STARTS.match(line), line)
 
+    def test_front_matter_is_left_alone(self):
+        """An agent's description is one long line of YAML between two `---`
+        lines: broken, the agent would lose the rest of it."""
+        note = f"---\nname: x\ndescription: {LONG.strip()}\n---\n\n{LONG.strip()}"
+        after = self.tool.reflowed(note)
+        self.assertEqual(after.split("\n")[:4], note.split("\n")[:4])
+        self.assertGreater(len(after.split("\n")), len(note.split("\n")))
+        self.assertEqual([n for n, _ in self.tool.long_lines(note)], [6])
+
     def test_reflowing_twice_changes_nothing_more(self):
         once = self.tool.reflowed("- " + LONG.strip())
         self.assertEqual(self.tool.reflowed(once), once)

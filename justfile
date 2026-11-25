@@ -139,6 +139,10 @@ phone-frames-live *args:
 test-harness:
     {{frontend_just}} test-harness
 
+# Tap to guest screen on a slowed phone (deal, play again) against a budget; own backend, web build, Chrome. About 5 minutes. Usage: just phone-timing [rounds]
+phone-timing *args:
+    tool/phone_timing/run.sh {{args}}
+
 # --- Code Quality ---
 
 # Run backend linting
@@ -161,14 +165,16 @@ format-check:
 typecheck:
     {{backend_just}} typecheck
 
-# Run all backend quality checks, check the instruction files' paths and recipes, and
-# that no source file has grown past what can be read whole (tool/check_file_sizes.py)
+# Run all backend quality checks, check the instruction files' paths and recipes,
+# that no source file has grown past what can be read whole (tool/check_file_sizes.py),
+# and that no line of the notes is so long that two branches clash on it (tool/doc_lines.py)
 check:
     {{backend_just}} check
     {{backend_just}} lint-tools
     tool/copy_page.py --check-spec
     tool/check_instruction_links.sh
     tool/check_file_sizes.py
+    tool/doc_lines.py
     tool/root_recipes.py
 
 # Fix all auto-fixable issues
@@ -428,3 +434,11 @@ test-migrations *args:
 # (frontend) Usage: just end-link-pictures [folder]
 end-link-pictures *args:
     {{frontend_just}} end-link-pictures {{args}}
+
+# (backend) What each request of a game costs the server at 3, 6 and 10 seats (`sql`: the queries)
+server-timing *args:
+    {{backend_just}} server-timing {{args}}
+
+# (backend) Re-record tests/perf/tap_budget.json after a change that adds or removes a query
+tap-budget *args:
+    {{backend_just}} tap-budget {{args}}

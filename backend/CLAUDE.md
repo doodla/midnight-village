@@ -15,6 +15,8 @@ just test tests/onuw/test_x.py -v  # with each test's name (the run is quiet by 
 just check                      # ruff lint + format-check, pyrefly, makemigrations --check
 just fix                        # auto-fix lint and format
 just samples                    # re-record contract_samples/ after a payload change
+just tap-budget                 # re-record tests/perf/tap_budget.json after adding or removing a query
+just server-timing              # what each request of a game costs the server, at 3, 6 and 10 seats
 just harness-serve              # DEBUG backend for the e2e harness ($HARNESS_PORT, else a free port)
 ```
 

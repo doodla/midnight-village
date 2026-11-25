@@ -68,7 +68,10 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   Timer? _ackTimer;
   @override
   int _failedAcks = 0;
-  bool _wasDisconnected = false;
+
+  /// Down, or not up yet: the next "connected" reads everything again
+  /// (a socket that opens hears nothing said before it listened).
+  bool _wasDisconnected = true;
 
   bool _building = false;
   Future<void>? _loop;
@@ -139,6 +142,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
       // A game `/me/table/` does not name that answers "gone" is let go
       // quietly (a read ahead of the table's); anything else is read again.
       if (e is! NotFoundException || _named) _scheduleRetry();
+      // Refused: not a player of this game (a seat that was wrong).
+      if (e is ForbiddenException) _invalidateTable();
       rethrow;
     } finally {
       _building = false;
@@ -188,6 +193,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     } catch (e, stack) {
       if (!ref.mounted) return;
       logger.w('LiveGame: fetch failed', error: e);
+      if (e is ForbiddenException) _invalidateTable();
       final current = state.value;
       if (current == null) {
         state = AsyncError(e, stack);
@@ -327,7 +333,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
 
   /// Asks for `/me/table/` again, only for a game it names ([_named]).
   void _invalidateTable() {
-    if (_named) ref.invalidate(myTableProvider);
+    if (_named) askWhere(ref);
   }
 
   /// Whether `/me/table/` names this game. Until it does (a game read beside
@@ -343,7 +349,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
         table.status != TableStatus.waiting;
   }
 
-  /// Reconnect and resume: anything may have happened.
+  /// The socket opening or coming back, and resume: anything may have
+  /// happened.
   void _healEverything() {
     _invalidateTable();
     unawaited(refresh());
@@ -355,6 +362,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     switch (connection) {
       case WebSocketConnectionState.connected when _wasDisconnected:
         _wasDisconnected = false;
+        // Up for the first time too: nothing said before it listened was
+        // heard. (After a seat from an event, this read confirms it.)
         _healEverything();
       case WebSocketConnectionState.disconnected ||
           WebSocketConnectionState.reconnecting:
@@ -378,6 +387,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
 
   /// One socket event (public for tests that drive events directly).
   void apply(GameEvent event) {
+    // Play again says where this phone sits: back at the table, at once.
+    if (event is TableMovedEvent && _seatBackAtTable()) return;
     if (state.value == null) {
       // The first fetch is out (or failed): it may predate this.
       if (event is! IgnoredEvent) unawaited(refresh());
@@ -422,6 +433,27 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
         unawaited(refresh());
       case IgnoredEvent():
     }
+  }
+
+  /// `play_again`: the table is waiting again, and `/me/table/` would say
+  /// so (this game still its newest, at its results). That seat is put
+  /// ([seatFromServer]: no read) and 02 follows from the event itself; its
+  /// lobby is read as it opens. Only where play again comes from: the end
+  /// board of this game (`/me/table/` names it, finished). Anywhere else
+  /// this phone is behind (it missed the end: read, never guess), and while
+  /// its own play again is out its answer seats it, with the lobby: false,
+  /// and the table is read as for any event.
+  bool _seatBackAtTable() {
+    if (_playingAgain || !_named) return false;
+    final table = ref.read(myTableProvider).value;
+    if (table?.status != TableStatus.finished) return false;
+    final viewer = switch (ref.read(authProvider)) {
+      AuthAuthenticated(:final user) => user.id,
+      _ => null,
+    };
+    if (table == null || viewer == null) return false;
+    seatFromServer(ref, viewer, table.backToWaiting());
+    return true;
   }
 
   @override

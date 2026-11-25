@@ -22,7 +22,8 @@
 
 **Critical rule:** Even the Drunk's **mandatory** swap is blocked if the Drunk's own card is shielded. The Drunk simply cannot act.
 
-**Doppelganger interaction:** If Doppelganger copies Sentinel, she immediately places a second shield token on any player's card (not her own card). The Daybreak box includes 2 physical shield tokens, so up to 2 shields can be active simultaneously.
+**Doppelganger interaction:** If Doppelganger copies Sentinel, she immediately places a second shield token on any player's card (not her own card).
+The Daybreak box includes 2 physical shield tokens, so up to 2 shields can be active simultaneously.
 
 ---
 
@@ -35,7 +36,9 @@
 | Action type | `forced_swap_center_werewolf` |
 | Card count | 1 |
 
-**Setup requirement:** When Alpha Wolf is in the game, place one additional Werewolf-type card (regular Werewolf, Mystic Wolf, or Dream Wolf) perpendicular to the 3 center cards. This "Center Werewolf card" is a fourth center-area position. This means:
+**Setup requirement:** When Alpha Wolf is in the game, place one additional Werewolf-type card (regular Werewolf, Mystic Wolf, or Dream Wolf) perpendicular to
+the 3 center cards. This "Center Werewolf card" is a fourth center-area position.
+This means:
 - At least one other Werewolf-type card must be included in the role selection
 - Total card count is **player_count + 4** (not +3) when Alpha Wolf is in play
 - The Center Werewolf card is separate from the 3 standard center cards
@@ -51,7 +54,9 @@
 - The Center Werewolf card can be interacted with by any role that targets center cards (Seer peeking 2 center cards, Drunk swapping, etc.)
 - The swap is **mandatory** — Alpha Wolf must choose a target
 
-**Doppelganger interaction:** Doppelganger-as-Alpha Wolf immediately performs the Center Werewolf swap during Wave 1. She then wakes with the main Werewolf group in Wave 2 (the standard Werewolf call). She does **not** wake during the Alpha Wolf's solo sub-wave (2-B).
+**Doppelganger interaction:** Doppelganger-as-Alpha Wolf immediately performs the Center Werewolf swap during Wave 1.
+She then wakes with the main Werewolf group in Wave 2 (the standard Werewolf call).
+She does **not** wake during the Alpha Wolf's solo sub-wave (2-B).
 
 ---
 
@@ -70,7 +75,9 @@
 
 **Strategic value:** Gives the Werewolf team Seer-like information. The Mystic Wolf knows a player's role, which helps Werewolves coordinate lies during discussion.
 
-**Doppelganger interaction:** Doppelganger-as-Mystic Wolf immediately peeks one player's card during Wave 1. She then wakes with the main Werewolf group in Wave 2. She does **not** wake during the Mystic Wolf's solo sub-wave (2-C).
+**Doppelganger interaction:** Doppelganger-as-Mystic Wolf immediately peeks one player's card during Wave 1.
+She then wakes with the main Werewolf group in Wave 2.
+She does **not** wake during the Mystic Wolf's solo sub-wave (2-C).
 
 ---
 
@@ -94,7 +101,8 @@
 - Other Werewolves know who the Dream Wolf is (they see the thumb)
 - The Minion sees the Dream Wolf's thumb along with other Werewolf thumbs
 
-**Doppelganger interaction:** Doppelganger-as-Dream Wolf sticks out her thumb when Werewolves are called. Does not open eyes. She does **not** learn the identities of other Werewolves — she only knows she is on the Werewolf team (from her Wave 1 peek).
+**Doppelganger interaction:** Doppelganger-as-Dream Wolf sticks out her thumb when Werewolves are called.
+Does not open eyes. She does **not** learn the identities of other Werewolves — she only knows she is on the Werewolf team (from her Wave 1 peek).
 
 ---
 
@@ -136,7 +144,10 @@
 - If P.I. peeks the **Minion**, the P.I. does **not** convert — even though the Minion is on the Werewolf team. Only the physical "Werewolf" and "Tanner" cards trigger conversion.
 - The P.I. conversion check is against the **card name**, not the team. Alpha Wolf, Mystic Wolf, and Dream Wolf cards **do** trigger conversion (they are Werewolf-type cards).
 
-**Doppelganger interaction:** Doppelganger-as-P.I. immediately performs the peek-and-convert action during Wave 1. If the Doppelganger-as-P.I. peeks a Werewolf card, she **becomes a Werewolf** (joins the Werewolf team for win conditions). If she peeks a Tanner, she becomes a Tanner.
+**Doppelganger interaction:** Doppelganger-as-P.I.
+immediately performs the peek-and-convert action during Wave 1.
+If the Doppelganger-as-P.I. peeks a Werewolf card, she **becomes a Werewolf** (joins the Werewolf team for win conditions).
+If she peeks a Tanner, she becomes a Tanner.
 
 ---
 
@@ -171,7 +182,8 @@
 | Action type | `rotate_all` |
 | Card count | 1 |
 
-**Night action:** May move all players' cards (except their own) one position to the **left** or one position to the **right**. The direction is their choice. The rotation is all-or-nothing — they cannot move a subset.
+**Night action:** May move all players' cards (except their own) one position to the **left** or one position to the **right**.
+The direction is their choice. The rotation is all-or-nothing — they cannot move a subset.
 
 **Excluded from rotation:**
 - Village Idiot's own card
@@ -203,7 +215,9 @@
 - Gets only one flip attempt, even if the card must be flipped back
 - Cannot flip their own card
 
-**Doppelganger interaction:** Doppelganger-as-Revealer wakes immediately after the real Revealer goes to sleep and may flip one face-down player card. The same flip-back rules apply: if the flipped card is a Werewolf or Tanner, it must be flipped back face-down. This means up to 2 cards can be face-up during discussion (one from each Revealer).
+**Doppelganger interaction:** Doppelganger-as-Revealer wakes immediately after the real Revealer goes to sleep and may flip one face-down player card.
+The same flip-back rules apply: if the flipped card is a Werewolf or Tanner, it must be flipped back face-down.
+This means up to 2 cards can be face-up during discussion (one from each Revealer).
 
 ---
 
@@ -243,7 +257,9 @@
 | Action type | `none` (vote-phase passive) |
 | Card count | 1 |
 
-**Vote-phase mechanic:** During voting, the Bodyguard points at (votes for) a player. That player **cannot be eliminated**, regardless of vote count. If the protected player would have died, the player with the next-highest vote count (minimum 2 votes) is eliminated instead.
+**Vote-phase mechanic:** During voting, the Bodyguard points at (votes for) a player.
+That player **cannot be eliminated**, regardless of vote count.
+If the protected player would have died, the player with the next-highest vote count (minimum 2 votes) is eliminated instead.
 
 **Special rules:**
 - The Bodyguard's protection is applied during vote resolution, after tallying

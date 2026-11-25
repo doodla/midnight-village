@@ -79,12 +79,12 @@ class MyTable {
     );
   }
 
-  /// Where [viewerId] sits as a table's own answer says it (a table started
-  /// or joined, play again): the same seat `/me/table/` would name right
-  /// after it, so it is not asked for (`SeatSeed`). [game] is the table's
-  /// newest game this player plays in, as the answer names it (none for a
-  /// table started or joined). Null when the viewer is not at the table the
-  /// answer is (it is then asked for).
+  /// Where [viewerId] sits as a table's own answer or event says it (a
+  /// table started or joined, a deal, play again): the same seat
+  /// `/me/table/` would name right after it, so it is not asked for
+  /// (`SeatSeed`). [game] is the table's newest game this player plays in,
+  /// as the answer or event names it (none for a table started or joined).
+  /// Null when the viewer is not at the table (it is then asked for).
   static MyTable? seatedAt(
     LobbyState lobby, {
     required int viewerId,
@@ -102,6 +102,19 @@ class MyTable {
       gamePhase: game?.phase,
     );
   }
+
+  /// This seat after play again (`play_again`): the same table, waiting,
+  /// its newest game still this one, at its results. What `/me/table/`
+  /// names right after it, so it is not asked for (`SeatSeed`).
+  MyTable backToWaiting() => MyTable._(
+    lobbyCode: lobbyCode,
+    gameType: gameType,
+    status: TableStatus.waiting,
+    isHost: isHost,
+    token: token,
+    gameId: gameId,
+    gamePhase: gameId == null ? null : GamePhase.results,
+  );
 
   final String lobbyCode;
   final String gameType;
