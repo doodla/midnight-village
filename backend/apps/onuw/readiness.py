@@ -29,11 +29,16 @@ logger = logging.getLogger(__name__)
 
 
 def _progress(
-    game: Game, stage: str, is_done: Callable[[PlayerRole], bool]
+    game: Game,
+    stage: str,
+    is_done: Callable[[PlayerRole], bool],
+    prs: list[PlayerRole] | None = None,
 ) -> dict[str, Any]:
     """``{"stage", "done", "needed"}``: ``needed`` is the players not gone past the
-    grace period, ``done`` how many of them ``is_done``. Counts only: never who."""
-    prs = _player_roles(game)
+    grace period, ``done`` how many of them ``is_done``. Counts only: never who.
+    ``prs``: the game's rows as ``_player_roles`` read them, when the caller has."""
+    if prs is None:
+        prs = _player_roles(game)
     grace = _grace_seconds(game)
     now = timezone.now()
     present = [pr for pr in prs if not _is_gone(pr, grace, now)]
@@ -44,9 +49,9 @@ def _progress(
     }
 
 
-def vote_progress(game: Game) -> dict[str, Any]:
+def vote_progress(game: Game, prs: list[PlayerRole] | None = None) -> dict[str, Any]:
     """The vote's count: players who have LOCKED in (a pick is not counted)."""
-    return _progress(game, "vote", lambda pr: bool(pr.has_acted))
+    return _progress(game, "vote", lambda pr: bool(pr.has_acted), prs)
 
 
 def talk_progress(game: Game) -> dict[str, Any]:
@@ -155,7 +160,7 @@ def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> b
     grace = _grace_seconds(game)
     now = timezone.now()
     window = game.current_wave
-    state = basics.build_game_state(game)
+    state = basics.game_state_from(game, prs)  # the same rows, read once
     if not ignore_recent_drops and any(
         _is_recently_dropped(pr, grace, now) and turns.turn_open(state, pr, window)
         for pr in prs
@@ -170,11 +175,13 @@ def _night_ready_to_close(game: Game, *, ignore_recent_drops: bool = False) -> b
     return ready_to_close(state, prs, window, grace, now)
 
 
-def _votes_ready(game: Game) -> bool:
+def _votes_ready(game: Game, prs: list[PlayerRole] | None = None) -> bool:
     """True when the vote can be revealed: everyone has voted, or everyone the
     vote still waits for has (a player gone past the grace period is a non-voter,
-    exactly as at the voting deadline). Needs someone present to be told."""
-    prs = _player_roles(game)
+    exactly as at the voting deadline). Needs someone present to be told.
+    ``prs``: the game's rows as ``_player_roles`` read them, when the caller has."""
+    if prs is None:
+        prs = _player_roles(game)
     if all(pr.has_acted for pr in prs):
         return True
     grace = _grace_seconds(game)
