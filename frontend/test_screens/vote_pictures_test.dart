@@ -10,6 +10,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
@@ -47,7 +48,7 @@ class _HostState extends State<_Host> {
     overrides: learnedOverrides(Cue.values.toSet()),
     child: VoteView(
       me: _me,
-      secondsLeft: 72,
+      clock: Countdown.held(72),
       onPick: (id) =>
           setState(() => _me = _me.withVote(MyVote.local(id, locked: false))),
       onLock: (id) =>

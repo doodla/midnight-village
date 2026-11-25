@@ -127,7 +127,7 @@ class WaitPage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: skin.typography.screenTitle,
           ),
-          const WorldTimer.candle(secondsLeft: 19),
+          const WorldTimer.candle(countdown: Countdown.held(19)),
         ],
       ),
     );
@@ -177,8 +177,7 @@ class BoardPage extends StatelessWidget {
         prompt: prompt,
         face: NightReport.fromMe(me).you(prompt),
         dealt: NightReport.fromMe(me).dealt,
-        secondsLeft: secondsLeft,
-        share: share,
+        countdown: Countdown.held(secondsLeft, share: share),
         dress: dress,
         onChoose: (_, _) async =>
             fails ? ChooseAnswer.notSent : ChooseAnswer.taken,

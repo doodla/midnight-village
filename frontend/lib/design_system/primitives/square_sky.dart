@@ -10,7 +10,11 @@ import 'end_lantern.dart';
 import 'layered_art.dart';
 import 'sliced_art.dart';
 import 'band.dart';
+import 'countdown.dart';
 import 'world_timer.dart';
+
+// A clock is handed what it counts; the seconds stay inside it.
+export 'countdown.dart' show Countdown, StageShare;
 
 /// Whose clock a [SquareSky] holds: the talk's (08, `timerTalk`) or the
 /// vote's (09, `timerVote`, the larger: the vote's time is the loudest thing
@@ -21,7 +25,7 @@ enum SkyClock { talk, vote }
 /// the gallows (the dawn's own layers, under a veil of the night so the clock
 /// is the loudest thing), the clock large in its middle, the wall lantern
 /// hung at its right (the square's one light), and the board's roof along
-/// its foot. With no deadline ([secondsLeft] null) there is no number. The
+/// its foot. With no deadline ([countdown] null) there is no number. The
 /// screen's [title] is spoken, a header for a screen reader, and not drawn:
 /// the clock says it. It lays out the status bar's inset itself. The vote
 /// (09) hangs the same sky over its board with its own clock ([SkyClock.vote]:
@@ -29,13 +33,14 @@ enum SkyClock { talk, vote }
 class SquareSky extends StatelessWidget {
   const SquareSky({
     super.key,
-    required this.secondsLeft,
+    required this.countdown,
     required this.title,
     this.semanticLabel,
     this.clock = SkyClock.talk,
   });
 
-  final int? secondsLeft;
+  /// What its clock counts down ([ClockTick] reads it); null: no number.
+  final Countdown? countdown;
   final String title;
 
   /// Whose clock it is: its type role.
@@ -67,8 +72,6 @@ class SquareSky extends StatelessWidget {
     final ground = context.ground;
     final safeTop = MediaQuery.paddingOf(context).top;
     final screen = MediaQuery.sizeOf(context);
-    final seconds = secondsLeft;
-    final number = seconds == null ? null : WorldTimer.format(seconds);
     final style = switch (clock) {
       SkyClock.talk => skin.typography.timerTalk,
       SkyClock.vote => skin.typography.timerVote,
@@ -121,17 +124,23 @@ class SquareSky extends StatelessWidget {
             child: Semantics(
               header: true,
               label: title,
-              child: number == null
-                  ? const SizedBox.shrink()
-                  : Semantics(
-                      label: semanticLabel ?? number,
-                      excludeSemantics: true,
-                      child: ClockFigure(
-                        number,
-                        style: style,
-                        alignment: Alignment.center,
-                      ),
+              child: ClockTick(
+                countdown: countdown,
+                builder: (context, reading) {
+                  final seconds = reading.seconds;
+                  if (seconds == null) return const SizedBox.shrink();
+                  final number = WorldTimer.format(seconds);
+                  return Semantics(
+                    label: semanticLabel ?? number,
+                    excludeSemantics: true,
+                    child: ClockFigure(
+                      number,
+                      style: style,
+                      alignment: Alignment.center,
                     ),
+                  );
+                },
+              ),
             ),
           ),
         ],

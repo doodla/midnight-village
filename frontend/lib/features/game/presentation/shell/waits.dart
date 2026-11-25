@@ -93,7 +93,7 @@ class TalkWait extends StatelessWidget {
     ground: GroundKind.night,
     dress: Dress.paper,
     bleed: true,
-    topSlot: const SquareSky(secondsLeft: null, title: TalkCopy.headline),
+    topSlot: const SquareSky(countdown: null, title: TalkCopy.headline),
     fitsHeight: true,
     minBodyHeight: context.skin.parts.squareLeastBody,
     // On the board, where the square will be.
@@ -120,7 +120,7 @@ class VoteWait extends StatelessWidget {
     dress: Dress.paper,
     bleed: true,
     topSlot: const SquareSky(
-      secondsLeft: null,
+      countdown: null,
       title: VoteCopy.headline,
       clock: SkyClock.vote,
     ),

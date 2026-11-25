@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/role_sheet_body.dart';
@@ -31,7 +32,7 @@ void main() {
           overrides: learnedOverrides(const {}),
           child: TalkView(
             me: GameMe.fromJson(sheet.recordedMe('me_discussion_choose_seer')),
-            secondsLeft: 252,
+            clock: Countdown.held(252),
             onReady: () {},
           ),
         ),

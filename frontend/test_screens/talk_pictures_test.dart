@@ -12,6 +12,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/primitives/sealed_note.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
@@ -98,7 +99,7 @@ void main() {
         tester,
         ProviderScope(
           overrides: learnedOverrides({...Cue.values}),
-          child: TalkView(me: me, secondsLeft: 192, onReady: () {}),
+          child: TalkView(me: me, clock: Countdown.held(192), onReady: () {}),
         ),
       );
       await tester.pump();

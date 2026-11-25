@@ -24,7 +24,7 @@ int? _shown(WidgetTester tester) {
     matching: find.byType(WorldTimer),
   );
   if (clocks.evaluate().isEmpty) return null;
-  return tester.widget<WorldTimer>(clocks).secondsLeft;
+  return tester.widget<WorldTimer>(clocks).countdown?.secondsNow;
 }
 
 /// The look stage's `/me/` and a clock 14 s before its deadline.

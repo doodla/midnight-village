@@ -28,8 +28,8 @@ import 'vote_rows.dart';
 export 'vote_rows.dart';
 
 /// 09 Vote, wired to the server: [VoteView] fed from `/me/` (with this
-/// phone's taps on it), the clock from the stage's deadline
-/// ([StageSeconds]); a tap on a slip is a pick and "Lock in
+/// phone's taps on it), the clock counting to the stage's deadline
+/// ([stageCountdown]: a second going by redraws the clock alone); a tap on a slip is a pick and "Lock in
 /// {name}" the lock, both through the game's outbox (one lane, so a lock
 /// goes after the picks before it). A restart opens on `/me/`'s own
 /// `my_vote`, picked or locked. The first lock the server takes teaches the
@@ -72,18 +72,14 @@ class _VoteScreenState extends ConsumerState<VoteScreen> {
       }
     });
     final me = widget.game.me;
-    return StageSeconds(
-      gameId: widget.gameId,
-      deadline: me.deadline,
-      builder: (context, seconds) => VoteView(
-        me: me,
-        secondsLeft: seconds,
-        onPick: (id) => unawaited(_notifier.pickVote(id)),
-        onLock: (id) => unawaited(_notifier.lockVote(id)),
-        accepts: () => _notifier.voteDeclined == null,
-        notSent: widget.game.unsent.contains(OutboxLane.vote),
-        onTryAgain: () => unawaited(_notifier.retry(OutboxLane.vote)),
-      ),
+    return VoteView(
+      me: me,
+      clock: stageCountdown(_notifier, deadline: me.deadline),
+      onPick: (id) => unawaited(_notifier.pickVote(id)),
+      onLock: (id) => unawaited(_notifier.lockVote(id)),
+      accepts: () => _notifier.voteDeclined == null,
+      notSent: widget.game.unsent.contains(OutboxLane.vote),
+      onTryAgain: () => unawaited(_notifier.retry(OutboxLane.vote)),
     );
   }
 }
@@ -111,7 +107,7 @@ class VoteView extends StatefulWidget {
   const VoteView({
     super.key,
     required this.me,
-    required this.secondsLeft,
+    required this.clock,
     required this.onPick,
     required this.onLock,
     this.accepts = VoteRows.defaultAccepts,
@@ -121,8 +117,8 @@ class VoteView extends StatefulWidget {
 
   final GameMe me;
 
-  /// Null: the vote has no deadline (no number).
-  final int? secondsLeft;
+  /// What the clock counts down; null: the vote has no deadline (no number).
+  final Countdown? clock;
 
   /// A slip tapped: pick that player.
   final ValueChanged<int> onPick;
@@ -181,7 +177,7 @@ class _VoteViewState extends State<VoteView> {
         dress: Dress.paper,
         bleed: true,
         topSlot: SquareSky(
-          secondsLeft: widget.secondsLeft,
+          countdown: widget.clock,
           title: VoteCopy.headline,
           clock: SkyClock.vote,
         ),

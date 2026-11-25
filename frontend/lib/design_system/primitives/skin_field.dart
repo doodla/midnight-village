@@ -78,42 +78,46 @@ class SkinField extends StatelessWidget {
       minHeight: _paper ? paperHeight : codeHeight,
     );
     final hintColor = _paper ? skin.paper.quietText : ground.quietText;
-    final field = TextField(
-      controller: controller,
-      onChanged: onChanged,
-      onSubmitted: onSubmitted,
-      textInputAction: textInputAction,
-      maxLength: maxLength,
-      inputFormatters: inputFormatters,
-      autofocus: autofocus,
-      focusNode: focusNode,
-      textCapitalization: _paper
-          ? TextCapitalization.words
-          : TextCapitalization.characters,
-      style: style,
-      cursorColor: _paper ? skin.paper.text : ground.selection,
-      decoration: InputDecoration(
-        // Set smaller on a narrow field with large text, never cut short.
-        hint: hint == null
-            ? null
-            : FitLine(
-                hint!,
-                style: style.copyWith(color: hintColor),
-                alignment: AlignmentDirectional.centerStart,
-              ),
-        counterText: '',
-        isDense: true,
-        filled: false,
-        // The line of text is padded out to the paper's height, so the whole
-        // paper takes the finger, not only the line (and larger text grows
-        // it).
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: _paper ? Space.lg : Space.mdPlus,
-          vertical: math.max(0, (constraints.minHeight - line) / 2),
+    // The cursor blinks twice a second while the field has the focus: in its
+    // own repaint boundary, a blink repaints the field and not the screen.
+    final field = RepaintBoundary(
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        textInputAction: textInputAction,
+        maxLength: maxLength,
+        inputFormatters: inputFormatters,
+        autofocus: autofocus,
+        focusNode: focusNode,
+        textCapitalization: _paper
+            ? TextCapitalization.words
+            : TextCapitalization.characters,
+        style: style,
+        cursorColor: _paper ? skin.paper.text : ground.selection,
+        decoration: InputDecoration(
+          // Set smaller on a narrow field with large text, never cut short.
+          hint: hint == null
+              ? null
+              : FitLine(
+                  hint!,
+                  style: style.copyWith(color: hintColor),
+                  alignment: AlignmentDirectional.centerStart,
+                ),
+          counterText: '',
+          isDense: true,
+          filled: false,
+          // The line of text is padded out to the paper's height, so the whole
+          // paper takes the finger, not only the line (and larger text grows
+          // it).
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: _paper ? Space.lg : Space.mdPlus,
+            vertical: math.max(0, (constraints.minHeight - line) / 2),
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
         ),
-        border: InputBorder.none,
-        enabledBorder: InputBorder.none,
-        focusedBorder: InputBorder.none,
       ),
     );
     // Dressed up the field is a piece of paper (a bone scrap for the name, a

@@ -237,19 +237,14 @@ class _YourCardScreenState extends ConsumerState<YourCardScreen> {
       _candleWarmed = true;
       CandleGauge.precache(context, candle);
     }
-    return StageSeconds(
-      gameId: widget.gameId,
-      deadline: me.deadline,
-      builder: (context, seconds) => WorldTimer.candleCompact(
-        secondsLeft: seconds,
-        share: StageShare.left(
-          startedAt: me.stageStartedAt,
-          deadline: me.deadline,
-          secondsLeft: seconds,
-        ),
-        lineHeight: WorldTimer.quietLine,
-        candleHeight: candle,
+    return WorldTimer.candleCompact(
+      countdown: stageCountdown(
+        _notifier,
+        deadline: me.deadline,
+        startedAt: me.stageStartedAt,
       ),
+      lineHeight: WorldTimer.quietLine,
+      candleHeight: candle,
     );
   }
 

@@ -276,7 +276,7 @@ void main() {
     testWidgets('with no deadline known it is the candle alone, no number', (
       tester,
     ) async {
-      await pumpSkinned(tester, const WorldTimer.candle(secondsLeft: null));
+      await pumpSkinned(tester, const WorldTimer.candle(countdown: null));
       expect(find.byType(Text), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -293,11 +293,17 @@ void main() {
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
-      await pumpSkinned(tester, const WorldTimer.candle(secondsLeft: 19));
+      await pumpSkinned(
+        tester,
+        const WorldTimer.candle(countdown: Countdown.held(19)),
+      );
       expect(find.bySemanticsLabel('19 s'), findsOneWidget);
       await pumpSkinned(
         tester,
-        const WorldTimer.candle(secondsLeft: 19, semanticLabel: '19 left'),
+        const WorldTimer.candle(
+          countdown: Countdown.held(19),
+          semanticLabel: '19 left',
+        ),
       );
       expect(find.bySemanticsLabel('19 left'), findsOneWidget);
       semantics.dispose();

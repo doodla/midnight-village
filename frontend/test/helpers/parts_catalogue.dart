@@ -459,13 +459,16 @@ final List<PartSample> partsCatalogue = [
     PartState.rest,
     (c) => SizedBox(
       width: 260,
-      child: TimerBand.bar(secondsLeft: 40, remaining: 0.6, title: 'Talk'),
+      child: TimerBand.bar(
+        countdown: Countdown.held(40, share: 0.6),
+        title: 'Talk',
+      ),
     ),
   ),
   PartSample(
     'WorldTimer',
     PartState.rest,
-    (c) => const WorldTimer.candle(secondsLeft: 14),
+    (c) => const WorldTimer.candle(countdown: Countdown.held(14)),
   ),
   PartSample('PaperMark', PartState.rest, (c) => const PaperMark(size: 30)),
   PartSample(

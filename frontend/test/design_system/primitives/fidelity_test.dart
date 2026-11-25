@@ -270,7 +270,7 @@ void main() {
   ) async {
     await _pump(
       tester,
-      const Center(child: WorldTimer.candle(secondsLeft: 19)),
+      const Center(child: WorldTimer.candle(countdown: Countdown.held(19))),
     );
     final panel = tester.widget<Container>(
       find
@@ -293,7 +293,9 @@ void main() {
   ) async {
     await _pump(
       tester,
-      const Align(child: WorldTimer.candleCompact(secondsLeft: 14)),
+      const Align(
+        child: WorldTimer.candleCompact(countdown: Countdown.held(14)),
+      ),
     );
     expect(tester.widget<Text>(find.text('14 s')).style!.fontSize, 64);
     expect(
@@ -321,7 +323,9 @@ void main() {
         theme: skinTheme(_skin),
         home: ScreenFrame(
           ground: GroundKind.day,
-          topSlot: const TimerBand.bar(secondsLeft: 18, remaining: 0.3),
+          topSlot: const TimerBand.bar(
+            countdown: Countdown.held(18, share: 0.3),
+          ),
           body: const Text('Who dies today?'),
         ),
       ),

@@ -217,7 +217,7 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await _pump(
           tester,
-          WorldTimer.candleCompact(secondsLeft: 9, share: share),
+          WorldTimer.candleCompact(countdown: Countdown.held(9, share: share)),
         );
         expect(find.text('9 s'), findsOneWidget, reason: '$share');
         expect(find.byType(CandleGauge), findsOneWidget);
@@ -239,8 +239,7 @@ void main() {
         await _pump(
           tester,
           WorldTimer.candleCompact(
-            secondsLeft: seconds,
-            share: seconds / 30,
+            countdown: Countdown.held(seconds, share: seconds / 30),
             candleHeight: 64,
             lineHeight: 64,
           ),
@@ -263,8 +262,7 @@ void main() {
       await _pump(
         tester,
         const WorldTimer.candleCompact(
-          secondsLeft: 14,
-          share: 0.6,
+          countdown: Countdown.held(14, share: 0.6),
           candleHeight: 64,
           lineHeight: 70,
         ),
@@ -297,8 +295,7 @@ void main() {
         await _pump(
           tester,
           WorldTimer.candleCompact(
-            secondsLeft: seconds,
-            share: share,
+            countdown: Countdown.held(seconds, share: share),
             candleHeight: 88,
             lineHeight: 88,
           ),
@@ -326,10 +323,7 @@ void main() {
 
     testWidgets('a candle with no known window is whole, with no number '
         'made up', (tester) async {
-      await _pump(
-        tester,
-        const WorldTimer.candleCompact(secondsLeft: null, share: null),
-      );
+      await _pump(tester, const WorldTimer.candleCompact(countdown: null));
       expect(find.byType(Text), findsNothing);
       expect(find.byType(CandleGauge), findsOneWidget);
     });

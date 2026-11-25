@@ -134,7 +134,7 @@ Future<void> _heldStory(
       overrides: learnedOverrides({...Cue.values}),
       child: TalkView(
         me: GameMe.fromJson(body),
-        secondsLeft: 192,
+        clock: Countdown.held(192),
         onReady: () {},
         openNight: true,
       ),
@@ -191,7 +191,11 @@ void main() {
             tester,
             ProviderScope(
               overrides: learnedOverrides({...Cue.values}),
-              child: TalkView(me: me, secondsLeft: 192, onReady: () {}),
+              child: TalkView(
+                me: me,
+                clock: Countdown.held(192),
+                onReady: () {},
+              ),
             ),
           );
           await tester.pump();

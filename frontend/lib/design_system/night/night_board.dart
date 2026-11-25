@@ -77,8 +77,7 @@ class NightBoard extends ConsumerStatefulWidget {
     required this.prompt,
     required this.face,
     required this.dealt,
-    required this.secondsLeft,
-    this.share,
+    required this.countdown,
     required this.onChoose,
     this.dress,
   });
@@ -111,14 +110,13 @@ class NightBoard extends ConsumerStatefulWidget {
   /// changed is told only on a held [face].
   final RoleId dealt;
 
-  /// The stage's countdown, as the server gives it; null in a window with
-  /// no deadline (the candle alone).
-  final int? secondsLeft;
-
-  /// How much of the window is left, 0 to 1, for the candle's flame and wax
-  /// ([StageShare.left]: the same on every phone); null when the server did
-  /// not say how long the window is: the candle whole.
-  final double? share;
+  /// The stage's countdown, as the server gives it, for the candle and its
+  /// number (only the clock reads it: a second going by redraws the clock,
+  /// not the board); null in a window with no deadline (the candle alone).
+  /// The candle's flame and wax burn down with the share of the window left
+  /// ([StageShare.left]: the same on every phone); with no share (the server
+  /// did not say how long the window is) the candle stands whole.
+  final Countdown? countdown;
 
   /// Sends the picks, in tap order, with the prompt's stage, and says what
   /// became of them ([ChooseAnswer.fromStatus] on the server's answer). The
@@ -475,8 +473,7 @@ class _NightBoardState extends ConsumerState<NightBoard>
               ),
             ),
             WorldTimer.candleCompact(
-              secondsLeft: widget.secondsLeft,
-              share: widget.share,
+              countdown: widget.countdown,
               candleHeight: candle,
               lineHeight: room,
               maxNumberWidth: header.maxWidth * NightBoard.timerShare,

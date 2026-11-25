@@ -5,7 +5,7 @@ part of 'band.dart';
 
 /// The vote's countdown, edge to edge at the top of the screen (put it in
 /// `ScreenFrame.topSlot`): a strip of night with the number, and a bar along
-/// its foot, [remaining] of it lit in the danger line. It shows what it is
+/// its foot, the share of the stage left lit in the danger line. It shows what it is
 /// given and stops at 0. (The talk's clock is `SquareSky`.)
 ///
 /// The digits stand alone: the mock's caption ("seconds to choose") is cut
@@ -14,23 +14,21 @@ part of 'band.dart';
 /// two lines at most, where the two fit side by side, and under it where they
 /// do not (large text, a narrow phone).
 ///
-/// Nothing is drawn that is not known: with no share of the stage (null
-/// [remaining]: an untimed stage) the bar is unlit; with no deadline (null
-/// [secondsLeft]) there is no number either.
+/// Nothing is drawn that is not known: with no share of the stage (an
+/// untimed stage) the bar is unlit; with no deadline (null [countdown])
+/// there is no number either.
 class TimerBand extends StatelessWidget {
   const TimerBand.bar({
     super.key,
-    required this.secondsLeft,
-    required this.remaining,
+    required this.countdown,
     this.title,
     this.semanticLabel,
   });
 
-  /// Null: the stage has no deadline, and nothing is counted.
-  final int? secondsLeft;
-
-  /// How much of the phase is left, 0 to 1; null when unknown.
-  final double? remaining;
+  /// What it counts down, and how much of the phase is left, 0 to 1
+  /// ([ClockTick] reads it). Null: the stage has no deadline, and nothing
+  /// is counted.
+  final Countdown? countdown;
 
   /// The screen's headline, beside or under the number.
   final String? title;
@@ -42,11 +40,14 @@ class TimerBand extends StatelessWidget {
   static const barHeight = 8.0;
 
   @override
-  Widget build(BuildContext context) {
-    final seconds = secondsLeft;
-    final number = seconds == null ? null : WorldTimer.format(seconds);
-    return _bar(context, number);
-  }
+  Widget build(BuildContext context) => ClockTick(
+    countdown: countdown,
+    builder: (context, reading) {
+      final seconds = reading.seconds;
+      final number = seconds == null ? null : WorldTimer.format(seconds);
+      return _bar(context, number, reading.share);
+    },
+  );
 
   /// The number and the title: side by side when the title fits beside the
   /// number on two lines, else the title under it.
@@ -156,11 +157,10 @@ class TimerBand extends StatelessWidget {
     return lines <= 2;
   }
 
-  Widget _bar(BuildContext context, String? number) {
+  Widget _bar(BuildContext context, String? number, double? lit) {
     final skin = context.skin;
     final dressed = context.dress.isPaper;
     final top = MediaQuery.paddingOf(context).top;
-    final lit = remaining;
     return GroundScope(
       ground: GroundKind.night,
       fill: true,

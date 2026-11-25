@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/night/night_board.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/design_system/night/choose_prompt.dart';
@@ -204,8 +205,7 @@ class _CandleHost extends StatelessWidget {
       prompt: prompt,
       face: NightReport.fromMe(me).you(prompt),
       dealt: NightReport.fromMe(me).dealt,
-      secondsLeft: left,
-      share: left / 30,
+      countdown: Countdown.held(left, share: left / 30),
       onChoose: (_, _) async => ChooseAnswer.taken,
     ),
   );

@@ -78,13 +78,13 @@ GamePhase? _phaseOf(AppScreen screen) => switch (screen) {
 /// The clocks drawn: (the widget, the seconds it shows).
 Iterable<(Element, int?)> _clocks() sync* {
   for (final e in find.byType(WorldTimer).evaluate()) {
-    yield (e, (e.widget as WorldTimer).secondsLeft);
+    yield (e, (e.widget as WorldTimer).countdown?.secondsNow);
   }
   for (final e in find.byType(SquareSky).evaluate()) {
-    yield (e, (e.widget as SquareSky).secondsLeft);
+    yield (e, (e.widget as SquareSky).countdown?.secondsNow);
   }
   for (final e in find.byType(TimerBand).evaluate()) {
-    yield (e, (e.widget as TimerBand).secondsLeft);
+    yield (e, (e.widget as TimerBand).countdown?.secondsNow);
   }
 }
 

@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/night/story_plan.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
@@ -34,7 +35,7 @@ class _Clock extends StatelessWidget {
         builder: (context, left, _) => TalkView(
           // A new object each time, as every `/me/` read is.
           me: GameMe.fromJson(allNights[night]!()),
-          secondsLeft: left,
+          clock: Countdown.held(left),
           onReady: () {},
           openNight: true,
         ),

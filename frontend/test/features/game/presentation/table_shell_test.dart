@@ -432,7 +432,7 @@ void main() {
       expect(find.byType(NightWaitScreen), findsOneWidget);
       expect(find.text(CommonCopy.nightTitle), findsOneWidget);
       expect(
-        tester.widget<WorldTimer>(find.byType(WorldTimer)).secondsLeft,
+        tester.widget<WorldTimer>(find.byType(WorldTimer)).countdown,
         isNull,
       );
       s.meReplies!.releaseAll();
@@ -456,17 +456,17 @@ void main() {
       expect(board.selfId, me['player_id']);
       expect(board.seats, hasLength((me['players'] as List).length));
       expect(board.prompt.stage, me['stage']);
-      expect(board.secondsLeft, 14);
+      expect(board.countdown?.secondsNow, 14);
       // The candle: the share of the window left, from the server's own
       // `stage_started_at` and deadline, the same as the talk's sun.
       final parsed = GameMe.fromJson(me);
       final length = parsed.deadline!
           .difference(parsed.stageStartedAt!)
           .inMilliseconds;
-      expect(board.share, closeTo(14000 / length, 1e-9));
+      expect(board.countdown?.shareNow, closeTo(14000 / length, 1e-9));
       expect(
-        tester.widget<WorldTimer>(find.byType(WorldTimer)).share,
-        board.share,
+        tester.widget<WorldTimer>(find.byType(WorldTimer)).countdown,
+        board.countdown,
       );
       await s.close(tester);
     });

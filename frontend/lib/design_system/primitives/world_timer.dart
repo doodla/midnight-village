@@ -9,7 +9,11 @@ import '../skin/skin.dart';
 import 'art_picture.dart';
 import 'band.dart';
 import 'candle_gauge.dart';
+import 'countdown.dart';
 import 'cut_paper.dart';
+
+// A clock is handed what it counts; the seconds stay inside it.
+export 'countdown.dart' show Countdown, StageShare;
 
 /// The night's countdown, told by a candle, with the number beside it. It
 /// shows what it is given and stops at 0; the server says when the phase
@@ -29,31 +33,28 @@ import 'cut_paper.dart';
 class WorldTimer extends StatelessWidget {
   const WorldTimer.candle({
     super.key,
-    required this.secondsLeft,
+    required this.countdown,
     this.semanticLabel,
   }) : _compact = false,
-       share = null,
        candleHeight = 90,
        lineHeight = null,
        maxNumberWidth = null;
 
   const WorldTimer.candleCompact({
     super.key,
-    required this.secondsLeft,
-    this.share,
+    required this.countdown,
     this.candleHeight = 90,
     this.lineHeight,
     this.maxNumberWidth,
     this.semanticLabel,
   }) : _compact = true;
 
-  /// Null while the phone does not know the deadline yet (05 while `/me/`
-  /// loads): the candle alone, no number made up.
-  final int? secondsLeft;
-
-  /// How much of the window is left, 0 to 1, for the compact candle (null:
-  /// the candle whole, the server did not say how long the window is).
-  final double? share;
+  /// What it counts down ([ClockTick] reads it, nothing else). Null while
+  /// the phone does not know the deadline yet (05 while `/me/` loads): the
+  /// candle alone, no number made up. The compact candle burns down with
+  /// the stage's share left; with no share (the server did not say how long
+  /// the window is) it stands whole.
+  final Countdown? countdown;
 
   /// The compact candle's height.
   final double candleHeight;
@@ -89,21 +90,22 @@ class WorldTimer extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final seconds = secondsLeft;
-    final number = seconds == null ? null : format(seconds);
-    return Semantics(
-      label: semanticLabel ?? number,
-      excludeSemantics: true,
-      // In a row that gives it unbounded width (a header beside a title) it
-      // takes its mock size; given a width, its parts shrink to fit it.
-      child: LayoutBuilder(
-        builder: (context, constraints) => _compact
-            ? _corner(context, number, constraints.hasBoundedWidth)
+  Widget build(BuildContext context) => ClockTick(
+    countdown: countdown,
+    builder: (context, reading) {
+      final seconds = reading.seconds;
+      final number = seconds == null ? null : format(seconds);
+      return Semantics(
+        label: semanticLabel ?? number,
+        excludeSemantics: true,
+        // In a row that gives it unbounded width (a header beside a title)
+        // it takes its mock size; given a width, its parts shrink to fit it.
+        child: _compact
+            ? _corner(context, number, reading.share)
             : _panel(context, number),
-      ),
-    );
-  }
+      );
+    },
+  );
 
   Widget _panel(BuildContext context, String? number) {
     final skin = context.skin;
@@ -141,7 +143,7 @@ class WorldTimer extends StatelessWidget {
     );
   }
 
-  Widget _corner(BuildContext context, String? number, bool bounded) {
+  Widget _corner(BuildContext context, String? number, double? share) {
     // The night's timer is the one timer style (`timerSmall`, the number as
     // the vote's and the talk's are drawn: the unit at a share of it), at its
     // own size whatever the text size.

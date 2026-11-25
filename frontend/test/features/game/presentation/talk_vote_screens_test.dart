@@ -98,7 +98,7 @@ void main() {
       expect(find.byType(TalkScreen), findsOneWidget);
       await _putAway(tester);
       final band = tester.widget<SquareSky>(find.byType(SquareSky));
-      expect(band.secondsLeft, 14);
+      expect(band.countdown?.secondsNow, 14);
       expect(band.title, TalkCopy.headline);
       expect(find.text(TalkCopy.headline), findsNothing, reason: 'spoken');
       final parsed = GameMe.fromJson(me);
@@ -438,7 +438,7 @@ void main() {
       expect(find.byType(VoteScreen), findsOneWidget);
       expect(find.text(VoteCopy.headline), findsOneWidget);
       final sky = tester.widget<SquareSky>(find.byType(SquareSky));
-      expect((sky.secondsLeft, sky.clock), (14, SkyClock.vote));
+      expect((sky.countdown?.secondsNow, sky.clock), (14, SkyClock.vote));
       final rows = tester.widgetList<VoteSlip>(find.byType(VoteSlip));
       // Every other player; this phone's own name is never listed.
       expect(rows.map((r) => r.name), ['Ben', 'Cleo', 'Dev', 'Esme']);
