@@ -61,6 +61,9 @@ The live server's channel layer is tested against a real Redis:
 `tests/core/test_channel_layer.py` uses `REDIS_TEST_URL` (GitHub's backend job sets it),
 else starts a `redis-server` from the PATH on a free port, else is skipped (never on CI,
 where `CI` is set: there it fails instead).
+`tests/core/test_db_pool.py` points the live settings' pool at the run's own database,
+directly and through a local relay (`Proxy`) that can make connections silent (their
+packets swallowed, as a vanished network path does) or slow to open (a database waking).
 
 ## Migration tests
 

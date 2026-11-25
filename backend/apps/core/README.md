@@ -37,7 +37,9 @@ lobbies, `LobbySocket` rows and the lobby consumer, host handover (`core/host.py
 (`core/effects.py`; one `send_after_commit` call is one batch, which the live server's channel layer, `core/channel_layer.py`, sends in two Redis round trips whatever it holds, in order for every socket),
 the `Server-Timing` header every answer carries
 (`core/server_timing.py`: on the live server only how long the request took to get its database connection, when it made one, and the total rounded to 50 ms, because round-trip and message counts can depend on other players' hidden moves (`tests/perf/test_header_hides_play.py`); with `SERVER_TIMING_DETAIL`, on in development, the harness and the tests, also its database round trips, socket and timer messages and each part's time),
-durable timers (`core/timers.py`, `ScheduledTimer`, the queue subscriber `core/queue_worker.py`) and generic presence (`core/presence.py`).
+durable timers (`core/timers.py`, `ScheduledTimer`, the queue subscriber `core/queue_worker.py`), the live server's database engine
+(`core/pooled_postgres`: Django's PostgreSQL backend with its pool; a lent connection is trusted after at most one word with the database, and a dead or long-unused one drains the pool so the request opens one new connection; `docs/dev/deploy-vercel.md`, "Database connections")
+and generic presence (`core/presence.py`).
 A game app plugs in through `apps/core/games.py`:
 `GameHooks` registered per `Lobby.game_type` from `AppConfig.ready`
 (`apps/onuw/hooks.py`: settings validation, the newest game's socket group, who is connected to it, when its players were noticed gone, whether it is finished, which game a member plays in: `member_game`)

@@ -63,7 +63,7 @@ cost 98 deployments; with this they would have cost 35.
 | `ALLOWED_HOSTS` | comma-separated. The settings add `VERCEL_URL` (the per-build address) and `VERCEL_PROJECT_PRODUCTION_URL` (one production domain) themselves; every OTHER address people use must be listed here, or Django answers "Bad Request (400)". Currently set on the project: `midnight-village-anthelion.vercel.app`, `midnight-village-api.vercel.app`, `midnight-village-git-main-anthelion.vercel.app` and the app's own host `midnight-village-app-anthelion.vercel.app` (it must stay: the socket origin check uses this list); a dead working-branch alias, `midnight-village-git-ccr-2435dc07-33z3jn-anthelion.vercel.app`, is still set and is to be removed. A custom domain needs adding, and the change only applies to the next build. |
 | `CORS_ALLOWED_ORIGINS` | comma-separated origins of the app (answers to them expose the `Date` header: `CORS_EXPOSE_HEADERS` in the base settings, not an env var) |
 | `CSRF_TRUSTED_ORIGINS` | comma-separated (admin only) |
-| `DB_CONN_MAX_AGE` | optional, default `0` (do not hold connections between requests) |
+| `DB_POOL_MAX_SIZE` | optional, default `5`: database connections one instance keeps between requests ("Database connections" below). `DB_CONN_MAX_AGE` is no longer read (Django refuses it beside a pool) |
 | `DB_SSLMODE` | optional, default `require` |
 | `ONUW_TIMER_QUEUE_TOPIC` | optional, default `onuw-timers` |
 | `CRON_SECRET` | shared secret of the timer sweep endpoint (`Authorization: Bearer ...`); unset = the endpoint refuses everything |
@@ -84,6 +84,53 @@ No secrets live in the repo. `DEBUG` is forced off, so the debug harness endpoin
 * `backend/apps/core/queue_worker.py`: the subscriber (`@subscribe(topic="onuw-timers*")`).
 * Migrations to run on deploy: `python manage.py migrate --noinput` (core 0006, 0007;
   onuw 0004, 0005, 0006, 0007).
+
+## Database connections
+
+A warm instance keeps its database connections between requests in Django's psycopg
+pool (`config/settings/vercel.py`, engine `apps.core.pooled_postgres`), so a request
+does not open a new one (TCP, TLS, sign-in: 21 to 30 ms on every signed-in request
+before, by `tool/deployed_timing.py`).
+Persistent connections (`CONN_MAX_AGE`) would not work: under ASGI every request runs in
+its own thread and Django's connections are per thread.
+
+* **A lent connection is trusted after at most one word with the database.** An
+  instance can be frozen for minutes between requests; meanwhile the database may close
+  its connections (Neon scales to zero about 5 minutes after last use) or their network
+  path may vanish without a reply.
+  A connection unused for over 60 s is not probed at all; a younger one gets one empty
+  query, and a dead path fails it within 3 s (`tcp_user_timeout`).
+  Either failure closes every idle connection locally, without talking to them, and the
+  request gets a new one: a thaw costs one connect, never a wait on each dead
+  connection (`tests/core/test_db_pool.py`, with connections that reset and ones that
+  stay silent).
+* **The first tap after a quiet spell** (ten idle minutes, say) on a warm instance: its
+  connections are stale, so none is probed; one new connection goes to the pooled host,
+  which wakes the database first (about a second); the tap then runs as usual.
+  Taps arriving at the same moment on that instance wait for the same wake-up: the pool
+  opens connections one at a time and the database wakes once.
+  On a new instance it is the cold start plus the same one connect.
+* **Limits.** A request waits at most 8 s for its connection: one dead probe (3 s) and
+  one connect that wakes the database (`connect_timeout`, 5 s).
+  That is under the app's own 10 s, so a phone gets an answer (a server error, handled
+  like any failed request) rather than its own timeout.
+  Getting a connection that takes over 1 s is logged as a warning (a lent connection puts
+  no `connect` in `Server-Timing`, so such a wait would not show there).
+* **Sizes.** `min_size` 0, `max_size` 5 (`DB_POOL_MAX_SIZE`), a connection renewed after
+  30 minutes.
+  psycopg closes at most one idle connection per `max_idle` (300 s), so an instance that
+  keeps running after a burst holds its connections for up to 25 minutes; one that is
+  frozen holds them until the database closes them.
+  Worst case on the database: 5 per instance alive, so 100 with 20 instances.
+* **Pooled or direct host.** Correct for both: no server-side prepared statements
+  (Django's default) and no server-side cursors (`DISABLE_SERVER_SIDE_CURSORS`), which
+  PgBouncer's transaction mode needs.
+  With the pooled host (`-pooler`, what `DATABASE_URL` is) idle connections cost the
+  database nothing; on a direct host they count against its `max_connections` (about
+  100 on the smallest Neon compute), so the worst case above is the one to watch there.
+* **Seen live.** `Server-Timing` has a `connect` part only when the request had a
+  connection opened for it; one the pool lends again has none, so on a warm instance
+  most answers carry no `connect`.
 
 ## Socket messages
 

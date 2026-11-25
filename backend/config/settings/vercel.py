@@ -17,7 +17,8 @@ Environment (no secrets in the repo):
                                ``VERCEL_PROJECT_PRODUCTION_URL`` are added if set
 * ``CORS_ALLOWED_ORIGINS``     comma-separated origins of the app
 * ``CSRF_TRUSTED_ORIGINS``     comma-separated origins (admin only)
-* ``DB_CONN_MAX_AGE``          optional, default 0
+* ``DB_POOL_MAX_SIZE``         optional, default 5 (connections one instance keeps)
+* ``DB_SSLMODE``               optional, default ``require``
 """
 
 import os
@@ -38,16 +39,49 @@ def _database_from_url(url: str) -> dict:
     if parsed.scheme not in ("postgres", "postgresql"):
         raise ValueError("DATABASE_URL must be a postgres:// URL")
     return {
-        "ENGINE": "django.db.backends.postgresql",
+        # Django's backend with its psycopg pool, checked on every borrow (the
+        # pool's module says why it is not Django's own engine).
+        "ENGINE": "apps.core.pooled_postgres",
         "NAME": parsed.path.lstrip("/"),
         "USER": unquote(parsed.username or ""),
         "PASSWORD": unquote(parsed.password or ""),
         "HOST": parsed.hostname or "",
         "PORT": str(parsed.port or 5432),
-        # Instances are short-lived and the URL is a pooled endpoint: do not
-        # hold connections between requests unless asked to.
-        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "0")),
-        "OPTIONS": {"sslmode": os.environ.get("DB_SSLMODE", "require")},
+        # A pool, not persistent connections: under ASGI every request runs in its
+        # own thread, so a per-thread connection is never reused. Django refuses a
+        # pool with CONN_MAX_AGE set, so it is not read from the environment.
+        "CONN_MAX_AGE": 0,
+        # Safe behind PgBouncer in transaction mode (Neon's pooled host) and on a
+        # direct host alike; prepared statements are already off (Django's default).
+        "DISABLE_SERVER_SIDE_CURSORS": True,
+        "OPTIONS": {
+            "sslmode": os.environ.get("DB_SSLMODE", "require"),
+            # A connection whose packets go unanswered (its path vanished while the
+            # instance was frozen) fails within 3 s, not TCP's minutes.
+            "tcp_user_timeout": 3_000,
+            # Opening one: room for waking a database that scaled to zero (Neon
+            # wakes in about a second).
+            "connect_timeout": 5,
+            "pool": pool_options(),
+        },
+    }
+
+
+def pool_options() -> dict[str, int]:
+    """A warm instance keeps up to ``max_size`` connections between requests
+    (``apps/core/pooled_postgres`` says how a lent one is trusted). Worst case on
+    the database: ``max_size`` per instance alive, running or frozen (5 x 20 =
+    100); deploy-vercel.md, "Database connections"."""
+    return {
+        "min_size": 0,
+        "max_size": int(os.environ.get("DB_POOL_MAX_SIZE", "5")),
+        # psycopg closes at most one idle connection per this many seconds.
+        "max_idle": 300,
+        "max_lifetime": 1800,
+        # The longest a request waits for its connection: one dead probe (3 s)
+        # and one connect that wakes the database (5 s). Under the app's own 10 s,
+        # so the phone gets an answer (an error) rather than its own timeout.
+        "timeout": 8,
     }
 
 

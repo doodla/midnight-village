@@ -3,8 +3,9 @@
 On the live server (``SERVER_TIMING_DETAIL`` off, the default and the Vercel
 settings) it carries only what cannot tell anyone about the game:
 
-* ``connect``: how long this request took to get its database connection (TCP, TLS
-  and sign-in; the live settings open one per request), only when it made one;
+* ``connect``: how long this request took to get its database connection, only
+  when one was opened for it (TCP, TLS and the sign-in). Live, a warm instance's
+  pool lends a connection again (``apps.core.pooled_postgres``): no ``connect``;
 * ``total``: from this middleware's start to the answer, rounded to
   ``TOTAL_STEP_MS``, so it says no more than a stopwatch on the phone does.
 
@@ -61,7 +62,9 @@ def _timed_connect(original: Callable[..., Any]) -> Callable[..., Any]:
         try:
             return original(self)
         finally:
-            note("connect", time.perf_counter() - began)
+            # A connection the live pool lent again was not made: no ``connect``.
+            if not getattr(self, "reused_connection", False):
+                note("connect", time.perf_counter() - began)
 
     connect.timed_by_server_timing = True  # type: ignore[attr-defined]
     return connect
