@@ -70,8 +70,9 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
 - **The app renews itself for a new build** (`lib/core/update/`, the rule `mayReloadNow` in
   `features/game/domain/reload_rule.dart`, `docs/dev/deploy-vercel.md`): it knows its commit
   (`BUILD_COMMIT`), reads `/commit.txt`, and reloads at a safe moment through the cold opening, so
-  a seated player lands in their seat. In a running game it never reloads on a phase change or the
-  timer, only when the tab comes back after a while away. It updates the service worker and waits
+  a seated player lands in their seat. Only on 01 at once; at the table and in a running game it
+  never reloads on a screen change, a phase change or the timer, only when the tab comes back after
+  a while away (owner, 24 November 2026: "Reload only when nobody waits"). It updates the service worker and waits
   for it to take over before reloading; it never deletes the worker or its caches. Nothing is
   shown. A build with no commit (local, tests, the
   installed app) never looks. A new place that shows a screen or starts a request must not break
@@ -81,6 +82,8 @@ web integration test and `just test-harness`. `just gate-full` runs the first fo
   bundle at the main branch (origin/main), else `tool/release_assets.json`) until it is an `ArtSet.retired` copy or
   a dated `removedOnPurpose` line in `tool/release_assets.json`; `just record-assets` refuses
   while one is uncovered, so regenerating cannot hide a removal.
+- **A tool that needs the built web app asks for it**: `out=$(tool/web_build_cached.sh <flutter build web arguments>)`,
+  never its own `flutter build web`: the build is made again only when what goes into it changed (a minute, else a blink).
 - **`vercel.json` is judged as Vercel compiles it**: `tool/web_smoke/routes.test.cjs` (run by
   `just web-smoke`, which needs `@vercel/routing-utils` from `just web-smoke-setup`), never by
   reading a `source` as a plain pattern.

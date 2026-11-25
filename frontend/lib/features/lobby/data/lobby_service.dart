@@ -191,24 +191,6 @@ class LobbyService {
     }
   }
 
-  /// The id of the game this player is in at table [code], if one is running.
-  ///
-  /// GET /onuw/me/current-game/ -- null when there is none or it belongs to
-  /// another table. Lets a lobby that missed `game_started` find the game.
-  Future<String?> activeGameIdAt(String code) async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/onuw/me/current-game/',
-      );
-      // The server answers {"game_id", "phase", "lobby_code"}, or
-      // {"game": null} when there is no running game.
-      final data = response.data!;
-      return data['lobby_code'] == code ? data['game_id'] as String : null;
-    } on DioException catch (e) {
-      throw mapDioException(e);
-    }
-  }
-
   /// Fetches the current lobby state.
   ///
   /// GET /lobbies/<code>/

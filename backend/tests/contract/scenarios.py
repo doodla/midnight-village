@@ -837,6 +837,14 @@ def doppelganger_table(run: Recording) -> Table:
         about="Results asked for by someone who did not play.",
     )
     t.record(
+        "game/me_not_a_player",
+        "GET",
+        OUTSIDER,
+        ME,
+        status=403,
+        about="/me/ asked for by someone who does not play in the game.",
+    )
+    t.record(
         "debug/state",
         "GET",
         "Ana",

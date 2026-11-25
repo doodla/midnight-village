@@ -11,6 +11,7 @@ Shared by every app (game logic, host handover, presence, durable timers).
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -19,7 +20,7 @@ from django.db import transaction
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-from apps.core import timers
+from apps.core import server_timing, timers
 
 
 def after_commit(func: Callable[[], None]) -> None:
@@ -40,7 +41,9 @@ def send_after_commit(messages: list[tuple[str, dict[str, Any]]]) -> None:
     def _send() -> None:
         send = async_to_sync(channel_layer.group_send)
         for group, event in messages:
+            began = time.perf_counter()
             send(group, event)
+            server_timing.note("sockets", time.perf_counter() - began)
 
     after_commit(_send)
 

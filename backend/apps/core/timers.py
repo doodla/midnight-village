@@ -48,6 +48,7 @@ Key format: "{game_id}:discussion", "{game_id}:voting", "{game_id}:wave:{n}",
 import logging
 import math
 import threading
+import time
 import uuid
 from collections.abc import Callable
 from datetime import timedelta
@@ -179,7 +180,11 @@ def set_queue_sender(sender: Callable[[str, dict[str, Any], float], None] | None
 
 def send_message(key: str, token: str, delay_seconds: float) -> None:
     """Publish one delayed ``{key, token}`` message (queue backend)."""
+    from apps.core import server_timing
+
+    began = time.perf_counter()
     _queue_sender(queue_topic(), {"key": key, "token": token}, delay_seconds)
+    server_timing.note("queue", time.perf_counter() - began)
 
 
 def _arm(key: str, token: str, delay_seconds: float) -> None:
