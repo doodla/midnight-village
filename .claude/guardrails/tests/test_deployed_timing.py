@@ -61,5 +61,44 @@ class Rows(unittest.TestCase):
         self.assertEqual([r["kind"] for r in said["rows"]], ["read the table", "deal"])
 
 
+class Compared(unittest.TestCase):
+    def run_of(self, connects, commit):
+        t = timing.Timings()
+        t.add("read the table", 0.3, None, True)
+        for header in connects:
+            t.add("read the table", 0.150 if header else 0.120, header or "total;dur=50", False)
+        t.add_heard("game_started", 0.309 if commit == "old" else 0.25)
+        return json.loads(t.as_json(commit=commit))
+
+    def test_two_runs_are_set_side_by_side(self):
+        before = self.run_of(["connect;dur=23, total;dur=50"] * 3, "old")
+        after = self.run_of([None, None, None], "new")
+        after["rows"].append({**after["rows"][0], "kind": "a new request"})
+
+        table = timing.compared(before, after)
+
+        self.assertIn("Before: old. After: new.", table)
+        self.assertIn("| read the table | 150 -> 120 | 150 -> 120 | 50 -> 50 | 23.0 on 3 of 4 -> none of 4 |", table)
+        # a kind only one run has is still a row
+        self.assertIn("| a new request | - -> 120 ", table)
+        self.assertIn("| game_started | 309 -> 250 |", table)
+
+    def test_the_command_reads_two_files(self):
+        import subprocess
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            for name in ("a", "b"):
+                Path(d, f"{name}.json").write_text(json.dumps(self.run_of([None], name)))
+            ran = subprocess.run(
+                [sys.executable, str(ROOT / "tool" / "deployed_timing.py"), "compare", f"{d}/a.json", f"{d}/b.json"],
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(ran.returncode, 0, ran.stderr)
+        self.assertIn("Before: a. After: b.", ran.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
