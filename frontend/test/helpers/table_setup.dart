@@ -254,13 +254,15 @@ class TableSetup {
     // The real sign-in: this device's storage (empty: never signed in), the
     // guest account made through the mock server.
     final storage = _MemoryStorage();
+    // One holder of the tokens for the app and its sockets, as in the app.
+    final tokens = TokenStorage(storage: storage);
     setup._reconnecting = reconnectingSocket;
     if (slowLobbySocket) setup._firstOpens = Completer<void>();
     WebSocketChannelInterface lobbySocket(String code) {
       if (!reconnectingSocket) return setup.ws;
       final socket = ReconnectingWebSocket(
         url: 'ws://midnight.example/ws/lobby/$code/',
-        tokenStorage: TokenStorage(storage: storage),
+        tokenStorage: tokens,
         channelFactory: (_) {
           final opens = setup.lobbyConnections.isEmpty
               ? setup._firstOpens?.future
@@ -283,9 +285,7 @@ class TableSetup {
         overrides: [
           devicePreferencesProvider.overrideWithValue(DevicePreferences()),
           if (realAuth) ...[
-            tokenStorageProvider.overrideWithValue(
-              TokenStorage(storage: storage),
-            ),
+            tokenStorageProvider.overrideWithValue(tokens),
             userStorageProvider.overrideWithValue(
               UserStorage(storage: storage),
             ),

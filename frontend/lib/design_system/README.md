@@ -387,6 +387,8 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   "Ready to vote" is never locked. Nothing adds a wait or assumes a timer length:
   lengths come from the server.
 - **Secrets**: `HoldToReveal` shows its face 120 ms after the press for as long as it is held (no cap) and counts a reveal at 0.8 s;
+  both timed from the finger (`FingerTimedLongPress`, `fingerTime`, `primitives/finger_hold.dart`: the pointer events' own times), so a phone too busy to
+  run its timers still takes a 120 ms press as a hold and counts a hold of 0.92 s as the finger lifts (every hold in the kit is one: a role card, a stepper's words);
   a tap is never a reveal (it reaches the cover at once: on the board, a pick);
   a screen reader, switch or keyboard shows it until activated again;
   it hides on focus loss, a covering route and the app leaving the foreground.

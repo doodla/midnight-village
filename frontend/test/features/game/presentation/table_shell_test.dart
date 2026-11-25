@@ -173,15 +173,22 @@ void main() {
     });
 
     testWidgets('at no table: 01 Join', (tester) async {
-      final s = await ShellSetup.pump(tester, recordedMe('me_look_stage'));
-      s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
-      s.http
-        ..answer('GET', '/stats/online/', serverOnlineStats())
-        ..answer(
-          'GET',
-          '/onuw/me/recent-games/',
-          ContractSamples.map('http/game/recent_games_none'),
-        );
+      // Answered from the start: the shell's first read of where the phone
+      // sits leaves in the first frame.
+      final s = await ShellSetup.pump(
+        tester,
+        recordedMe('me_look_stage'),
+        before: (s) {
+          s.answerTable(ContractSamples.map('http/lobby/my_table_none'));
+          s.http
+            ..answer('GET', '/stats/online/', serverOnlineStats())
+            ..answer(
+              'GET',
+              '/onuw/me/recent-games/',
+              ContractSamples.map('http/game/recent_games_none'),
+            );
+        },
+      );
       s.resume();
       await s.settle(tester);
       expect(find.byType(JoinScreen), findsOneWidget);

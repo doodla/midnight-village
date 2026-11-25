@@ -34,7 +34,8 @@ Recovery logs one INFO line about it at every start.
 
 `apps.core` is shared infrastructure and imports NO game app (a test scans its source):
 lobbies, `LobbySocket` rows and the lobby consumer, host handover (`core/host.py`), play again (`core/lobbies.py`), the after-commit helpers
-(`core/effects.py`), the `Server-Timing` header every answer carries
+(`core/effects.py`; one `send_after_commit` call is one batch, which the live server's channel layer, `core/channel_layer.py`, sends in two Redis round trips whatever it holds, in order for every socket),
+the `Server-Timing` header every answer carries
 (`core/server_timing.py`: on the live server only how long the request took to get its database connection, when it made one, and the total rounded to 50 ms, because round-trip and message counts can depend on other players' hidden moves (`tests/perf/test_header_hides_play.py`); with `SERVER_TIMING_DETAIL`, on in development, the harness and the tests, also its database round trips, socket and timer messages and each part's time),
 durable timers (`core/timers.py`, `ScheduledTimer`, the queue subscriber `core/queue_worker.py`) and generic presence (`core/presence.py`).
 A game app plugs in through `apps/core/games.py`:

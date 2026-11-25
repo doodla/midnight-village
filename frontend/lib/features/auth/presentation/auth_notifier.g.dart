@@ -54,17 +54,20 @@ final class ApiClientProvider
 
 String _$apiClientHash() => r'90c807f03b90249684265cc91739139c2c89eeb9';
 
-/// Provides the token storage.
+/// Provides the token storage: the session's tokens, held in memory once
+/// read ([TokenStorage]).
 
 @ProviderFor(tokenStorage)
 const tokenStorageProvider = TokenStorageProvider._();
 
-/// Provides the token storage.
+/// Provides the token storage: the session's tokens, held in memory once
+/// read ([TokenStorage]).
 
 final class TokenStorageProvider
     extends $FunctionalProvider<TokenStorage, TokenStorage, TokenStorage>
     with $Provider<TokenStorage> {
-  /// Provides the token storage.
+  /// Provides the token storage: the session's tokens, held in memory once
+  /// read ([TokenStorage]).
   const TokenStorageProvider._()
     : super(
         from: null,
@@ -98,7 +101,7 @@ final class TokenStorageProvider
   }
 }
 
-String _$tokenStorageHash() => r'a42816fb1cf5af728e44ff5c48bfcaf5dc6b12aa';
+String _$tokenStorageHash() => r'd80620ed4fcc8328583d0e00a6d7a65a5af56056';
 
 /// Provides the user storage.
 

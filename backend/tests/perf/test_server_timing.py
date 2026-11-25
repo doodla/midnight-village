@@ -37,12 +37,12 @@ def _row(label: str, by_size: dict[int, Cost | None]) -> str:
     sends = " ".join(f"{cell(by_size[n], 'sends'):>2}" for n in SIZES)
     return (
         f"{label[:66]:<66} {counts} {big.locks:>3} {big.lock_span:>4} "
-        f"{big.writes:>3}  {sends} {big.publishes:>3} "
+        f"{big.writes:>3}  {sends} {big.redis_trips:>3} {big.publishes:>3} "
         f"{big.ms:>7.1f} {big.sql_ms:>6.1f}"
     )
 
 
-HEAD = "queries 3/6/10  lk span  wr  sends 3/6/10 pub  ms@10 sql ms"
+HEAD = "queries 3/6/10  lk span  wr  sends 3/6/10 rds pub  ms@10 sql ms"
 
 
 @pytest.mark.skipif(not WANTED, reason="set SERVER_TIMING=1 (just server-timing)")
