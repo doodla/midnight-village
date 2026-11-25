@@ -1,7 +1,10 @@
 """config/settings/vercel.py reads everything from the environment."""
 
 import importlib
+import os
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -97,3 +100,24 @@ def test_a_database_url_that_is_not_postgres_is_refused(monkeypatch):
 
 def test_the_request_limits_count_by_the_address_vercel_writes(monkeypatch):
     assert load(monkeypatch).CLIENT_ADDRESS_HEADER == "HTTP_X_VERCEL_FORWARDED_FOR"
+
+
+def test_the_live_server_starts_without_daphne_or_twisted(monkeypatch):
+    # Vercel serves the ASGI app itself; Daphne's app (only a `runserver`) would
+    # import Twisted on every cold start (about 0.17 s, deploy-vercel.md).
+    assert "daphne" not in load(monkeypatch).INSTALLED_APPS
+
+    env = {**os.environ, **ENV, "DJANGO_SETTINGS_MODULE": "config.settings.vercel"}
+    probe = (
+        "import sys, config.asgi; "
+        "print(sorted(m for m in ('daphne', 'twisted') if m in sys.modules))"
+    )
+    run = subprocess.run(  # noqa: S603  (this interpreter, a fixed probe)
+        [sys.executable, "-c", probe],
+        env=env,
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert run.stdout.strip() == "[]", run.stderr

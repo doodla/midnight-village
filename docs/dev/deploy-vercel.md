@@ -74,6 +74,10 @@ No secrets live in the repo. `DEBUG` is forced off, so the debug harness endpoin
 ## Files
 
 * `backend/config/settings/vercel.py`: the settings above, `ONUW_TIMER_BACKEND = "vercel_queue"`.
+  It leaves `daphne` out of `INSTALLED_APPS` (its app only adds a `runserver`, and
+  loading it imports Twisted): importing the app on a cold start went from 0.37 to
+  0.44 s to 0.24 to 0.31 s here (25 November 2026). What is left is Django, the models,
+  psycopg and DRF, which every request needs.
 * `backend/pyproject.toml`: `vercel-queue` is a normal dependency, so the build installs it;
   `[tool.vercel.scripts] build` runs `migrate` on every build; and
   `[[tool.vercel.subscribers]] entrypoint = "apps.core.queue_worker"`.
