@@ -28,10 +28,24 @@ import 'scene_arrival.dart';
 /// scene brings its screen in (`SceneArrival`): its layers travel on every
 /// frame, and a picture per frame would cost more than drawing them.
 class Still extends StatelessWidget {
-  const Still({super.key, this.live = false, required this.child});
+  const Still({
+    super.key,
+    this.live = false,
+    this.spill = 0,
+    this.opacity = 1,
+    required this.child,
+  });
 
   final bool live;
   final Widget child;
+
+  /// How far what is inside may paint outside its box (a paper shadow), in
+  /// logical pixels: the picture takes that much around the box.
+  final double spill;
+
+  /// How much of the picture shows (an `Opacity` inside would be a layer of
+  /// its own, filled on every frame: here it is the picture's own alpha).
+  final double opacity;
 
   /// Whether [context] is inside a [Still] (a part that would put a repaint
   /// boundary round itself leaves it out there: the still picture is its
@@ -50,6 +64,8 @@ class Still extends StatelessWidget {
     return _StillMark(
       child: _StillBox(
         live: live || SceneArrival.maybeOf(context) != null,
+        spill: spill,
+        opacity: opacity,
         ratio: MediaQuery.maybeDevicePixelRatioOf(context) ?? 1,
         child: child,
       ),
@@ -67,21 +83,27 @@ class _StillMark extends InheritedWidget {
 class _StillBox extends SingleChildRenderObjectWidget {
   const _StillBox({
     required this.live,
+    required this.spill,
+    required this.opacity,
     required this.ratio,
     required super.child,
   });
 
   final bool live;
+  final double spill;
+  final double opacity;
   final double ratio;
 
   @override
   RenderStill createRenderObject(BuildContext context) =>
-      RenderStill(live: live, ratio: ratio);
+      RenderStill(live: live, spill: spill, opacity: opacity, ratio: ratio);
 
   @override
   void updateRenderObject(BuildContext context, RenderStill renderObject) {
     renderObject
       ..live = live
+      ..spill = spill
+      ..opacity = opacity
       ..ratio = ratio;
   }
 }
@@ -90,9 +112,29 @@ class _StillBox extends SingleChildRenderObjectWidget {
 /// only when something inside it changed, and each such paint makes the
 /// picture again.
 class RenderStill extends RenderProxyBox {
-  RenderStill({required bool live, required double ratio})
-    : _live = live,
-      _ratio = ratio;
+  RenderStill({
+    required bool live,
+    required double spill,
+    required double opacity,
+    required double ratio,
+  }) : _live = live,
+       _spill = spill,
+       _opacity = opacity,
+       _ratio = ratio;
+
+  double _opacity;
+  set opacity(double value) {
+    if (value == _opacity) return;
+    _opacity = value;
+    markNeedsPaint();
+  }
+
+  double _spill;
+  set spill(double value) {
+    if (value == _spill) return;
+    _spill = value;
+    markNeedsPaint();
+  }
 
   bool _live;
   bool get live => _live;
@@ -123,15 +165,25 @@ class RenderStill extends RenderProxyBox {
     final child = this.child;
     if (child == null || size.isEmpty || _live) {
       _forget();
-      if (child != null) context.paintChild(child, offset);
+      if (child == null) return;
+      if (_opacity >= 1) {
+        context.paintChild(child, offset);
+      } else {
+        context.pushOpacity(
+          offset,
+          (_opacity * 255).round(),
+          (context, offset) => context.paintChild(child, offset),
+        );
+      }
       return;
     }
+    final bounds = (Offset.zero & size).inflate(_spill);
     final layer = OffsetLayer();
-    final inner = PaintingContext(layer, Offset.zero & size);
+    final inner = PaintingContext(layer, bounds);
     inner.paintChild(child, Offset.zero);
     // ignore: invalid_use_of_protected_member
     inner.stopRecordingIfNeeded();
-    final made = layer.toImageSync(Offset.zero & size, pixelRatio: _ratio);
+    final made = layer.toImageSync(bounds, pixelRatio: _ratio);
     layer.dispose();
     assert(_nothingMovesInside(child));
     _forget();
@@ -139,9 +191,11 @@ class RenderStill extends RenderProxyBox {
     Still.made++;
     context.canvas.drawImageRect(
       made,
-      Offset.zero & (size * _ratio),
-      offset & size,
-      Paint()..filterQuality = FilterQuality.low,
+      Offset.zero & (bounds.size * _ratio),
+      bounds.shift(offset),
+      Paint()
+        ..filterQuality = FilterQuality.low
+        ..color = Color.fromRGBO(0, 0, 0, _opacity),
     );
   }
 

@@ -144,6 +144,10 @@ Every state is also held to the stage clock (`test/helpers/stage_clock.dart`, ad
 a game screen whose `/me/` carries a `deadline` draws a clock with its number (`WorldTimer`, `SquareSky` or `TimerBand`) on the screen, a night candle on no
 card and no main button; `stage_clock_test.dart` places every timer the table sets (`Length`) as a stage clock or on the no-clock list, each with why
 (the owner, 24 November 2026: 04 had a deadline and no clock).
+Every state is held to what a frame costs too (`test/helpers/frame_cost.dart`, a guard file, added by `sweep_run.dart`):
+painted once into a recording canvas (a `Still`'s inside is one picture there, as on a frame), it may fill no layer of its own (a `saveLayer`, an opacity,
+a `ShaderMask`, a `BackdropFilter`, an image or colour filter) outside the named parts of `layerAllowed`, each with why, and no picture may be decoded more
+than two eighths of its width larger than it is drawn, or drawn without `ArtImage.decodedFor` (`undecodedAllowed`: the nine-slice frames).
 `test/screen_cases/not_yet_swept.dart` lists the states that fail today, each with its fault in one line (`--dart-define=SWEEP_ALL=true` prints them);
 it only shrinks. A test presses with `pressLikeAFinger` (`test/helpers/finger.dart`):
 down, six frames of 16 ms, up. A plain `tester.tap` on anything that takes a tap fails the test
