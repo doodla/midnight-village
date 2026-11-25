@@ -9,6 +9,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app.dart';
 import 'core/web/start_done_stub.dart'
     if (dart.library.js_interop) 'core/web/start_done_web.dart';
+import 'design_system/feel/sounds.dart';
 import 'design_system/skin/card_back.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/skin_id.dart';
@@ -49,7 +50,8 @@ Future<void> main() async {
           back: CardBack.forGame(LastSeat.openingGame),
           wolf: WerewolfPortrait.forGame(LastSeat.openingGame),
         )
-        .whenComplete(webStartDone),
+        .whenComplete(webStartDone)
+        .whenComplete(Sounds.start),
   );
 }
 

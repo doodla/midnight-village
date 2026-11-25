@@ -827,3 +827,28 @@ in the web build +110 KB of art and +8 KB of script net, 15 MB decoded instead o
 the night's when the shell first shows, the day's once this phone is at the night, so no one fetches the dawn before the deal.
 Frames of both in motion: `just scene-frames` (`test_screens/scene_frames_test.dart`);
 the browser check: `tool/scene_web_check.sh` (both in `test/README.md`).
+
+## Sound (`feel/sounds.dart`; the mechanism only, nothing is heard yet)
+
+`Sounds` is the one place a screen asks for a sound, as `Haptics` is for a vibration
+(`sounds_only_here_test.dart` fails anything else in `lib/` that reaches `core/audio/` or the browser's audio):
+`Sounds.play(Sfx.x)` fires a cue in the frame of its tap or drops it (before the first touch, muted, hidden, not decoded, the output not running);
+the theme has ONE owner, the shell that maps the stage to its variant:
+it calls `Sounds.claimTheme()` once and drives the returned `ThemeDriver`
+(`set(ThemeVariant.night)`; asked before the first touch, it starts on that touch; the same one again does nothing; null fades it out).
+A screen never drives the theme, and nothing sets it from a `dispose`:
+the scene switcher keeps the arriving and the leaving screen alive together, so two drivers would fight, the last call winning (a second claim throws).
+Neither `play` nor `set` throws or waits.
+`Sounds.settings` (muted, volume) is remembered on the device and listenable, for a control a later piece builds.
+What plays is data, `Sounds.catalogue`
+(a `SoundSet`: names to files in the bundle, optional loop points per theme variant; `sounds_test.dart` checks every file is a bundled asset).
+It is empty, nothing calls `Sounds`, and with an empty catalogue `Sounds.start` (from `main.dart`, after the skin's art) creates nothing at all.
+
+The logic is `SoundEngine`
+(`lib/core/audio/`, pure Dart, tested over `test/core/audio/fake_audio_backend.dart`, a fake that follows Web Audio's rules, and seeded random runs that check its bounds after every call; the theme's voices and memory are `ThemePlayer`),
+over a thin `AudioBackend`: `WebAudioBackend` on the web
+(one context, made on the first gesture that is a user activation: a touch's pointerup, not its pointerdown; files decoded by the browser, a cue a new buffer source started in the same call, the theme looping sources crossfaded in phase; suspended when nothing can sound, replaced if the browser closes it),
+`SilentBackend` elsewhere, chosen by conditional import (`backend_stub.dart` / `backend_web.dart`).
+Its lengths are `SoundTiming`. The engine in a real browser, with two candidate mp3s as stand-ins:
+`node tool/audio_proof/run.cjs` (not in CI; a touch phone's profile; what it measures is in its header, its last result in `tool/audio_proof/result.json`).
+The rules and what is still to choose: `docs/design/feel.md`, section 6.

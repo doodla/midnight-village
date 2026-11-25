@@ -418,7 +418,8 @@ against the two live addresses, from outside, with no account and no secret:
    The run's summary on GitHub shows a table per kind of request: the caller's time (first, median, worst)
    and the server's own `Server-Timing` header (`total`, and `connect` when it made a database connection),
    then how long after the deal and play again were sent the other guests' sockets had the event.
-   The same numbers are kept 30 days as the run's `deployed-timings` file, to compare two merges.
+   The same numbers are kept 30 days as the run's `deployed-timings` file, to compare two merges:
+   `python3 tool/deployed_timing.py compare <before.json> <after.json>` sets two runs side by side.
    A report only: no number fails the check (the runner's network is noisy; a budget waits for a week of numbers).
 6. **Everyone leaves, always**, also when a step failed or its answer was lost: each guest asks
    the server where it sits and leaves that table; the last one out deletes it. A table in a

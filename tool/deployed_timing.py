@@ -18,6 +18,10 @@ event.
 The requests go over a connection that is kept open, as a phone's do: a new
 TLS handshake on every request would be most of each number.
 
+To set two runs side by side (each run's `deployed-timings` file, unzipped):
+
+    python3 tool/deployed_timing.py compare <before.json> <after.json>
+
 Only the standard library.
 """
 
@@ -26,6 +30,7 @@ import json
 import os
 import re
 import statistics
+import sys
 import time
 import urllib.parse
 
@@ -211,3 +216,68 @@ class Timings:
             named = about.get("commit") or "no commit named"
             with open(summary, "a") as out:
                 out.write(f"## How long the live server took ({named})\n\n{table}\n")
+
+
+def compared(before: dict, after: dict) -> str:
+    """Two runs' rows side by side, as a Markdown table: before -> after."""
+
+    def said(row, key):
+        return "-" if row is None or row.get(key) is None else str(row[key])
+
+    def connect(row):
+        if row is None:
+            return "-"
+        if not row["connects"]:
+            return f"none of {row['count']}"
+        return f"{row['connect_median']} on {row['connects']} of {row['count']}"
+
+    old = {row["kind"]: row for row in before["rows"]}
+    new = {row["kind"]: row for row in after["rows"]}
+    lines = [
+        f"Before: {before.get('commit') or '?'}. After: {after.get('commit') or '?'}. Milliseconds.",
+        "",
+        "| request | median | worst | server total (median) | server connect (median, on how many) |",
+        "|---|---|---|---|---|",
+    ]
+    for kind in [*old, *[k for k in new if k not in old]]:
+        a, b = old.get(kind), new.get(kind)
+        lines.append(
+            f"| {kind} | {said(a, 'median_ms')} -> {said(b, 'median_ms')} "
+            f"| {said(a, 'worst_ms')} -> {said(b, 'worst_ms')} "
+            f"| {said(a, 'server_total_median')} -> {said(b, 'server_total_median')} "
+            f"| {connect(a)} -> {connect(b)} |"
+        )
+    events = {**before.get("heard_ms", {}), **after.get("heard_ms", {})}
+    if events:
+        lines += [
+            "",
+            "| event on the other guests' sockets | at most, after its request was sent |",
+            "|---|---|",
+        ]
+        for event in events:
+            a = before.get("heard_ms", {}).get(event)
+            b = after.get("heard_ms", {}).get(event)
+            lines.append(
+                f"| {event} | {max(a) if a else '-'} -> {max(b) if b else '-'} |"
+            )
+    lines += [
+        "",
+        "One run each: a difference under about 30 ms is the network, not the change.",
+    ]
+    return "\n".join(lines)
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 3 or argv[0] != "compare":
+        print(
+            "usage: tool/deployed_timing.py compare <before.json> <after.json>",
+            file=sys.stderr,
+        )
+        return 2
+    with open(argv[1]) as a, open(argv[2]) as b:
+        print(compared(json.load(a), json.load(b)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
