@@ -120,8 +120,11 @@ The Revealer can flip one player's card face-up during the night. A face-up card
 
 ### Face-Up + Other Mechanics
 
-- **Village Idiot rotation:** Face-up status is a property of the **card**, not the seat. When Village Idiot rotates cards, face-up cards move with the card and remain face-up in their new position. Shielded face-up cards do not move (excluded from rotation).
-- **Robber/Troublemaker swaps:** Face-up status logically follows the card during any swap (the physical card moves, and its orientation goes with it). This is not explicitly confirmed in the rulebook for these specific roles but is the consistent physical interpretation.
+- **Village Idiot rotation:** Face-up status is a property of the **card**, not the seat.
+  When Village Idiot rotates cards, face-up cards move with the card and remain face-up in their new position.
+  Shielded face-up cards do not move (excluded from rotation).
+- **Robber/Troublemaker swaps:** Face-up status logically follows the card during any swap (the physical card moves, and its orientation goes with it).
+  This is not explicitly confirmed in the rulebook for these specific roles but is the consistent physical interpretation.
 - **Artifact placement:** An artifact can be placed on a face-up card — the artifact token is still secret (face-down on the card).
 
 ### Implementation Notes
@@ -137,7 +140,9 @@ The Revealer can flip one player's card face-up during the night. A face-up card
 When Doppelganger copies a Daybreak role, the timing follows the same principle as base game:
 - **Immediate action roles** (Sentinel, Alpha Wolf, Mystic Wolf, Apprentice Seer, P.I., Witch, Village Idiot): Doppelganger performs the action immediately in Wave 1
 - **Wave 2 participation roles** (Dream Wolf): Doppelganger participates in Wave 2
-- **Late-night roles** (Revealer, Curator): Doppelganger wakes immediately **after** the real role finishes, at positions #10a and #11a respectively — NOT in Wave 1. This follows the same pattern as Doppelganger-as-Insomniac.
+- **Late-night roles** (Revealer, Curator):
+  Doppelganger wakes immediately **after** the real role finishes, at positions #10a and #11a respectively — NOT in Wave 1.
+  This follows the same pattern as Doppelganger-as-Insomniac.
 - **No-action roles** (Bodyguard): No follow-up
 
 ### Wave Groupings for Implementation
@@ -175,4 +180,7 @@ With Daybreak, action validation becomes more complex:
 - Curator cannot target shielded or already-artifacted cards
 - Artifacts that change role remove ALL special powers (including Bodyguard's vote-phase protection, Hunter's kill-on-death, Tanner's win condition)
 
-**Shield impossibility note:** With at most 2 shield tokens (Sentinel + Doppelganger-as-Sentinel), it is physically impossible to shield all non-Werewolf players in any standard game (3+ players). The "all valid targets shielded" scenario for Alpha Wolf and Witch is a theoretical impossibility, but should still be handled gracefully (skip action) as a defensive implementation measure.
+**Shield impossibility note:** With at most 2 shield tokens (Sentinel + Doppelganger-as-Sentinel), it is physically impossible to shield all non-Werewolf
+players in any standard game (3+ players).
+The "all valid targets shielded" scenario for Alpha Wolf and Witch is a theoretical impossibility, but should still be handled gracefully (skip action) as a
+defensive implementation measure.

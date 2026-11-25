@@ -6,7 +6,10 @@ pictures.
 
 ## What is here
 
-`mock-to-skin.md` maps every element of every mock to the primitive and the skin roles that draw it. `app-icon.md`: the app icon, launch screen and web icons, cut from this art. `feel.md`: how the game moves and feels (motion tokens, vibration, and every micro-interaction, one row each); polish passes build from it.
+`mock-to-skin.md` maps every element of every mock to the primitive and the skin roles that draw it.
+`app-icon.md`: the app icon, launch screen and web icons, cut from this art.
+`feel.md`: how the game moves and feels (motion tokens, vibration, and every micro-interaction, one row each);
+polish passes build from it.
 
 | Folder | What |
 |---|---|

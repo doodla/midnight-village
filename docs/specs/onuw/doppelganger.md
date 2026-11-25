@@ -25,8 +25,11 @@ The Doppelganger is the most complex role in ONUW. This document specifies every
 - Doppelganger closes eyes
 - In Wave 2 (Werewolf call): Doppelganger opens eyes along with real Werewolves
 - All Werewolves see each other (including Doppelganger-as-Werewolf)
-- If Doppelganger is the only "Werewolf" awake (the real Werewolf card she peeked at is in the slot of the player she copied, but that player is ALSO a Werewolf — they both wake): standard multi-Werewolf behavior
-- **Lone Werewolf interaction:** If Doppelganger copies Werewolf and no other Werewolves wake (both real Werewolf cards are in the center), the Doppelganger is the lone Werewolf and **may** peek one center card
+- If Doppelganger is the only "Werewolf" awake
+  (the real Werewolf card she peeked at is in the slot of the player she copied, but that player is ALSO a Werewolf — they both wake):
+  standard multi-Werewolf behavior
+- **Lone Werewolf interaction:** If Doppelganger copies Werewolf and no other Werewolves wake (both real Werewolf cards are in the center), the Doppelganger is
+  the lone Werewolf and **may** peek one center card
 
 **Win condition:** Doppelganger wins with Werewolf team. If the Doppelganger-as-Werewolf is eliminated, Village wins.
 
@@ -93,7 +96,9 @@ The Doppelganger is the most complex role in ONUW. This document specifies every
 - Doppelganger closes eyes
 - The real Seer later wakes in Wave 3 and performs their own Seer action independently
 
-**Critical timing:** The Doppelganger-as-Seer acts in Wave 1, seeing the **original** card state (before any Wave 2 or Wave 3 actions). The real Seer acts at the start of Wave 3, also seeing the pre-swap state (but after any Doppelganger Wave 1 actions — which for Seer don't change state anyway).
+**Critical timing:** The Doppelganger-as-Seer acts in Wave 1, seeing the **original** card state (before any Wave 2 or Wave 3 actions).
+The real Seer acts at the start of Wave 3, also seeing the pre-swap state
+(but after any Doppelganger Wave 1 actions — which for Seer don't change state anyway).
 
 **Win condition:** Village team.
 
@@ -167,7 +172,10 @@ The Doppelganger is the most complex role in ONUW. This document specifies every
 - If she does not make this choice before window 1 ends (or her phone is gone past the grace period), the server swaps her with a seeded random center card, as for the real Drunk
 - The real Drunk later wakes in Wave 3 and performs their own Drunk action
 
-**Critical timing:** The Doppelganger-as-Drunk swaps in Wave 1. Her Doppelganger card goes to the center. She now holds a center card but doesn't know what it is. The real Drunk in Wave 3 swaps with a (potentially different) center card.
+**Critical timing:** The Doppelganger-as-Drunk swaps in Wave 1.
+Her Doppelganger card goes to the center.
+She now holds a center card but doesn't know what it is.
+The real Drunk in Wave 3 swaps with a (potentially different) center card.
 
 **Win condition:** Matches whatever center card she received (unknown to her).
 
@@ -189,7 +197,8 @@ The Doppelganger is the most complex role in ONUW. This document specifies every
 - Then: "Doppelganger, if you viewed the Insomniac card, wake up and look at your card."
 - Doppelganger-as-Insomniac peeks her own card to see if it changed
 
-**Critical value:** If the Robber or Troublemaker swapped the Doppelganger's card during Wave 3, the Doppelganger-as-Insomniac will discover her new role in Wave 4. This is the only way the Doppelganger can learn she was swapped.
+**Critical value:** If the Robber or Troublemaker swapped the Doppelganger's card during Wave 3, the Doppelganger-as-Insomniac will discover her new role in
+Wave 4. This is the only way the Doppelganger can learn she was swapped.
 
 **Win condition:** Village team (unless her card was swapped to a Werewolf card, in which case she's on the Werewolf team — but the Insomniac peek tells her this).
 
@@ -241,7 +250,9 @@ The Doppelganger is the most complex role in ONUW. This document specifies every
 
 **Win condition:** Village team. Additionally, if the Doppelganger-as-Hunter is eliminated, the player the Doppelganger voted for is also eliminated (Hunter's passive ability).
 
-**Important:** The Hunter ability is tracked by the **copied role** for the Doppelganger, not by the physical card. Since the Doppelganger's physical card says "Doppelganger," the server must check `doppelganger_copied_role` to determine if the Doppelganger has the Hunter ability.
+**Important:** The Hunter ability is tracked by the **copied role** for the Doppelganger, not by the physical card.
+Since the Doppelganger's physical card says "Doppelganger," the server must check `doppelganger_copied_role` to determine if the Doppelganger has the Hunter
+ability.
 
 ---
 
@@ -265,7 +276,9 @@ The Doppelganger would see "Doppelganger" and do nothing further. No recursive c
 
 **A player's team is always determined by the physical card currently in front of them at the end of the night.** This applies to the Doppelganger the same as any other player.
 
-The Doppelganger card is special: it **becomes** the copied role for all game resolution purposes. Any player holding the Doppelganger card at the end of the night has the team and role of whatever the Doppelganger originally copied. The physical card still says "Doppelganger," but the server resolves it to the copied role for:
+The Doppelganger card is special: it **becomes** the copied role for all game resolution purposes.
+Any player holding the Doppelganger card at the end of the night has the team and role of whatever the Doppelganger originally copied.
+The physical card still says "Doppelganger," but the server resolves it to the copied role for:
 - **Team determination** — the card's team matches the copied role's team
 - **Passive abilities** (Hunter's chain-kill, Tanner's win condition) — tracked via `doppelganger_copied_role` metadata on the card
 - **Win condition evaluation** — the algorithm resolves "Doppelganger" → copied role for any holder
@@ -278,7 +291,8 @@ If the Robber targets the Doppelganger during Wave 3:
 - The Robber takes the "Doppelganger" card and sees "Doppelganger" (the printed card face)
 - The Doppelganger now has the "Robber" card in front of her
 - The Doppelganger's team for win conditions is **Village** (Robber card = Village team)
-- The Robber's team for win conditions **matches whatever the Doppelganger copied** (the Doppelganger card carries the copied role). If the Doppelganger copied Werewolf, the Robber is now on the Werewolf team.
+- The Robber's team for win conditions **matches whatever the Doppelganger copied** (the Doppelganger card carries the copied role).
+  If the Doppelganger copied Werewolf, the Robber is now on the Werewolf team.
 - The `doppelganger_copied_role` is a property of the **card**, not the player — it follows the card to whoever holds it
 
 ### Doppelganger Is Troublemaker'd
@@ -287,7 +301,8 @@ If the Troublemaker swaps the Doppelganger with another player:
 - The Doppelganger's physical card ("Doppelganger") moves to the other player's position
 - The other player's card moves to the Doppelganger's position
 - The Doppelganger's **team for win conditions** is determined by whichever card is now in front of her (not the copied role)
-- The other player's **team for win conditions** is determined by the Doppelganger card they now hold — which means the **copied role's team** (e.g., if the Doppelganger copied Werewolf, the other player is now on the Werewolf team)
+- The other player's **team for win conditions** is determined by the Doppelganger card they now hold — which means the **copied role's team**
+  (e.g., if the Doppelganger copied Werewolf, the other player is now on the Werewolf team)
 - The **copied role information** (night actions, passive abilities) is a property of the Doppelganger card — it follows the card, not the original Doppelganger player
 
 ### Doppelganger-as-Robber Steals, Then Gets Robbed

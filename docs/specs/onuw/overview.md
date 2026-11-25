@@ -2,7 +2,10 @@
 
 ## What Is ONUW?
 
-One Night Ultimate Werewolf (ONUW) is a social deduction game for 3–10 players. Each player receives a secret role card, then a single night phase occurs where some roles perform actions (peeking at cards, swapping cards). Afterward, players discuss and vote to eliminate one player. The game lasts about 10 minutes.
+One Night Ultimate Werewolf (ONUW) is a social deduction game for 3–10 players.
+Each player receives a secret role card, then a single night phase occurs where some roles perform actions (peeking at cards, swapping cards).
+Afterward, players discuss and vote to eliminate one player.
+The game lasts about 10 minutes.
 
 **Publisher:** Bezier Games
 **Designer:** Ted Alspach
@@ -36,7 +39,9 @@ SETUP → NIGHT → DISCUSSION → VOTING → RESOLUTION
 
 ### Phase 1: Night
 
-All players close their eyes. Roles are called one at a time in a fixed order. When a role is called, that player opens their eyes, performs their action (peek, swap, etc.), then closes their eyes. Roles not in the game are skipped.
+All players close their eyes. Roles are called one at a time in a fixed order.
+When a role is called, that player opens their eyes, performs their action (peek, swap, etc.), then closes their eyes.
+Roles not in the game are skipped.
 
 **Duration:** ~10 seconds per role. Total night is typically 1–2 minutes.
 
@@ -83,7 +88,8 @@ When the discussion timer expires, all players vote simultaneously.
 | **Werewolf** | Survive — no Werewolf gets eliminated |
 | **Independent (Tanner)** | Get yourself eliminated |
 
-A player's team is determined by the card **currently in front of them** at the end of the night, not the card they started with. If the Robber steals a Werewolf card, the Robber is now on the Werewolf team.
+A player's team is determined by the card **currently in front of them** at the end of the night, not the card they started with.
+If the Robber steals a Werewolf card, the Robber is now on the Werewolf team.
 
 ## V1 Role Set (12 Roles)
 
@@ -127,7 +133,8 @@ A player's team is determined by the card **currently in front of them** at the 
 - Results of their night action (what they saw/learned)
 - Their vote choice
 
-**Critical constraint for digital implementation:** The server must never leak private information through API responses, WebSocket events, error messages, or timing side-channels. Each player's view must be scoped to only what that player legitimately knows.
+**Critical constraint for digital implementation:** The server must never leak private information through API responses, WebSocket events, error messages, or
+timing side-channels. Each player's view must be scoped to only what that player legitimately knows.
 
 ## Setup Validation Constraints
 
