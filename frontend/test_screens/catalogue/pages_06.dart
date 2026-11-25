@@ -32,9 +32,8 @@ final _pages06 = <ScreenEntry>[
     '-chosen': const _NoMain(_done, pumpNightChosen),
     '-robber-chosen': const _NoMain(_done, pumpNightRobberChosen),
     '-follow-up': pumpNightFollowUp,
-    '-chosen-seen': pumpNightChosenSeen,
-    '-robber-chosen-seen': (tester) =>
-        pumpNightChosenSeen(tester, robber: true),
+    '-chosen-seen': const _NoMain(_done, pumpNightChosenSeen),
+    '-robber-chosen-seen': const _NoMain(_done, pumpNightRobberChosenSeen),
     '-3': pumpNightThree,
     '-4': pumpNightFour,
     '-9': pumpNightNine,

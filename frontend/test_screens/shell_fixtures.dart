@@ -173,6 +173,10 @@ Future<void> pumpNightChosen(WidgetTester tester, {bool robber = false}) async {
 Future<void> pumpNightRobberChosen(WidgetTester tester) =>
     pumpNightChosen(tester, robber: true);
 
+/// 06 after the Robber's Choose, her result put away, then "You" held.
+Future<void> pumpNightRobberChosenSeen(WidgetTester tester) =>
+    pumpNightChosenSeen(tester, robber: true);
+
 /// 06 after Choose, the result put away by a touch, then "You" held: the
 /// result again, on its first page.
 Future<void> pumpNightChosenSeen(
