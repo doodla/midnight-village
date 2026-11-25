@@ -127,6 +127,10 @@ their scatter tilts).
 | `waitLoop` | 1500 ms | One round of the sign of life: three paper lanterns lit one after another (issue 10) |
 | `curve` | easeOutCubic | Everything above, except the count's flip (easeInOut); inside a scene, each part runs its stretch of the 500 ms in this curve |
 | `Motion.within(context, d)` | `d`, or zero under reduce motion | The shell and the scene switcher use it; the other five places that check reduce motion move to it in their passes |
+| `ambient` | 4 s | One round of something that idles (`Ambient`'s default period); built, no loop uses it yet |
+| `breathe` | easeInOutSine | `Ambient`'s default curve: a breath, slow at both ends |
+
+Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`), and everything that loops through `Ambient` (`feel/ambient.dart`: only in front, ticking and with motion allowed). Both are in `frontend/lib/design_system/README.md`, "Press and Ambient"; the parts move onto them in a later piece.
 
 Their own constants (not `Motion`): `PaperFlip` (`primitives/paper_flip.dart`, the one card
 turn-over: turning to the face `PaperFlip.turn` = `quick` 160 ms, back to the cover
@@ -145,7 +149,7 @@ take 1.6 s. A tap finishes them.
 | Token | Start value | Pass | Why |
 |---|---|---|---|
 | `Motion.land` (built, pass 4a: `Curves.easeOutBack`) | a curve with at most 10% overshoot | 4, 6 | The lock stamp; a joining player's row dropping in |
-| `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
+| `Motion.ambient` (built with `Ambient`, its default period) | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
 | the reduce-motion helper, the rest | Today six places check it (shell, the card flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
 ## 3. Vibration
