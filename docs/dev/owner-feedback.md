@@ -4,6 +4,12 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 24 November 2026, when an open app reloads itself to a new version (the owner's board: a button, not their words)
+
+> Reload only when nobody waits
+
+HANDLED (branch `reload-when-quiet`): the app reloads to a new version only at the first screen (01), or when the app comes back after a while away (the tab visible again after more than 5 seconds hidden, the notion the resume already had; no new timer). Never at the table (02, 03), never during a game, never right after "play again" (reaching 02 had reloaded at once and stalled some restarts on a full reload while friends waited). Known and accepted cost: a phone left open at the table across several games keeps the old version until then. The rule: `mayReloadNow` (`frontend/lib/features/game/domain/reload_rule.dart`); it replaces the 23 November rule (at once at a table before the deal).
+
 ## 24 November 2026, timers in the live game (verbatim)
 
 > there's no timer in some stages, even though there's one under the hood
@@ -39,7 +45,7 @@ HANDLED by this piece: the set-up page cannot be left with a wrong count (it say
 
 > (Seen in the live app, 23 November 2026: a tab left open showed a blank red box where the Werewolf should be.)
 
-HANDLED: an app left open now notices a newer build (`/commit.txt`) and reloads itself at a safe moment (in a game only when the tab comes back after a while away, never on a phase change) and lands in the same seat on the same screen (nothing shown, nothing said; the rule is in `docs/dev/deploy-vercel.md`, "What an open app does when a new build goes live"); a file that is not there is a real 404 and never the app's page; and a file removed from the bundle without a retired copy fails a test (`asset_release_test.dart`).
+HANDLED: an app left open now notices a newer build (`/commit.txt`) and reloads itself at a safe moment (23 November rule: at once at a table before the deal, in a game only when the tab comes back after a while away, never on a phase change; replaced 24 November, see the top of this file) and lands in the same seat on the same screen (nothing shown, nothing said; the rule is in `docs/dev/deploy-vercel.md`, "What an open app does when a new build goes live"); a file that is not there is a real 404 and never the app's page; and a file removed from the bundle without a retired copy fails a test (`asset_release_test.dart`).
 
 > The timers aren't really explained as such but I guess that's a pretty minor thing.
 

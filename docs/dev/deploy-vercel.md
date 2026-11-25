@@ -251,13 +251,15 @@ app" above); an open one was never updated.
   `mayReloadNow`: never while a `playerRequest` is out (`playerRequestsOut`), a game tap is
   queued, in flight or unsent (`Outbox.hasTapsOnTheWay`), a host's change is on its way, a name or
   code is typed on 01 (`JoinDraft`; it is also kept in the tab's `sessionStorage` and restored
-  after any reload), text is in the focused field, or the camera scanner is open. Then at once on
-  01, at a table before the deal (02, 03), on the results (11) and on "You're at another table.".
-  **In a running game (04, the night board, 08, 09, the count 10) never on a phase change or on
-  the timer** (a player must not enter the night or the vote with a cold reload inside a timed
-  stage): only when the tab becomes visible again after being hidden for more than 5 seconds, and
-  nothing is in flight; otherwise it waits for the results (11) or the table. Nothing is shown or
-  said.
+  after any reload), text is in the focused field, or the camera scanner is open. Then (owner,
+  24 November 2026, "Reload only when nobody waits") **at once only on 01**, and **everywhere else
+  only when the tab becomes visible again after being hidden for more than 5 seconds** (the
+  "back after a while away" notion the resume already had, `NewBuild.awayFor`), and nothing is in
+  flight. Everywhere else is the table (02, 03), "You're at another table." and a running game
+  (04, the night board, 08, 09, the count 10): never because a screen changed, a build was learned
+  of or the timer ran, so reaching the table after "play again" never stalls a restart on a full
+  reload. Known and accepted cost: a phone left open at the table across several games keeps the
+  old build until it is hidden and comes back, or reaches 01. Nothing is shown or said.
 - Before reloading the page asks its service worker to update (`registration.update()`) and waits
   for the new worker to take over (the generated worker skips waiting and claims its clients),
   for at most 10 seconds (`renewWorker`). Nothing is unregistered and no cache is deleted, so a

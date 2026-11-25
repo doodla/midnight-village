@@ -153,6 +153,9 @@ run after each merge, and said: `.github/workflows/main-red.yml` (`tool/main_red
 one issue, "main is red", naming the check and the merge, adds to it while it is red, and
 closes it when main's newest runs have all passed (`guardrails/tests/test_workflows.py`).
 
+**The built web app, once.** `frontend/tool/web_build_cached.sh` gives a tool the folder of a finished web build and builds again only when what goes into it changed.
+`guardrails/tests/test_web_build_cached.py` holds that with a stand-in for the build: built once, again on a changed source or argument, nothing left by a failed build, the newest four kept.
+
 **Lines of the notes.** `tool/doc_lines.py` finds prose lines over 200 characters in the tracked `*.md` files (two branches that add a word to one such line clash) and `--fix` reflows them, one sentence to a line, changing line breaks only (`guardrails/tests/test_doc_lines.py`: every tracked note keeps every word in order). It is not in `just check` until the notes are reflowed (issue 44, done at a quiet moment).
 
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
