@@ -90,6 +90,9 @@ class FakeAudioBackend implements AudioBackend {
   final fetches = <String>[];
   final released = <String>[];
 
+  /// Calls Web Audio would refuse or that leak (a second context).
+  final misuse = <String>[];
+
   /// Decoded clips not released yet, by path (a path may be there twice).
   final held = <String>[];
   int resumes = 0;
@@ -178,6 +181,11 @@ class FakeAudioBackend implements AudioBackend {
       c.completeError(StateError('closed'));
     }
     _waitingResumes.clear();
+    // Decodes on its way die with it.
+    for (final c in _pending.values) {
+      c.completeError(StateError('closed'));
+    }
+    _pending.clear();
   }
 
   List<FakeLoop> soundingLoops() => [
@@ -191,7 +199,7 @@ class FakeAudioBackend implements AudioBackend {
   @override
   void open(double gain) {
     _maybeThrow();
-    if (opened) throw StateError('opened twice');
+    if (opened) misuse.add('opened twice');
     opens++;
     opened = true;
     masterGain = gain;
@@ -265,7 +273,10 @@ class FakeAudioBackend implements AudioBackend {
   @override
   Future<Clip> decode(String path) {
     _maybeThrow();
-    if (!opened) throw StateError('decode before open');
+    if (!opened) {
+      misuse.add('decode before open');
+      throw StateError('decode before open');
+    }
     decodes.add(path);
     if (unfetchable.contains(path)) return Future.error(StateError('404'));
     if (decodeAtOnce) {

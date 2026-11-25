@@ -117,10 +117,10 @@ void closedTests() {
       expect(backend.opens, 1, reason: 'no activation yet');
       expect(backend.held, isEmpty, reason: 'all released');
 
-      // The decode begun on the closed output lands: stale, released.
-      backend.finishDecode(nightFile);
+      // The decode begun on the closed output died with it: not counted as
+      // a broken file, so the new output decodes it again.
       async.flushMicrotasks();
-      expect(backend.held, isEmpty);
+      expect(backend.decoding, isEmpty);
 
       backend.tap();
       async.flushMicrotasks();
