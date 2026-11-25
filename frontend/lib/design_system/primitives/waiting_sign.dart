@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/perf/perf.dart';
 import '../copy/copy.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
@@ -71,12 +72,15 @@ class _WaitingState extends State<Waiting> {
   @override
   void initState() {
     super.initState();
+    // The field recorder: a screen's content is in once no wait is shown.
+    Perf.recorder.waitingShown();
     _sign = Timer(Motion.signAfter, () => setState(() => _signed = true));
     _slow = Timer(Motion.slowAfter, () => setState(() => _slowed = true));
   }
 
   @override
   void dispose() {
+    Perf.recorder.waitingGone();
     _sign?.cancel();
     _slow?.cancel();
     super.dispose();

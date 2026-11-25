@@ -10,6 +10,7 @@ import 'app.dart';
 import 'core/web/start_done_stub.dart'
     if (dart.library.js_interop) 'core/web/start_done_web.dart';
 import 'design_system/feel/sounds.dart';
+import 'design_system/perf/perf_strip.dart';
 import 'design_system/skin/card_back.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/skin_id.dart';
@@ -33,6 +34,8 @@ Future<void> main() async {
     systemBarsOver(SkinId.fallback.skin.ground(GroundKind.night)),
   );
   registerFontLicences();
+  // `?perf=1` on the web address: the field recorder (off otherwise).
+  startPerfField();
   // The cues this device has learned, before the first frame, so it is right.
   await restoreLearned();
   // Whether this phone had gone on from the count, so a restart lands there.
