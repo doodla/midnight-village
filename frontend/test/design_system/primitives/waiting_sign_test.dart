@@ -125,4 +125,39 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('a busy mark breathes for as long as the tap is on its way: '
+      'no rest that would read as stuck', (tester) async {
+    await pumpSkinned(tester, const LanternMark(size: 16));
+    for (var t = Duration.zero; t < Motion.restMost * 2; t += Motion.settle) {
+      expect(tester.binding.transientCallbackCount, greaterThan(0));
+      await tester.pump(Motion.settle);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the sign built again with nothing changed paints nothing '
+      'again', (tester) async {
+    var shown = true;
+    List<CustomPainter> painters() => [
+      for (final p in tester.widgetList<CustomPaint>(
+        find.descendant(
+          of: find.byType(PaperLantern),
+          matching: find.byType(CustomPaint),
+        ),
+      ))
+        p.painter!,
+    ];
+    await pumpSkinned(tester, WaitingSign(shown: shown));
+    final before = painters();
+    shown = true;
+    await pumpSkinned(tester, WaitingSign(shown: shown));
+    final after = painters();
+    expect(after, hasLength(3));
+    for (var i = 0; i < 3; i++) {
+      expect(identical(after[i], before[i]), isFalse, reason: 'built again');
+      expect(after[i].shouldRepaint(before[i]), isFalse);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
 }

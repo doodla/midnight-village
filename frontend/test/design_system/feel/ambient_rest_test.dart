@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/feel/ambient.dart';
@@ -80,6 +81,9 @@ Future<void> _rests(WidgetTester tester, _Seen seen, Duration length) async {
   }
 }
 
+Widget _none(BuildContext _, Animation<double> _, Widget? _) =>
+    const SizedBox();
+
 void main() {
   tearDown(() {
     TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
@@ -149,6 +153,7 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isFalse);
 
     await finger.up();
+    await tester.pump(Motion.settle);
     expect(_ticking(tester), isTrue);
     await tester.pump(_frame);
     expect((seen.loop.value - held).abs(), lessThan(0.1), reason: 'no jump');
@@ -167,6 +172,7 @@ void main() {
     expect(_ticking(tester), isFalse);
     expect(tester.binding.hasScheduledFrame, isFalse);
     await finger.up();
+    await tester.pump(Motion.settle);
     expect(_ticking(tester), isTrue);
   });
 
@@ -225,6 +231,90 @@ void main() {
     final finger = await tester.startGesture(const Offset(5, 5));
     expect(_ticking(tester), isFalse);
     await finger.up();
+    await tester.pump(Motion.settle);
     expect(_ticking(tester), isTrue);
+  });
+
+  testWidgets('after the last lift it waits a settle, so the frames where the '
+      'tap commits draw no decoration', (tester) async {
+    final seen = _Seen();
+    await tester.pumpWidget(_ambient(seen, continuous: true));
+    await _run(tester, _period);
+    final finger = await tester.startGesture(const Offset(5, 5));
+    await tester.pump(_frame);
+    await finger.up();
+    expect(_ticking(tester), isFalse, reason: 'not in the lift\'s frame');
+    await tester.pump(Motion.settle - _frame);
+    expect(_ticking(tester), isFalse, reason: 'not while the tap commits');
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    // A second tap inside the settle holds it again, with no frame between.
+    final again = await tester.startGesture(const Offset(5, 5));
+    await again.up();
+    await tester.pump(Motion.settle - _frame);
+    expect(_ticking(tester), isFalse, reason: 'the settle starts again');
+    await tester.pump(_frame * 2);
+    expect(_ticking(tester), isTrue, reason: 'and then it goes on');
+  });
+
+  testWidgets('two fingers down, one lifted: still held', (tester) async {
+    final seen = _Seen();
+    await tester.pumpWidget(_ambient(seen, continuous: true));
+    final one = await tester.startGesture(const Offset(5, 5), pointer: 1);
+    final two = await tester.startGesture(const Offset(9, 9), pointer: 2);
+    await one.up();
+    await tester.pump(Motion.settle * 2);
+    expect(_ticking(tester), isFalse, reason: 'a finger is still down');
+    await two.up();
+    await tester.pump(Motion.settle);
+    expect(_ticking(tester), isTrue);
+  });
+
+  testWidgets('a finger down as the tab is hidden, and no lift heard: back in '
+      'front, the loops run', (tester) async {
+    final seen = _Seen();
+    await tester.pumpWidget(_ambient(seen, continuous: true));
+    await tester.startGesture(const Offset(5, 5));
+    expect(_ticking(tester), isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump(_frame);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(_frame);
+    expect(FingerDown.instance.value, isFalse);
+    expect(_ticking(tester), isTrue);
+  });
+
+  testWidgets('a device removed with a finger down lets it go, and a lift on '
+      'it never heard does not hold the loops', (tester) async {
+    final seen = _Seen();
+    await tester.pumpWidget(_ambient(seen, continuous: true));
+    tester.binding.handlePointerEvent(
+      const PointerDownEvent(pointer: 41, device: 4, position: Offset(5, 5)),
+    );
+    await tester.pump(_frame);
+    expect(_ticking(tester), isFalse);
+    tester.binding.handlePointerEvent(
+      const PointerRemovedEvent(device: 4, position: Offset(5, 5)),
+    );
+    await tester.pump(Motion.settle);
+    expect(_ticking(tester), isTrue);
+  });
+
+  test('an Ambient keeps what it is: a new id, cycles, still or mode in '
+      'place is caught (asserted as it is built again)', () {
+    const a = Ambient(id: 'a', still: 0, builder: _none);
+    expect(
+      Ambient.sameLoop(a, const Ambient(id: 'a', still: 0, builder: _none)),
+      isTrue,
+    );
+    for (final other in [
+      const Ambient(id: 'b', still: 0, builder: _none),
+      const Ambient(id: 'a', still: 1, builder: _none),
+      const Ambient(id: 'a', still: 0, cycles: 3, builder: _none),
+      const Ambient.continuous(still: 0, builder: _none),
+    ]) {
+      expect(Ambient.sameLoop(a, other), isFalse);
+    }
   });
 }

@@ -231,7 +231,8 @@ void main() {
     await pressLikeAFinger(tester, find.byType(PrimaryButton));
     await run(HoldCue.breath ~/ 4);
     expect(scale(), greaterThan(1), reason: 'a tap on the gate: once more');
-    await run(HoldCue.breath);
+    // It began a settle after the lift (FingerDown), not in the tap's frame.
+    await run(HoldCue.breath + Motion.settle);
     await resting('after the gate');
   });
 

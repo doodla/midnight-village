@@ -58,9 +58,11 @@ class Pressable extends StatefulWidget {
 
   /// A hold (`HoldToReveal`): the press lasts until the finger lifts or is
   /// cancelled, wherever it wanders. A tap (the default) also comes back up
-  /// when the finger slides off the part or travels past the tap's own slop
-  /// (`computeHitSlop`), the point where the tap inside is cancelled and a
-  /// scroll may take over.
+  /// when the finger travels past the tap's own slop (`computeHitSlop`) from
+  /// where it landed, measured on the screen as the tap inside measures it:
+  /// the point where that tap is cancelled and a scroll may take over. A
+  /// finger just past the part's edge but within the slop still taps, so it
+  /// stays down.
   final bool holds;
 
   @override
@@ -74,17 +76,29 @@ class _PressableState extends State<Pressable>
     vsync: this,
   );
 
-  /// The finger that pressed (the first one down; others are ignored).
+  /// The finger that pressed (the first one down; others are ignored), and
+  /// where on the screen it landed.
   int? _pointer;
   Offset _from = Offset.zero;
 
-  bool get _reduced => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+  // Read when they change, never in a pointer handler.
+  var _reduced = false;
+  DeviceGestureSettings? _gestures;
+  var _rate = 0.0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _gestures = MediaQuery.maybeGestureSettingsOf(context);
+    _rate = View.maybeOf(context)?.display.refreshRate ?? 0;
+  }
 
   /// The share of [Motion.press] one frame of this display takes: where the
   /// press stands on the first frame drawn after the finger lands. A display
   /// that does not say its rate gets the whole press at once.
   double get _firstFrame {
-    final rate = View.maybeOf(context)?.display.refreshRate ?? 0;
+    final rate = _rate;
     if (rate <= 0) return 1;
     final frame = Duration.microsecondsPerSecond / rate;
     return math.min(1, frame / Motion.press.inMicroseconds);
@@ -94,7 +108,7 @@ class _PressableState extends State<Pressable>
     if (!widget.enabled || _pointer != null) return;
     if (event.buttons & kPrimaryButton == 0) return;
     _pointer = event.pointer;
-    _from = event.localPosition;
+    _from = event.position;
     if (_reduced) {
       _press.value = 1;
       return;
@@ -113,15 +127,10 @@ class _PressableState extends State<Pressable>
 
   void _move(PointerMoveEvent event) {
     if (event.pointer != _pointer || widget.holds) return;
-    final size = context.size ?? Size.zero;
-    // The tap's own slop for this kind of pointer: past it the tap inside is
-    // cancelled, so the press comes up with it.
-    final slop = computeHitSlop(
-      event.kind,
-      MediaQuery.maybeGestureSettingsOf(context),
-    );
-    if (!(Offset.zero & size).contains(event.localPosition) ||
-        (event.localPosition - _from).distance > slop) {
+    // The tap's own slop for this kind of pointer, on the screen: past it the
+    // tap inside is cancelled, so the press comes up with it.
+    if ((event.position - _from).distance >
+        computeHitSlop(event.kind, _gestures)) {
       _release();
     }
   }

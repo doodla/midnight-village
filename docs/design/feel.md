@@ -136,11 +136,12 @@ Every tappable part is to press through `Pressable` (`feel/press.dart`: down on 
 Everything that loops goes through `Ambient` (`feel/ambient.dart`), and a screen at rest is idle most of the time:
 an effect is a small layer over a still picture, never a reason to draw the screen again.
 - **Burst and rest**: it plays one round (or a few), then truly rests at its still look (no frame at all) for `restLeast` to `restMost`, then plays again.
-  Only something whose job is to show a wait loops without rest (`Ambient.continuous`: the waiting sign's lanterns).
+  Only something whose job is to show a wait loops without rest (`Ambient.continuous`: the waiting sign's lanterns, a busy button's lantern).
 - **Teaching is finite**: the hold cue breathes three times, then stands still (still the sign);
   it breathes once more only after a tap on the locked Ready before a hold, never once learned.
 - **Yield to the finger**: while any finger is down anywhere, every loop holds where it is and draws nothing, so the frame that answers the press never waits behind decoration;
-  it goes on after the lift.
+  it goes on a `settle` after the last lift, so the frames where the tap commits and its answer arrives draw nothing else.
+  A lift the app never hears (a tab hidden under a finger, a device removed) lets go too.
 - It runs only with the app in front, its screen not covered, and motion allowed (reduce motion: its still look).
 Both are in `frontend/lib/design_system/README.md`, "Press and Ambient".
 
@@ -307,7 +308,7 @@ nothing is held back.
 | A fetch failing (offline, a 5xx) | "One moment" with "Try again" (the fetch now instead of at its next turn: the opening, 04, 08 and 09 offer it), alone on one line where the lanterns hung; it is made again by itself with backoff | Same |
 | The answer | The screen's content crossfades in (`settle`) over the frame; one wait is one key, so the wait is never faded into itself | Cut |
 | Over a screen already shown, the phone loses the server | "One moment" settles in over the top; the screen and the seat stay | Cut in |
-| A tap's request in flight | The tapped control's busy mark in the frame of the tap, busy until the next screen is up; its flame breathes once, then burns still between breaths (`Ambient`) | Same |
+| A tap's request in flight | The tapped control's busy mark in the frame of the tap, busy until the next screen is up; its flame breathes for as long as the request is on its way, with no rest: its job is to show the wait (`Ambient.continuous`) | Same |
 | A tap's request that failed | Words and "Try again" above the control, nothing else moves; or the server's reason with no button | Same |
 
 ### Talk (08)

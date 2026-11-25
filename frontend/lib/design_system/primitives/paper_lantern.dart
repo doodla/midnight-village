@@ -253,9 +253,9 @@ class _LanternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LanternPainter old) =>
-      old.steady != steady ||
+      // By value: a driven one is handed a new [litAt] on every build.
+      old.lit != lit ||
       old.loop != loop ||
-      old.litAt != litAt ||
       old.cord != cord ||
       old.paper != paper ||
       old.glow != glow ||
@@ -264,8 +264,8 @@ class _LanternPainter extends CustomPainter {
 }
 
 /// The mark beside a button's words while its tap is on its way: a small
-/// lantern in the label's own ink, its flame breathing down and back up in a
-/// burst, then burning still until the next ([Ambient]); a button that is
+/// lantern in the label's own ink, its flame breathing for as long as the
+/// tap is on its way ([Ambient.continuous]); a button that is
 /// busy also sinks into its shadow (`PrimaryButton`). It sits where it does
 /// not move the words (the buttons lay it in their own padding). With reduce
 /// motion the flame burns steadily.
@@ -286,8 +286,10 @@ class LanternMark extends StatelessWidget {
     final cut = context.dress.isPaper;
     final cast = context.ground.shadow;
     return ExcludeSemantics(
-      child: Ambient(
-        id: 'lantern-mark',
+      // Its job is to show the wait: it breathes for as long as the tap is
+      // on its way, with no rest (a still flame on a slow request reads as
+      // stuck).
+      child: Ambient.continuous(
         still: 1,
         period: breath,
         curve: Curves.linear,

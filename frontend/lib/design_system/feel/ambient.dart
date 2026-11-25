@@ -139,6 +139,14 @@ class Ambient extends StatefulWidget {
     return Motion.restLeast + range * (x / m);
   }
 
+  /// Whether [b] is the same loop as [a]: an [Ambient] keeps its mode, id,
+  /// cycles and still for its life (asserted when it is built again).
+  static bool sameLoop(Ambient a, Ambient b) =>
+      a.continuous == b.continuous &&
+      a.id == b.id &&
+      a.cycles == b.cycles &&
+      a.still == b.still;
+
   @override
   State<Ambient> createState() => _AmbientState();
 }
@@ -192,6 +200,11 @@ class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
   @override
   void didUpdateWidget(Ambient old) {
     super.didUpdateWidget(old);
+    assert(
+      Ambient.sameLoop(old, widget),
+      'an Ambient keeps its mode, id, cycles and still: give a new one a new '
+      'key',
+    );
     if (old.cue != widget.cue) {
       old.cue?.removeListener(_again);
       widget.cue?.addListener(_again);
@@ -365,35 +378,78 @@ class AppForeground extends ChangeNotifier
 /// app: one global route on the gesture binding's pointer router for every
 /// [Ambient], there only while something listens. While it is, everything
 /// that idles holds where it is, so the frame that answers the press has
-/// nothing else to draw.
+/// nothing else to draw; after the last lift it stays true for
+/// [Motion.settle] more, so the frames where the tap commits and its answer
+/// comes in are not shared with decoration either.
+///
+/// A finger is let go on its up or cancel, and also when its device is
+/// removed or hovers (a lift the app never heard), and all at once when the
+/// app leaves the front ([AppForeground]: a tab hidden under a finger gets
+/// no up), so a lost lift never holds every loop for good.
 class FingerDown extends ChangeNotifier implements ValueListenable<bool> {
   FingerDown._();
 
   static final instance = FingerDown._();
 
-  final _down = <int>{};
+  /// Each finger down, and the device it is on.
+  final _down = <int, int>{};
+
+  /// Still held after the last lift, until [Motion.settle] has passed.
+  Timer? _settling;
 
   @override
-  bool get value => _down.isNotEmpty;
+  bool get value => _down.isNotEmpty || _settling != null;
 
   void _route(PointerEvent event) {
-    final was = value;
     switch (event) {
       case PointerDownEvent():
-        _down.add(event.pointer);
+        final was = value;
+        _settling?.cancel();
+        _settling = null;
+        _down[event.pointer] = event.device;
+        if (!was) notifyListeners();
       case PointerUpEvent() || PointerCancelEvent():
-        _down.remove(event.pointer);
+        _lift(() => _down.remove(event.pointer));
+      case PointerRemovedEvent() || PointerHoverEvent():
+        _lift(() => _down.removeWhere((_, device) => device == event.device));
       default:
         return;
     }
-    if (value != was) notifyListeners();
+  }
+
+  /// Lets go of what [drop] drops; the last one gone starts the settle.
+  void _lift(void Function() drop) {
+    if (_down.isEmpty) return;
+    drop();
+    if (_down.isNotEmpty || _settling != null) return;
+    _settling = Timer(Motion.settle, () {
+      _settling = null;
+      notifyListeners();
+    });
+  }
+
+  /// The app left the front: every finger is let go at once, with no settle
+  /// (nothing on screen to share a frame with).
+  void _away() {
+    if (AppForeground.instance.value || !value) return;
+    _clear();
+    notifyListeners();
+  }
+
+  void _clear() {
+    _down.clear();
+    _settling?.cancel();
+    _settling = null;
   }
 
   @override
   void addListener(VoidCallback listener) {
     final first = !hasListeners;
     super.addListener(listener);
-    if (first) GestureBinding.instance.pointerRouter.addGlobalRoute(_route);
+    if (first) {
+      GestureBinding.instance.pointerRouter.addGlobalRoute(_route);
+      AppForeground.instance.addListener(_away);
+    }
   }
 
   @override
@@ -401,7 +457,8 @@ class FingerDown extends ChangeNotifier implements ValueListenable<bool> {
     super.removeListener(listener);
     if (!hasListeners) {
       GestureBinding.instance.pointerRouter.removeGlobalRoute(_route);
-      _down.clear();
+      AppForeground.instance.removeListener(_away);
+      _clear();
     }
   }
 }

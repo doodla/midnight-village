@@ -5,7 +5,7 @@ import 'package:midnight_village/design_system/feel/press.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 
 // `Pressable` (feel/press.dart, feel.md principle 1): down in the frame the
-// finger lands, up on the lift, a cancel or a slide off; it never takes or
+// finger lands, up on the lift, a cancel or a slide past the slop; it never takes or
 // delays the tap of the detector inside; it rebuilds nothing below it.
 
 const _sink = Offset(0, 2);
@@ -134,9 +134,8 @@ void main() {
     expect(probe.value, 0);
   });
 
-  testWidgets('sliding off releases while the finger is still down', (
-    tester,
-  ) async {
+  testWidgets('sliding past the slop releases while the finger is still '
+      'down', (tester) async {
     final probe = _Probe();
     await tester.pumpWidget(_part(probe));
     final rect = tester.getRect(find.byType(Pressable));
@@ -150,6 +149,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(probe.value, 0);
     await finger.up();
+  });
+
+  testWidgets('just past the edge but within the slop it stays down (the tap '
+      'inside still fires); past the slop it comes up', (tester) async {
+    final probe = _Probe();
+    var taps = 0;
+    await tester.pumpWidget(
+      _part(
+        probe,
+        inner: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => taps++,
+        ),
+      ),
+    );
+    final rect = tester.getRect(find.byType(Pressable));
+    final landing = rect.bottomCenter - const Offset(0, 4);
+    final slop = computeHitSlop(PointerDeviceKind.touch, null);
+    // Out of the box by a few pixels, still inside the slop.
+    final out = await tester.startGesture(landing);
+    await _frames(tester, Motion.press);
+    await out.moveTo(landing + Offset(0, slop / 2));
+    await _frames(tester, Motion.quick);
+    expect(rect.contains(landing + Offset(0, slop / 2)), isFalse);
+    expect(probe.value, 1, reason: 'outside the box, within the slop');
+    await out.up();
+    await tester.pumpAndSettle();
+    expect(taps, 1, reason: 'the tap inside fired there too');
+
+    final past = await tester.startGesture(landing);
+    await _frames(tester, Motion.press);
+    await past.moveTo(landing + Offset(0, slop * 1.5));
+    await tester.pumpAndSettle();
+    expect(probe.value, 0, reason: 'past the slop');
+    await past.up();
+    await tester.pumpAndSettle();
+    expect(taps, 1, reason: 'the tap inside was cancelled with it');
   });
 
   testWidgets('a hold stays down wherever the finger wanders', (tester) async {

@@ -759,7 +759,8 @@ The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no p
 
 - **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
   The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
-  it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, a slide off the part or past the tap's slop
+  it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, or a slide past the tap's slop from where it landed, on the screen as
+  the tap measures it (just off the part's edge but within the slop it stays down: the tap still fires)
   (`holds: true`, for a hold, only on the lift or cancel), over `Motion.quick` on `Motion.land` (a settle under a tenth past rest).
   It never joins the gesture arena: the `GestureDetector`, `InkWell` or `HoldToReveal` inside fires exactly when it would without it
   (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through;
@@ -776,9 +777,12 @@ The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no p
   `cycles` rounds (1 by default), then a true rest at its `still` (0 or 1; no ticker, no frame asked for, one `Timer` wakes the next burst)
   for a gap between `Motion.restLeast` and `Motion.restMost` (8 to 16 s) taken from its `id` (`Ambient.restFor`: every phone the same).
   Given an `AmbientCue` it rests for good after its burst, until `cue.again()` (teaching: `HoldCue` breathes three times, then once more after a tap on the locked gate).
-  `Ambient.continuous` loops with no rest and is asked for by name, only for something whose job is to show a wait (`WaitingSign`).
+  `Ambient.continuous` loops with no rest and is asked for by name, only for something whose job is to show a wait (`WaitingSign`, `LanternMark` while a tap's request is on its way).
   It **yields to the finger**: while any pointer is down anywhere (`FingerDown`, one global route on the pointer router for every `Ambient`)
-  it holds where it is and asks for no frame, so the press's frame never queues behind decoration; it goes on after the last lift.
+  it holds where it is and asks for no frame, so the press's frame never queues behind decoration;
+  it goes on `Motion.settle` after the last lift (the frames where the tap commits and its answer comes in draw nothing else).
+  A lift never heard does not hold it for good: a removed or hovering device lets go of its pointers, and the app leaving the front lets go of all.
+  Its `id`, `still`, `cycles` and mode are fixed for its life (asserted): a different loop is a new key.
   It ticks only while the app is in front
   (`AppForeground`, one lifecycle observer for every `Ambient`: `resumed` or `inactive`, which is still on screen; not `hidden` or `paused`), its `TickerMode`
   is on (a covered or leaving screen) and its owner's `running` holds;
