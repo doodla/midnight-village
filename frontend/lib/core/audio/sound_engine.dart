@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'audio_backend.dart';
 import 'sound_set.dart';
+import 'theme_player.dart';
 
 /// All the logic of the game's sound, over a thin [AudioBackend], so it is
 /// tested without a browser (`docs/design/feel.md`, section 6).
@@ -11,10 +12,7 @@ import 'sound_set.dart';
 /// tap or not at all; a theme variant that is not decoded yet is decoded on
 /// its first need and switched to when it is ready, while the music already
 /// playing goes on. Nothing throws: a failing backend is logged and skipped.
-///
-/// The music has a clock of its own: the audio time [_t0] its first variant
-/// started. Every variant is the same length, so a switch starts the new one
-/// at the place the old one has reached and the two crossfade in phase.
+/// The theme's voices and memory are [ThemePlayer]'s.
 class SoundEngine {
   SoundEngine(
     this._backend,
@@ -24,15 +22,21 @@ class SoundEngine {
     double volume = 1,
   }) : _log = log ?? _silent,
        _muted = muted,
-       _volume = _clamp(volume);
+       _volume = _clamp(volume) {
+    _theme = ThemePlayer(
+      _backend,
+      _set,
+      _pathOf,
+      _log,
+      changed: () => _guard('theme', _reconcile),
+    );
+  }
 
   final AudioBackend _backend;
   final SoundSet _set;
   final void Function(String) _log;
 
-  /// The theme variants kept decoded at once: the one playing and the one
-  /// it came from (a 60 s stereo variant is about 20 MB decoded).
-  static const keptVariants = 2;
+  late final ThemePlayer _theme;
 
   bool _started = false;
   bool _muted;
@@ -48,14 +52,9 @@ class SoundEngine {
   bool _resumeAsked = false;
   int _asks = 0;
 
-  ThemeVariant? _wanted;
-  Voice? _current;
-  final _outgoing = <(Voice, double)>[];
-  double? _t0;
-
+  /// The cues' decoded clips (small; all kept).
   final _clips = <String, Clip>{};
   final _decoding = <String>{};
-  final _keptThemes = <String>[];
   final _chosen = <SoundFile, String?>{};
 
   bool get muted => _muted;
@@ -63,17 +62,13 @@ class SoundEngine {
 
   /// The variant a stage asked for (played once the output is unlocked and
   /// its file decoded).
-  ThemeVariant? get wanted => _wanted;
+  ThemeVariant? get wanted => _theme.wanted;
 
   /// The variant playing now, if any.
-  ThemeVariant? get playing => _current?.variant;
+  ThemeVariant? get playing => _theme.playing;
 
   /// Voices sounding now, the fading ones included (at most two).
-  int get voices {
-    final now = _backend.now;
-    return (_current == null ? 0 : 1) +
-        _outgoing.where((v) => v.$2 > now).length;
-  }
+  int get voices => _theme.voices;
 
   /// Begins listening for the first gesture and fetches the cues' bytes
   /// ahead. With nothing in the set it does nothing at all: no listener and
@@ -154,8 +149,8 @@ class SoundEngine {
   /// Asks for [variant] of the theme (none: the theme fades out). The same
   /// variant again does nothing.
   void theme(ThemeVariant? variant) {
-    if (variant == _wanted) return;
-    _wanted = variant;
+    if (variant == _theme.wanted) return;
+    _theme.wanted = variant;
     _guard('theme ${variant?.name}', _reconcile);
   }
 
@@ -167,7 +162,7 @@ class SoundEngine {
       final ramp = SoundTiming.seconds(SoundTiming.mute);
       _backend.master(muted ? 0 : _volume, ramp);
       if (muted) {
-        _stopTheme(ramp);
+        _theme.stop(ramp);
       } else {
         for (final file in _set.cues.values) {
           final path = _pathOf(file);
@@ -232,70 +227,13 @@ class SoundEngine {
     );
   }
 
-  /// Brings what plays in line with what is wanted, as far as it can now.
   void _reconcile() {
     if (!_backend.isOpen || _muted) return;
-    final wanted = _wanted;
-    if (wanted == null) {
-      _stopTheme(SoundTiming.seconds(SoundTiming.themeOut));
-      return;
-    }
-    if (_current?.variant == wanted) return;
-    final file = _set.theme[wanted];
-    final path = file == null ? null : _pathOf(file);
-    if (file == null || path == null) return;
-    final clip = _clips[path];
-    if (clip == null) {
-      _decode(path, theme: true);
-      return;
-    }
-    _touch(path);
-    final now = _backend.now;
-    final at = now + SoundTiming.seconds(SoundTiming.lead);
-    final t0 = _t0 ??= at;
-    final offset = loopPosition(at - t0, clip.seconds, file.loop);
-    final old = _current;
-    final fade = SoundTiming.seconds(
-      old == null ? SoundTiming.themeIn : SoundTiming.crossfade,
-    );
-    if (old != null) {
-      _dropOutgoing(now);
-      _backend.fadeOut(old, fade, at: at);
-      _outgoing.add((old, at + fade));
-    }
-    _current = _backend.loop(
-      clip,
-      wanted,
-      at: at,
-      offset: offset,
-      fadeIn: fade,
-      points: file.loop,
-    );
+    _theme.reconcile();
   }
 
-  /// Keeps at most two voices: a variant still fading out when a third is
-  /// asked for is cut (with a ramp too short to click).
-  void _dropOutgoing(double now) {
-    _outgoing.removeWhere((v) => v.$2 <= now);
-    for (final (voice, _) in _outgoing) {
-      _backend.fadeOut(voice, SoundTiming.seconds(SoundTiming.declick));
-    }
-    _outgoing.clear();
-  }
-
-  void _stopTheme(double fade) {
-    final now = _backend.now;
-    _dropOutgoing(now);
-    final old = _current;
-    if (old != null) {
-      _backend.fadeOut(old, fade);
-      _outgoing.add((old, now + fade));
-    }
-    _current = null;
-    _t0 = null;
-  }
-
-  void _decode(String path, {bool theme = false}) {
+  /// Decodes a cue (all of them are small and kept).
+  void _decode(String path) {
     if (_clips.containsKey(path) || !_decoding.add(path)) return;
     final Future<Clip> decoded;
     try {
@@ -310,10 +248,6 @@ class SoundEngine {
         (clip) {
           _decoding.remove(path);
           _clips[path] = clip;
-          if (theme) {
-            _touch(path);
-            _guard('decoded $path', _reconcile);
-          }
         },
         onError: (Object e) {
           _decoding.remove(path);
@@ -321,32 +255,6 @@ class SoundEngine {
         },
       ),
     );
-  }
-
-  /// Marks a theme file as just used and forgets the least recent beyond
-  /// [keptVariants] (never one that is sounding).
-  void _touch(String path) {
-    _keptThemes
-      ..remove(path)
-      ..add(path);
-    final sounding = {
-      for (final v in [
-        ?_current,
-        for (final (v, ends) in _outgoing)
-          if (ends > _backend.now) v,
-      ])
-        if (_set.theme[v.variant] case final file?) _pathOf(file),
-    };
-    while (_keptThemes.length > keptVariants) {
-      final oldest = _keptThemes.firstWhere(
-        (p) => p != path && !sounding.contains(p),
-        orElse: () => path,
-      );
-      if (oldest == path) break;
-      _keptThemes.remove(oldest);
-      final clip = _clips.remove(oldest);
-      if (clip != null) _guard('release', () => _backend.release(clip));
-    }
   }
 
   SoundFile? _cueNamed(String name) {
