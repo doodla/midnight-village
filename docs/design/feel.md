@@ -406,29 +406,48 @@ start, a tap or a frame.**
 
 **Built (the mechanism; nothing is heard yet).** `Sounds` (`frontend/lib/design_system/feel/sounds.dart`)
 is the one place a screen asks for a sound, as `Haptics` is for a vibration
-(`sounds_only_here_test.dart`): `Sounds.play(Sfx.x)` for a cue, `Sounds.theme(ThemeVariant.night)`
-for the stage's piece of the theme. Neither throws nor waits. The logic is `SoundEngine`
+(`sounds_only_here_test.dart`): `Sounds.play(Sfx.x)` for a cue, and for the stage's piece of the
+theme a `ThemeDriver` (`Sounds.claimTheme()`, then `set(ThemeVariant.night)`). Neither throws nor
+waits. The logic is `SoundEngine`
 (`frontend/lib/core/audio/`, pure Dart, tested over a fake backend); on the web it plays through
 Web Audio, elsewhere it is silent for now (Android's own backend is a later piece).
 
+- **The theme has ONE owner**: the shell that maps the stage to its variant claims it once and
+  drives it. Screens never call it, and nothing sets it from a `dispose`: the scene switcher keeps
+  the arriving and the leaving screen alive together, so two drivers would fight and the last call
+  would win. A second claim throws.
 - **What plays is data**: `Sounds.catalogue`, a `SoundSet` of cue and theme-variant names to their
   files (one or more encodings, `.ogg` before `.m4a`: the first the platform decodes). It is
   empty, and with it empty the app creates nothing: no listener, no audio context.
 - **After the first picture**: started from `main.dart` once the skin's art is in. The cues are
   fetched ahead; nothing is decoded before the first touch.
-- **The first touch unlocks** (browsers refuse sound before a gesture): a passive listener on the
-  page makes the audio context inside that touch, and resumes it on any later touch that finds
-  it stopped (Chrome on Android suspends it on its own). A cue asked for before then is dropped;
-  the theme asked for is remembered and starts on that touch.
-- **A cue** is decoded ahead and started in the same call as the tap, never late: one that cannot
-  sound at once (before the unlock, muted, hidden, not decoded) is dropped.
+- **The first touch unlocks** (browsers refuse sound before a user activation): a passive listener
+  on the page makes the audio context on the first event that is an activation. On a phone that is
+  the finger's lift (pointerup, then touchend and click), not its pointerdown: Android does not
+  count a touch's pointerdown, and a context made there starts suspended. A mouse's press and a
+  key count at once. Every later gesture that finds the output stopped asks it to run again
+  (`resume()` is cheap; one asked on a pointerdown may stay pending, and nothing waits on it). A
+  cue asked for before then is dropped; the theme asked for is remembered and starts on that
+  touch.
+- **A cue** is decoded ahead and started in the same call as the tap, never late: it plays only
+  when the output is running, or when that very gesture asked it to run from inside an activation
+  (Flutter's tap fires on the same pointerup). Any other (before the unlock, muted, hidden, not
+  decoded, the output stopped) is dropped, never stored to burst out with the others. A file whose
+  fetch or decode failed is given up on for the visit (one log line).
 - **The theme** is one loop in stage variants (table, night, vote, reveal), the same length, so a
   switch starts the new variant where the music is and crossfades in phase. A variant is decoded
-  on its first need; until it is ready the music already playing goes on. At most two play at
-  once and two stay decoded. A file may carry loop points (from the WAV master, in samples or
+  on its first need, one at a time and only the one wanted; until it is ready the music already
+  playing goes on. At most two play at once and two stay decoded, counting the one decoding: a
+  third asked for mid-crossfade waits for the outgoing voice to end. A switch is scheduled from the
+  audio clock read at the start call, at least the output's own latency ahead (to be confirmed on
+  a real phone). A file may carry loop points (from the WAV master, in samples or
   seconds), which also cut an encoder's padding: an mp3 or m4a looped whole has a gap.
 - **Hidden is silent**: the context is suspended while the page or app is hidden and the loop
   continues on return.
+- **The battery**: the output is never opened while muted, and is suspended when nothing can sound
+  (muted, or no theme wanted once its fade out and the longest cue are over: `SoundTiming.idle`);
+  the next gesture or theme wakes it. If the browser closes it, it is dropped and the next touch
+  makes a new one (said once in the log, not on every tap).
 - **Muted and the volume** are remembered on the device (`SoundSettings`, listenable; no control
   is built yet). Mute ramps the master to silence (no click); muted, nothing new is decoded.
 

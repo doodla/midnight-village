@@ -92,13 +92,30 @@ void main() {
     test('a theme asked for before the start plays on the first touch', () {
       fakeAsync((async) {
         final backend = FakeAudioBackend();
-        Sounds.theme(ThemeVariant.night);
+        Sounds.claimTheme().set(ThemeVariant.night);
         Sounds.startWith(sounds, () => backend, watchLifecycle: false);
         async.flushMicrotasks();
         expect(backend.opens, 0);
         backend.tap();
         async.flushMicrotasks();
         expect(backend.loops.single.variant, ThemeVariant.night);
+      });
+    });
+
+    test('the theme has one owner: a second claim fails, a released one '
+        'drives nothing and frees the claim', () {
+      fakeAsync((async) {
+        final backend = FakeAudioBackend();
+        Sounds.startWith(sounds, () => backend, watchLifecycle: false);
+        async.flushMicrotasks();
+        backend.tap();
+        final shell = Sounds.claimTheme()..set(ThemeVariant.night);
+        expect(Sounds.claimTheme, throwsStateError);
+        shell.release();
+        async.flushMicrotasks();
+        shell.set(null);
+        expect(backend.loops.single.fadedAt, isNull, reason: 'still plays');
+        expect(Sounds.claimTheme, returnsNormally);
       });
     });
 
@@ -146,7 +163,7 @@ void main() {
       fakeAsync((async) {
         SharedPreferences.setMockInitialValues({SoundSettings.mutedKey: '1'});
         final backend = FakeAudioBackend();
-        Sounds.theme(ThemeVariant.night);
+        Sounds.claimTheme().set(ThemeVariant.night);
         Sounds.startWith(sounds, () => backend, watchLifecycle: false);
         async.flushMicrotasks();
         backend.tap();

@@ -19,9 +19,15 @@ export '../../core/audio/sound_settings.dart' show SoundLevel, SoundSettings;
 /// the engine or the browser's audio). Never throws, never waits: a cue
 /// fires in the frame of its tap or not at all.
 ///
+/// The theme has ONE owner: the shell that maps the stage to its variant
+/// claims it ([claimTheme]) and drives it. Screens never drive it: the
+/// scene switcher keeps the arriving and the leaving screen alive together,
+/// so a screen setting it (worse, clearing it from `dispose`) would fight
+/// the other, the last call winning.
+///
 /// Nothing is chosen yet (the owner is picking by ear): [catalogue] is
-/// empty, no screen calls [play] or [theme], and with an empty catalogue
-/// [start] does nothing at all.
+/// empty, nothing calls [play] or claims the theme, and with an empty
+/// catalogue [start] does nothing at all.
 abstract final class Sounds {
   /// Every cue and theme variant, by name, to its files in the bundle.
   /// Each path must be in `pubspec.yaml`'s assets (`sound_set_test.dart`).
@@ -34,6 +40,7 @@ abstract final class Sounds {
   static SoundEngine? _engine;
   static ThemeVariant? _wanted;
   static AppLifecycleListener? _lifecycle;
+  static ThemeDriver? _driver;
 
   /// Called once from `main.dart`, after the skin's art is in (after the
   /// first frame): reads the settings and listens for the first gesture.
@@ -83,9 +90,20 @@ abstract final class Sounds {
     }
   }
 
-  /// The stage's piece of the theme; null lets it fade out. Asked before the
-  /// first touch, it starts on that touch; the same one again does nothing.
-  static void theme(ThemeVariant? variant) {
+  /// Makes the caller the theme's one owner (the shell that maps the stage
+  /// to it, once). A second claim while the first holds throws: two owners
+  /// would fight, the last call winning.
+  static ThemeDriver claimTheme() {
+    if (_driver != null) {
+      throw StateError(
+        'Sounds: the theme already has its owner (the shell that maps the '
+        'stage to it); a screen never drives it',
+      );
+    }
+    return _driver = ThemeDriver._();
+  }
+
+  static void _theme(ThemeVariant? variant) {
     _wanted = variant;
     try {
       _engine?.theme(variant);
@@ -113,5 +131,27 @@ abstract final class Sounds {
     _lifecycle = null;
     _engine = null;
     _wanted = null;
+    _driver = null;
+  }
+}
+
+/// The theme's one owner's handle ([Sounds.claimTheme]).
+final class ThemeDriver {
+  ThemeDriver._();
+
+  bool _released = false;
+
+  /// The stage's piece of the theme; null lets it fade out. Asked before the
+  /// first touch, it starts on that touch; the same one again does nothing.
+  /// Never throws, never waits.
+  void set(ThemeVariant? variant) {
+    if (!_released) Sounds._theme(variant);
+  }
+
+  /// Gives the theme up without changing what plays (the next owner sets
+  /// it). Nothing is set from a `dispose`.
+  void release() {
+    _released = true;
+    if (identical(Sounds._driver, this)) Sounds._driver = null;
   }
 }
