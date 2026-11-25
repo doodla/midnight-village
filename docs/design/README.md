@@ -20,6 +20,7 @@ polish passes build from it.
 | `art/scenes/` | Candle, table, street door, sleeping village (flat pictures). |
 | `art/card-backs/` | The five card backs (moon, window, teeth, eye, quilt), 1200x1600; one is drawn for a whole game. `PROVENANCE.md` says how each was made. |
 | `art/layers/` | The two headers that move, drawn in layers (cuts of paper with alpha, PNG masters): `night-village/` (04: the plate, the moon, the clouds and their shadows) and `dawn-gallows/` (08: the sky, the sun, the hills, the birds, the roofs, the gallows). `flat.jpg` in each is the picture the layers were cut from. `PROVENANCE.md` says where every piece came from and how far each may move. |
+| `art/atmo/` | The night's atmosphere, not drawn by the app yet: the candle's flame in eight cut-paper frames (`flame/`, a gutter and recover; frame 1 is today's flame) and the moon's phases as pieces of sky paper laid on the night village's moon (`moon/`). `PROVENANCE.md` says how they were drawn, by script, and where each sits. |
 
 The mock canvas, where the product owner comments: https://claude.ai/artifact/AQ2LuLA5KkRPXHiZoGb6j9
 (page "Round 4"). The product owner's verdict on these mocks: "close enough"; build them and

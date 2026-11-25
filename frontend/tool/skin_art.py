@@ -148,9 +148,40 @@ def _end() -> None:
         print(f"end/{name}.webp  size {im.width}x{im.height}")
 
 
+# The night's atmosphere (docs/design/art/atmo/, PROVENANCE.md there; made by
+# tool/atmo/flame.py and tool/atmo/moon.py) -> assets/skins/shadow_paper/atmo/.
+# The flame's frames are drawn at twice the candle sprite's size and stored at
+# it (120 x 106, the size CandleArt declares for the flame); the moon's phases
+# are full-canvas masters on the night village's canvas, cut to their box.
+FLAME = (120, 106)
+ATMO_QUALITY = 72
+
+
+def _atmo() -> None:
+    folder = OUT / "atmo" / "flame"
+    folder.mkdir(parents=True, exist_ok=True)
+    for src in sorted((ART / "atmo" / "flame").glob("*.png")):
+        im = Image.open(src).convert("RGBA").resize(FLAME, Image.LANCZOS)
+        im.save(folder / f"{src.stem}.webp", "WEBP", method=6, quality=ATMO_QUALITY)
+        print(f"atmo/flame/{src.stem}.webp  size {im.width}x{im.height}")
+    folder = OUT / "atmo" / "moon"
+    folder.mkdir(parents=True, exist_ok=True)
+    for src in sorted((ART / "atmo" / "moon").glob("*.png")):
+        im = Image.open(src).convert("RGBA")
+        box = im.getchannel("A").getbbox()
+        assert box is not None, f"{src} is empty"
+        im = im.crop(box)
+        im.save(folder / f"{src.stem}.webp", "WEBP", method=6, quality=ATMO_QUALITY)
+        print(
+            f"atmo/moon/{src.stem}.webp  size {im.width}x{im.height}"
+            f"  anchor ({box[0]}, {box[1]})"
+        )
+
+
 def main() -> None:
     _layers()
     _end()
+    _atmo()
     for src, folder, name, size in _jobs():
         im = Image.open(src).convert("RGB")
         if im.size != size:
