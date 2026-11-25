@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
+import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
@@ -185,6 +186,54 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     expect(scale(), 1);
     expect(_cue, findsOneWidget, reason: 'the word stays');
+  });
+
+  testWidgets('the ring breathes three times and rests, still and asking no '
+      'frame; a tap that was not a hold, on the card or on the locked gate, '
+      'breathes it once more', (tester) async {
+    double scale() => tester
+        .widget<ScaleTransition>(
+          find.descendant(
+            of: find.byType(HoldCue),
+            matching: find.byType(ScaleTransition),
+          ),
+        )
+        .scale
+        .value;
+    const step = Duration(milliseconds: 50);
+    Future<void> run(Duration length) async {
+      for (var t = Duration.zero; t < length; t += step) {
+        await tester.pump(step);
+      }
+    }
+
+    Future<void> resting(String when) async {
+      expect(scale(), 1, reason: when);
+      expect(_cue, findsOneWidget, reason: 'still, it is still the sign');
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    }
+
+    await _pump(tester);
+    await run(HoldCue.breath * (HoldCue.breaths - 1));
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    // (The card's first frames come before the ring's: a little to spare.)
+    await run(HoldCue.breath * 1.5);
+    await resting('three breaths');
+    await tester.pump(Motion.restMost * 2);
+    await resting('a long rest');
+
+    await pressLikeAFinger(tester, find.byType(FaceDownCard));
+    await run(HoldCue.breath ~/ 4);
+    expect(scale(), greaterThan(1), reason: 'a tap on the card: once more');
+    await run(HoldCue.breath);
+    await resting('after the card');
+
+    await pressLikeAFinger(tester, find.byType(PrimaryButton));
+    await run(HoldCue.breath ~/ 4);
+    expect(scale(), greaterThan(1), reason: 'a tap on the gate: once more');
+    await run(HoldCue.breath);
+    await resting('after the gate');
   });
 
   group('the wave', () {

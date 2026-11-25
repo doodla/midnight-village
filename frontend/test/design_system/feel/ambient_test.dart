@@ -3,11 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/feel/ambient.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 
-// `Ambient` (feel/ambient.dart): a loop asks for frames only while the app is
-// in front, its TickerMode is on and motion is allowed; with reduce motion it
-// rests at its still value; it paints and never rebuilds.
+// `Ambient` (feel/ambient.dart): a loop plays in bursts and truly rests
+// between them (no ticker, no frame); it asks for frames only while the app
+// is in front, its TickerMode is on, no finger is down and motion is
+// allowed; with reduce motion it rests at its still value; it paints and
+// never rebuilds.
 
-const _still = 0.25;
+const _still = 0.0;
+const _id = 'probe';
 const _frame = Duration(milliseconds: 16);
 
 class _Probe {
@@ -45,6 +48,7 @@ Widget _loop(
     child: TickerMode(
       enabled: ticking,
       child: Ambient(
+        id: _id,
         still: _still,
         running: running,
         builder: (context, loop, child) {
@@ -216,6 +220,7 @@ void main() {
           children: [
             for (final probe in probes)
               Ambient(
+                id: _id,
                 still: _still,
                 builder: (context, loop, child) {
                   probe.loop = loop;

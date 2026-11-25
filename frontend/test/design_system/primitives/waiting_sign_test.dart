@@ -42,7 +42,7 @@ void main() {
       for (final l in tester.widgetList<PaperLantern>(
         find.byType(PaperLantern),
       ))
-        l.lit,
+        l.burning,
     ];
     expect(lit(), hasLength(3));
     final peak = [0.0, 0.0, 0.0];
@@ -61,6 +61,20 @@ void main() {
     expect(peak.every((p) => p > 0.9), isTrue, reason: 'each burns in turn');
     expect(find.text(BannerCopy.slow), findsNothing);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the wait ending takes its loop with it: nothing ticks after', (
+    tester,
+  ) async {
+    await pumpSkinned(tester, const Waiting());
+    await tester.pump(Motion.signAfter);
+    await tester.pump(Motion.settle);
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    await pumpSkinned(tester, const SizedBox());
+    await tester.pump();
+    expect(find.byType(WaitingSign), findsNothing);
+    expect(tester.binding.transientCallbackCount, 0);
+    expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
   testWidgets('a long wait is named once, plainly', (tester) async {

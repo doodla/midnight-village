@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
+import '../feel/ambient.dart';
 import '../layout/space.dart';
 import '../primitives/hold_to_reveal.dart';
 import '../skin/skin.dart';
@@ -10,13 +11,17 @@ import '../primitives/paper_light.dart';
 import '../primitives/paper_piece.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
+import 'teach_once.dart';
 
 /// The press-and-hold cue on a face-down card (the `hold` cue, first-time
 /// play spec, section 2): while [teaching], a plain ring on a veil of the
-/// night with the word "Hold" in it; the ring breathes (scale 1.00 to 1.06,
-/// a 1.4 s loop) and, while the card is held, fills clockwise in the time a
-/// reveal takes to count. Once learned, nothing: the card is a card. With
-/// reduced motion the ring stands still and fills at once.
+/// night with the word "Hold" in it; the ring breathes [breaths] times
+/// (scale 1.00 to 1.06, 1.4 s each) and then stands still, the same sign at
+/// rest; it breathes once more after a tap that was not a hold (on the card,
+/// or the screen's locked gate: [CueReplay]). While the card is held it fills
+/// clockwise in the time a reveal takes to count. Once learned, nothing: the
+/// card is a card. With reduced motion the ring stands still and fills at
+/// once.
 ///
 /// The word is left out ([word]) where its holder sets it elsewhere, and
 /// where the ring is too small to keep it at [wordFloor].
@@ -46,6 +51,9 @@ class HoldCue extends StatefulWidget {
   static const breath = Duration(milliseconds: 1400);
   static const breathScale = 1.06;
 
+  /// Breaths when it first shows; then it rests until asked again.
+  static const breaths = 3;
+
   /// The word is never set smaller than this (the reading floor for a
   /// caption on a card): a ring too small for it goes without.
   static const wordFloor = ReadingFloor.caption;
@@ -57,11 +65,11 @@ class HoldCue extends StatefulWidget {
   State<HoldCue> createState() => _HoldCueState();
 }
 
-class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
-  late final _breath = AnimationController(
-    vsync: this,
-    duration: HoldCue.breath ~/ 2,
-  );
+class _HoldCueState extends State<HoldCue> with SingleTickerProviderStateMixin {
+  /// One more breath: a tap that was not a hold, here or on the gate.
+  final _again = AmbientCue();
+  CueReplay? _replay;
+  int? _taps;
   late final _fill = AnimationController(
     vsync: this,
     // From the face showing to the reveal counting.
@@ -71,7 +79,19 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final replay = CueReplay.of(context);
+    if (replay != _replay) {
+      _replay?.removeListener(_breatheAgain);
+      _replay = replay?..addListener(_breatheAgain);
+    }
+    final taps = HoldPress.tapsOf(context);
+    if (_taps != null && taps > _taps!) _breatheAgain();
+    _taps = taps;
     _sync();
+  }
+
+  void _breatheAgain() {
+    if (widget.teaching) _again.again();
   }
 
   @override
@@ -82,13 +102,6 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
 
   void _sync() {
     final still = MediaQuery.disableAnimationsOf(context);
-    final breathe = widget.teaching && !still;
-    if (breathe && !_breath.isAnimating) {
-      _breath.repeat(reverse: true);
-    } else if (!breathe && _breath.isAnimating) {
-      _breath.stop();
-      _breath.value = 0;
-    }
     final held = widget.teaching && HoldPress.of(context);
     if (held && _fill.status != AnimationStatus.forward && _fill.value == 0) {
       still ? _fill.value = 1 : _fill.forward();
@@ -99,7 +112,8 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _breath.dispose();
+    _replay?.removeListener(_breatheAgain);
+    _again.dispose();
     _fill.dispose();
     super.dispose();
   }
@@ -129,41 +143,46 @@ class _HoldCueState extends State<HoldCue> with TickerProviderStateMixin {
         painter.dispose();
         final drawn = scaler.scale(cue.fontSize!) * fit;
         final showWord = widget.word && drawn >= HoldCue.wordFloor;
-        // Its own layer: the breathing ring repaints itself, never the paper
-        // round it (`paint_cache_test.dart`).
-        return RepaintBoundary(
-          child: ScaleTransition(
-            scale: Tween(begin: 1.0, end: HoldCue.breathScale).animate(
-              CurvedAnimation(parent: _breath, curve: Curves.easeInOut),
-            ),
-            // The disc itself is one more layer inside it: breathing moves
-            // the layer, it does not paint the disc again.
-            child: RepaintBoundary(
-              child: SizedBox.square(
-                dimension: ring,
-                child: context.dress.isPaper
-                    ? _paper(context, ring, showWord, cue, fit)
-                    : CustomPaint(
-                        painter: HoldRingPainter(
-                          fill: _fill,
-                          veil: night.ground.withValues(alpha: _veil),
-                          track: night.text.withValues(alpha: _track),
-                          ink: night.text,
-                          width: skin.shape.selectedRing,
-                        ),
-                        child: showWord
-                            ? Center(
-                                child: Text(
-                                  CommonCopy.hold,
-                                  style: cue.copyWith(
-                                    color: night.text,
-                                    fontSize: cue.fontSize! * fit,
-                                  ),
-                                ),
-                              )
-                            : null,
+        // Its own layer (`Ambient`'s): the breathing ring repaints itself,
+        // never the paper round it (`paint_cache_test.dart`).
+        return Ambient(
+          id: 'hold-cue',
+          still: 0,
+          period: HoldCue.breath ~/ 2,
+          curve: Curves.easeInOut,
+          cycles: HoldCue.breaths,
+          cue: _again,
+          builder: (context, breath, child) => ScaleTransition(
+            scale: Tween(begin: 1.0, end: HoldCue.breathScale).animate(breath),
+            child: child,
+          ),
+          // The disc itself is one more layer inside it: breathing moves
+          // the layer, it does not paint the disc again.
+          child: RepaintBoundary(
+            child: SizedBox.square(
+              dimension: ring,
+              child: context.dress.isPaper
+                  ? _paper(context, ring, showWord, cue, fit)
+                  : CustomPaint(
+                      painter: HoldRingPainter(
+                        fill: _fill,
+                        veil: night.ground.withValues(alpha: _veil),
+                        track: night.text.withValues(alpha: _track),
+                        ink: night.text,
+                        width: skin.shape.selectedRing,
                       ),
-              ),
+                      child: showWord
+                          ? Center(
+                              child: Text(
+                                CommonCopy.hold,
+                                style: cue.copyWith(
+                                  color: night.text,
+                                  fontSize: cue.fontSize! * fit,
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
             ),
           ),
         );

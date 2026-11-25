@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
@@ -13,27 +16,74 @@ typedef AmbientBuilder =
       Widget? child,
     );
 
+/// Asks a resting [Ambient] for one more burst (the hold cue's breath after
+/// a tap that was not a hold). An [Ambient] given one rests for good after
+/// its burst, until [again].
+class AmbientCue extends ChangeNotifier {
+  int _cycles = 1;
+
+  /// How many cycles the burst [again] asked for plays.
+  int get cycles => _cycles;
+
+  void again({int cycles = 1}) {
+    _cycles = cycles;
+    notifyListeners();
+  }
+}
+
 /// The one place anything idles (a candle's flicker, a lantern's breath,
-/// light drifting, the village living): it owns the repeating clock and asks
-/// for frames only while all of these hold:
+/// light drifting, the village living). An effect is a small layer over a
+/// still picture, never a reason to draw the screen again, and a screen at
+/// rest draws nothing most of the time. So by default it plays in bursts:
+/// [cycles] rounds, then a true rest at [still] (no ticker, no frame asked
+/// for; one timer wakes the next burst) for a gap between [Motion.restLeast]
+/// and [Motion.restMost], taken from its [id], so every phone is the same.
+/// Given a [cue] it rests for good after its burst, until [AmbientCue.again]
+/// (teaching: a few breaths, then still). [Ambient.continuous] loops without
+/// rest, only for something whose job is to show a wait.
+///
+/// It asks for frames only while all of these hold:
 ///
 /// - the app is in front ([AppForeground]: on screen; a hidden browser tab,
 ///   a phone locked or another app in front is not);
 /// - its ticker is allowed ([TickerMode]: a route covered by an opaque one,
 ///   a screen kept offstage, a screen leaving that switches it off);
 /// - its owner says it runs ([running]: a sign hidden, a field typed in);
+/// - no finger is down anywhere ([FingerDown]: the frame that answers a
+///   press never waits behind decoration);
 /// - motion is allowed (`MediaQuery.disableAnimations` off). With reduce
-///   motion it rests at [still], the value its owner declares.
+///   motion it rests at [still].
 ///
 /// Stopped for any reason but reduce motion it holds where it was and goes
-/// on from there. Nothing finer is checked: a part scrolled out of a lazy
-/// list is not built at all, and a screen under a sheet still shows through
-/// its scrim, so it keeps living there rather than freezing in view.
+/// on from there (a burst it was in plays to its end; a rest it was in
+/// starts again whole). Nothing finer is checked: a part scrolled out of a
+/// lazy list is not built at all, and a screen under a sheet still shows
+/// through its scrim, so it keeps living there rather than freezing in view.
 ///
 /// The loop drives paint only, inside its own [RepaintBoundary]: a tick
 /// repaints the looping part and nothing else, and rebuilds nothing.
 class Ambient extends StatefulWidget {
+  /// Bursts and rests. [still] is where it rests: 0 or 1 (a breath goes
+  /// from it to the other end and back; a turn goes 0 to 1).
   const Ambient({
+    super.key,
+    required this.id,
+    required this.still,
+    required this.builder,
+    this.period = Motion.ambient,
+    this.curve = Motion.breathe,
+    this.reverse = true,
+    this.cycles = 1,
+    this.cue,
+    this.running = true,
+    this.child,
+  }) : continuous = false,
+       assert(still == 0 || still == 1, 'a burst rests at an end'),
+       assert(cycles > 0);
+
+  /// Loops while it may, with no rest: only for something whose job is to
+  /// show that the app is waiting (the waiting sign).
+  const Ambient.continuous({
     super.key,
     required this.still,
     required this.builder,
@@ -42,45 +92,93 @@ class Ambient extends StatefulWidget {
     this.reverse = true,
     this.running = true,
     this.child,
-  });
+  }) : continuous = true,
+       id = '',
+       cycles = 1,
+       cue = null;
 
-  /// Where the loop rests with reduce motion (the builder sees this value).
+  /// Its own name: the seed of its rests (the same on every phone).
+  final String id;
+
+  /// Where it rests between bursts and with reduce motion (the builder sees
+  /// this value).
   final double still;
 
   final AmbientBuilder builder;
   final Widget? child;
 
-  /// One way of the loop (0 to 1; with [reverse], and back takes as long).
+  /// One way of a cycle (0 to 1; with [reverse], and back takes as long).
   final Duration period;
   final Curve curve;
 
   /// There and back (a breath); off, it starts again at 0 (a turn).
   final bool reverse;
 
+  /// Rounds in one burst.
+  final int cycles;
+
+  /// Given: one burst, then rest for good until [AmbientCue.again].
+  final AmbientCue? cue;
+
+  /// No rest at all ([Ambient.continuous]).
+  final bool continuous;
+
   /// The owner's own say: false stops it where it is.
   final bool running;
+
+  /// The rest after burst [k] for [id]: a share of the range from a small
+  /// hash, in whole numbers that stay exact on the web.
+  static Duration restFor(String id, int k) {
+    const m = 2147483647;
+    var h = 7;
+    for (final c in id.codeUnits) {
+      h = (h * 31 + c) % m;
+    }
+    final x = ((h + k * 7919) % m) * 48271 % m;
+    final range = Motion.restMost - Motion.restLeast;
+    return Motion.restLeast + range * (x / m);
+  }
 
   @override
   State<Ambient> createState() => _AmbientState();
 }
 
 class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
-  late final AnimationController _loop = AnimationController(
+  late final AnimationController _c = AnimationController(
     vsync: this,
     duration: widget.period,
+    value: widget.continuous ? 0 : widget.still,
   );
   late CurvedAnimation _curved = CurvedAnimation(
-    parent: _loop,
+    parent: _c,
     curve: widget.curve,
   );
 
   var _ticking = true;
   var _still = false;
 
+  /// Legs (one way each) left in the burst under way; 0 at rest.
+  var _left = 0;
+
+  /// Where the leg under way goes.
+  var _to = 1.0;
+
+  /// Bursts played: which rest comes next.
+  var _bursts = 0;
+  var _started = false;
+  Timer? _rest;
+
+  /// A leg is under way (or held halfway): its end, and only its end, moves
+  /// the burst on.
+  var _inLeg = false;
+
   @override
   void initState() {
     super.initState();
+    _c.addStatusListener(_ended);
     AppForeground.instance.addListener(_sync);
+    FingerDown.instance.addListener(_sync);
+    widget.cue?.addListener(_again);
   }
 
   @override
@@ -94,33 +192,127 @@ class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
   @override
   void didUpdateWidget(Ambient old) {
     super.didUpdateWidget(old);
+    if (old.cue != widget.cue) {
+      old.cue?.removeListener(_again);
+      widget.cue?.addListener(_again);
+    }
     if (old.curve != widget.curve) {
       _curved.dispose();
-      _curved = CurvedAnimation(parent: _loop, curve: widget.curve);
+      _curved = CurvedAnimation(parent: _c, curve: widget.curve);
     }
     if (old.period != widget.period || old.reverse != widget.reverse) {
-      _loop
+      _c
         ..duration = widget.period
         ..stop();
     }
     _sync();
   }
 
+  bool get _allowed =>
+      widget.running && !_still && _ticking && AppForeground.instance.value;
+
   void _sync() {
-    final run =
-        widget.running && !_still && _ticking && AppForeground.instance.value;
-    if (run && !_loop.isAnimating) {
-      _loop.repeat(reverse: widget.reverse);
-    } else if (!run && _loop.isAnimating) {
-      _loop.stop();
+    if (!mounted) return;
+    final allowed = _allowed;
+    final moving = allowed && !FingerDown.instance.value;
+    if (widget.continuous) {
+      if (moving && !_c.isAnimating) {
+        unawaited(_c.repeat(reverse: widget.reverse));
+      } else if (!moving && _c.isAnimating) {
+        _c.stop();
+      }
+      return;
     }
+    if (!allowed) {
+      // Hidden, covered, stopped or still: no frame and no timer. A rest
+      // starts again whole when it may run again.
+      _rest?.cancel();
+      _rest = null;
+      _c.stop();
+      return;
+    }
+    if (!_started) {
+      _started = true;
+      _burst(widget.cycles);
+      return;
+    }
+    if (_left > 0) {
+      moving ? _go() : _c.stop();
+    } else if (_rest == null && widget.cue == null) {
+      _restNow();
+    }
+  }
+
+  void _again() {
+    _rest?.cancel();
+    _rest = null;
+    _started = true;
+    _burst(widget.cue?.cycles ?? 1);
+  }
+
+  void _burst(int cycles) {
+    _rest = null;
+    // A burst asked for in the middle of one starts over from where it is.
+    _inLeg = false;
+    _c.stop();
+    _left = widget.reverse ? cycles * 2 : cycles;
+    _to = widget.reverse ? 1 - widget.still : 1;
+    if (!widget.reverse) _c.value = 0;
+    if (_allowed && !FingerDown.instance.value) _go();
+  }
+
+  /// The leg under way, from where the controller is.
+  void _go() {
+    if (_c.isAnimating) return;
+    if (_c.value == _to) return _legDone();
+    _inLeg = true;
+    unawaited(_c.animateTo(_to));
+  }
+
+  /// Told in the tick that ends a leg, so the next leg starts on that same
+  /// frame's clock: a burst of breaths takes exactly its cycles' time.
+  void _ended(AnimationStatus status) {
+    if (!_inLeg || _c.isAnimating || _c.value != _to) return;
+    _legDone();
+  }
+
+  void _legDone() {
+    _inLeg = false;
+    _left -= 1;
+    if (_left > 0) {
+      if (widget.reverse) {
+        _to = 1 - _to;
+      } else {
+        _c.value = 0;
+      }
+      if (_allowed && !FingerDown.instance.value) _go();
+      return;
+    }
+    if (!widget.reverse && _c.value != widget.still) _c.value = widget.still;
+    if (widget.cue == null) _restNow();
+    _bursts += 1;
+  }
+
+  /// A true rest: nothing ticks; one timer wakes the next burst.
+  void _restNow() {
+    _rest?.cancel();
+    if (!_allowed) {
+      _rest = null;
+      return;
+    }
+    _rest = Timer(Ambient.restFor(widget.id, _bursts), () {
+      if (mounted) _burst(widget.cycles);
+    });
   }
 
   @override
   void dispose() {
+    _rest?.cancel();
+    widget.cue?.removeListener(_again);
+    FingerDown.instance.removeListener(_sync);
     AppForeground.instance.removeListener(_sync);
     _curved.dispose();
-    _loop.dispose();
+    _c.dispose();
     super.dispose();
   }
 
@@ -166,5 +358,50 @@ class AppForeground extends ChangeNotifier
   void removeListener(VoidCallback listener) {
     super.removeListener(listener);
     if (!hasListeners) WidgetsBinding.instance.removeObserver(this);
+  }
+}
+
+/// Whether any finger (or mouse button, or stylus) is down anywhere in the
+/// app: one global route on the gesture binding's pointer router for every
+/// [Ambient], there only while something listens. While it is, everything
+/// that idles holds where it is, so the frame that answers the press has
+/// nothing else to draw.
+class FingerDown extends ChangeNotifier implements ValueListenable<bool> {
+  FingerDown._();
+
+  static final instance = FingerDown._();
+
+  final _down = <int>{};
+
+  @override
+  bool get value => _down.isNotEmpty;
+
+  void _route(PointerEvent event) {
+    final was = value;
+    switch (event) {
+      case PointerDownEvent():
+        _down.add(event.pointer);
+      case PointerUpEvent() || PointerCancelEvent():
+        _down.remove(event.pointer);
+      default:
+        return;
+    }
+    if (value != was) notifyListeners();
+  }
+
+  @override
+  void addListener(VoidCallback listener) {
+    final first = !hasListeners;
+    super.addListener(listener);
+    if (first) GestureBinding.instance.pointerRouter.addGlobalRoute(_route);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    if (!hasListeners) {
+      GestureBinding.instance.pointerRouter.removeGlobalRoute(_route);
+      _down.clear();
+    }
   }
 }
