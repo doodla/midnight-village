@@ -27,8 +27,9 @@ goes away when the last piece here is built.
      the words change. This is the fix for the owner's "jumpy" candle and "different widths".
    - The board takes taps from its first frame; flights are paint only on an overlay that
      takes no touch and costs nothing once done; a tap finishes the motion; reduce motion cuts.
-   - Open with the owner (on the board): your slot face down with hold to see, or as today.
-     Default: flight face down, slot as today.
+   - Decided by the owner (25 Nov): "Face down, hold to see". The flight is face down AND your slot on
+     the night board is face down, pressed and held to see the role, as on Your card
+     (`primitives/finger_hold.dart` times the hold from the finger).
    - Split `primitives/scene_switcher.dart` first (488 lines). Sketch: `sheets/card-staging-sketch.png`.
    - Wait for the coordinator: 04, the night board and the banner are in `still-screen` and
      `cheap-frames`; moving layers must sit above a `Still` (`primitives/still.dart`).
