@@ -152,11 +152,12 @@ class ClockTick extends StatefulWidget {
 class _ClockTickState extends State<ClockTick> {
   /// The clock's shape, which holds while it ticks: minutes or seconds, and
   /// how many digits.
-  static Object _form(int? seconds) => switch (seconds) {
-    null => 'none',
-    >= 60 => 'm${seconds ~/ 60 >= 10 ? 2 : 1}',
-    >= 10 => 's2',
-    _ => 's1',
+  static int _form(int? seconds) => switch (seconds) {
+    null => 0,
+    >= 600 => 4, // 10:00 and up
+    >= 60 => 3, // 1:00 to 9:59
+    >= 10 => 2, // 10 to 59 s
+    _ => 1, // 0 to 9 s
   };
 
   /// A new form: the room is measured again, through the screen's layout
@@ -196,7 +197,7 @@ class _ClockFace extends StatefulWidget {
   final Widget Function(BuildContext context, ClockReading reading) builder;
 
   /// The form its room was measured for.
-  final Object form;
+  final int form;
   final VoidCallback reform;
 
   @override

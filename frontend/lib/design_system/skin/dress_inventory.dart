@@ -477,6 +477,9 @@ const inventory = <PartEntry>[
 /// Files in `primitives/` that are not a component a player sees as one: what
 /// they are, so a new file must say.
 const notAComponent = <String, String>{
+  'primitives/countdown.dart':
+      'what a clock counts and its tick (Countdown, ClockTick): the clock '
+      'primitives draw it, it draws nothing of its own',
   'primitives/card_link.dart':
       'geometry, nothing drawn: where a link between two cards is tied and how it bends; Twine paints it',
   'primitives/screen_frame_layout.dart':

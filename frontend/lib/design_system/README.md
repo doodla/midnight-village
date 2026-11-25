@@ -186,7 +186,7 @@ is every component's own code, kept exactly as it was (the owner has not asked f
 | OutlinePanel | 2 px hairline outline round a summary | a panel of paper set into the ground (a tone that stands off it by 1.25:1), deckled, with its shadow, no outline | `primitives/panels.dart` |
 | Notice | one line of words and a quiet action ("Not sent." "Try again") | the same line, its action plain serif words | `primitives/notice.dart` |
 | QrPicture | the code in the ground's ink | the same, on the pinned notice (a drawing, allowed: `Drawn.qrCode`) | `primitives/qr_picture.dart` |
-| SkinField | name: raised paper tile; code: 2 px outline (its cursor blinks in the field's own repaint boundary) | name: a bone scrap; code: a panel of paper; lifted while it has the focus | `primitives/skin_field.dart` |
+| SkinField | name: raised paper tile; code: 2 px outline | name: a bone scrap; code: a panel of paper; lifted while it has the focus | `primitives/skin_field.dart` |
 | SheetScaffold | paper sheet with a lit strip along its top | a torn sheet of paper, no lit strip; its Close is plain serif words (`SheetClose`) | `primitives/sheet_scaffold.dart` |
 | Rule / SideRule | a hairline, or a line down a block's side | no line: the room it takes | `primitives/rule.dart` |
 | PaperBanner | its words on the ground | torn bone paper with two pins | `primitives/paper_banner.dart` |
