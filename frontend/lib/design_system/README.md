@@ -852,3 +852,17 @@ over a thin `AudioBackend`: `WebAudioBackend` on the web
 Its lengths are `SoundTiming`. The engine in a real browser, with two candidate mp3s as stand-ins:
 `node tool/audio_proof/run.cjs` (not in CI; a touch phone's profile; what it measures is in its header, its last result in `tool/audio_proof/result.json`).
 The rules and what is still to choose: `docs/design/feel.md`, section 6.
+
+## The field recorder's strip (`perf/`; only with `?perf=1` on the web address)
+
+Where a tap's time goes on a real phone, measured by the app itself (the recorder is `lib/core/perf/`; how the owner uses it: `docs/dev/owner-feedback.md`, 24 November).
+Off (always, unless the tab asked) the app is exactly as it is:
+`perfStripAround` returns the app itself, and every hook (`Perf.recorder`) is the constant `PerfOff`, which holds nothing and returns nothing.
+On, `PerfStrip` is a strip of paper at the bottom edge, above the system bar, in the caption type: the last tap's "finger → screen · request left · answer · worst" in ms.
+The app sits above it (the strip takes the bottom padding; the app is pushed up by the strip's height, never under it); it hides while the keyboard is up.
+It repaints only when a tap finishes, on its own layer (`RepaintBoundary`).
+Tapped, it opens the summary over everything, from the bottom edge (not `showSkinSheet`: it sits outside the screens' navigator and is no player's information), closed by the scrim or the strip:
+the short report as it would be pasted, and "Copy report" (plain text, under 4,000 characters), "Copy everything" (the JSON) and "Clear".
+A tap is named by its screen and the KIND of control under the finger (`control_kind.dart`: `main_button`, `player_row`, by the widget's type, never its words),
+so the report holds no name, role, card or vote.
+Its words are a developer's tool the owner reads (`PerfWords` in `core/perf/perf_report.dart`), not the player's copy.

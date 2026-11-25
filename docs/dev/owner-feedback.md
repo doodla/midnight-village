@@ -24,6 +24,14 @@ They played in the browser (Chrome) and say it was everywhere.
 
 OPEN. Measured (branch `perf-frames`): `just phone-frames` plays a whole game on a phone profile (the release web build, Chrome, CPU slowed 4x, or 1x and 2x for a fast phone) and reports, for every screen, transition and tap, the frames over 16 and 50 ms, the worst frame, the long tasks, the time to content, and for a tap the time to the first changed pixel, to its final state and to the server's answer; it fails when a budget is broken. The causes, ranked, are the next pieces.
 
+Measured on the phone itself (branch `perf-field`): our lab Chrome has no graphics chip, so it cannot say what a Pixel does; the app now measures itself.
+Open the game's address with `?perf=1` at the end (`https://midnight-village-app-anthelion.vercel.app/?perf=1`, or a table's link with `?perf=1`); the tab remembers it (`?perf=0` switches it off).
+A thin strip at the bottom shows the last tap: "finger → screen 84 ms · request left 12 ms · answer 163 ms · worst 22 ms".
+Play a round, tap the strip, tap "Copy report" and paste it to us (or "Copy everything" for the whole record).
+It records the time of each tap from the finger to the first frame, the request it made leaving and its answer, the answer applied and the frame after; every frame per screen; every request, socket event and screen change; and the phone (browser, screen, graphics chip).
+Nothing leaves the phone unless you copy it, and it holds no names, roles, cards or votes.
+In the lab, `just phone-frames --perf <dir>` plays the same game with it on and puts the app's numbers beside phone-frames' own.
+
 ## 24 November 2026, playing the live app with friends: the start and play again (written, verbatim)
 
 > updates are really slow. Someone starts the game and it takes forever for my screen to update. Same with restarts as well
