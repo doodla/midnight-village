@@ -6,8 +6,8 @@
 // headless Chromium with Playwright, as an Android phone: a touch context
 // (hasTouch, isMobile, the Pixel 7's 412-wide profile) and
 // page.touchscreen.tap, so a tap is pointerdown, pointerup, touchend, then a
-// compatibility mousedown and click, with no mouse. Prints what it measured as JSON and writes it to
-// result.json beside this script.
+// compatibility mousedown and click, with no mouse. Prints what it measured
+// as JSON and writes it to result.json beside this script.
 //
 // (a) no AudioContext on the first touch's pointerdown (not an activation
 //     on a touch); made on its pointerup, running, the theme playing;

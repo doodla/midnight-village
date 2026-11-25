@@ -56,7 +56,8 @@ class SoundEngine {
   /// output runs a moment later). Cleared on the next task, not the next
   /// microtask: a browser runs the microtasks between the engine's capture
   /// listener and the app's own handler of the same event (Flutter's tap
-  /// runs on that pointerup), so a microtask would clear it before the cue.
+  /// runs on that pointerup), so a microtask would clear it before the cue
+  /// (`tool/audio_proof/result.json`, `e`).
   bool _resumeAsked = false;
   int _asks = 0;
 

@@ -101,7 +101,7 @@ class ThemePlayer {
     // source gets it would start at once, out of phase. The lead is at least
     // what the output says it adds (baseLatency), so the start lands ahead
     // of what is being rendered. A real phone must confirm this (the proof
-    // runs desktop Chromium, whose baseLatency is a few milliseconds).
+    // runs headless Chromium, whose baseLatency is 10 ms, on no real device).
     final lead = math.max(
       SoundTiming.seconds(SoundTiming.lead),
       _backend.baseLatency,
@@ -120,12 +120,15 @@ class ThemePlayer {
   }
 
   /// The theme out over [fade] seconds; the next variant starts afresh.
+  /// Nothing playing: nothing to do (a voice already fading out is left
+  /// to end, never cut by a second ask).
   void stop(double fade) {
-    _cutOutgoing();
     final old = _current;
-    _current = null;
     _t0 = null;
-    if (old != null) _fadeOut(old, fade);
+    if (old == null) return;
+    _cutOutgoing();
+    _current = null;
+    _fadeOut(old, fade);
   }
 
   /// The output is gone: every voice and decoded variant with it.

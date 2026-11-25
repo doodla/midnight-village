@@ -116,6 +116,29 @@ void main() {
     });
   });
 
+  test('the theme fading out is never cut short by a later ask: a touch '
+      'or an unmute while it fades leaves it to end', () {
+    fakeAsync((async) {
+      final backend = FakeAudioBackend();
+      final (engine, _) = started(backend);
+      backend.tap();
+      engine.theme(ThemeVariant.table);
+      async.flushMicrotasks();
+      backend.advance(3);
+      engine.theme(null);
+      backend.current = AudioState.suspended;
+      backend.tap();
+      engine
+        ..setMuted(true)
+        ..setMuted(false);
+      async.flushMicrotasks();
+      expect(
+        backend.loops.single.fadeLength,
+        SoundTiming.seconds(SoundTiming.themeOut),
+      );
+    });
+  });
+
   test('a cut voice is silent before the new one starts', () {
     expect(SoundTiming.declick, lessThan(SoundTiming.lead));
   });
