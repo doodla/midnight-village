@@ -5,6 +5,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../skin/dress.dart';
+
 /// What a clock counts down: a stage's deadline by the server's clock, or a
 /// clock held still (a picture, a test page). A screen hands one to its clock
 /// and never reads the seconds itself: only [ClockTick], inside a clock
@@ -166,11 +168,21 @@ class _ClockTickState extends State<ClockTick> {
     if (mounted) setState(() {});
   }
 
+  /// Counts each build of this widget: a screen that builds the clock again
+  /// (new words, a text size, a dress) may need another room, which a tick
+  /// never does, so each build has the room measured again.
+  int _builds = 0;
+
   @override
   Widget build(BuildContext context) {
     final form = _form(widget.countdown?._read().seconds);
+    // What the clock's content is set from, so a change to any of it builds
+    // here and has the room measured again (the room is held at its size,
+    // and nothing below it would reach it).
+    MediaQuery.maybeOf(context);
+    DressScope.of(context);
     return _ClockRoom(
-      form: form,
+      form: (form, ++_builds),
       child: _ClockScope(
         child: _ClockFace(
           countdown: widget.countdown,
@@ -363,7 +375,8 @@ class _ClockRoom extends SingleChildRenderObjectWidget {
 /// [ClockTick]'s room: its child is laid out once at the size it asks for
 /// (when the clock first shows, changes form, or is given other room), then
 /// held at that size, so the child is where a tick's layout stops; and it
-/// is a repaint boundary, so a tick's paint stops here too.
+/// is a repaint boundary, so a tick's paint stops here too. [form] changes
+/// with each build of [ClockTick] (never with a tick), which measures it again.
 class RenderClockRoom extends RenderProxyBox {
   RenderClockRoom(this._form);
 
