@@ -74,12 +74,30 @@ No secrets live in the repo. `DEBUG` is forced off, so the debug harness endpoin
 ## Files
 
 * `backend/config/settings/vercel.py`: the settings above, `ONUW_TIMER_BACKEND = "vercel_queue"`.
+  It leaves `daphne` out of `INSTALLED_APPS` (its app only adds a `runserver`, and
+  loading it imports Twisted): importing the app on a cold start went from 0.37 to
+  0.44 s to 0.24 to 0.31 s here (25 November 2026). What is left is Django, the models,
+  psycopg and DRF, which every request needs.
 * `backend/pyproject.toml`: `vercel-queue` is a normal dependency, so the build installs it;
   `[tool.vercel.scripts] build` runs `migrate` on every build; and
   `[[tool.vercel.subscribers]] entrypoint = "apps.core.queue_worker"`.
 * `backend/apps/core/queue_worker.py`: the subscriber (`@subscribe(topic="onuw-timers*")`).
 * Migrations to run on deploy: `python manage.py migrate --noinput` (core 0006, 0007;
   onuw 0004, 0005, 0006, 0007).
+
+## Socket messages
+
+`channels_redis` sends one group message in four Redis round trips, one after another,
+before the answer leaves; a tap that closed the talk sent three (twelve round trips). The
+live layer is `apps.core.channel_layer.BatchingRedisChannelLayer`: the messages of one
+`send_after_commit` call go out in one pipeline (every group's members) and one script
+(every push), two round trips whatever they hold. Each socket still hears them in the
+order given (rising scores, also for a socket in two groups), and Redis holds exactly
+what `group_send` writes, so an instance on the previous build reads them as its own.
+Separate calls in one commit stay separate and in order (a timer change may sit between
+them). The direct sends of the lobby views (join, leave, settings, the deal's
+`game_started`) still use `group_send`. Sends stay before the answer: a function instance
+may be frozen once it has answered, so a send left for after could be lost.
 
 ## How timers work
 

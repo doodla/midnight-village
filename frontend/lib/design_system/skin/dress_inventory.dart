@@ -497,6 +497,8 @@ const notAComponent = <String, String>{
   'primitives/drawn.dart': 'the allow-list of drawings',
   'primitives/faint_art.dart': 'a faint picture behind a screen',
   'primitives/fit_line.dart': 'text fitting; draws only words',
+  'primitives/finger_hold.dart':
+      'a hold timed from the finger; a gesture, draws nothing',
   'primitives/lantern_pool.dart': 'the lantern\'s light on the ground',
   'primitives/layered_art.dart': 'the layered village art',
   'primitives/mood.dart': 'the dressed screen\'s light behind everything',

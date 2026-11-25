@@ -24,16 +24,27 @@ class AuthInterceptor extends QueuedInterceptorsWrapper {
   final void Function() _onAuthFailure;
   final Future<Response<dynamic>> Function(RequestOptions) _retryFetch;
 
+  /// Signs [options] with the access token held in memory and passes it on
+  /// at once: nothing waits here, so a tap's request leaves in the tap's own
+  /// task ([TokenStorage.held]). Only a request made before storage was ever
+  /// read waits for that one read.
   @override
-  Future<void> onRequest(
-    RequestOptions options,
-    RequestInterceptorHandler handler,
-  ) async {
-    final accessToken = await _tokenStorage.accessToken;
-    if (accessToken != null) {
-      options.headers['Authorization'] = 'Bearer $accessToken';
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    void sign(String? accessToken) {
+      if (accessToken != null) {
+        options.headers['Authorization'] = 'Bearer $accessToken';
+      }
+      handler.next(options);
     }
-    handler.next(options);
+
+    final held = _tokenStorage.held;
+    if (held != null) return sign(held.access);
+    _tokenStorage.accessToken.then(
+      sign,
+      onError: (Object e, StackTrace stack) => handler.reject(
+        DioException(requestOptions: options, error: e, stackTrace: stack),
+      ),
+    );
   }
 
   @override

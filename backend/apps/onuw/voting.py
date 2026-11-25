@@ -209,13 +209,21 @@ def submit_vote(
 
         voter_pr.has_acted = True
         voter_pr.save(update_fields=["vote_target", "has_acted", *noted])
+        # Every row once, after the write: the count, the reveal check and the
+        # reveal itself read the same rows.
+        prs = readiness._player_roles(game)
         basics._send_after_commit(
-            [(f"game_{game.id}", {"type": "progress", **readiness.vote_progress(game)})]
+            [
+                (
+                    f"game_{game.id}",
+                    {"type": "progress", **readiness.vote_progress(game, prs)},
+                )
+            ]
         )
         # Reveal once everyone has locked, or everyone still being waited for has
         # (a player gone past the grace period is a non-voter at the deadline too).
-        if readiness._votes_ready(game):
-            reveal_votes(game)
+        if readiness._votes_ready(game, prs):
+            reveal_votes(game, prs)
 
     return []
 
@@ -228,7 +236,11 @@ def _stage_is_ready(game: Game) -> bool:
     period ended, a phone came back) and ``ensure_timers`` (the look timer was lost)
     all ask it, so what "everyone is ready" means cannot differ between them.
     """
-    progress = readiness.stage_progress(game)
+    return _counted_ready(readiness.stage_progress(game))
+
+
+def _counted_ready(progress: dict[str, Any] | None) -> bool:
+    """``_stage_is_ready`` from a count already made (``readiness.stage_progress``)."""
     if progress is None or progress["stage"] == "vote":
         return False
     return progress["needed"] >= 1 and progress["done"] == progress["needed"]
@@ -237,7 +249,13 @@ def _stage_is_ready(game: Game) -> bool:
 def _advance_stage_if_ready(game: Game) -> bool:
     """Move past the look stage (open the night) or the talk (open the vote) if
     ``_stage_is_ready``. The caller holds the Game lock. Returns whether it did."""
-    if not _stage_is_ready(game):
+    return _advance_if_counted_ready(game, readiness.stage_progress(game))
+
+
+def _advance_if_counted_ready(game: Game, progress: dict[str, Any] | None) -> bool:
+    """``_advance_stage_if_ready`` from the count the caller made under the same
+    lock, after its own write (so the count is read once per tap)."""
+    if not _counted_ready(progress):
         return False
     if game.phase == Phase.DISCUSSION:
         end_discussion(game)
@@ -304,11 +322,11 @@ def set_ready(
             basics._send_after_commit(
                 [(f"game_{game.id}", {"type": "progress", **progress})]
             )
-        _advance_stage_if_ready(game)
+        _advance_if_counted_ready(game, progress)
     return []
 
 
-def reveal_votes(game: Game) -> None:
+def reveal_votes(game: Game, prs: list[PlayerRole] | None = None) -> None:
     """
     Reveal all votes simultaneously, compute win conditions, and
     transition to results.
@@ -325,9 +343,9 @@ def reveal_votes(game: Game) -> None:
     # other side effect, so a rollback leaves the vote running.
     basics._cancel_after_commit(f"{game.id}:voting")
 
-    # Collect vote data
+    # Collect vote data (``prs``: every row, read by the caller under the lock).
     # pyrefly: ignore [missing-attribute]
-    player_roles_qs = game.player_roles.all()
+    player_roles_qs = prs if prs is not None else game.player_roles.all()
     votes_broadcast: dict[str, int | None] = {}
     votes_dict: dict[int, int | None] = {}
     current_roles: dict[int, str] = {}

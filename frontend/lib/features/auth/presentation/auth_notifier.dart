@@ -26,9 +26,14 @@ part 'auth_notifier.g.dart';
 @Riverpod(keepAlive: true)
 ApiClient apiClient(Ref ref) => ApiClient();
 
-/// Provides the token storage.
+/// Provides the token storage: the session's tokens, held in memory once
+/// read ([TokenStorage]).
 @Riverpod(keepAlive: true)
-TokenStorage tokenStorage(Ref ref) => TokenStorage();
+TokenStorage tokenStorage(Ref ref) {
+  final storage = TokenStorage();
+  ref.onDispose(storage.dispose);
+  return storage;
+}
 
 /// Provides the user storage.
 @Riverpod(keepAlive: true)

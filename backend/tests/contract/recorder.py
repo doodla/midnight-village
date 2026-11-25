@@ -106,9 +106,17 @@ class RecordingLayer(BaseChannelLayer):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.sent: list[tuple[str, dict[str, Any]]] = []
+        # How many times messages went out together (the live layer's
+        # ``group_send_many``: two Redis round trips each, apps/core/channel_layer.py).
+        self.batches = 0
 
     async def group_send(self, group: str, message: dict[str, Any]) -> None:
         self.sent.append((group, copy.deepcopy(message)))
+
+    async def group_send_many(self, messages: list[tuple[str, dict[str, Any]]]) -> None:
+        self.batches += 1
+        for group, message in messages:
+            await self.group_send(group, message)
 
     async def group_add(self, group: str, channel: str) -> None:
         pass
