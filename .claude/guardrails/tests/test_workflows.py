@@ -386,6 +386,9 @@ class WorkflowAfterMerge(unittest.TestCase):
         # the deal and a restart reach the other phones only by socket: the one
         # check that opens one against the live server stays switched on
         self.assertIn("--sockets", self.code)
+        # ... and its timings are kept, so two merges can be compared
+        self.assertIn("--timings deployed-timings.json", self.code)
+        self.assertIn("path: deployed-timings.json", self.code)
         self.assertTrue((ROOT / "tool" / "deployed_sockets.py").is_file())
         android = (ROOT / ".github" / "workflows" / PUBLISHING[0]).read_text()
         for name in ("API_ORIGIN", "PUBLIC_ORIGIN"):
