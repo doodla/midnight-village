@@ -8,7 +8,7 @@ import '../../../helpers/live_game_setup.dart';
 // (the `Date` header); the phone counts from that stamp with a stopwatch and
 // never compares its own clock with the server's. So a phone whose clock is
 // minutes ahead, minutes behind or years off shows the same number as one
-// that is right. `StageSeconds` (every countdown on 05, 06, 08 and 09) shows
+// that is right. `Countdown` (every countdown on 05, 06, 08 and 09) shows
 // exactly `secondsFor(untilServer(deadline))`, which is what is read here.
 
 void main() {
@@ -22,7 +22,7 @@ void main() {
     addTearDown(setup.dispose);
     setup.answerMe(me, serverDate: server);
     await setup.load();
-    return StageSeconds.secondsFor(setup.notifier.untilServer(deadline));
+    return Countdown.secondsFor(setup.notifier.untilServer(deadline));
   }
 
   // The server answered with 20 s of the stage left.

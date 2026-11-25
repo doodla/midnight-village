@@ -312,9 +312,8 @@ void main() {
       s.answerMe(recordedMe('me_discussion_choose_seer'));
       s.resume();
       await _begun(tester, find.byType(SquareSky));
-      Finder clock() => find.byWidgetPredicate(
-        (w) => w is SquareSky && w.secondsLeft != null,
-      );
+      Finder clock() =>
+          find.byWidgetPredicate((w) => w is SquareSky && w.countdown != null);
       expect(find.byType(TalkScreen), findsNothing, reason: '/me/ is held');
       expect(clock(), findsNothing, reason: 'no number drawn at the start');
       await tester.pump(_ms * 100);

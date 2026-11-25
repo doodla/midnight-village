@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/night/night_story_view.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
@@ -37,7 +38,7 @@ Future<void> _pump(WidgetTester tester, {bool openNight = false}) async {
       overrides: learnedOverrides({...Cue.values}),
       child: TalkView(
         me: GameMe.fromJson(sheet.recordedMe('me_talk_results_seen')),
-        secondsLeft: 192,
+        clock: Countdown.held(192),
         onReady: () {},
         openNight: openNight,
       ),

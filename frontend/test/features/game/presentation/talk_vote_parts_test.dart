@@ -12,7 +12,6 @@ import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/vote_screen.dart';
-import 'package:midnight_village/features/game/presentation/stage_seconds.dart';
 
 import '../../../helpers/component_sheet.dart' show learnedOverrides;
 import '../../../helpers/pump_skinned.dart';
@@ -91,11 +90,7 @@ void main() {
     ) async {
       await pumpSkinned(
         tester,
-        const TimerBand.bar(
-          secondsLeft: null,
-          remaining: 0.8,
-          title: VoteCopy.headline,
-        ),
+        const TimerBand.bar(countdown: null, title: VoteCopy.headline),
         ground: GroundKind.day,
       );
       expect(find.text(VoteCopy.headline), findsOneWidget);
@@ -110,7 +105,7 @@ void main() {
     testWidgets('no share: the number, and the bar unlit', (tester) async {
       await pumpSkinned(
         tester,
-        const TimerBand.bar(secondsLeft: 72, remaining: null),
+        const TimerBand.bar(countdown: Countdown.held(72)),
         ground: GroundKind.day,
       );
       expect(find.text('1:12'), findsOneWidget);
@@ -125,7 +120,7 @@ void main() {
     testWidgets('with a share, that much of the bar is lit', (tester) async {
       await pumpSkinned(
         tester,
-        const TimerBand.bar(secondsLeft: 27, remaining: 0.3),
+        const TimerBand.bar(countdown: Countdown.held(27, share: 0.3)),
         ground: GroundKind.day,
       );
       expect(
@@ -158,8 +153,7 @@ void main() {
             child: const SizedBox(
               width: 320,
               child: TimerBand.bar(
-                secondsLeft: 18,
-                remaining: null,
+                countdown: Countdown.held(18),
                 title: VoteCopy.headline,
               ),
             ),
@@ -237,7 +231,7 @@ void main() {
             child: _Learned(
               child: VoteView(
                 me: me,
-                secondsLeft: 72,
+                clock: Countdown.held(72),
                 onPick: (_) {},
                 onLock: (_) {},
               ),
@@ -265,7 +259,7 @@ void main() {
           child: _Learned(
             child: VoteView(
               me: three,
-              secondsLeft: 72,
+              clock: Countdown.held(72),
               onPick: (_) {},
               onLock: (_) {},
             ),

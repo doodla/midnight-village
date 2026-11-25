@@ -17,7 +17,8 @@ part of 'where_am_i_provider.dart';
 /// retried until it succeeds ([retryForever]). At a waiting table or a
 /// finished game, where only an event would say the table moved on, it is
 /// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
-/// a missed event heals. Null: at no table. Every answer is kept on the
+/// a missed event heals; a poll that brings the same answer is not a new
+/// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
 /// device as the last seat ([LastSeat]).
 ///
 /// A read asked for right after the server said where this player sits (an
@@ -37,7 +38,8 @@ const myTableProvider = MyTableProvider._();
 /// retried until it succeeds ([retryForever]). At a waiting table or a
 /// finished game, where only an event would say the table moved on, it is
 /// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
-/// a missed event heals. Null: at no table. Every answer is kept on the
+/// a missed event heals; a poll that brings the same answer is not a new
+/// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
 /// device as the last seat ([LastSeat]).
 ///
 /// A read asked for right after the server said where this player sits (an
@@ -58,7 +60,8 @@ final class MyTableProvider
   /// retried until it succeeds ([retryForever]). At a waiting table or a
   /// finished game, where only an event would say the table moved on, it is
   /// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
-  /// a missed event heals. Null: at no table. Every answer is kept on the
+  /// a missed event heals; a poll that brings the same answer is not a new
+  /// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
   /// device as the last seat ([LastSeat]).
   ///
   /// A read asked for right after the server said where this player sits (an
@@ -90,7 +93,7 @@ final class MyTableProvider
   }
 }
 
-String _$myTableHash() => r'0557c7f10ceeac2afd4409aad4647eea49694dc2';
+String _$myTableHash() => r'4348ad4e9a72312c1a6232b6dabd717fa22787e2';
 
 @ProviderFor(seatSeed)
 const seatSeedProvider = SeatSeedProvider._();

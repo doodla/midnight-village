@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/models/role.dart';
@@ -96,8 +97,10 @@ class BoardHarness {
       face: face,
       dealt: dealt,
       dress: dress,
-      secondsLeft: secondsLeft,
-      share: share,
+      countdown: switch (secondsLeft) {
+        final seconds? => Countdown.held(seconds, share: share),
+        null => null,
+      },
       onChoose: (stage, picks) {
         stages.add(stage);
         sent.add(picks);

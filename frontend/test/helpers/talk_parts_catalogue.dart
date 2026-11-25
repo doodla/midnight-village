@@ -124,7 +124,10 @@ final List<PartSample> talkPartsCatalogue = [
     PartState.rest,
     (c) => const SizedBox(
       width: 340,
-      child: SquareSky(secondsLeft: 192, title: 'The village wakes'),
+      child: SquareSky(
+        countdown: Countdown.held(192),
+        title: 'The village wakes',
+      ),
     ),
   ),
   // My night held: a story's cards and its threads with heads.

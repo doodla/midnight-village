@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
@@ -232,7 +233,9 @@ class _HoldToRevealState extends State<HoldToReveal>
       _anchor = anchor;
       _showings++;
     });
-    _portal.show();
+    // A face turned in place, or shown elsewhere ([HoldToReveal.away]),
+    // needs no overlay layer.
+    if (!widget.inPlace && !widget.away) _portal.show();
     if (!wasVisible) widget.onRevealChanged?.call(true);
   }
 
@@ -240,6 +243,7 @@ class _HoldToRevealState extends State<HoldToReveal>
     if (!mounted || !_visible) return;
     _stopTimers();
     setState(() => _shown = null);
+    _closePortal();
     widget.onRevealChanged?.call(false);
   }
 
@@ -248,7 +252,24 @@ class _HoldToRevealState extends State<HoldToReveal>
     _stopTimers();
     _shown = null;
     final changed = widget.onRevealChanged;
-    if (changed != null) scheduleMicrotask(() => changed(false));
+    scheduleMicrotask(() {
+      _closePortal();
+      changed?.call(false);
+    });
+  }
+
+  /// The overlay's layer is taken away once the face is: an open one is
+  /// laid out again at every frame (it follows the card), and that drew the
+  /// whole screen again at every tick of the clock long after the hold.
+  void _closePortal() {
+    // Asked in a build (the screen took [HoldToReveal.open] away): the
+    // overlay cannot be changed while the tree is built, so after the frame.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => _closePortal());
+      return;
+    }
+    if (mounted && !_visible && _portal.isShowing) _portal.hide();
   }
 
   void _stopTimers() {
@@ -424,7 +445,7 @@ class _HoldToRevealState extends State<HoldToReveal>
   /// held card is in that frame, and never past the screen's edges: the face
   /// is always whole on screen.
   Widget _face(BuildContext context, OverlayChildLayoutInfo info) {
-    // The portal stays open once used; while hidden it holds nothing.
+    // Hidden (the frame the finger lifts): nothing, and the portal closes.
     if (!_visible) return const SizedBox.shrink();
     final screen = info.overlaySize;
     final padding = MediaQuery.paddingOf(context);

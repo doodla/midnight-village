@@ -54,6 +54,35 @@ class LiveGame {
   Set<OutboxLane> get unsent =>
       outbox.unsent.difference(const {OutboxLane.ack});
 
+  /// The same game as this phone holds it: the same `/me/` ([GameMe.==]),
+  /// taps, results, phones and flags. A fetch, a retry or an event that
+  /// brings nothing new is not a new state ([LiveGameNotifier._set]), so a
+  /// screen at rest is not drawn again by a poll of an unchanged `/me/`.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LiveGame &&
+          other.server == server &&
+          other.outbox == outbox &&
+          other.outcome == outcome &&
+          mapEquals(other.presence, presence) &&
+          other.hostNotice == hostNotice &&
+          other.tableClosed == tableClosed &&
+          other.fetchFailing == fetchFailing &&
+          other.outcomeFailing == outcomeFailing;
+
+  @override
+  int get hashCode => Object.hash(
+    server,
+    outbox,
+    outcome,
+    Object.hashAllUnordered(presence.entries.map((e) => (e.key, e.value))),
+    hostNotice,
+    tableClosed,
+    fetchFailing,
+    outcomeFailing,
+  );
+
   LiveGame copyWith({
     GameMe? server,
     Outbox? outbox,

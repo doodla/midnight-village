@@ -26,8 +26,8 @@ import '../stage_seconds.dart';
 import 'talk_square.dart';
 
 /// 08 Talk, wired to the server: [TalkView] fed from `/me/` (with this
-/// phone's taps on it), the clock from the stage's deadline
-/// ([StageSeconds]), "Ready to vote" sent through the game's outbox as a
+/// phone's taps on it), the clock counting to the stage's deadline
+/// ([stageCountdown]: a second going by redraws the clock alone), "Ready to vote" sent through the game's outbox as a
 /// toggle. A phone whose night told it something it has not acknowledged
 /// opens the talk with My night up, once ([TalkView.openNight]): the ack
 /// goes when it is shown, the first touch (or Back) puts it away. Otherwise the
@@ -70,19 +70,15 @@ class _TalkScreenState extends ConsumerState<TalkScreen> {
   @override
   Widget build(BuildContext context) {
     final me = widget.game.me;
-    return StageSeconds(
-      gameId: widget.gameId,
-      deadline: me.deadline,
-      builder: (context, seconds) => TalkView(
-        me: me,
-        secondsLeft: seconds,
-        // A toggle; taps in a row go out in order, the latest last.
-        onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
-        onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
-        openNight: _open,
-        notSent: widget.game.unsent.contains(OutboxLane.ready),
-        onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
-      ),
+    return TalkView(
+      me: me,
+      clock: stageCountdown(_notifier, deadline: me.deadline),
+      // A toggle; taps in a row go out in order, the latest last.
+      onReady: () => unawaited(_notifier.setReady(!(me.ready ?? false))),
+      onMyNightSeen: () => unawaited(_notifier.acknowledgeNightResults()),
+      openNight: _open,
+      notSent: widget.game.unsent.contains(OutboxLane.ready),
+      onTryAgain: () => unawaited(_notifier.retry(OutboxLane.ready)),
     );
   }
 }
@@ -102,7 +98,7 @@ class TalkView extends ConsumerStatefulWidget {
   const TalkView({
     super.key,
     required this.me,
-    required this.secondsLeft,
+    required this.clock,
     required this.onReady,
     this.onMyNightSeen,
     this.openNight = false,
@@ -112,8 +108,8 @@ class TalkView extends ConsumerStatefulWidget {
 
   final GameMe me;
 
-  /// Null: the talk has no deadline (no number).
-  final int? secondsLeft;
+  /// What the clock counts down; null: the talk has no deadline (no number).
+  final Countdown? clock;
 
   /// "Ready to vote" / "Ready ✓" tapped.
   final VoidCallback onReady;
@@ -143,9 +139,9 @@ class _TalkViewState extends ConsumerState<TalkView> {
   /// How many times the seal has stirred to teach the hold.
   late var _stirs = !_learned && !widget.openNight ? 1 : 0;
 
-  /// The held night's panel, kept while the night is the same: the clock's
-  /// tick rebuilds this screen every second, and the very same widget is not
-  /// built again (nor its picture laid out, nor repainted).
+  /// The held night's panel, kept while the night is the same: a new `/me/`
+  /// rebuilds this screen, and the very same widget is not built again (nor
+  /// its picture laid out, nor repainted).
   MyNightPanel? _panel;
 
   Widget _panelOf(GameMe me) {
@@ -169,10 +165,7 @@ class _TalkViewState extends ConsumerState<TalkView> {
       ground: GroundKind.night,
       dress: Dress.paper,
       bleed: true,
-      topSlot: SquareSky(
-        secondsLeft: widget.secondsLeft,
-        title: TalkCopy.headline,
-      ),
+      topSlot: SquareSky(countdown: widget.clock, title: TalkCopy.headline),
       fitsHeight: true,
       minBodyHeight: context.skin.parts.squareLeastBody,
       body: Column(

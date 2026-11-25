@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/feel/haptics.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
@@ -68,7 +69,7 @@ class _HostState extends State<_Host> {
     overrides: learnedOverrides(Cue.values.toSet()),
     child: VoteView(
       me: _me,
-      secondsLeft: _seconds,
+      clock: Countdown.held(_seconds),
       accepts: widget.accepts,
       onPick: (id) {
         widget.onPick?.call(id);

@@ -11,6 +11,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/requests/player_request.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/primitives/pending.dart' show RequestRefused;
+import '../../../design_system/primitives/countdown.dart' show Countdown;
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
 import '../../auth/domain/auth_state.dart';
@@ -196,7 +197,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
       if (e is ForbiddenException) _invalidateTable();
       final current = state.value;
       if (current == null) {
-        state = AsyncError(e, stack);
+        // Failing once is news; failing again is not (no frame for it).
+        if (!state.hasError) state = AsyncError(e, stack);
       } else {
         _update((s) => s.copyWith(fetchFailing: true));
         _armHealing(current.server);
@@ -215,7 +217,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     _failedFetches = 0;
     _retryTimer?.cancel();
     final outbox = (current?.outbox ?? Outbox.empty).afterFetch(me, seq);
-    state = AsyncData(
+    _set(
       current == null
           ? LiveGame._(server: me, outbox: outbox)
           : current.copyWith(
@@ -267,11 +269,26 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   }
 
   void _clockFrom(FetchedMe fetched) {
+    // What the clock read until now, against what this answer says: the
+    // clocks on screen read again at once only when they differ (the `Date`
+    // header is whole seconds, so most answers move it by less).
+    final before = _serverDate?.add(_sinceFetch.elapsed);
+    final now = fetched.serverDate;
+    final moved =
+        before == null ||
+        now == null ||
+        now.difference(before).abs() > Countdown.movedBy;
     _serverDate = fetched.serverDate;
     _sinceFetch
       ..reset()
       ..start();
+    if (moved) clockMoved.value++;
   }
+
+  /// Tells the clocks on screen that the server's clock moved (a new `Date`
+  /// that differs from what they read): they read again now, not at their
+  /// next tick.
+  final clockMoved = ValueNotifier<int>(0);
 
   /// How long until [time] on the server's clock: from the last answer's
   /// `Date` and the time since it arrived, so the phone's own clock is never
@@ -280,6 +297,9 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   Duration _untilServer(DateTime time) {
     final date = _serverDate;
     if (date != null) return time.difference(date) - _sinceFetch.elapsed;
+    // A clock still on screen after the provider is gone (a leaving
+    // crossfade) reads the phone's clock, not a dead ref.
+    if (!ref.mounted) return time.difference(DateTime.now());
     return time.difference(ref.read(clockProvider)());
   }
 
@@ -460,7 +480,16 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   void _update(LiveGame Function(LiveGame) change) {
     if (!ref.mounted) return;
     final current = state.value;
-    if (current != null) state = AsyncData(change(current));
+    if (current != null) _set(change(current));
+  }
+
+  /// The one way a loaded game's state is set: only when it differs
+  /// ([LiveGame.==]). The same `/me/` again (the poll past a deadline, a
+  /// heal, a reconnect), a retry that fails again, a presence already known:
+  /// nothing is told, so nothing is drawn.
+  void _set(LiveGame next) {
+    if (state case AsyncData(:final value) when value == next) return;
+    state = AsyncData(next);
   }
 
   @override

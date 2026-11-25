@@ -193,6 +193,7 @@ is every component's own code, kept exactly as it was (the owner has not asked f
 | TextBacking | nothing | a name plate: a cut-paper tag behind the words (paint only), the words in the tag's ink | `primitives/text_backing.dart` |
 | TimerBand | a band with the clock, the sun or the bar | the same band; the night board's sits on a banner | `primitives/band.dart` |
 | WorldTimer | the seconds beside a candle on a panel with a hairline frame | the same panel with no frame | `primitives/world_timer.dart` |
+| Countdown, ClockTick | what a clock counts (a stage's deadline by the server's clock, or held still for a picture); only the clock primitives read it, in a `ClockTick` that rebuilds them alone each second, in its own build scope (as a `LayoutBuilder` has: a tick never reaches the screen's layout builders, which would lay out and paint the screen again) and a room where layout and paint stop (`clock_users_test.dart`, the sweep's rest rule) | the same | `primitives/countdown.dart` |
 | CandleGauge | the paper candle (art) on a ledge with a hairline | the candle on a ledge with no hairline (the candle is art) | `primitives/candle_gauge.dart` |
 | PaperMark | not drawn (a pick is a ring) | a drop of wax with a tick cut from paper laid on it (filled, with a shadow; no ring): the one mark for picked and done | `primitives/paper_mark.dart` |
 | PaperSeal | a scalloped seal with a padlock | a disc of red wax with the padlock in bone, no ring | `primitives/paper_seal.dart` |
@@ -401,9 +402,9 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   (a browser's bar, a turned phone) moves the face with the card, and it never reaches past the screen's edges (`hold_to_reveal_test.dart`);
   text scale capped at 1.6, words out of semantics unless activated.
   Elsewhere in the screens branch: `PrimaryButton.checkMark` (a done tick), `WorldTimer.format`
-  ("14 s" under a minute, "4:12" from a minute, `CommonCopy.seconds`; a bare number was not read as seconds), `WorldTimer` and `TimerBand` with null seconds
+  ("14 s" under a minute, "4:12" from a minute, `CommonCopy.seconds`; a bare number was not read as seconds), `WorldTimer` and `TimerBand` with a null `Countdown`
   (a stage with no deadline shows no count), `TimerBand` with no share
-  (null `elapsed`/`remaining`: the sun rests at `restingSun`, the bar is unlit; nothing is drawn that the server did not say) and with the screen's `title`
+  (a countdown with no share: the bar is unlit; nothing is drawn that the server did not say) and with the screen's `title`
   beside its number (under it where they do not fit side by side), the talk's sun kept clear of the rooftops (`_SunPainter.rise`), `PeekBox(large:)`,
   `FadingScroll` (a part of a `fitsHeight` body that scrolls only when it cannot fit) and a `fitsHeight` body under a `topSlot` given the height left under the
   band. Its content is read from `/me/` by `NightReport.fromMe` (`faces/night_report.dart`):
@@ -505,7 +506,7 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   its role's size (24; set smaller only where two lines are not enough, never under 0.8 of it) and on two lines at most, at any width, text size or time on the
   clock (`board_sweep_test.dart`). Its wax burns down into the holder and its flame shrinks with the window, slowly at first and steeper toward the end
   (`CandleGauge.burnCurve`: the last five seconds of 30 take a fifth of the stick)
-  (`NightBoard.share` from `StageShare.left`, so from the server's `stage_started_at` and deadline; null shows it whole) in a step each second with the number,
+  (the share of `NightBoard.countdown`, `StageShare.left`, so from the server's `stage_started_at` and deadline; none shows it whole) in a step each second with the number,
   never out (a small flame and a stub at the end), no tween, nothing moving between steps, nothing different under reduce motion;
   The seconds are what a screen reader hears (the candle is excluded).
   Behind the title is a quiet strip of the night village

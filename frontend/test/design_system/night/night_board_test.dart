@@ -44,7 +44,7 @@ void main() {
   ) async {
     await BoardHarness(Viewer.seer.nightMe, secondsLeft: null).pump(tester);
     expect(
-      tester.widget<WorldTimer>(find.byType(WorldTimer)).secondsLeft,
+      tester.widget<WorldTimer>(find.byType(WorldTimer)).countdown,
       isNull,
     );
     expect(find.text('0'), findsNothing);

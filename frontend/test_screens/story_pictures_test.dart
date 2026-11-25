@@ -11,6 +11,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
@@ -70,7 +71,7 @@ void main() {
           overrides: learnedOverrides({...Cue.values}),
           child: TalkView(
             me: GameMe.fromJson(allNights[night]!()),
-            secondsLeft: 192,
+            clock: Countdown.held(192),
             onReady: () {},
             openNight: true,
           ),

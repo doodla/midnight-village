@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/primitives/vote_slip.dart';
 import 'package:midnight_village/design_system/primitives/you_tag.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
@@ -33,7 +34,7 @@ void main() {
           overrides: learnedOverrides(Cue.values.toSet()),
           child: VoteView(
             me: GameMe.fromJson(recordedMe('me_voting_practice')),
-            secondsLeft: 72,
+            clock: Countdown.held(72),
             onPick: picks.add,
             onLock: (_) {},
           ),

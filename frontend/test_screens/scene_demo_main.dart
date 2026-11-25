@@ -176,7 +176,10 @@ class _Talk extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ScreenFrame(
     ground: GroundKind.day,
-    topSlot: const SquareSky(secondsLeft: 300, title: 'The village wakes'),
+    topSlot: const SquareSky(
+      countdown: Countdown.held(300),
+      title: 'The village wakes',
+    ),
     fitsHeight: true,
     minBodyHeight: 300,
     body: Column(

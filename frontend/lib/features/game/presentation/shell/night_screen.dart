@@ -42,40 +42,35 @@ class NightScreen extends ConsumerWidget {
       );
     }
     final notifier = ref.read(liveGameProvider(gameId).notifier);
-    return StageSeconds(
-      gameId: gameId,
-      deadline: me.deadline,
-      builder: (context, seconds) => NightBoard(
-        seats: me.seats,
-        selfId: me.playerId,
-        prompt: prompt,
-        face: me.report.you(prompt),
-        told: me.report.readsOn(prompt),
-        dealt: me.report.dealt,
-        // An untimed window (a debug setting): the candle alone.
-        secondsLeft: seconds,
-        share: StageShare.left(
-          startedAt: me.stageStartedAt,
-          deadline: me.deadline,
-          secondsLeft: seconds,
-        ),
-        onChoose: (stage, picks) async =>
-            (await notifier.choose(stage, picks)).forBoard,
+    return NightBoard(
+      seats: me.seats,
+      selfId: me.playerId,
+      prompt: prompt,
+      face: me.report.you(prompt),
+      told: me.report.readsOn(prompt),
+      dealt: me.report.dealt,
+      // An untimed window (a debug setting): the candle alone.
+      countdown: stageCountdown(
+        notifier,
+        deadline: me.deadline,
+        startedAt: me.stageStartedAt,
       ),
+      onChoose: (stage, picks) async =>
+          (await notifier.choose(stage, picks)).forBoard,
     );
   }
 }
 
 /// 05: the village sleeps, the candle, nothing to do. The number shows only
 /// when the server's deadline is known; while `/me/` loads there is none.
-class NightWaitScreen extends StatelessWidget {
+class NightWaitScreen extends ConsumerWidget {
   const NightWaitScreen({super.key, required this.gameId, this.deadline});
 
   final String gameId;
   final DateTime? deadline;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final skin = context.skin;
     return ScreenFrame(
       ground: GroundKind.night,
@@ -92,15 +87,12 @@ class NightWaitScreen extends StatelessWidget {
                 style: skin.typography.screenTitle,
               ),
             ),
-            if (deadline == null)
-              const WorldTimer.candle(secondsLeft: null)
-            else
-              StageSeconds(
-                gameId: gameId,
+            WorldTimer.candle(
+              countdown: stageCountdown(
+                ref.read(liveGameProvider(gameId).notifier),
                 deadline: deadline,
-                builder: (context, seconds) =>
-                    WorldTimer.candle(secondsLeft: seconds),
               ),
+            ),
           ],
         ),
       ),

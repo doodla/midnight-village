@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:midnight_village/design_system/primitives/countdown.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/presentation/shell/talk_screen.dart';
@@ -52,7 +53,7 @@ class _TalkPageState extends State<TalkPage> {
       key: _talk,
       child: TalkView(
         me: _me.withReady(_ready),
-        secondsLeft: widget.secondsLeft,
+        clock: Countdown.held(widget.secondsLeft),
         onReady: () => setState(() => _ready = !_ready),
         openNight: _open,
       ),
@@ -93,7 +94,7 @@ class _VotePageState extends ConsumerState<VotePage> {
     final vote = _vote;
     return VoteView(
       me: vote == null ? _me : _me.withVote(vote),
-      secondsLeft: widget.secondsLeft,
+      clock: Countdown.held(widget.secondsLeft),
       onPick: (id) => setState(() => _vote = MyVote.local(id, locked: false)),
       onLock: (id) {
         setState(() => _vote = MyVote.local(id, locked: true));
