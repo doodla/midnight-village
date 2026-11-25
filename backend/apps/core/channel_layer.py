@@ -8,7 +8,8 @@ every group's members, one script pushes every message to every member channel
 (per Redis shard; the live server has one).
 
 Order is kept for every socket: a channel's messages are read lowest score first,
-and the messages of one batch get rising scores in the order given, also when one
+and every message this process sends gets a score above the last one it gave (within
+a batch in the order given, and from one batch to the next), also when one
 socket is in two of the groups (a game socket hears its game and its player). The
 data in Redis is exactly what ``group_send`` writes (same keys, members, expiry and
 capacity rule), so an instance running the previous build receives these messages
@@ -24,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import collections
 import logging
+import threading
 import time
 from typing import Any
 
@@ -34,6 +36,23 @@ logger = logging.getLogger(__name__)
 # Between two messages of one batch: far above a score's resolution (a double near
 # 1.8e9 resolves 2.4e-7 s), far below the time between two commits.
 SCORE_STEP = 1e-5
+
+# The highest score this process has given: every new one is at least a step above
+# it, so two batches keep their order however close together they go out and even
+# if the instance clock steps back.
+_last_score = 0.0
+_scores_lock = threading.Lock()
+
+
+def _next_scores(count: int, now: float) -> list[float]:
+    global _last_score
+    with _scores_lock:
+        scores = []
+        for _ in range(count):
+            _last_score = max(now, _last_score + SCORE_STEP)
+            scores.append(_last_score)
+        return scores
+
 
 PUSH_LUA = """
 local n = #KEYS
@@ -64,15 +83,15 @@ class BatchingRedisChannelLayer(RedisChannelLayer):
         members = await self._members(groups)
 
         now = time.time()
+        scores = _next_scores(len(messages), now)
         # Per shard: (channel key, serialised message, capacity, score), in order.
         pushes: dict[int, list[tuple[Any, Any, int, float]]] = collections.defaultdict(
             list
         )
-        for position, (group, message) in enumerate(messages):
+        for (group, message), score in zip(messages, scores, strict=True):
             to_shard, key_message, key_capacity = self._map_channel_keys_to_connection(
                 members[group], message
             )
-            score = now + position * SCORE_STEP
             for shard, keys in to_shard.items():
                 for key in keys:
                     pushes[shard].append(

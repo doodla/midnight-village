@@ -118,6 +118,39 @@ def test_every_socket_hears_a_batch_in_order_even_one_in_two_groups(redis_url):
     assert heard["ben"] == heard["cleo"] == ["progress", "phase", "count"]
 
 
+def test_two_batches_keep_their_order_when_the_clock_stands_still_or_steps_back(
+    redis_url,
+):
+    # The second batch of one commit can go out within the same clock tick as the
+    # first, and an instance clock can be stepped back: order holds by design.
+    clock = [time.time() + 1000]
+
+    async def run() -> dict[str, list[str]]:
+        new, old = _layers(redis_url)
+        try:
+            for channel in ("ana", "ben", "cleo"):
+                await new.group_add("game_1", channel)
+            with patch("apps.core.channel_layer.time.time", lambda: clock[0]):
+                await new.group_send_many(
+                    [
+                        ("game_1", {"type": "t", "text": "progress"}),
+                        ("game_1", {"type": "t", "text": "phase"}),
+                    ]
+                )
+                # The same tick, then a clock stepped back a second.
+                await new.group_send_many([("game_1", {"type": "t", "text": "count"})])
+                clock[0] -= 1
+                await new.group_send_many([("game_1", {"type": "t", "text": "late"})])
+            return {c: await _received(old, c, 4) for c in ("ana", "ben", "cleo")}
+        finally:
+            await _closed(new, old)
+
+    heard = asyncio.run(run())
+
+    for channel in ("ana", "ben", "cleo"):
+        assert heard[channel] == ["progress", "phase", "count", "late"]
+
+
 def test_a_batch_costs_two_round_trips_whatever_it_sends(redis_url):
     trips: list[str] = []
     command = Redis.execute_command
