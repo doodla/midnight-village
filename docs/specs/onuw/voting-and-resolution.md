@@ -13,7 +13,8 @@
 
 ### Key Principle
 
-After the night phase, a player's role is the card **currently in front of them**, which may differ from their original card. Players should try to determine what team they are currently on, not what team they started on.
+After the night phase, a player's role is the card **currently in front of them**, which may differ from their original card.
+Players should try to determine what team they are currently on, not what team they started on.
 
 ## Voting Phase
 
@@ -43,10 +44,13 @@ In the app, voting works differently from the physical game:
 
 #### Picking and locking in
 
-A vote has two states. A player first **picks** someone (and may change the pick as often as they like; nobody else is told, not even that a pick exists), then **locks in** (final). The app may send both at once (`lock` defaults to true on the vote request).
+A vote has two states. A player first **picks** someone (and may change the pick as often as they like; nobody else is told, not even that a pick exists), then
+**locks in** (final). The app may send both at once (`lock` defaults to true on the vote request).
 
 - The vote is revealed early once every player the table still waits for (not gone past the grace period) has **locked in**. Others see only a count ("3 of 5 locked in"), never who, never at whom.
-- **At any reveal (early, the voting deadline, or the host's force-reveal) every stored pick counts, locked or not.** A player who picked but did not lock in before the deadline has voted for that pick. A player with no pick at all is a non-voter.
+- **At any reveal (early, the voting deadline, or the host's force-reveal) every stored pick counts, locked or not.** A player who picked but did not lock in
+  before the deadline has voted for that pick.
+  A player with no pick at all is a non-voter.
 - The same rule covers a player who dropped: their pick counts, locked or not.
 - An unlocked pick is a vote like any other for the **Hunter chain**: a Hunter who picked a target and never locked in still takes that target with them if they die.
 - Locking is final: a second pick or lock after locking is refused (409).
@@ -77,7 +81,8 @@ If a player holding the **Hunter card** (at end of night, after all swaps) is am
 - This happens regardless of how many votes the Hunter's target received
 - The Hunter's target could even have 0 votes — they still die
 
-**Important:** The Hunter ability belongs to the **card position**, not the original player. If the Hunter card was swapped to a different player during the night, the new holder of the Hunter card has the ability.
+**Important:** The Hunter ability belongs to the **card position**, not the original player.
+If the Hunter card was swapped to a different player during the night, the new holder of the Hunter card has the ability.
 
 ### Step 4: Evaluate Win Conditions
 
@@ -113,7 +118,8 @@ Win conditions are **not mutually exclusive** — multiple teams can win in the 
 | No Werewolf player dies, Tanner does not die | Werewolf team wins |
 | No Werewolf player dies, Tanner dies | **Tanner wins ONLY** — Werewolf team does NOT win (Tanner death blocks Werewolf win) |
 
-**Critical rule from official rulebook:** "If the Tanner dies and no Werewolves die, the Werewolves do **not** win." The Tanner dying is a special override that blocks the Werewolf team's win condition.
+**Critical rule from official rulebook:** "If the Tanner dies and no Werewolves die, the Werewolves do **not** win." The Tanner dying is a special override that
+blocks the Werewolf team's win condition.
 
 #### Scenario B: No Werewolves Among Players (All Werewolf Cards in Center)
 

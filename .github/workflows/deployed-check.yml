@@ -63,3 +63,15 @@ jobs:
           --api "$API_ORIGIN" --app "$PUBLIC_ORIGIN"
           --commit "${{ steps.live.outputs.server }}"
           --app-commit "${{ steps.live.outputs.app }}" --wait 900 --sockets
+          --timings deployed-timings.json
+
+      # How long each kind of request took on the live server (also in the job's
+      # summary): a report to compare two merges by, never a failure.
+      - name: Keep the timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-timings
+          path: deployed-timings.json
+          if-no-files-found: ignore
+          retention-days: 30

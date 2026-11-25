@@ -68,7 +68,9 @@ the rolling release `android-latest` (`docs/dev/deploy-vercel.md`, "Android app 
 runs on a pull request, is not in the ruleset, has a paths filter and `contents: write` on its one
 job. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
 (`WorkflowPublishing`); the wall's rules above apply to every other workflow.
-`guardrails/tests/test_release_assets.py` holds `frontend/tool/record_release_assets.py` to refusing to record over a removed asset that has no retired copy or dated reason. The `Web page smoke` job's `routes.test.cjs` judges `frontend/vercel.json` as Vercel compiles it, so `test_workflows.py` no longer reads its rewrite as a pattern.
+`guardrails/tests/test_release_assets.py` holds `frontend/tool/record_release_assets.py` to refusing to record over a removed asset that has no retired copy or
+dated reason. The `Web page smoke` job's `routes.test.cjs` judges `frontend/vercel.json` as Vercel compiles it, so `test_workflows.py` no longer reads its
+rewrite as a pattern.
 
 The branches Vercel deploys from (`live-server`, `live-app`) are moved by `tool/promote_live.py`
 only when what a side ships changed (`guardrails/tests/test_promote_live.py`).
@@ -78,6 +80,8 @@ every merge to main and proves the live server and app work together
 (`tool/deployed_check.py`; `docs/dev/deploy-vercel.md`, "The check after each merge"). It can
 only run after the merge, so it is never a required check; it reads public addresses, writes
 nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
+Its socket step also reports how long each kind of request took on the live server
+(`tool/deployed_timing.py`, held by `guardrails/tests/test_deployed_timing.py`): a table in the run's summary and a kept file, never a failure.
 
 **What a change is compared with.** `tool/change_base.py`: the main the change was built
 on (on a pull request the merge's first parent, elsewhere where the branch left main),
@@ -156,7 +160,10 @@ closes it when main's newest runs have all passed (`guardrails/tests/test_workfl
 **The built web app, once.** `frontend/tool/web_build_cached.sh` gives a tool the folder of a finished web build and builds again only when what goes into it changed.
 `guardrails/tests/test_web_build_cached.py` holds that with a stand-in for the build: built once, again on a changed source or argument, nothing left by a failed build, the newest four kept.
 
-**Lines of the notes.** `tool/doc_lines.py` finds prose lines over 200 characters in the tracked `*.md` files (two branches that add a word to one such line clash) and `--fix` reflows them, one sentence to a line, changing line breaks only (`guardrails/tests/test_doc_lines.py`: every tracked note keeps every word in order). It is not in `just check` until the notes are reflowed (issue 44, done at a quiet moment).
+**Lines of the notes.** `tool/doc_lines.py` finds prose lines over 200 characters in the tracked `*.md` files
+(two branches that add a word to one such line clash) and `--fix` reflows them, one sentence to a line, changing line breaks only
+(`guardrails/tests/test_doc_lines.py`: every tracked note keeps every word in order).
+It runs in `just check`. Left alone: front matter, the owner's words (`docs/dev/owner-feedback.md`), recorded samples and the skills under `.claude/skills/`.
 
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
 edits: the fast checks, every backend test on every core (about a minute and a half: choosing
@@ -167,7 +174,11 @@ changed, strict at 360 and 390 (at 390 only when more than 60 states are reached
 `--both-widths`; `--no-screens` for a change to logic only): `tool/piece_screens.py` walks every catalogue state's widget
 tree (about a minute, reused until the app changes), reads which file declares each widget
 class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
-(`guardrails/tests/test_piece_check.py`). A change to what the server sends (a recorded sample) or to the harness itself also runs the end-to-end harness, the one test that reads both sides at once; a red harness run ends with the failed tests' names (`tool/failed_tests.py`). It ends with the lines the pull request's description must carry (a guard file edited, words added), since only GitHub can read the description and fails without them. It is never silent: the plan gives each step's rough
+(`guardrails/tests/test_piece_check.py`).
+A change to what the server sends (a recorded sample) or to the harness itself also runs the end-to-end harness, the one test that reads both sides at once;
+a red harness run ends with the failed tests' names (`tool/failed_tests.py`).
+It ends with the lines the pull request's description must carry (a guard file edited, words added), since only GitHub can read the description and fails
+without them. It is never silent: the plan gives each step's rough
 time and the total before anything runs, and a step that prints nothing says it is still
 running every 30 seconds. GitHub still runs everything.
 
@@ -194,7 +205,9 @@ file again (delete the old ruleset first, or edit its checks in the settings).
 
 ## Claude Code hooks (`.claude/settings.json`; timeouts in seconds)
 
-Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path: a session whose shell sits in `backend/` or `frontend/` must still find the script. The Bash guard does nothing when its script is missing (the git hooks are the gate).
+Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path:
+a session whose shell sits in `backend/` or `frontend/` must still find the script.
+The Bash guard does nothing when its script is missing (the git hooks are the gate).
 
 | Event | Script | Does |
 |---|---|---|

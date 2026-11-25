@@ -126,6 +126,14 @@ test-integration:
 test-contract:
     {{backend_just}} test-contract
 
+# A whole game on a slowed phone (release web build, Chrome, CPU 4x): every screen, transition and tap against budgets; own backend. About 15 minutes. Usage: just phone-frames [--cpu 1|2|4] [--out f.json]
+phone-frames *args:
+    tool/phone_frames/run.sh {{args}}
+
+# The live server's round trips and socket events, with three throwaway guests at one throwaway table (read-mostly, no load)
+phone-frames-live *args:
+    python3 tool/phone_frames/live_rtt.py {{args}}
+
 # Boot the harness backend, then run the end-to-end harness (API + UI runners)
 # against it and tear it down (needs Postgres; see docs/dev/debug-harness/)
 test-harness:
@@ -157,14 +165,16 @@ format-check:
 typecheck:
     {{backend_just}} typecheck
 
-# Run all backend quality checks, check the instruction files' paths and recipes, and
-# that no source file has grown past what can be read whole (tool/check_file_sizes.py)
+# Run all backend quality checks, check the instruction files' paths and recipes,
+# that no source file has grown past what can be read whole (tool/check_file_sizes.py),
+# and that no line of the notes is so long that two branches clash on it (tool/doc_lines.py)
 check:
     {{backend_just}} check
     {{backend_just}} lint-tools
     tool/copy_page.py --check-spec
     tool/check_instruction_links.sh
     tool/check_file_sizes.py
+    tool/doc_lines.py
     tool/root_recipes.py
 
 # Fix all auto-fixable issues
