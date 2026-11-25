@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../config/env.dart';
 import '../update/stale_page_interceptor.dart';
+import 'in_this_task.dart';
 import 'logging_interceptor.dart';
 
 /// Low-level HTTP client wrapper around Dio.
@@ -25,6 +26,7 @@ class ApiClient {
               },
             ),
           ) {
+    _dio.httpClientAdapter = LeavesHere(_dio.httpClientAdapter);
     if (dio == null) {
       _dio.interceptors.add(StalePageInterceptor());
       if (Env.isDev) _dio.interceptors.add(LoggingInterceptor());
@@ -33,8 +35,9 @@ class ApiClient {
 
   final Dio _dio;
 
-  Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
+  Future<Response<T>> get<T>(String path) =>
+      inThisTask(() => _dio.get<T>(path));
 
   Future<Response<T>> post<T>(String path, {Object? data}) =>
-      _dio.post<T>(path, data: data);
+      inThisTask(() => _dio.post<T>(path, data: data));
 }

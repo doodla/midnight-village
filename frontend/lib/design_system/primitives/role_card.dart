@@ -18,6 +18,7 @@ import 'deckled_paper.dart';
 import 'paper_mark.dart';
 import 'text_backing.dart';
 import '../skin/dress_style.dart';
+import 'finger_hold.dart';
 import 'fit_line.dart';
 
 /// [RoleCard]'s sizes. The thumbnails are at most their mock size and
@@ -49,7 +50,8 @@ enum RoleCardSize {
 /// one out (a tap on the card puts one in): both said by doing, no words;
 /// [removeLabel] is what a screen reader says for it.
 ///
-/// A hold is a press of [holdDelay]: shorter is a tap.
+/// A hold is a press of [holdDelay], timed from the finger
+/// ([FingerTimedLongPress]): shorter is a tap.
 class RoleCard extends StatelessWidget {
   const RoleCard({
     super.key,
@@ -106,11 +108,9 @@ class RoleCard extends StatelessWidget {
                   (recognizer) => recognizer.onTap = onTap,
                 ),
           if (onLongPress case final onLongPress?)
-            LongPressGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<
-                  LongPressGestureRecognizer
-                >(
-                  () => LongPressGestureRecognizer(
+            FingerTimedLongPress:
+                GestureRecognizerFactoryWithHandlers<FingerTimedLongPress>(
+                  () => FingerTimedLongPress(
                     duration: holdDelay,
                     debugOwner: this,
                   ),
