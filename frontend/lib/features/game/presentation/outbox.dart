@@ -36,6 +36,7 @@ class OutboxItem {
     required this.request,
     required this.leg,
     this.confirmAfter = 0,
+    this.learned,
   });
 
   final int id;
@@ -53,13 +54,25 @@ class OutboxItem {
   /// answer. A fetch from then on shows the server's own state.
   final int confirmAfter;
 
-  OutboxItem copyWith({Leg? leg, int? confirmAfter}) => OutboxItem(
+  /// A taken choose's answer: this phone's `night_results` as the server
+  /// listed them right after storing it (a result settled at the choose
+  /// among them). Shown with the tap ([Outbox.on]) until a `/me/` fetched
+  /// after the answer lists them itself; null for every other tap, and for a
+  /// choose an older server answered with its status alone.
+  final List<Map<String, dynamic>>? learned;
+
+  OutboxItem copyWith({
+    Leg? leg,
+    int? confirmAfter,
+    List<Map<String, dynamic>>? learned,
+  }) => OutboxItem(
     id: id,
     lane: lane,
     key: key,
     request: request,
     leg: leg ?? this.leg,
     confirmAfter: confirmAfter ?? this.confirmAfter,
+    learned: learned ?? this.learned,
   );
 
   /// The same tap ([id]: its [request] is the one made then) at the same
@@ -163,7 +176,10 @@ class Outbox {
       final item = shown(lane);
       if (item == null || item.key != laneKey(lane, server)) continue;
       me = switch (item.request) {
-        ChooseRequest() => me.withChosen(),
+        ChooseRequest() => switch (item.learned) {
+          null => me.withChosen(),
+          final results => me.withChosen().withNightResults(results),
+        },
         ReadyRequest(:final ready) => me.withReady(ready),
         VoteRequest(:final targetId, :final lock) => me.withVote(
           MyVote.local(targetId, locked: lock),

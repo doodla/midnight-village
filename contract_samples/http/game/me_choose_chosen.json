@@ -96,7 +96,16 @@
       "count": 1
     }
   ],
-  "night_results": [],
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "peek_player",
+      "revealed_info": {
+        "target_name": "Cleo",
+        "role": "Werewolf"
+      }
+    }
+  ],
   "night_results_seen": 0,
   "player_id": 27,
   "my_vote": null,

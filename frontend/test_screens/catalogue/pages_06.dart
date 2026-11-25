@@ -30,7 +30,10 @@ final _pages06 = <ScreenEntry>[
     '-doppelganger': (tester) =>
         pumpNightAs(tester, 'me_choose_prompt_doppelganger_look'),
     '-chosen': const _NoMain(_done, pumpNightChosen),
+    '-robber-chosen': const _NoMain(_done, pumpNightRobberChosen),
     '-follow-up': pumpNightFollowUp,
+    '-chosen-seen': const _NoMain(_done, pumpNightChosenSeen),
+    '-robber-chosen-seen': const _NoMain(_done, pumpNightRobberChosenSeen),
     '-3': pumpNightThree,
     '-4': pumpNightFour,
     '-9': pumpNightNine,

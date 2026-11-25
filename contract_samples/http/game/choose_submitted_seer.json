@@ -1,3 +1,14 @@
 {
-  "status": "submitted"
+  "status": "submitted",
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "peek_player",
+      "revealed_info": {
+        "target_name": "Cleo",
+        "role": "Werewolf"
+      }
+    }
+  ],
+  "chooses_left": 0
 }

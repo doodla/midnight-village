@@ -414,12 +414,17 @@ class FaceContent {
 
   /// "You" on the night board: the dealt role's name and what the prompt
   /// asks; in window 2, after a window 1, what window 1 told this phone on a
-  /// second page (every phone has one).
+  /// second page (every phone has one). Once the choose's answer has brought
+  /// a result already settled ([saw]: the Seer's look, the Robber's new card,
+  /// the Troublemaker's swap, the Drunk's slot, a lone Werewolf's look), it is
+  /// the first page, as on My night.
   factory FaceContent.nightYou({
     required RoleId dealt,
     required NightPrompt prompt,
     WindowOneResult? windowOne,
+    NightResult? saw,
   }) => FaceContent([
+    ?saw?.page,
     FacePage(
       portrait: RoleFacePortrait(dealt),
       name: dealt.displayName,
@@ -429,7 +434,9 @@ class FaceContent {
   ]);
 
   /// "You" in window 1 once the Doppelganger's look has come back: whom she
-  /// copied, the copied role's portrait, and what her follow-up prompt asks.
+  /// copied, the copied role's portrait, and what her follow-up prompt asks;
+  /// once her follow-up's answer has brought what it showed, that instead
+  /// (the lines My night gives it).
   factory FaceContent.copied(CopiedResult look, NightPrompt followUp) =>
       FaceContent([
         FacePage(
@@ -437,7 +444,7 @@ class FaceContent {
           name: look.role.displayName,
           lines: [
             NightCopy.copied.fill({'name': look.name}),
-            followUp.instruction,
+            ...look.followUp?.lines ?? [followUp.instruction],
           ],
         ),
       ]);

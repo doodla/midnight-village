@@ -162,8 +162,8 @@ def _choose(game: Game, pr: PlayerRole, stage: str) -> None:
             chosen,
             picks,
         )
-        errors = choose_night.submit_choose(
-            game, pr.user_id, picks, stage_token(game) or "", chosen
+        errors, _ = choose_night.submit_choose(
+            game, pr.user_id, picks, stage_token(game) or "", chosen, answer=False
         )
         if errors and picks:
             # Never expected (the picks are the prompt's own); an empty choose is
@@ -176,8 +176,8 @@ def _choose(game: Game, pr: PlayerRole, stage: str) -> None:
                 picks,
                 errors,
             )
-            errors = choose_night.submit_choose(
-                game, pr.user_id, [], stage_token(game) or "", chosen
+            errors, _ = choose_night.submit_choose(
+                game, pr.user_id, [], stage_token(game) or "", chosen, answer=False
             )
         if errors:
             logger.error(

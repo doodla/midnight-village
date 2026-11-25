@@ -260,7 +260,9 @@ class Night:
             pr.user_id: pr.user.display_name or pr.user.username
             for pr in game.player_roles.select_related("user")
         }
-        return night_results.night_results_for_player(game, self.users[name].id, names)
+        return night_results.night_results_for_player(
+            game, self.users[name].id, names, self.role_of(name).night_action_data
+        )
 
     def display_name(self, name: str) -> str:
         user = self.users[name]
@@ -446,10 +448,13 @@ class TestResultsOnlyWhenTheWindowCloses:
         night.post("insomniac", "none")
         night.post("villager", "none")
 
-        # The Robber has not chosen: the window is open, nothing was shown.
+        # The Robber has not chosen: the window is open. Only the Seer's look,
+        # settled at her choose, shows; nothing is resolved or logged.
         assert night.refresh().phase == Phase.NIGHT
-        for name in ("wolf_a", "wolf_b", "seer", "insomniac"):
+        for name in ("wolf_a", "wolf_b", "insomniac"):
             assert night.results(name) == [], name
+        assert [r["action_type"] for r in night.results("seer")] == ["peek_player"]
+        for name in ("wolf_a", "wolf_b", "seer", "insomniac"):
             assert "wave_2_result" not in night.role_of(name).night_action_data
         assert night.refresh().night_actions_log == []
 
@@ -574,7 +579,8 @@ class TestMinimumWindowLength:
         # Everyone is done, but the window is not allowed to close yet.
         assert night.refresh().phase == Phase.NIGHT
         assert night.game.current_wave == 2
-        assert night.results("wolf") == []
+        # The lone Werewolf's "alone" is settled at her choose: shown already.
+        assert night.results("wolf")[0]["revealed_info"]["nothing_chosen"] is True
         deferred = night.timer_delays(2)[-1]
         assert 0 < deferred <= 8
 
@@ -837,7 +843,8 @@ class TestDoppelgangerWindow:
 
         # Everything is chosen; the window waits out its minimum.
         assert night.refresh().current_wave == 1
-        assert len(night.results("d")) == 1
+        # Her new card is settled at her choose (shown), the swap is not made yet.
+        assert len(night.results("d")) == 2
         assert night.role_of("d").current_role == "Doppelganger"  # not applied yet
 
         night.fire_timer(1)
@@ -1100,10 +1107,10 @@ class TestFixedDoppelgangerWindow:
 
         night.post("d", "peek_player", {"player_id": night.users["w"].id})
         night.rest_choose()
-        # Everything chosen: still no early close, and the follow-up's result is
-        # held until the window closes.
+        # Everything chosen: still no early close; the follow-up's result is
+        # settled at her choose, so it is shown already.
         self._assert_one_untouched_timer(night, deadline)
-        assert len(night.results("d")) == 1
+        assert len(night.results("d")) == 2
 
         night.fire_timer(1)
 

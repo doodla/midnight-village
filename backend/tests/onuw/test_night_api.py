@@ -149,7 +149,18 @@ class TestNightActionSubmission:
             )
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == {"status": "submitted"}
+        # The look is settled at the choose: it is in the answer.
+        assert response.data == {
+            "status": "submitted",
+            "night_results": [
+                {
+                    "wave": 2,
+                    "action_type": "peek_player",
+                    "revealed_info": {"target_name": "Player", "role": "Werewolf"},
+                }
+            ],
+            "chooses_left": 0,
+        }
 
         pr = PlayerRole.objects.get(game=game, user=users["host_seer"])
         assert pr.has_acted is True

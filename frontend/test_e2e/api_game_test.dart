@@ -174,9 +174,14 @@ void main() {
         ]),
       ];
       expect(
-        answers.every((a) => a.length == 1 && a['status'] == 'submitted'),
+        answers.every(
+          (a) =>
+              a['status'] == 'submitted' &&
+              a['night_results'] is List &&
+              a['chooses_left'] == 0,
+        ),
         isTrue,
-        reason: 'the same answer for every role',
+        reason: 'the same shape of answer for every role',
       );
       await expectLater(
         choose(alice, []),
@@ -372,7 +377,9 @@ void main() {
         ],
         'chosen': 0,
       });
-      expect(resent, {'status': 'submitted'});
+      expect(resent['status'], 'submitted');
+      expect(resent['night_results'], me['night_results']);
+      expect(resent['chooses_left'], 1);
       expect((await t.me(alice))['action_prompt']['chosen'], 1);
       await choose(alice, [
         {'center_index': 0},

@@ -43,11 +43,15 @@ class HostsHeaders(Table):
     """A table that keeps every header the host (Ana) is answered with."""
 
     seen: list[tuple[str, str]]
+    chooses: list[tuple[str, str]]
 
     def request(self, method: str, who: str, path: str, *args: Any, **kw: Any):
         status, body = super().request(method, who, path, *args, **kw)
+        header = self.last_response["Server-Timing"]
         if who == "Ana":
-            self.seen.append((f"{method} {path}", self.last_response["Server-Timing"]))
+            self.seen.append((f"{method} {path}", header))
+        if path == ACTION:
+            self.chooses.append((who, header))
         return status, body
 
 
@@ -70,6 +74,7 @@ def _host_headers(run: Recording, copies: str) -> list[tuple[str, str]]:
         next(run.codes),
     )
     t.seen = []
+    t.chooses = []
     for name in NAMES:
         t.guest(name)
     t.call("POST", "Ana", "/lobbies/", {"game_type": "onuw", "defaults": "v2"})
@@ -118,7 +123,12 @@ def _host_headers(run: Recording, copies: str) -> list[tuple[str, str]]:
         target = t.pid(NAMES[(index + 1) % len(NAMES)])
         t.call("POST", name, VOTE, {"target_player_id": target, "lock": True})
     t.call("GET", "Ana", "/onuw/games/{game_id}/results/")
+    _CHOOSES[copies] = t.chooses
     return t.seen
+
+
+# Every choose's header of the last game played per copy: (who sent it, header).
+_CHOOSES: dict[str, list[tuple[str, str]]] = {}
 
 
 def _without_times(seen: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -140,6 +150,23 @@ def test_the_hosts_live_headers_are_the_same_whatever_the_doppelganger_did(
         assert "desc=" not in header
         total = float(header.rsplit("total;dur=", 1)[1])
         assert total % 50 == 0
+
+
+def test_a_result_given_at_the_choose_does_not_show_in_the_live_header(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """The Seer and the Robber are answered with what they learned at once; the
+    Villager's and the Werewolf's chooses learn nothing. Live, every window-2
+    choose carries the same header but for the rounded time, whatever it gave."""
+    _played(django_capture_on_commit_callbacks, detail=False)
+
+    window_two = [
+        (who, re.sub(r"dur=[0-9.]+", "dur=?", header))
+        for who, header in _CHOOSES["Cleo"]
+        if who != "Ben"  # the Doppelganger's window-1 chooses
+    ]
+    assert {who for who, _ in window_two} == {"Ana", "Cleo", "Esme", "Dev"}
+    assert len({header for _, header in window_two}) == 1
 
 
 def test_with_detail_the_hosts_move_on_would_tell_what_she_did(

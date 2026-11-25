@@ -384,6 +384,22 @@ def _resolve_window_safely(
             window,
             game.id,
         )
+    # A result shown at the choose (``turns.early_key``) is now overridden
+    # by the log: only an engine bug gets here (every action resolves alone), so say
+    # whose, loudly, rather than leave a log that contradicts a phone unexplained.
+    shown = [
+        pr.user_id
+        for pr in game.player_roles.all()  # pyrefly: ignore [missing-attribute]
+        if turns.early_key(window) in pr.night_action_data
+    ]
+    if shown:
+        logger.error(
+            "Night window %s of game %s fell back to defaults after players %s had "
+            "been shown their result: the log contradicts what they saw",
+            window,
+            game.id,
+            shown,
+        )
     defaults = [_timeout_action(game, a.player_id, a.role_acting_as) for a in actions]
     new_state, results = resolve_window(state, defaults, window)
     return defaults, new_state, results
@@ -444,6 +460,12 @@ def persist_wave_results(
             # For Doppelganger, also store copied_role at top level
             if "copied_role" in result.revealed_info:
                 data["copied_role"] = result.revealed_info["copied_role"]
+    # A result shown at the choose (``turns.early_key``) is in the log now.
+    early = turns.early_key(wave)
+    for pid, pr in rows.items():
+        if early in pr.night_action_data:
+            data = changed.setdefault(pid, dict(pr.night_action_data))
+            data.pop(early, None)
     for pid, data in changed.items():
         rows[pid].night_action_data = data
         touched[pid] = rows[pid]

@@ -817,11 +817,23 @@ table's setting".
 Doppelganger's look resolves the moment she chooses). Two rules close what the review found:
 
 - **The phone never waits for the answer to change what others can see.** On Choose the picks
-  clear and the button locks at once, on every phone, before the response arrives. What the
-  answer brings (her copied role, a result) only ever appears on a held face. So a slower
-  answer for one role is invisible at the table. The server keeps the difference small (it
-  does the same reads for every role and writes only what changed); the remainder is visible
-  only to someone timing the network, which is outside what this app defends against.
+  clear and the button locks at once, on every phone, before the response arrives. Nothing
+  about the answer shows on a phone that has nothing in it: a slower answer for one role is
+  invisible at the table. The server keeps the difference small (it does the same reads for
+  every role and writes only what changed); the remainder (the answer is longer when it
+  carries a result) is visible only to someone timing the network, which is outside what
+  this app defends against.
+- **A settled result opens by itself, once (owner, 25 November 2026: "The seer thing is
+  actually weird. It should show when the person selects").** A role whose result is fixed the
+  moment it chooses (the Seer, the Robber, the Troublemaker, the Drunk, a lone Werewolf's
+  centre look, the Doppelganger's follow-up as any of them) gets the result in the choose's
+  answer. The board opens it by itself once, right after Choose, on the held `NightCopy.you` face; a touch puts it away, and
+  from then on it is on that held face like any other. A reload or a new poll builds a board that does not open it again. This
+  replaces "a result only ever appears on a held face" for these roles; every other result
+  (the Insomniac, team views, a Doppelganger who copied the Minion) still waits for the
+  window's close, and on a held face. It shows nothing beyond the tell section 8 already
+  accepts: only phones with a choice tap at night, and the result is the tapper's own.
+  If the answer cannot be built, the choose stands and the phone reads `/me/` for it.
 - **One look.** The Doppelganger's first Choose in window 1 is her look whatever it holds. If
   it holds no other player she has not copied, and her second Choose does nothing, like
   everyone else's.

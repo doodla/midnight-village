@@ -36,7 +36,7 @@ from rest_framework.test import APIClient
 from apps.core.models import LobbyMember
 from apps.onuw import night_flow, night_window, turns, voting
 from apps.onuw.models import Game, Phase, PlayerRole
-from tests.onuw.stages import staged
+from tests.onuw.stages import outside, staged
 from tests.onuw.test_night_windows import Night
 
 pytestmark = pytest.mark.integration
@@ -192,7 +192,12 @@ class TestTheDoppelgangersResentLook:
         resend = send(night, "dop", "onuw:night-action", look)
         followup = choose(night, "dop", [player(night, "villager")])
 
-        assert first.content == resend.content == followup.content == SUBMITTED
+        assert (
+            outside(first.content)
+            == outside(resend.content)
+            == outside(followup.content)
+            == SUBMITTED
+        )
         assert (
             len(night.recorder.events) == events_after_look
         )  # the resend sent nothing
@@ -262,7 +267,7 @@ class TestTheDoppelgangersResentLook:
         send(night, "dop", "onuw:night-action", look)  # lost answer: sent again
         assert me(night, "dop")["action_prompt"]["chosen"] == 1  # still one taken
 
-        assert choose(night, "dop", followup(night)).content == SUBMITTED
+        assert outside(choose(night, "dop", followup(night)).content) == SUBMITTED
         night.fire_timer(1)
 
         followups = [
@@ -291,7 +296,7 @@ class TestChooseResend:
         again = send(night, "seer", "onuw:night-action", body)
 
         assert again.status_code == first.status_code == status.HTTP_200_OK
-        assert again.content == first.content == SUBMITTED
+        assert outside(again.content) == outside(first.content) == SUBMITTED
         assert snapshot(night) == before
         assert len(night.recorder.events) == events
 
@@ -312,7 +317,10 @@ class TestChooseResend:
             },
         )
 
-        assert send(night, "robber", "onuw:night-action", stale).content == SUBMITTED
+        assert (
+            outside(send(night, "robber", "onuw:night-action", stale).content)
+            == SUBMITTED
+        )
         for name in ("wolf", "seer", "villager", "hunter"):
             choose(night, name, [])
         assert night.refresh().phase == Phase.DISCUSSION
@@ -332,7 +340,9 @@ class TestChooseResend:
         firsts = {n: send(night, n, "onuw:night-action", b) for n, b in bodies.items()}
         resends = {n: send(night, n, "onuw:night-action", b) for n, b in bodies.items()}
 
-        assert {r.content for r in [*firsts.values(), *resends.values()]} == {SUBMITTED}
+        assert {outside(r.content) for r in [*firsts.values(), *resends.values()]} == {
+            SUBMITTED
+        }
         assert all(chosen_now(night, n) == 1 for n in table)
 
     def test_a_resent_followup_is_also_a_resend(self, make_p2) -> None:
@@ -345,7 +355,7 @@ class TestChooseResend:
 
         again = send(night, "dop", "onuw:night-action", followup)
 
-        assert again.content == SUBMITTED
+        assert outside(again.content) == SUBMITTED
         assert snapshot(night) == before
 
     def test_the_last_choose_resent_after_it_closed_the_window_is_wrong_stage(
@@ -431,7 +441,7 @@ class TestOtherRequestsResent:
 
         again = send(night, "seer", "onuw:vote", body)
 
-        assert first.content == again.content == SUBMITTED
+        assert outside(first.content) == outside(again.content) == SUBMITTED
         assert snapshot(night) == before
         assert len(night.recorder.events) == events  # no second progress
 

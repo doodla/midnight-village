@@ -96,13 +96,16 @@ There is one game flow: the screens read one model and one table.
   What the screens show of this phone's taps is derived from it (`Outbox.on`), on the tap.
   Answers (`StageReply`, `StageAnswer` = `ChooseAnswer`):
   `taken` keeps the tap shown until a `/me/` fetched after it lands
-  (after a taken choose every phone fetches once, so the Doppelganger's follow-up turn arms her board);
+  (a taken choose's answer carries this phone's `night_results` as `/me/` lists them then, a result settled at the choose among them
+  (`StageReply.learned`): the item holds them (`OutboxItem.learned`) and `Outbox.on` shows them, on "You"'s held face first, until a later `/me/`
+  lists them; `/me/` is read only when the answer's `chooses_left` is above 0, so the Doppelganger's follow-up turn arms her board, or when an older
+  server answered its status alone);
   an echo (`ready`, `target_player_id`) that differs fetches;
   `stale` (409) keeps it shown until the refetch lands;
   `refused` drops it; `notSent` keeps it with "Try again" (`retry(lane)`, `LiveGame.unsent`), which fetches `/me/` first and resends the original only if it did
   not land (a choose: `prompt.chosen > request.chosen`);
   the results ack has no "Try again": it is sent again by itself with backoff, and whether it is done is read from `/me/`'s `night_results_seen`, so a restart
-  does not resend it. After ANY taken choose every phone re-reads `/me/` and trusts its `chosen` and `chooses_left` (contract, section 5).
+  does not resend it. One request per choose, a fetch only as above (contract, section 5).
   A choose is never sent twice for a turn.
   A tap the phone does not send is a `TapOutcome` of its own (`Declined`, `Queued`, `Landed`), never a made-up server answer;
   `TapOutcome.forBoard` gives the night board its `ChooseAnswer`.
@@ -240,6 +243,8 @@ My night UP on the board once, the note pressed (`TalkView.openNight`);
 `TalkScreen` decides it on its first frame and sends the ack after that frame;
 the first touch anywhere puts it away and does nothing else, and so does Back (a `BackHandler` open only while it is up);
 a restart after the ack opens nothing. Otherwise the first time it is held sends the ack (which declines once done).
+On the night board a result that came with the choose's answer opens by itself on "You" the same way, once per result and in this session only
+(`NightBoard`, no ack: a reload mid-window finds it on a hold, and the talk still opens My night, whose ack is what `night_results_seen` counts).
 On the cobbles (`BoardFoot`) the screen's one amber action "Ready to vote" with the count under its words ("2 of 6 ready", `PrimaryButton(detail:)`), "Ready ✓"
 in navy once tapped (`PrimaryButton.on`), tapped again to take it back, never locked, a toggle through the ready lane (`setReady(!ready)`).
 The host has no controls on 08 (spec: no host button);

@@ -238,11 +238,13 @@ void main() {
             ((await t.me(p))['night_results'] as List).length,
         ],
       );
-      expect(results, [
-        0,
-        0,
-        0,
-      ], reason: 'someone was told a result before the window closed');
+      expect(
+        results,
+        [1, 1, 0],
+        reason:
+            'a phone is told what its own choose settled at once, nothing '
+            'before it has chosen: Dave has nothing to choose, so nothing',
+      );
 
       // After the grace period it closes without her.
       await _phaseChange(
@@ -824,10 +826,11 @@ void main() {
       await _choose(t, alice, [
         {'player_id': carol.userId},
       ]);
-      // Window 1 is still open: her /me/ has her look (she needed it to
-      // choose), not the follow-up, which resolves when the window closes.
+      // Window 1 is still open: her /me/ has her look and the follow-up's
+      // look, which was settled at her choose.
       final open = (await t.me(alice))['night_results'] as List;
-      expect(open.single['revealed_info']['copied_role'], 'Seer');
+      expect(open, hasLength(2));
+      expect(open.first['revealed_info']['copied_role'], 'Seer');
 
       final mark = t.gameWire(bob).mark;
       await t.dropGame(alice);

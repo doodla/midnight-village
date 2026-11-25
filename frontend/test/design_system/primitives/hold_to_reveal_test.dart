@@ -69,6 +69,55 @@ Future<void> _activate(WidgetTester tester) async {
 }
 
 void main() {
+  group('open: up by itself', () {
+    testWidgets('shows when set, counts and learns nothing, hides when '
+        'cleared; a hold after it shows it again', (tester) async {
+      var open = false;
+      var revealed = 0;
+      final changes = <bool>[];
+      late StateSetter set;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: skinTheme(skinsUnderTest.values.first),
+          builder: (context, child) =>
+              GroundScope(ground: GroundKind.night, child: child!),
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                set = setState;
+                return Center(
+                  child: HoldToReveal(
+                    target: 'You',
+                    face: _seer,
+                    open: open,
+                    onRevealChanged: changes.add,
+                    onRevealed: () => revealed++,
+                    cover: const SizedBox.square(dimension: 100),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      expect(_face, findsNothing);
+      set(() => open = true);
+      await tester.pump();
+      await tester.pump();
+      expect(_face, findsOneWidget);
+      await tester.pump(HoldToReveal.revealedAfter * 2);
+      expect(revealed, 0, reason: 'opening is not a reveal');
+      set(() => open = false);
+      await tester.pump();
+      expect(_face, findsNothing);
+      expect(changes, [true, false]);
+      final hold = await _press(tester);
+      await tester.pump(HoldToReveal.holdDelay);
+      expect(_face, findsOneWidget);
+      await hold.up();
+    });
+  });
+
   group('timing', () {
     testWidgets('the face shows 120 ms after the press, not before, and '
         'hides on release', (tester) async {
