@@ -19,9 +19,10 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   ready or have locked in (`progress`), never who, never what anyone picked.
 - **A phone with a choice sends one `choose` per window** (only the Doppelganger may send
   a second in window 1); a phone with nothing to choose (its prompt's `kind` is `none`)
-  sends nothing and is never waited for. Every answer is the same bytes, a choose from a
-  phone with nothing to choose included, and a window's close depends only on the taps of
-  the phones with a choice, presence and the clock.
+  sends nothing and is never waited for. Every answer has the same keys and status, a
+  choose from a phone with nothing to choose included; what differs is the caller's own
+  part (its results and `chooses_left`), as in its `/me/`. A window's close depends only
+  on the taps of the phones with a choice, presence and the clock.
 - **Every request names its stage.** A stage-scoped request carries the `stage` that
   `GET /me/` returned; one for a stage that is over is `409 wrong_stage` and does nothing.
 - **Sending a request twice leaves the game as sending it once did** (section 9).
@@ -191,7 +192,7 @@ The caller's own view, the same keys in every phase:
 | `players[]` | `player_id`, `display_name`, `token`, `seat`, in seat order, and `practice: true` for a practice player (who is connected: `GET .../players/`) |
 | `roles_in_game` | the deck |
 | `action_prompt` | in an open window, for every player (section 5); otherwise null |
-| `night_results`, `night_results_seen` | the caller's own results of closed windows (and the Doppelganger's look at once), and how many the phone has shown |
+| `night_results`, `night_results_seen` | the caller's own results of closed windows (and, in the open window, the Doppelganger's look and any result settled at the caller's choose), and how many the phone has shown |
 | `ready`, `progress` | the caller's own flag and `{stage, done, needed}` in the look and the talk; `progress` in the vote too |
 | `my_vote`, `vote_targets` | in the vote: `{"target_player_id", "locked"}` (own only) and the ids the caller may vote for, in seat order (everyone else) |
 
@@ -235,13 +236,18 @@ should still send; 0 from the start when `kind` is `none`: that phone sends noth
 - Picks that mean nothing are no error: the window's close applies the role's default (a
   Drunk is swapped by the server, `made_by_server`; team views and the Insomniac still
   happen; Seer, Robber, Troublemaker and the look skip).
-- Every choose answers `200 {"status": "submitted"}`. Refusals: `400 bad_request`
+- Every choose answers `200 {"status": "submitted", "night_results": [...],
+  "chooses_left": n}`: the caller's own `night_results` exactly as `/me/` lists them right
+  after the choose (and any close it caused), and its prompt's `chooses_left` (0 once the
+  window is over). A resend gets the same. Refusals: `400 bad_request`
   (malformed picks, any other `action_type`, `chosen` or `stage` missing), `409
   wrong_stage`, `409 already_chosen` (a prompt that is used up), `403` for someone who does
   not play in the game.
 - `chosen` names the prompt the choose answers: lower than the server's count is a resend
-  (the same 200, nothing stored), equal is a new choose, higher is `400`. After any 200 the
-  phone re-reads `/me/` and trusts `chosen` and `chooses_left`.
+  (the same 200, nothing stored), equal is a new choose, higher is `400`. The phone shows
+  the answer's `night_results` at once and keeps them; it re-reads `/me/` only when
+  `chooses_left` is above 0 (the Doppelganger's follow-up is a new turn) or when the answer
+  has no `night_results` (an older server, during a deploy).
 
 **Closing.** Window 2 closes when every present phone WITH a choice (`chooses_left` above
 0; not gone past grace; one inside its grace holds it) has chosen, never before
@@ -260,7 +266,17 @@ canonical (`"Werewolf"`); a `peek_center` result carries `center_indices` (in th
 `roles`); a result that is the role's default because nothing chosen meant anything carries
 `"nothing_chosen": true` (the caller's own `skip` entries, the Drunk's server swap, a lone
 Werewolf who looked at no centre card). The Doppelganger's look is listed as soon as it
-resolves.
+resolves. **A result settled at the choose is listed from the choose on** (in its answer
+and every `/me/` after it), not at the close: one that no step resolving before it in the
+window can change (`engine/night.py`, `settled_at_choose`, decided from the roles, never
+from who holds what). That is the Seer (she resolves first in window 2; nothing moves cards
+before her), the Robber (only the Seer is before her), the Troublemaker and the Drunk
+(their results name only their own picks; the Drunk's server swap is seeded, so it is
+settled too), a lone Werewolf's centre look (group 2, before every move), and the
+Doppelganger's follow-up as any of these (window 1 holds only her). It is exactly the
+entry the close then writes. Everything else waits for the close: the Insomniac (every
+swap comes first), team views, a Doppelganger who copied the Minion. A window-2 choose
+cannot be changed (`max_chooses` 1), so a shown result is never taken back.
 
 `POST .../night-results/seen/ {"seen": n}` (0 to 10) stores how many results the phone has
 shown: `{"night_results_seen": n}`, monotonic (`GREATEST`), clamped to what the caller can
@@ -386,8 +402,11 @@ request whose answer was lost that still arrives after the next one was applied.
   November 2026: a friendly game; a sleeper is never asked to act or waited for). Someone
   watching the table or the network can tell who had something to choose, never what.
 - An armed Doppelganger's phone is the only one that sends a second `POST .../action/` in
-  window 1. Someone watching the network can see that extra request (not its content); the
-  answer is the same bytes as anyone's.
+  window 1. Someone watching the network can see that extra request (not its content), and
+  the `GET /me/` her phone sends after her look (its answer's `chooses_left` is 1).
+- A choose's answer carries the caller's own results, so its size varies with what they
+  learned, as a `/me/` already does; its `Server-Timing` does not (the same work for every
+  caller: `tests/perf/test_header_hides_play.py`).
 - Human tells (thinking time) are out of the server's reach; phones keep sound and haptics
   identical.
 - At a table with practice players, the request that opens a stage (the last "ready", the

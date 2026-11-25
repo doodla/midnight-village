@@ -192,7 +192,9 @@ class GameMeSerializer(serializers.Serializer):
             pr.user_id: public_name(pr.user)
             for pr in self.context.get("all_player_roles", [])
         }
-        return night_results_for_player(game, player_role.user_id, names)
+        return night_results_for_player(
+            game, player_role.user_id, names, player_role.night_action_data
+        )
 
     def get_night_results_seen(self, game: Game) -> int:
         """How many of their ``night_results`` the caller has acknowledged.

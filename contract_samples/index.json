@@ -218,12 +218,28 @@
       "description": "Her first choose is the look; the answer is the same as anyone's."
     },
     {
+      "name": "http/game/choose_submitted_robber",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "The Robber's choose: the card she takes is settled at once (only the Seer, who moves nothing, resolves before her)."
+    },
+    {
       "name": "http/game/choose_submitted_seer",
       "kind": "http",
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 200,
-      "description": "A phone's choose: the same answer whatever the role."
+      "description": "The Seer's choose: her look is settled the moment she chooses, so the answer carries it (`night_results`, as /me/ lists it now) and `chooses_left` 0."
+    },
+    {
+      "name": "http/game/choose_submitted_troublemaker",
+      "kind": "http",
+      "method": "POST",
+      "path": "/onuw/games/{game_id}/action/",
+      "status": 200,
+      "description": "The Troublemaker's choose: her swap names only her own picks, so it is settled at once."
     },
     {
       "name": "http/game/choose_submitted_villager",
@@ -231,7 +247,7 @@
       "method": "POST",
       "path": "/onuw/games/{game_id}/action/",
       "status": 200,
-      "description": "The same answer for a player with nothing to choose."
+      "description": "A player with nothing to choose: the same keys, nothing learned."
     },
     {
       "name": "http/game/choose_submitted_window1_second",
@@ -327,7 +343,7 @@
       "method": "GET",
       "path": "/onuw/games/{game_id}/me/",
       "status": 200,
-      "description": "/me/ after choosing: the prompt says how many chooses were sent."
+      "description": "/me/ after choosing: the prompt says how many chooses were sent, and the Seer's look is listed while the window is still open."
     },
     {
       "name": "http/game/me_choose_doppelganger_followup",

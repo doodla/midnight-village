@@ -182,20 +182,20 @@
       "publishes": 0
     },
     "POST /onuw/games/{game_id}/action/ [w1] (Doppelganger hand)": {
-      "queries": 19,
-      "lock_span": 15,
+      "queries": 23,
+      "lock_span": 19,
       "sends": 0,
       "publishes": 0
     },
     "POST /onuw/games/{game_id}/action/ [w2]": {
-      "queries": 17,
-      "lock_span": 8,
+      "queries": 21,
+      "lock_span": 12,
       "sends": 0,
       "publishes": 1
     },
     "POST /onuw/games/{game_id}/action/ [w2] (Doppelganger hand)": {
-      "queries": 17,
-      "lock_span": 8,
+      "queries": 21,
+      "lock_span": 12,
       "sends": 0,
       "publishes": 1
     },

@@ -444,6 +444,12 @@ def persist_wave_results(
             # For Doppelganger, also store copied_role at top level
             if "copied_role" in result.revealed_info:
                 data["copied_role"] = result.revealed_info["copied_role"]
+    # A result shown at the choose (``night_results.early_key``) is in the log now.
+    early = f"early_{wave}"
+    for pid, pr in rows.items():
+        if early in pr.night_action_data:
+            data = changed.setdefault(pid, dict(pr.night_action_data))
+            data.pop(early, None)
     for pid, data in changed.items():
         rows[pid].night_action_data = data
         touched[pid] = rows[pid]

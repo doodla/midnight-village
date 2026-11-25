@@ -260,7 +260,9 @@ class Night:
             pr.user_id: pr.user.display_name or pr.user.username
             for pr in game.player_roles.select_related("user")
         }
-        return night_results.night_results_for_player(game, self.users[name].id, names)
+        return night_results.night_results_for_player(
+            game, self.users[name].id, names, self.role_of(name).night_action_data
+        )
 
     def display_name(self, name: str) -> str:
         user = self.users[name]

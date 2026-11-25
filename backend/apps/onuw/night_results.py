@@ -16,6 +16,8 @@ from typing import Any
 from django.db.models import F
 from django.db.models.functions import Greatest
 
+from apps.core.wire import public_name
+
 from .engine.roles import window_for_order_group
 from .engine.state import ActionResult, NightAction
 from .engine.timeline import TimelineError, build_night_timeline, recover_dealt_center
@@ -171,18 +173,32 @@ def client_action_result(
     )
 
 
+def early_key(window: int) -> str:
+    """Where a player's settled result of an open window waits for its close, in
+    their own ``night_action_data`` (``choose_night._early_entry``): the very
+    night-log entry the close will write. Dropped when the window closes."""
+    return f"early_{window}"
+
+
+def player_names(game: Game) -> dict[int, str]:
+    """Every player's public name, by id (what results name players by)."""
+    rows = PlayerRole.objects.filter(game=game).select_related("user")
+    return {pr.user_id: public_name(pr.user) for pr in rows}
+
+
 def _visible_result_entries(
-    game: Game, user_id: int
+    game: Game, user_id: int, own_data: dict[str, Any] | None = None
 ) -> list[tuple[int, dict[str, Any]]]:
     """The player's own night-log entries that show as a result now: ``(window,
     entry)`` in window order (stable: wake order within a window).
 
     Only this player's entries, a ``skip`` included (the phone is told that its
-    choice did nothing: ``"nothing_chosen": true``). A window that is still open
-    contributes nothing (nothing reaches a player before its window closes), except
-    the Doppelganger's look, listed as soon as it is resolved, even while window 1
-    is open: she needs it to choose her follow-up. It is hers alone, like
-    everything in this list.
+    choice did nothing: ``"nothing_chosen": true``). A closed window shows its log.
+    The window still open shows what is already settled for this player: the
+    Doppelganger's look, logged as soon as it is resolved (she needs it to choose
+    her follow-up), and the settled result of their own choose, kept in their
+    ``night_action_data`` (``own_data``, ``early_key``) until the close logs the
+    same entry. It is theirs alone, like everything in this list.
     """
     if game.phase == Phase.NIGHT:
         closed_before = game.current_wave  # windows 1..current_wave-1 have closed
@@ -207,12 +223,19 @@ def _visible_result_entries(
         )
         if window < closed_before or is_early_look:
             entries.append((window, entry))
+    if early_look and own_data is not None:
+        settled = own_data.get(early_key(game.current_wave))
+        if isinstance(settled, dict) and settled.get("player_id") == user_id:
+            entries.append((game.current_wave, settled))
     entries.sort(key=lambda item: item[0])
     return entries
 
 
 def night_results_for_player(
-    game: Game, user_id: int, player_names: dict[int, str]
+    game: Game,
+    user_id: int,
+    player_names: dict[int, str],
+    own_data: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """The caller's own night results for every window that has closed.
 
@@ -222,7 +245,7 @@ def night_results_for_player(
     ``_visible_result_entries``.
     """
     results: list[dict[str, Any]] = []
-    for window, entry in _visible_result_entries(game, user_id):
+    for window, entry in _visible_result_entries(game, user_id, own_data):
         action = NightAction(
             player_id=user_id,
             role_acting_as=entry.get("role_acting_as", ""),
@@ -289,8 +312,15 @@ def acknowledge_night_results(game: Game, user_id: int, seen: int) -> int | None
     only ever raises the count (``GREATEST``): it takes no Game lock, a late or
     repeated ack changes nothing, and two phones cannot lower each other's.
     """
-    visible = len(_visible_result_entries(game, user_id))
     rows = PlayerRole.objects.filter(game=game, user_id=user_id)
+    # At night a settled result of the open window counts too (one more read,
+    # only then: the app acks in the talk).
+    own = (
+        rows.values_list("night_action_data", flat=True).first()
+        if game.phase == Phase.NIGHT
+        else None
+    )
+    visible = len(_visible_result_entries(game, user_id, own))
     updated = rows.update(
         night_results_seen=Greatest(F("night_results_seen"), min(seen, visible))
     )

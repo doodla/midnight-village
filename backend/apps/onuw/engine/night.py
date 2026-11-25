@@ -46,6 +46,53 @@ _WAVE_3_CANONICAL_ORDER: list[str] = [
 ]
 
 
+# Whose result shows a card (what the caller learns depends on where cards are), and
+# whose action moves cards. Every other result names only the caller's own picks
+# (the Troublemaker's two players, the Drunk's centre slot) or the dealt teams.
+_READS_CARDS = frozenset({"Seer", "Robber", "Werewolf", "Insomniac", "Doppelganger"})
+_MOVES_CARDS = frozenset({"Robber", "Troublemaker", "Drunk"})
+
+
+def _roles_before(window: int, role: str) -> set[str]:
+    """Every role whose step can resolve before ``role``'s in ``window``: all of the
+    earlier order groups, and within its own group those ahead of it in the
+    canonical order (any other role of a group without one). Window 1 is the
+    Doppelganger's look, then her follow-up."""
+    if window == 1:
+        return {"Doppelganger"} - {role}
+    before: set[str] = set()
+    for group in order_groups_for_window(window):
+        names = [r.name for r in get_roles_for_wave(group)]
+        if role not in names:
+            before.update(names)
+            continue
+        if group == 3:
+            ahead = _WAVE_3_CANONICAL_ORDER[: _WAVE_3_CANONICAL_ORDER.index(role)]
+            before.update(ahead)
+        else:
+            before.update(n for n in names if n != role)
+        break
+    return before
+
+
+def settled_at_choose(window: int, role_acting_as: str | None) -> bool:
+    """Whether what a player acting as ``role_acting_as`` learns in ``window`` is
+    fixed the moment they choose, whatever anyone else chooses in the window.
+
+    True when the result shows no card (it names only the player's own picks), or
+    when no step that resolves before theirs in the window can move a card. Decided
+    from the roles alone (never from who holds what), so it says nothing about the
+    table. Seer, Robber, Troublemaker, Drunk, a lone Werewolf's centre look, and the
+    Doppelganger's follow-up as any of them: settled. The Insomniac: not (every swap
+    comes first). The Doppelganger's look resolves at once on its own path.
+    """
+    if role_acting_as is None or role_acting_as == "Doppelganger":
+        return False
+    if role_acting_as not in _READS_CARDS:
+        return True
+    return not (_roles_before(window, role_acting_as) & _MOVES_CARDS)
+
+
 def get_required_actions(
     state: GameState,
     wave: int,

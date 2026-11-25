@@ -43,11 +43,12 @@ action-log entries are tagged with it so the log stays in wake order.
    window 1 then ends when the Doppelganger has looked (and, when her copy chooses in window 1, sent her follow-up);
    nobody else has anything to choose there.
    Her look resolves in her own first choose;
-   a follow-up as Seer/Robber/Troublemaker/Drunk/Minion resolves when the window closes;
+   a follow-up as Seer/Robber/Troublemaker/Drunk/Minion resolves when the window closes
+   (what a Seer/Robber/Troublemaker/Drunk follow-up shows her is settled at her choose and listed from then on: see "Missed night results");
    anything not chosen takes the role's default.
 
 2. **Window 2 — everyone else at once.** Always runs.
-   Nothing is resolved until the window closes;
+   Nothing is resolved until the window closes (a result settled at the choose is already listed to its chooser);
    then the engine resolves, each step seeing the table after the previous one:
    team views (group 2), Seer -> Robber -> Troublemaker -> Drunk (group 3, Doppelganger before the real role), Insomniac (group 4).
    Engine entry points: `get_required_actions_for_window`, `resolve_window` (`resolve_night` still takes actions keyed by order group 1-4).
@@ -114,7 +115,8 @@ A Doppelganger's follow-up is read as the copied role.
 **One look:** her FIRST choose in window 1 is her look whatever it holds;
 if it holds no other player she has not copied and her second choose does nothing.
 
-**Identical answers:** every choose is `200 {"status": "submitted"}`;
+**Answers alike:** every choose is `200 {"status": "submitted", "night_results": [...], "chooses_left": n}`
+(`choose_night.answer_for`: the caller's own results as `/me/` lists them right after it, and its prompt's count; the same keys and the same reads for every caller);
 the only refusals are `wrong_stage` (409: the request names a stage that is over, including the look stage), `already_chosen`
 (409: a phone may send two chooses in window 1 and one in window 2; phones send ONE, only the Doppelganger a second, and the server takes a second from anyone so its ANSWER is no tell, though her extra request is visible on the network, an accepted tell; 409 only for a choose answering a prompt that is used up)
 and `bad_request` (400, malformed; any other `action_type` too), none depending on role (403 for a stranger).
@@ -124,7 +126,7 @@ under the Game lock, after the stage check, `chosen` LOWER than the stored count
 the same 200, nothing stored, read or sent;
 higher = 400 `bad_request`; equal = a new choose.
 So a 200 only says the server holds a choose for the prompt named:
-after ANY choose the phone re-reads `/me/` and trusts `chosen` / `chooses_left`.
+the phone keeps the answer's results and re-reads `/me/` only when `chooses_left` is above 0 (her follow-up) or the answer has no results (an older server).
 Without it a resent look was counted as the Doppelganger's second choose and read as her follow-up (found by the model in `docs/dev/models/night2/`).
 Every other request is safe twice by what it does or because its first copy ended the stage
 (`tests/onuw/test_resend.py`; table in `docs/specs/onuw/api-contract-v2.md`, section 9).
@@ -204,7 +206,11 @@ only the host (or, for the vote, the last voter) moves it.
 **Missed night results.** `GET /me/` has `night_results`:
 the caller's own results for closed windows, `[{"wave", "action_type", "revealed_info"}]`, built from the night log by `night_results.client_action_result`.
 One entry per result in window order (a Doppelganger with a follow-up gets two in window 1), the caller's own skips included (`{"nothing_chosen": true}`),
-nothing for a window still open except the Doppelganger's own look (listed as soon as it resolves), nothing of anyone else's.
+nothing for a window still open except the Doppelganger's own look (listed as soon as it resolves) and a result **settled at the choose**, nothing of anyone else's.
+Settled (`engine.night.settled_at_choose`, from the roles alone): no step resolving before the caller's in the window can move a card the result shows,
+so the Seer, the Robber, the Troublemaker, the Drunk (her server swap too: it is seeded), a lone Werewolf's centre look and the Doppelganger's follow-up as any of them; not the Insomniac.
+`choose_night._early_entry` resolves the caller's action alone on the table as it is, exactly as the close will, and keeps the log entry in their `night_action_data` (`early_<window>`);
+the close drops it (`persist_wave_results`) as the log takes the same entry (`tests/onuw/test_night_result_now.py` plays seeded games both ways).
 Role names in `revealed_info` are canonical (`"Werewolf"`), `copied_role` as always;
 a `peek_center` result has `center_indices` (in the order of `roles`);
 a result that is the role's default because the picks meant nothing (or there was no choose) has `"nothing_chosen": true`

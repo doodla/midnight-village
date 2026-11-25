@@ -54,11 +54,14 @@ class NightActionView(APIView):
     def post(self, request: Request, game_id: str) -> Response:
         """``{"action_type": "choose", "picks": [...], "chosen": <the prompt's
         chosen>, "stage": <the stage from /me/>}`` from EVERY phone. The answer is
-        ``{"status": "submitted"}`` for everyone, a resend of a choose already taken
-        included (``chosen`` lower than the stored count); the only refusals are
-        ``wrong_stage`` (409), ``already_chosen`` (409) and ``bad_request`` (400),
-        none of them depending on the caller's role. What the picks MEAN is the
-        server's business, decided when the stage ends (``choose_night``)."""
+        ``{"status": "submitted", "night_results": [...], "chooses_left": n}`` for
+        everyone, a resend of a choose already taken included (``chosen`` lower
+        than the stored count): the caller's own results as ``GET /me/`` lists them
+        now (a result already settled at the choose among them) and what the
+        prompt still expects. The only refusals are ``wrong_stage`` (409),
+        ``already_chosen`` (409) and ``bad_request`` (400), none of them depending
+        on the caller's role. What the picks MEAN is the server's business
+        (``choose_night``)."""
         try:
             game = Game.objects.get(id=game_id)
         except (Game.DoesNotExist, ValueError, ValidationError):
@@ -83,7 +86,7 @@ class NightActionView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            errors = submit_choose(
+            errors, answer = submit_choose(
                 game,
                 request.user.id,  # type: ignore[misc]
                 body["picks"],
@@ -105,7 +108,7 @@ class NightActionView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return Response({"status": "submitted"})
+        return Response({"status": "submitted", **answer})
 
 
 class NightResultsSeenView(APIView):

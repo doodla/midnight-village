@@ -51,14 +51,18 @@ from typing import Any
 
 from django.db import transaction
 
-from . import basics, night_flow, night_window, readiness, turns
+from . import basics, night_flow, night_results, night_window, readiness, turns
 from .engine.choose import (
+    Interpretation,
     build_choose_prompt,
+    chooses_left,
     interpret_choice,
     is_lone_werewolf,
     max_chooses,
     parse_picks,
 )
+from .engine.night import action_order_group, resolve_wave, settled_at_choose
+from .engine.state import GameState, NightAction
 from .models import Game, Phase, PlayerRole
 from .protocol import NIGHT_CHOOSE_STAGES, WrongStageError, require_stage
 
@@ -79,10 +83,19 @@ CHOOSE_ERROR_CODES = {
 
 
 def submit_choose(
-    game: Game, user_id: int, raw_picks: object, stage: str, answered: int
-) -> list[str]:
+    game: Game,
+    user_id: int,
+    raw_picks: object,
+    stage: str,
+    answered: int,
+    *,
+    answer: bool = True,
+) -> tuple[list[str], dict[str, Any]]:
     """A phone's ``choose``. Returns the list of errors (empty = success: stored, or
-    a resend of a choose already taken); ``CHOOSE_ERROR_CODES`` maps them to codes. A
+    a resend of a choose already taken) and, on success, what the answer carries
+    (``answer_for``: the caller's own ``night_results`` and ``chooses_left`` as
+    ``GET /me/`` would show them now); ``CHOOSE_ERROR_CODES`` maps the errors to
+    codes (``answer=False``: a practice player, nobody reads it, an empty dict). A
     phone that has used its chooses in the window raises
     ``basics.AlreadyActedError``; a request aimed at a stage that is over raises
     ``WrongStageError``.
@@ -106,9 +119,9 @@ def submit_choose(
         if answered < chosen:
             # Already taken: the same answer the original got, and nothing else
             # (no store, no reading, no close check), whoever sends it.
-            return []
+            return [], answer_for(game, user_id) if answer else {}
         if answered > chosen:
-            return [CHOOSE_BAD_COUNT]
+            return [CHOOSE_BAD_COUNT], {}
         if chosen >= max_chooses(window):
             raise basics.AlreadyActedError(CHOOSE_ALREADY)
 
@@ -120,19 +133,18 @@ def submit_choose(
             center_count=len(game.center_cards),
         )
         if picks is None:
-            return [CHOOSE_BAD_PICKS]
+            return [CHOOSE_BAD_PICKS], {}
 
         acting = turns.get_player_acting_role_for_wave(pr, window)
         # One look: a Doppelganger who has not copied has had her look (her first
         # choose, whatever it held), so a later choose of hers reads as nothing.
         reads = acting is not None and not (acting == "Doppelganger" and chosen >= 1)
         reading = None
+        lone = acting == "Werewolf" and is_lone_werewolf(state, user_id)
         if reads:
-            reading = interpret_choice(
-                acting,
-                picks,
-                lone_werewolf=acting == "Werewolf" and is_lone_werewolf(state, user_id),
-            )
+            reading = interpret_choice(acting, picks, lone_werewolf=lone)
+        # A phone with nothing to choose that sends one anyway learns nothing early.
+        has_turn = chooses_left(window, acting, chosen, lone_werewolf=lone) > 0
 
         data: dict[str, Any] = dict(pr.night_action_data)
         data[f"chose_{window}"] = chosen + 1
@@ -147,6 +159,12 @@ def submit_choose(
             if reading is not None:
                 data["action_type"] = reading.action_type
                 data["targets"] = reading.targets
+            # What the close will show the caller, when nothing else chosen in
+            # the window can change it: shown from now on (``night_results``).
+            data.pop(night_results.early_key(window), None)
+            early = _early_entry(game, state, user_id, window, acting, reading)
+            if early is not None and has_turn:
+                data[night_results.early_key(window)] = early
         pr.night_action_data = data
         pr.has_acted = True
         pr.save(update_fields=["night_action_data", "has_acted"])
@@ -157,7 +175,59 @@ def submit_choose(
             night_window._resolve_doppelganger_look(game)
         if readiness._night_ready_to_close(game):
             night_flow._close_or_defer(game)
-    return []
+        return [], answer_for(game, user_id) if answer else {}
+
+
+def _early_entry(
+    game: Game,
+    state: GameState,
+    user_id: int,
+    window: int,
+    acting: str | None,
+    reading: Interpretation | None,
+) -> dict[str, Any] | None:
+    """The night-log entry the window's close will write for the caller, when it is
+    already settled (``engine.night.settled_at_choose``): the caller's action as the
+    close collects it (their reading, else the role's default, a Drunk's server swap
+    included), resolved alone on the table as it is now, exactly as the close
+    resolves it. Nothing else chosen in the window resolves before it and moves a
+    card it shows, so the close writes the same entry (tests/onuw/
+    test_night_result_now.py plays both ways). None when it is not settled, or for
+    an action the engine refuses (the close then applies its own fallback)."""
+    if not settled_at_choose(window, acting) or acting is None:
+        return None
+    if reading is None:
+        action = night_window._timeout_action(game, user_id, acting)
+    else:
+        action = NightAction(
+            player_id=user_id,
+            role_acting_as=acting,
+            action_type=reading.action_type,
+            targets=reading.targets,
+        )
+    group = 1 if window == 1 else action_order_group(action)
+    try:
+        resolved, _ = resolve_wave(state, [action], group)
+    except Exception:
+        return None
+    return resolved.action_log[-1].to_dict()
+
+
+def answer_for(game: Game, user_id: int) -> dict[str, Any]:
+    """What a taken ``choose`` answers besides its status, read fresh under the
+    lock after the store (and any close it caused): the caller's own
+    ``night_results`` as ``GET /me/`` lists them now, and the ``chooses_left`` of
+    the caller's prompt (0 once the window is over). The same keys, and the same
+    reads, for every caller; nothing about anyone else."""
+    game = Game.objects.get(id=game.id)
+    pr = PlayerRole.objects.get(game=game, user_id=user_id)
+    prompt = prompt_for(game, pr)
+    return {
+        "night_results": night_results.night_results_for_player(
+            game, user_id, night_results.player_names(game), pr.night_action_data
+        ),
+        "chooses_left": prompt["chooses_left"] if prompt is not None else 0,
+    }
 
 
 # ── what a phone reads ──────────────────────────────────────────────────────
@@ -181,6 +251,7 @@ def prompt_for(game: Game, pr: PlayerRole) -> dict[str, Any] | None:
 __all__ = [
     "CHOOSE_ERROR_CODES",
     "WrongStageError",
+    "answer_for",
     "prompt_for",
     "submit_choose",
 ]
