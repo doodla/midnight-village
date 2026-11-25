@@ -268,11 +268,27 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   }
 
   void _clockFrom(FetchedMe fetched) {
+    // What the clock read until now, against what this answer says: the
+    // clocks on screen read again at once only when they differ (the `Date`
+    // header is whole seconds, so most answers move it by less).
+    final before = _serverDate?.add(_sinceFetch.elapsed);
+    final now = fetched.serverDate;
+    final moved =
+        before == null ||
+        now == null ||
+        now.difference(before).abs() > _clockMovedBy;
     _serverDate = fetched.serverDate;
     _sinceFetch
       ..reset()
       ..start();
+    if (moved) clockMoved.value++;
   }
+
+  /// Tells the clocks on screen that the server's clock moved (a new `Date`
+  /// that differs from what they read): they read again now, not at their
+  /// next tick.
+  final clockMoved = ValueNotifier<int>(0);
+  static const _clockMovedBy = Duration(milliseconds: 50);
 
   /// How long until [time] on the server's clock: from the last answer's
   /// `Date` and the time since it arrived, so the phone's own clock is never
@@ -281,6 +297,9 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   Duration _untilServer(DateTime time) {
     final date = _serverDate;
     if (date != null) return time.difference(date) - _sinceFetch.elapsed;
+    // A clock still on screen after the provider is gone (a leaving
+    // crossfade) reads the phone's clock, not a dead ref.
+    if (!ref.mounted) return time.difference(DateTime.now());
     return time.difference(ref.read(clockProvider)());
   }
 

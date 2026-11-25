@@ -26,6 +26,7 @@ class Countdown {
     DateTime this.deadline, {
     required Duration Function(DateTime moment) this.until,
     this.startedAt,
+    this.moved,
   }) : _heldSeconds = null,
        _heldShare = null;
 
@@ -35,12 +36,18 @@ class Countdown {
     : deadline = null,
       until = null,
       startedAt = null,
+      moved = null,
       _heldSeconds = seconds,
       _heldShare = share;
 
   final DateTime? deadline;
   final Duration Function(DateTime moment)? until;
   final DateTime? startedAt;
+
+  /// Tells when the server's clock was re-read and moved ([until] now answers
+  /// differently for the same moment): the clock reads again at once, not at
+  /// its own next tick.
+  final Listenable? moved;
   final int? _heldSeconds;
   final double? _heldShare;
 
@@ -82,12 +89,13 @@ class Countdown {
       other.deadline == deadline &&
       other.until == until &&
       other.startedAt == startedAt &&
+      other.moved == moved &&
       other._heldSeconds == _heldSeconds &&
       other._heldShare == _heldShare;
 
   @override
   int get hashCode =>
-      Object.hash(deadline, until, startedAt, _heldSeconds, _heldShare);
+      Object.hash(deadline, until, startedAt, moved, _heldSeconds, _heldShare);
 }
 
 /// How much of a stage is left, 0 to 1, for the candle's wax (04, 06) and
@@ -139,6 +147,7 @@ class ClockTick extends StatefulWidget {
   /// redraws (`test/helpers/still_screen.dart`).
   @visibleForTesting
   static void debugTickAll() {
+    // The registries below are filled in debug and test builds only.
     for (final face in _ClockFaceState._shown.toList()) {
       face._onTick();
     }
@@ -146,6 +155,12 @@ class ClockTick extends StatefulWidget {
       scope._flushNow();
     }
   }
+
+  /// Lays clocks out with no room (debug and test builds only), the
+  /// reference a test holds the room's layout against: the room must never
+  /// change what is drawn (`test/design_system/primitives/clock_room_layout_test.dart`).
+  @visibleForTesting
+  static bool debugNoRoom = false;
 
   @override
   State<ClockTick> createState() => _ClockTickState();
@@ -179,8 +194,21 @@ class _ClockTickState extends State<ClockTick> {
     // What the clock's content is set from, so a change to any of it builds
     // here and has the room measured again (the room is held at its size,
     // and nothing below it would reach it).
-    MediaQuery.maybeOf(context);
+    MediaQuery.maybeTextScalerOf(context);
     DressScope.of(context);
+    var noRoom = false;
+    assert(() {
+      noRoom = ClockTick.debugNoRoom;
+      return true;
+    }());
+    if (noRoom) {
+      return _ClockFace(
+        countdown: widget.countdown,
+        builder: widget.builder,
+        form: form,
+        reform: _reform,
+      );
+    }
     return _ClockRoom(
       form: (form, ++_builds),
       child: _ClockScope(
@@ -223,14 +251,51 @@ class _ClockFaceState extends State<_ClockFace> {
   @override
   void initState() {
     super.initState();
-    _shown.add(this);
+    assert(_shown.add(this));
+    widget.countdown?.moved?.addListener(_onMoved);
+  }
+
+  @override
+  void didUpdateWidget(_ClockFace old) {
+    super.didUpdateWidget(old);
+    if (old.countdown?.moved != widget.countdown?.moved) {
+      old.countdown?.moved?.removeListener(_onMoved);
+      widget.countdown?.moved?.addListener(_onMoved);
+    }
   }
 
   @override
   void dispose() {
-    _shown.remove(this);
+    assert(_shown.remove(this));
+    widget.countdown?.moved?.removeListener(_onMoved);
     _tick?.cancel();
     super.dispose();
+  }
+
+  /// What the face drew last: the number, so a re-read that finds the same
+  /// one only sets the next tick again.
+  int? _drawn;
+
+  /// The server's clock was re-read and moved: the clock reads again now. A
+  /// number that is the same needs no build, only its timer set again (a
+  /// clock at 0 s has none, and may have time left by the new reading).
+  void _onMoved() {
+    if (!mounted) return;
+    final seconds = widget.countdown?._read().seconds;
+    if (seconds == _drawn && _ClockTickState._form(seconds) == widget.form) {
+      _arm(widget.countdown?._read().next);
+    } else {
+      _onTick();
+    }
+  }
+
+  void _arm(Duration? next) {
+    _tick?.cancel();
+    if (next == null) return;
+    _tick = Timer(
+      Duration(microseconds: math.max(1, next.inMicroseconds)),
+      _onTick,
+    );
   }
 
   /// The number drops: the face alone is built again, unless the clock
@@ -247,16 +312,10 @@ class _ClockFaceState extends State<_ClockFace> {
 
   @override
   Widget build(BuildContext context) {
-    _tick?.cancel();
     final reading = widget.countdown?._read();
-    final next = reading?.next;
-    if (next != null) {
-      _tick = Timer(
-        Duration(microseconds: math.max(1, next.inMicroseconds)),
-        _onTick,
-      );
-    }
+    _arm(reading?.next);
     final seconds = reading?.seconds;
+    _drawn = seconds;
     if (_ClockTickState._form(seconds) != widget.form) {
       // Built for another reason just as the form changed: the room is
       // measured again after this frame.
@@ -326,12 +385,12 @@ class _ClockScopeElement extends SingleChildRenderObjectElement {
   void mount(Element? parent, Object? newSlot) {
     super.mount(parent, newSlot);
     renderObject._element = this;
-    _mounted.add(this);
+    assert(_mounted.add(this));
   }
 
   @override
   void unmount() {
-    _mounted.remove(this);
+    assert(_mounted.remove(this));
     final deferred = _deferred;
     if (deferred != null) {
       SchedulerBinding.instance.cancelFrameCallbackWithId(deferred);
@@ -372,11 +431,18 @@ class _ClockRoom extends SingleChildRenderObjectWidget {
   }
 }
 
-/// [ClockTick]'s room: its child is laid out once at the size it asks for
-/// (when the clock first shows, changes form, or is given other room), then
-/// held at that size, so the child is where a tick's layout stops; and it
-/// is a repaint boundary, so a tick's paint stops here too. [form] changes
-/// with each build of [ClockTick] (never with a tick), which measures it again.
+/// [ClockTick]'s room: the clock is laid out under the room's own
+/// constraints, exactly as without a room, and the room takes its size. The
+/// room's one job is that a tick's layout stops here: the child is then
+/// told it is its own relayout boundary (the parent does not use its size
+/// from then on), so a tick lays out and paints the clock alone, and the
+/// room stays at the size the clock last asked for (when it first showed,
+/// changed form, or was given other room). It is a repaint boundary, so a
+/// tick's paint stops here too. [form] changes with each build of
+/// [ClockTick] (never with a tick), which measures it again.
+///
+/// It never gives the child other constraints than its own: a tight
+/// second pass would cut a clock made of flexible parts a second time.
 class RenderClockRoom extends RenderProxyBox {
   RenderClockRoom(this._form);
 
@@ -387,12 +453,39 @@ class RenderClockRoom extends RenderProxyBox {
     markNeedsLayout();
   }
 
-  BoxConstraints? _measuredIn;
-  Object? _measuredForm;
+  /// The size the room last took, and what it was measured under.
   Size? _measured;
+  BoxConstraints? _measuredIn;
 
   @override
   bool get isRepaintBoundary => true;
+
+  bool _holds(BoxConstraints constraints) =>
+      _measured != null && _measuredIn == constraints;
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final child = this.child;
+    if (child == null) return constraints.smallest;
+    if (_holds(constraints)) return _measured!;
+    return child.getDryLayout(constraints);
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      _measured?.width ?? super.computeMinIntrinsicWidth(height);
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      _measured?.width ?? super.computeMaxIntrinsicWidth(height);
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _measured?.height ?? super.computeMinIntrinsicHeight(width);
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      _measured?.height ?? super.computeMaxIntrinsicHeight(width);
 
   @override
   void performLayout() {
@@ -401,16 +494,15 @@ class RenderClockRoom extends RenderProxyBox {
       size = constraints.smallest;
       return;
     }
-    if (_measured == null ||
-        _measuredIn != constraints ||
-        _measuredForm != _form) {
-      child.layout(constraints, parentUsesSize: true);
-      _measured = child.size;
-      _measuredIn = constraints;
-      _measuredForm = _form;
-    }
-    size = constraints.constrain(_measured!);
-    // Held at its size: tight, so the child is its own relayout boundary.
-    child.layout(BoxConstraints.tight(size));
+    // As the parent of a clock with no room would: the same constraints, the
+    // size used.
+    child.layout(constraints, parentUsesSize: true);
+    size = child.size;
+    _measured = size;
+    _measuredIn = constraints;
+    // The same constraints again, the size no longer used: the child is its
+    // own relayout boundary (a clean child with the same constraints only
+    // takes the new boundary, it is not laid out twice).
+    child.layout(constraints);
   }
 }

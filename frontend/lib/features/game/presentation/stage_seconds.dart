@@ -17,4 +17,9 @@ Countdown? stageCountdown(
   DateTime? startedAt,
 }) => deadline == null
     ? null
-    : Countdown.to(deadline, until: notifier.untilServer, startedAt: startedAt);
+    : Countdown.to(
+        deadline,
+        until: notifier.untilServer,
+        startedAt: startedAt,
+        moved: notifier.clockMoved,
+      );
