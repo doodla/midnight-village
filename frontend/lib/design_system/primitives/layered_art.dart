@@ -260,9 +260,12 @@ class LayeredArt extends StatelessWidget {
     final inMoon = layer.clipTo != null;
     return Ambient(
       effect: AtmoEffect.clouds,
+      restFor: AtmoVillage.skyBursts.restAt,
       child: inMoon ? image : RepaintBoundary(child: image),
       builder: (context, t, child) => Transform.translate(
-        offset: AtmoVillage.cloudDrift(layer.file, t) * scale,
+        offset:
+            AtmoVillage.cloudDrift(layer.file, AtmoVillage.skyTime(t) * 3) *
+            scale,
         child: child,
       ),
     );

@@ -174,6 +174,7 @@ class CandleGauge extends StatelessWidget {
             Positioned.fill(
               child: Ambient(
                 effect: AtmoEffect.flame,
+                restFor: (t) => AtmoFlame.restFor(t, share),
                 builder: (context, t, _) => CustomPaint(
                   painter: _GlowPainter(
                     nook: at(

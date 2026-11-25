@@ -26,7 +26,7 @@ class AtmoNightFall extends StatefulWidget {
 
 class _AtmoNightFallState extends State<AtmoNightFall>
     with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(
+  late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1500),
     value: 1,
@@ -175,7 +175,7 @@ class SwayingTag extends StatefulWidget {
 
 class _SwayingTagState extends State<SwayingTag>
     with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(
+  late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2600),
     value: 1,
@@ -197,6 +197,8 @@ class _SwayingTagState extends State<SwayingTag>
   @override
   void initState() {
     super.initState();
+    // Made now, while mounted: never first in dispose.
+    _c.stop();
     if (_own) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !MediaQuery.disableAnimationsOf(context)) {

@@ -15,6 +15,23 @@ import 'atmo_parts.dart';
 /// (768 x 1024) and given the [toBox] mapping.
 abstract final class AtmoVillage {
   /// How far a cloud layer drifts at [t], in canvas pixels (its bleed is 16).
+  /// The sky moves in bursts (5 s, 12 to 26 s apart), resting between.
+  static const skyBursts = Bursts(
+    length: 5,
+    gapLeast: 12,
+    gapSpread: 14,
+    first: 1,
+    seed: 7,
+  );
+
+  /// The sky's own time: seconds spent in its bursts (so it glides, then
+  /// rests where it stopped).
+  static double skyTime(double t) {
+    final (k, u) = skyBursts.at(t);
+    if (k < 0) return 0;
+    return (k + u.clamp(0.0, 1.0)) * skyBursts.length;
+  }
+
   static Offset cloudDrift(String file, double t) {
     if (!file.contains('cloud') && !file.contains('moon_shadow')) {
       return Offset.zero;
@@ -44,13 +61,31 @@ abstract final class AtmoVillage {
 
   /// How lit window [i] is at [t]: each keeps its own slow hours (lit for
   /// about a fifth of a cycle of 26 to 63 s), fading over about 2 s.
+  ///
+  /// Bursts with rest between: in burst k (9 to 22 s apart, 1.6 s long) one
+  /// window lights and the one lit three bursts before goes out, so at most
+  /// three are lit and between bursts nothing changes (no frame is asked).
+  static const windowBursts = Bursts(
+    length: 1.6,
+    gapLeast: 9,
+    gapSpread: 13,
+    first: 1.5,
+    seed: 3,
+  );
+
+  static int _windowOf(int k) =>
+      (frac(k * 0.414 + 0.27) * windows.length).floor() % windows.length;
+
   static double windowLight(int i, double t) {
-    final period = 18 + 22 * frac(i * 0.618 + 0.2);
-    final u = frac(t / period + frac(i * 0.414));
-    const on = 0.24;
-    final fade = 1.5 / period;
-    if (u > on) return 0;
-    return smoothStep(0, fade, u) * (1 - smoothStep(on - fade, on, u));
+    final (now, _) = windowBursts.at(t);
+    var a = 0.0;
+    for (var k = now - 3; k <= now; k++) {
+      if (k < 0 || _windowOf(k) != i) continue;
+      double rise(int b) =>
+          smoothStep(0, 1, (t - windowBursts.startOf(b)) / windowBursts.length);
+      a = math.max(a, rise(k) * (1 - rise(k + 3)));
+    }
+    return a;
   }
 }
 
@@ -94,6 +129,7 @@ class _AtmoWindowsState extends State<AtmoWindows> {
       child: RepaintBoundary(
         child: Ambient(
           effect: AtmoEffect.windows,
+          restFor: AtmoVillage.windowBursts.restAt,
           still: 30,
           builder: (context, t, _) =>
               CustomPaint(painter: _WindowsPainter(atlas, t, widget.toBox)),
@@ -146,8 +182,13 @@ class AtmoMoonLight extends StatelessWidget {
     child: RepaintBoundary(
       child: Ambient(
         effect: AtmoEffect.clouds,
+        restFor: AtmoVillage.skyBursts.restAt,
         builder: (context, t, _) => CustomPaint(
-          painter: _MoonPainter(centre, radius, 0.5 + 0.5 * wander(t, 13)),
+          painter: _MoonPainter(
+            centre,
+            radius,
+            0.5 + 0.5 * wander(AtmoVillage.skyTime(t) * 2, 13),
+          ),
         ),
       ),
     ),

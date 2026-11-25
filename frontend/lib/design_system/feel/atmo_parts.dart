@@ -38,14 +38,36 @@ class AtmoFlame extends StatelessWidget {
       Atmo.has(AtmoEffect.flame) || Atmo.has(AtmoEffect.gutter);
 
   /// The flame's (scale x, scale y, lean) at [t].
+  /// The flame stirs in bursts (2.6 s, 7 to 18 s apart) and is still
+  /// between them, as a candle is when the air in the room is.
+  static const bursts = Bursts(length: 2.6, gapLeast: 7, gapSpread: 11);
+
+  /// How stirred the flame is at [t], 0 at rest.
+  static double stir(double t) {
+    final (k, u) = bursts.at(t);
+    return k < 0 || u >= 1 ? 0 : math.sin(math.pi * u);
+  }
+
+  static double low(double? share) => share != null && share < 0.15 ? 1 : 0;
+
+  /// Rest at [t]: none while guttering, else the flame's bursts'.
+  static double restFor(double t, double? share) =>
+      low(share) > 0 && Atmo.has(AtmoEffect.gutter)
+      ? 0
+      : Atmo.has(AtmoEffect.flame)
+      ? bursts.restAt(t)
+      : 1e9;
+
   static (double, double, double) at(double t, double? share) {
     var sy = 1.0;
     var lean = 0.0;
     if (Atmo.has(AtmoEffect.flame)) {
+      final s = stir(t);
       sy +=
-          wander(t, 2.3, seed: 1) * 0.05 +
-          math.sin(2 * math.pi * t * 5.7) * .012;
-      lean = wander(t, 6.1, seed: 2) * 0.05;
+          (wander(t, 2.3, seed: 1) * 0.05 +
+              math.sin(2 * math.pi * t * 5.7) * .012) *
+          s;
+      lean = wander(t, 6.1, seed: 2) * 0.05 * s;
     }
     final low = share != null && share < 0.15;
     if (low && Atmo.has(AtmoEffect.gutter)) {
@@ -62,6 +84,7 @@ class AtmoFlame extends StatelessWidget {
     if (!any) return child;
     return Ambient(
       effect: Atmo.has(AtmoEffect.flame) ? AtmoEffect.flame : AtmoEffect.gutter,
+      restFor: (t) => restFor(t, share),
       child: RepaintBoundary(child: child),
       builder: (context, t, child) {
         final (sx, sy, lean) = at(t, share);
@@ -76,8 +99,9 @@ class AtmoFlame extends StatelessWidget {
 }
 
 /// How strong the candle's light is at [t] (1 at rest).
-double flameLight(double t) =>
-    Atmo.has(AtmoEffect.flame) ? 1 + wander(t, 2.9, seed: 3) * 0.18 : 1;
+double flameLight(double t) => Atmo.has(AtmoEffect.flame)
+    ? 1 + wander(t, 2.9, seed: 3) * 0.18 * AtmoFlame.stir(t)
+    : 1;
 
 // --------------------------------------------------------- dust and the moth
 
@@ -104,6 +128,7 @@ class AtmoCandleAir extends StatelessWidget {
       child: RepaintBoundary(
         child: Ambient(
           effect: Atmo.has(AtmoEffect.dust) ? AtmoEffect.dust : AtmoEffect.moth,
+          restFor: Atmo.has(AtmoEffect.dust) ? null : mothVisits.restAt,
           builder: (context, t, _) => Stack(
             clipBehavior: Clip.none,
             children: [
@@ -122,16 +147,17 @@ class AtmoCandleAir extends StatelessWidget {
   }
 
   /// The moth: a visit of 6 s, first at 2 s, then every 41 to 67 s.
+  /// The moth's visits: 6 s, first at 2 s, then 41 to 67 s apart.
+  static const mothVisits = Bursts(
+    length: 6,
+    gapLeast: 41,
+    gapSpread: 26,
+    seed: 5,
+  );
+
   List<Widget> _moth(double t) {
-    const visit = 6.0;
-    var start = 2.0;
-    var n = 0;
-    while (start + visit < t) {
-      start += 41 + 26 * frac(n * 0.618 + 0.3);
-      n++;
-    }
-    final u = (t - start) / visit;
-    if (u < 0 || u > 1) return const [];
+    final (k, u) = mothVisits.at(t);
+    if (k < 0 || u > 1) return const [];
     // Never smaller than a moth can be seen: 18 px, its loops to match.
     final unit = math.max(flameHeight, 16.0);
     final size = math.max(unit * 0.9, 18.0);
@@ -216,7 +242,7 @@ class AtmoDeal extends StatefulWidget {
 
 class _AtmoDealState extends State<AtmoDeal>
     with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(
+  late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1100),
   );
@@ -289,7 +315,7 @@ class Carried extends StatefulWidget {
 class _CarriedState extends State<Carried> with SingleTickerProviderStateMixin {
   static final _live = <String, _CarriedState>{};
 
-  late final _c = AnimationController(
+  late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 560),
     value: 1,
@@ -307,6 +333,8 @@ class _CarriedState extends State<Carried> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    // Made now, while mounted: never first in dispose.
+    _c.stop();
     if (!Atmo.has(AtmoEffect.carry)) return;
     final before = _live[widget.tag];
     _live[widget.tag] = this;

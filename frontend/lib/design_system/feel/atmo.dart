@@ -13,6 +13,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -104,12 +105,15 @@ abstract final class Atmo {
       on.contains(effect) && !MediaQuery.disableAnimationsOf(context);
 }
 
-/// The one slow clock every ambient effect reads: seconds since it started,
-/// ticking at [Atmo.fps] only while someone listens and the app is in the
-/// foreground. One timer for all of them, so they share their frames.
+/// The one slow clock every ambient effect reads: seconds of the app in the
+/// foreground with no finger down. It ticks (asks for a frame, at
+/// [Atmo.fps]) only while an effect in a burst listens; between bursts, and
+/// while a finger is down, nothing ticks, so the screen rests.
 class AmbientClock extends ChangeNotifier implements ValueListenable<double> {
   AmbientClock._() {
     _lifecycle = AppLifecycleListener(onStateChange: _onState);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
+    _watch.start();
   }
 
   static final AmbientClock instance = AmbientClock._();
@@ -120,13 +124,26 @@ class AmbientClock extends ChangeNotifier implements ValueListenable<double> {
   Timer? _timer;
   var _users = 0;
   var _foreground = true;
+  var _fingers = 0;
 
-  /// Seconds the clock has run (it stands still while nobody looks).
+  /// Seconds the clock has run (it holds in the background and under a
+  /// finger, so an effect stands still while someone touches the screen).
   @override
   double get value => _watch.elapsedMicroseconds / 1e6 * Atmo.speed;
 
   void _onState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
+    _run();
+  }
+
+  void _onPointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      _fingers++;
+    } else if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _fingers = _fingers > 0 ? _fingers - 1 : 0;
+    } else {
+      return;
+    }
     _run();
   }
 
@@ -141,15 +158,19 @@ class AmbientClock extends ChangeNotifier implements ValueListenable<double> {
   }
 
   void _run() {
-    final go = _users > 0 && _foreground;
-    if (go && _timer == null) {
+    final live = _foreground && _fingers == 0;
+    if (live) {
       _watch.start();
+    } else {
+      _watch.stop();
+    }
+    final go = _users > 0 && live;
+    if (go && _timer == null) {
       _timer = Timer.periodic(
         Duration(microseconds: 1000000 ~/ Atmo.fps),
         (_) => notifyListeners(),
       );
     } else if (!go && _timer != null) {
-      _watch.stop();
       _timer!.cancel();
       _timer = null;
     }
@@ -157,7 +178,10 @@ class AmbientClock extends ChangeNotifier implements ValueListenable<double> {
 }
 
 /// Builds [builder] with the ambient clock's seconds, again on each tick,
-/// while it is on screen and moving; else once, still, at [still].
+/// while it is on screen, moving and in a burst; else once, still. With
+/// [restFor], an effect says how long it rests at a moment (0: it is in a
+/// burst): it leaves the clock for that long, so the screen asks for no
+/// frame at all between its bursts.
 class Ambient extends StatefulWidget {
   const Ambient({
     super.key,
@@ -165,6 +189,7 @@ class Ambient extends StatefulWidget {
     required this.builder,
     this.child,
     this.still = 0,
+    this.restFor,
   });
 
   final AtmoEffect effect;
@@ -174,6 +199,9 @@ class Ambient extends StatefulWidget {
   /// The moment shown when nothing moves (reduce motion, covered, off).
   final double still;
 
+  /// Seconds of rest from clock time t (0 in a burst); null: always moving.
+  final double Function(double t)? restFor;
+
   @override
   State<Ambient> createState() => _AmbientState();
 }
@@ -181,6 +209,8 @@ class Ambient extends StatefulWidget {
 class _AmbientState extends State<Ambient> {
   ValueListenable<bool>? _mode;
   var _joined = false;
+  late var _shown = widget.still;
+  Timer? _wake;
 
   @override
   void didChangeDependencies() {
@@ -194,25 +224,55 @@ class _AmbientState extends State<Ambient> {
       mounted && (_mode?.value ?? false) && Atmo.moves(context, widget.effect);
 
   void _update() {
-    final want = _wanted;
-    if (want == _joined) return;
-    _joined = want;
-    if (want) {
-      AmbientClock.instance
-        ..addListener(_tick)
-        ..join();
-    } else {
-      AmbientClock.instance
-        ..removeListener(_tick)
-        ..leave();
+    _wake?.cancel();
+    // Off, covered or still: the clock is not even made.
+    if (!_wanted && !_joined) {
+      if (mounted && _shown != widget.still) {
+        setState(() => _shown = widget.still);
+      }
+      return;
     }
-    if (mounted) setState(() {});
+    final clock = AmbientClock.instance;
+    var want = _wanted;
+    if (want && widget.restFor != null) {
+      final rest = widget.restFor!(clock.value + widget.still);
+      if (rest > 0) {
+        want = false;
+        // Back for the next burst (clock seconds are real seconds over the
+        // time-lapse; a held finger only makes it look again later).
+        _wake = Timer(
+          Duration(milliseconds: (rest / Atmo.speed * 1000).ceil() + 16),
+          _update,
+        );
+      }
+    }
+    if (want != _joined) {
+      _joined = want;
+      if (want) {
+        clock
+          ..addListener(_tick)
+          ..join();
+      } else {
+        clock
+          ..removeListener(_tick)
+          ..leave();
+      }
+    }
+    final t = _wanted ? clock.value + widget.still : widget.still;
+    if (mounted && t != _shown) setState(() => _shown = t);
   }
 
-  void _tick() => setState(() {});
+  void _tick() {
+    if (widget.restFor != null) {
+      _update();
+    } else {
+      setState(() => _shown = AmbientClock.instance.value + widget.still);
+    }
+  }
 
   @override
   void dispose() {
+    _wake?.cancel();
     _mode?.removeListener(_update);
     if (_joined) {
       AmbientClock.instance
@@ -223,11 +283,62 @@ class _AmbientState extends State<Ambient> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.builder(
-    context,
-    _joined ? AmbientClock.instance.value + widget.still : widget.still,
-    widget.child,
-  );
+  Widget build(BuildContext context) =>
+      widget.builder(context, _shown, widget.child);
+}
+
+/// Seeded bursts with real rest between: burst k starts at [startOf] k
+/// ([first], then gaps of [gapLeast] to [gapLeast] + [gapSpread] seconds,
+/// seeded) and lasts [length].
+class Bursts {
+  const Bursts({
+    required this.length,
+    required this.gapLeast,
+    required this.gapSpread,
+    this.first = 2,
+    this.seed = 0,
+  });
+
+  final double length;
+  final double gapLeast;
+  final double gapSpread;
+  final double first;
+  final int seed;
+
+  double _gap(int k) {
+    final x = (k + 1) * 0.618034 + seed * 0.414;
+    return gapLeast + gapSpread * (x - x.floorToDouble());
+  }
+
+  /// When burst [k] starts.
+  double startOf(int k) {
+    var t = first;
+    for (var i = 0; i < k; i++) {
+      t += length + _gap(i);
+    }
+    return t;
+  }
+
+  /// The burst at or before [t]: (its index, how far into it, 0 to 1 or
+  /// more past its end); index -1 before the first.
+  (int, double) at(double t) {
+    if (t < first) return (-1, 0);
+    var k = 0;
+    var start = first;
+    while (true) {
+      final next = start + length + _gap(k);
+      if (next > t) return (k, (t - start) / length);
+      start = next;
+      k++;
+    }
+  }
+
+  /// Seconds of rest at [t] before the next burst (0 inside one).
+  double restAt(double t) {
+    final (k, u) = at(t);
+    if (k >= 0 && u < 1) return 0;
+    return startOf(k + 1) - t;
+  }
 }
 
 /// A slow wander, -1 to 1, that never repeats in a way the eye can count: the
