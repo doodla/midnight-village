@@ -778,9 +778,12 @@ The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no p
   for a gap between `Motion.restLeast` and `Motion.restMost` (8 to 16 s) taken from its `id` (`Ambient.restFor`: every phone the same).
   Given an `AmbientCue` it rests for good after its burst, until `cue.again()` (teaching: `HoldCue` breathes three times, then once more after a tap on the locked gate).
   `Ambient.continuous` loops with no rest and is asked for by name, only for something whose job is to show a wait (`WaitingSign`, `LanternMark` while a tap's request is on its way).
-  It **yields to the finger**: while any pointer is down anywhere (`FingerDown`, one global route on the pointer router for every `Ambient`)
-  it holds where it is and asks for no frame, so the press's frame never queues behind decoration;
-  it goes on `Motion.settle` after the last lift (the frames where the tap commits and its answer comes in draw nothing else).
+  It **yields to the finger** (`FingerDown`, one global route on the pointer router for every `Ambient`), so the press's frame never queues behind decoration:
+  a touch **ends a burst** under way: it goes to its `still` at once, without animating, and counts as played (a burst with a cue stays still until `cue.again()`);
+  its rest does not run while a pointer is down and starts after the last lift plus `Motion.settle`, so after a tap no burst schedules any frame.
+  A burst asked for under a finger (`cue.again()`) waits for the settle, then plays.
+  `Ambient.continuous` only holds where it is while a pointer is down and goes on `Motion.settle` after the last lift
+  (the frames where the tap commits and its answer comes in draw nothing else).
   A lift never heard does not hold it for good: a removed or hovering device lets go of its pointers, and the app leaving the front lets go of all.
   Its `id`, `still`, `cycles` and mode are fixed for its life (asserted): a different loop is a new key.
   It ticks only while the app is in front

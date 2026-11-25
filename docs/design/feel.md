@@ -139,8 +139,9 @@ an effect is a small layer over a still picture, never a reason to draw the scre
   Only something whose job is to show a wait loops without rest (`Ambient.continuous`: the waiting sign's lanterns, a busy button's lantern).
 - **Teaching is finite**: the hold cue breathes three times, then stands still (still the sign);
   it breathes once more only after a tap on the locked Ready before a hold, never once learned.
-- **Yield to the finger**: while any finger is down anywhere, every loop holds where it is and draws nothing, so the frame that answers the press never waits behind decoration;
-  it goes on a `settle` after the last lift, so the frames where the tap commits and its answer arrives draw nothing else.
+- **Yield to the finger**: a touch anywhere ends every burst at once (back at its still look, no animation, counted as played), and its rest starts again a `settle` after the last lift;
+  so the frame that answers the press, and the frames where the tap commits and its answer arrives, draw no decoration.
+  A waiting sign (`Ambient.continuous`) only holds under a finger and goes on a `settle` after the last lift.
   A lift the app never hears (a tab hidden under a finger, a device removed) lets go too.
 - It runs only with the app in front, its screen not covered, and motion allowed (reduce motion: its still look).
 Both are in `frontend/lib/design_system/README.md`, "Press and Ambient".
@@ -262,7 +263,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Hold | After 120 ms the card turns over in place like a piece of cut paper (`PaperFlip`): from its back (the game's back) it lifts 8 px and grows 3% as it goes through its edge, its shadow falls further from it, and it lands face up a few degrees past flat and settles; the face is never mirrored; it is built offstage from the moment the turn is asked for and shown only once past the edge. Measured: the turn is 160 ms; edge on at about 34 ms, the face 87% wide at about 68 ms, where the old fade was already 88% opaque at 45 ms, so the face reads about 50 ms later than the fade did. The settle peaks at 1.6% past flat, not 3%. The trade is taken because the turn reads as paper, and release hides the face within one frame. In a first game the ring fills over the 0.8 s it takes to count. One light tap as the face lands (section 3) | 120 ms, then `quick` (the frames read better than `press`'s five frames; decided in pass 3) | Cut, and the tap | exists (pass 3) |
 | Release | The card turns back through its edge to its back at once, never slower than `press`; let go mid-turn it goes back from where it is, taken again it goes on from there | `press` | Cut | exists (pass 3) |
 | A reveal counts (0.8 s seen) | "Ready" locked becomes amber; the ring stops for good | `press` | Cut | exists |
-| The card arrives (first game) | The `hold` ring breathes three times (1.4 s each), then stands still on the card: the same ring and word, nothing drawing. While any finger is down, it holds | 3 × 1400 ms | Ring still, visible | exists |
+| The card arrives (first game) | The `hold` ring breathes three times (1.4 s each), then stands still on the card: the same ring and word, nothing drawing. A touch ends a breath under way (the ring is still at once) | 3 × 1400 ms | Ring still, visible | exists |
 | A tap on "Ready" before holding | The ring breathes once more, then rests; on a phone that has learned it, "Ready" shows the ring for 3 s; the button does not move | 1400 ms; 3 s | Ring still, visible | exists |
 | "Ready" tapped | "Ready ✓", settled (no fill or outline), the pips count up on the tap, not on the answer. No vibration | `press` | Cut | exists |
 | Everyone ready, or the backstop | All phones go to the board together; night to night, so a plain crossfade, no wipe | `settle` | Cut | exists |

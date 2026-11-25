@@ -50,13 +50,19 @@ class AmbientCue extends ChangeNotifier {
 ///   a screen kept offstage, a screen leaving that switches it off);
 /// - its owner says it runs ([running]: a sign hidden, a field typed in);
 /// - no finger is down anywhere ([FingerDown]: the frame that answers a
-///   press never waits behind decoration);
+///   press never waits behind decoration). A touch ENDS a burst under way: it
+///   goes to [still] at once, without animating, and counts as played (a
+///   burst with a [cue] stays still until [AmbientCue.again]). Its rest does
+///   not run while a finger is down; it starts after the last lift and
+///   [Motion.settle], so after a tap it schedules no frame at all. A burst
+///   asked for under a finger waits for the settle. [Ambient.continuous]
+///   only holds where it is and goes on after the settle;
 /// - motion is allowed (`MediaQuery.disableAnimations` off). With reduce
 ///   motion it rests at [still].
 ///
-/// Stopped for any reason but reduce motion it holds where it was and goes
-/// on from there (a burst it was in plays to its end; a rest it was in
-/// starts again whole). Nothing finer is checked: a part scrolled out of a
+/// Stopped by anything else but a touch (and reduce motion) it holds where it
+/// was and goes on from there (a burst it was in plays to its end; a rest it
+/// was in starts again whole). Nothing finer is checked: a part scrolled out of a
 /// lazy list is not built at all, and a screen under a sheet still shows
 /// through its scrim, so it keeps living there rather than freezing in view.
 ///
@@ -227,7 +233,8 @@ class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
   void _sync() {
     if (!mounted) return;
     final allowed = _allowed;
-    final moving = allowed && !FingerDown.instance.value;
+    final down = FingerDown.instance.value;
+    final moving = allowed && !down;
     if (widget.continuous) {
       if (moving && !_c.isAnimating) {
         unawaited(_c.repeat(reverse: widget.reverse));
@@ -244,6 +251,13 @@ class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
       _c.stop();
       return;
     }
+    if (down) {
+      // A touch ends the burst under way and stops the rest's clock: both
+      // start again after the last lift and the settle.
+      _rest?.cancel();
+      _rest = null;
+      if (_inLeg) _endBurst();
+    }
     if (!_started) {
       _started = true;
       _burst(widget.cycles);
@@ -251,9 +265,18 @@ class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
     }
     if (_left > 0) {
       moving ? _go() : _c.stop();
-    } else if (_rest == null && widget.cue == null) {
+    } else if (_rest == null && widget.cue == null && !down) {
       _restNow();
     }
+  }
+
+  /// The burst is over, played or not: at [still] at once, no frame asked for.
+  void _endBurst() {
+    _inLeg = false;
+    _c.stop();
+    _c.value = widget.still;
+    _left = 0;
+    _bursts += 1;
   }
 
   void _again() {
@@ -309,7 +332,7 @@ class _AmbientState extends State<Ambient> with SingleTickerProviderStateMixin {
   /// A true rest: nothing ticks; one timer wakes the next burst.
   void _restNow() {
     _rest?.cancel();
-    if (!_allowed) {
+    if (!_allowed || FingerDown.instance.value) {
       _rest = null;
       return;
     }

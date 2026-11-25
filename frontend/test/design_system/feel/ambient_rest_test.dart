@@ -1,13 +1,15 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/feel/ambient.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 
 // `Ambient`'s bursts and rests (feel/ambient.dart): one burst, then a true
 // rest (no ticker, no frame asked for) for a gap seeded by its id; a taught
-// one rests for good until asked again; a finger down anywhere holds every
-// loop; `Ambient.continuous` never rests. All on the test's fake clock.
+// one rests for good until asked again; a touch anywhere ends a burst (and a
+// finger down holds `Ambient.continuous`, which never rests). All on the
+// test's fake clock.
 
 const _frame = Duration(milliseconds: 16);
 const _period = Duration(milliseconds: 500);
@@ -140,30 +142,101 @@ void main() {
     await _rests(tester, seen, Motion.restMost * 2);
   });
 
-  testWidgets('a finger down anywhere holds it, with no frame of its own; it '
-      'goes on after the lift', (tester) async {
+  testWidgets('a touch during a burst ends it: still at once, and no frame is '
+      'asked for after the lift or the settle', (tester) async {
+    final seen = _Seen();
+    await tester.pumpWidget(_ambient(seen));
+    await _run(tester, _period ~/ 2);
+    expect(seen.loop.value, greaterThan(0), reason: 'mid-breath');
+    final finger = await tester.startGesture(const Offset(5, 5));
+    await tester.pump(_frame);
+    expect(seen.loop.value, 0, reason: 'at its still value, not animated');
+    expect(SchedulerBinding.instance.transientCallbackCount, 0);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+
+    await tester.pump(_period);
+    await finger.up();
+    expect(SchedulerBinding.instance.transientCallbackCount, 0);
+    await tester.pump(Motion.settle);
+    expect(SchedulerBinding.instance.transientCallbackCount, 0);
+    expect(seen.loop.value, 0);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets('after a touch ended a burst the next one comes only after a '
+      'full rest, counted from the settle', (tester) async {
     final seen = _Seen();
     await tester.pumpWidget(_ambient(seen));
     await _run(tester, _period ~/ 2);
     final finger = await tester.startGesture(const Offset(5, 5));
-    expect(_ticking(tester), isFalse);
-    final held = seen.loop.value;
-    await tester.pump(_period);
-    expect(seen.loop.value, held, reason: 'it holds where it was');
-    expect(tester.binding.hasScheduledFrame, isFalse);
-
+    await tester.pump(Motion.restMost * 2);
+    expect(_ticking(tester), isFalse, reason: 'the rest does not run down');
     await finger.up();
     await tester.pump(Motion.settle);
-    expect(_ticking(tester), isTrue);
-    await tester.pump(_frame);
-    expect((seen.loop.value - held).abs(), lessThan(0.1), reason: 'no jump');
+    final rest = Ambient.restFor('probe', 1);
+    await _rests(tester, seen, rest - _frame * 8);
+    await tester.pump(_frame * 9);
+    expect(_ticking(tester), isTrue, reason: 'then the next burst');
     await _run(tester, _burst(1));
-    expect(_ticking(tester), isFalse, reason: 'the burst ended, it rests');
+    expect(seen.loop.value, 0);
   });
 
-  testWidgets('a rest that ends under a finger waits for the lift', (
+  testWidgets('a touch during a rest starts the rest again after the settle', (
     tester,
   ) async {
+    final seen = _Seen();
+    await tester.pumpWidget(_ambient(seen));
+    await _run(tester, _burst(1));
+    final rest = Ambient.restFor('probe', 1);
+    await tester.pump(Ambient.restFor('probe', 0) - Motion.settle);
+    final finger = await tester.startGesture(const Offset(5, 5));
+    await finger.up();
+    await tester.pump(Motion.settle);
+    await _rests(tester, seen, rest - _frame * 8);
+    await tester.pump(_frame * 9);
+    expect(_ticking(tester), isTrue);
+  });
+
+  testWidgets('a taught one ended by a touch is finished: it stays still '
+      'until asked again', (tester) async {
+    final seen = _Seen();
+    final cue = AmbientCue();
+    addTearDown(cue.dispose);
+    await tester.pumpWidget(_ambient(seen, cycles: 3, cue: cue));
+    await _run(tester, _period * 3);
+    final finger = await tester.startGesture(const Offset(5, 5));
+    await tester.pump(_frame);
+    expect(seen.loop.value, 0);
+    await finger.up();
+    await tester.pump(Motion.settle);
+    await _rests(tester, seen, Motion.restMost * 3);
+
+    cue.again();
+    expect(_ticking(tester), isTrue);
+    await _run(tester, _burst(1));
+    await _rests(tester, seen, Motion.restMost * 2);
+  });
+
+  testWidgets('asked again under a finger, a taught one breathes after the '
+      'settle, not before', (tester) async {
+    final seen = _Seen();
+    final cue = AmbientCue();
+    addTearDown(cue.dispose);
+    await tester.pumpWidget(_ambient(seen, cue: cue));
+    await _run(tester, _burst(1));
+    final finger = await tester.startGesture(const Offset(5, 5));
+    await finger.up();
+    cue.again();
+    await tester.pump(Motion.settle - _frame);
+    expect(_ticking(tester), isFalse);
+    await tester.pump(_frame * 2);
+    expect(_ticking(tester), isTrue);
+    await _run(tester, _burst(1));
+    expect(seen.loop.value, 0);
+  });
+
+  testWidgets('a rest that ends under a finger does not run: it starts after '
+      'the settle', (tester) async {
     final seen = _Seen();
     await tester.pumpWidget(_ambient(seen));
     await _run(tester, _burst(1));
@@ -173,7 +246,24 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isFalse);
     await finger.up();
     await tester.pump(Motion.settle);
+    expect(_ticking(tester), isFalse, reason: 'its rest begins now');
+  });
+
+  testWidgets('continuous mid-breath holds under a finger and goes on from '
+      'where it was after the settle', (tester) async {
+    final seen = _Seen();
+    await tester.pumpWidget(_ambient(seen, continuous: true));
+    await _run(tester, _period ~/ 2);
+    final finger = await tester.startGesture(const Offset(5, 5));
+    final held = seen.loop.value;
+    expect(held, greaterThan(0));
+    await tester.pump(_period);
+    expect(seen.loop.value, held);
+    await finger.up();
+    await tester.pump(Motion.settle);
     expect(_ticking(tester), isTrue);
+    await tester.pump(_frame);
+    expect((seen.loop.value - held).abs(), lessThan(0.1), reason: 'no jump');
   });
 
   testWidgets('hidden during a rest, its timer stops; back, a rest starts '
