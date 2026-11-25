@@ -42,6 +42,26 @@ class DevicePreferences {
     }
   }
 
+  /// The text kept at [key], or null when there is none or it could not be
+  /// read.
+  Future<String?> readString(String key) async {
+    try {
+      final value = (await _open()).get(key);
+      return value is String ? value : null;
+    } catch (e) {
+      logger.w('DevicePreferences: could not read $key: $e');
+      return null;
+    }
+  }
+
+  Future<void> writeString(String key, String value) async {
+    try {
+      await (await _open()).setString(key, value);
+    } catch (e) {
+      logger.w('DevicePreferences: could not write $key: $e');
+    }
+  }
+
   /// Clears every flag whose key starts with [prefix].
   Future<void> clearFlags(String prefix) async {
     try {
