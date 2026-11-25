@@ -34,12 +34,16 @@ async def read(P, ctx, app, out_dir):
         await P.touch(x, foot)
         await asyncio.sleep(1.5)
         copies[name] = await page.evaluate("() => navigator.clipboard.readText()")
-        with open(os.path.join(out_dir, name), "w") as f:
-            f.write(copies[name])
+        write(os.path.join(out_dir, name), copies[name])
     try:
         return json.loads(copies["everything.json"])
     except ValueError:
         return None
+
+
+def write(path, text):
+    with open(path, "w") as f:
+        f.write(text)
 
 
 def compare(moments, record):
@@ -50,8 +54,10 @@ def compare(moments, record):
     taps = record["taps"]
     requests = {r["id"]: r for r in record["requests"]}
     lines = [
-        "tap | first change: phone-frames / app | request left: pf / app | "
-        "round trip: pf / app"
+        (
+            "tap | first change: phone-frames / app | request left: pf / app | "
+            "round trip: pf / app"
+        )
     ]
     for m in moments:
         if m.get("kind") != "tap":

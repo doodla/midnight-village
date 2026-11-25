@@ -329,8 +329,9 @@ async def play(args, measuring, boxes):
             lines = perf_readout.compare(run.moments, record)
             print("\n[phone-frames] the app's readout beside phone-frames:")
             print("\n".join(lines))
-            with open(os.path.join(args.perf, "compare.txt"), "w") as f:
-                f.write("\n".join(lines) + "\n")
+            perf_readout.write(
+                os.path.join(args.perf, "compare.txt"), "\n".join(lines) + "\n"
+            )
         await run.collect()
         await ctx.close()
         await browser.close()
