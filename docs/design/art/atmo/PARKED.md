@@ -44,7 +44,12 @@ goes away when the last piece here is built.
    darkened, an ending on the bed's next loop end, a gain per sound, ogg and m4a made from
    the WAV masters. Then the theme's one owner in the shell (`Sounds.claimTheme()`), and a
    mute control (its place needs pictures for the owner). The tap that unmutes must open the
-   output itself. The theme is not chosen: the owner asked for a darker, minor-key round.
+   output itself. The theme is chosen (the owner, 25 Nov): "Music N", a celesta tune over low strings, B minor, 66 BPM.
+   Its master is on branch `sound-archive` (an archive, never merged): `round2/masters/theme-n.flac` and `.json`
+   (loop length in samples); `round2/raw-paid-extras/` holds N's vote pulse and ending, unfinished; `round2/SHEET.md`.
+   The bed and layers for N are still to make; the sound credits are nearly out until 24 December.
+   Since this was parked: clocks take a `Countdown` (`still-screen`), a rest guard in the screen sweep allows `Ambient`
+   by name, the night's result opens at the tap (`HoldToReveal.open`), and `?perf=1` shows a readout.
 5. Not proven on a real phone, to try on the owner's once a sound is in: sound starting on
    the first touch, silence on a hidden tab, Chrome suspending by itself, real latency.
 6. Left out of `motion-layer`: the hold cue's one more breath after a short tap on the card
