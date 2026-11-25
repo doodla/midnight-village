@@ -125,6 +125,12 @@ class _Context extends TestRecordingPaintingContext {
 
   @override
   void paintChild(RenderObject child, Offset offset) {
+    // A part that is its own layer (an opacity, `RenderOpacity` as a repaint
+    // boundary) paints only its child here: its layer says what it fills.
+    if (child.isRepaintBoundary) {
+      final what = _layerCost(child.debugLayer);
+      if (what != null) (canvas as _Canvas).layers.add((what, child));
+    }
     _stack.add(child);
     try {
       super.paintChild(child, offset);
@@ -132,8 +138,6 @@ class _Context extends TestRecordingPaintingContext {
       _stack.removeLast();
     }
   }
-
-  final _made = <ColorFilterLayer>[];
 
   // The recording context drops a colour filter (and what is under it):
   // painted here, and counted.
@@ -146,17 +150,8 @@ class _Context extends TestRecordingPaintingContext {
   }) {
     (canvas as _Canvas).layers.add(('a colour filter', painting));
     painter(this, offset);
-    final layer = ColorFilterLayer();
-    _made.add(layer);
-    return layer;
-  }
-
-  @override
-  void dispose() {
-    for (final layer in _made) {
-      layer.dispose();
-    }
-    super.dispose();
+    // The render object keeps it (its layer handle) and lets it go.
+    return oldLayer ?? ColorFilterLayer();
   }
 
   @override
@@ -166,13 +161,7 @@ class _Context extends TestRecordingPaintingContext {
     Offset offset, {
     Rect? childPaintBounds,
   }) {
-    final what = switch (childLayer) {
-      ShaderMaskLayer() => 'a ShaderMask',
-      BackdropFilterLayer() => 'a BackdropFilter',
-      ImageFilterLayer() => 'an image filter',
-      ColorFilterLayer() => 'a colour filter',
-      _ => null,
-    };
+    final what = _layerCost(childLayer);
     if (what != null) (canvas as _Canvas).layers.add((what, painting));
     super.pushLayer(
       childLayer,
@@ -182,6 +171,16 @@ class _Context extends TestRecordingPaintingContext {
     );
   }
 }
+
+/// What a layer fills on every frame, or null for one that fills nothing.
+String? _layerCost(Layer? layer) => switch (layer) {
+  ShaderMaskLayer() => 'a ShaderMask',
+  BackdropFilterLayer() => 'a BackdropFilter',
+  ImageFilterLayer() => 'an image filter',
+  ColorFilterLayer() => 'a colour filter',
+  OpacityLayer(:final alpha?) when alpha < 255 => 'an opacity',
+  _ => null,
+};
 
 List<String> _decodeProblems(WidgetTester tester, double ratio) {
   final problems = <String>[];
