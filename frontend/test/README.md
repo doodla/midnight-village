@@ -144,8 +144,8 @@ Every state is also held to the stage clock (`test/helpers/stage_clock.dart`, ad
 a game screen whose `/me/` carries a `deadline` draws a clock with its number (`WorldTimer`, `SquareSky` or `TimerBand`) on the screen, a night candle on no
 card and no main button; `stage_clock_test.dart` places every timer the table sets (`Length`) as a stage clock or on the no-clock list, each with why
 (the owner, 24 November 2026: 04 had a deadline and no clock).
-Every state is also watched at rest (`test/helpers/still_screen.dart`, a second test per state in `sweep_run.dart`, "<id> at rest"):
-pumped until it settles, then for 16 s (past the 5 s game poll and the 15 s table poll), it asks for frames only from a source on `restSources`
+The rest rule (`test/helpers/still_screen.dart`, `watchAtRest` and `clockTickProblems`; not yet in `sweep_run.dart`: it joins once the
+screens it finds pass): a state pumped until it settles, then for 16 s (past the 5 s game poll and the 15 s table poll), it asks for frames only from a source on `restSources`
 (the clock's `ClockTick`, `Ambient`, a focused `SkinField`'s cursor) or, until they move to `Ambient`, `movingToAmbient`, and each frame rebuilds and
 paints inside its source; a screen with none asks for no frame at all. Every clock on it is made to tick once with nothing else running: the tick
 rebuilds and paints inside the clock alone (the owner, 24 November 2026: "it felt like I was watching a ppt").

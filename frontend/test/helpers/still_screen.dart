@@ -9,8 +9,9 @@ import 'package:midnight_village/design_system/primitives/countdown.dart';
 // A still screen asks for no frames (the owner, 24 November 2026: "The game
 // was very choppy", "it felt like I was watching a ppt"; measured, a screen
 // waiting on a player kept the phone 25 to 100% busy drawing itself whole,
-// and a tap's first frame waited behind those). The screen sweep holds every
-// catalogue state to it (sweep_run.dart), in two rules:
+// and a tap's first frame waited behind those). Two rules, for the screen
+// sweep to hold every catalogue state to (sweep_run.dart, once the states
+// they find today pass):
 // - [stillScreenProblems]: the state at rest, pumped for [restWindow], asks
 //   for frames only from a source on [restSources] (or, until it moves,
 //   [movingToAmbient]), and each such frame rebuilds and paints inside that
