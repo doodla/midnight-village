@@ -461,6 +461,13 @@ against the two live addresses, from outside, with no account and no secret:
    (every length short), the host plays again, and both must hear the table reopen. The log
    says how long each took. The deal and a restart reach the other phones only this way
    (the rescue is a read every 15 seconds), and nothing else opens a socket on the live server.
+   **How long it took** (`--timings`, `tool/deployed_timing.py`): every request of this step is timed over a connection kept open,
+   and each read is repeated five times and the settings change three.
+   The run's summary on GitHub shows a table per kind of request: the caller's time (first, median, worst)
+   and the server's own `Server-Timing` header (`total`, and `connect` when it made a database connection),
+   then how long after the deal and play again were sent the other guests' sockets had the event.
+   The same numbers are kept 30 days as the run's `deployed-timings` file, to compare two merges.
+   A report only: no number fails the check (the runner's network is noisy; a budget waits for a week of numbers).
 6. **Everyone leaves, always**, also when a step failed or its answer was lost: each guest asks
    the server where it sits and leaves that table; the last one out deletes it. A table in a
    game cannot be left, so after a failed socket step leaving is tried until the game has
