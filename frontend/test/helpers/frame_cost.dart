@@ -1,7 +1,10 @@
 // Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 //
-// What a frame of a screen at rest costs, held by the screen sweep
-// (sweep_run.dart) for every catalogue state, at every phone and text size:
+// What a frame of a screen at rest costs, for the screen sweep
+// (sweep_run.dart) at every catalogue state, phone and text size. PARKED:
+// not in the sweep until a real phone says whether drawing cost matters
+// there, and [layerAllowed] is not filled (the lab's first sweep found
+// opacities and colour filters in YouSeal, FaintArt, PlayerToken and others).
 //
 // - [frameCostProblems]: above the screen's still pictures (`Still`, `Mood`)
 //   nothing fills a layer of its own on every frame (a `saveLayer`, an

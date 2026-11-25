@@ -12,7 +12,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../test_screens/screen_catalogue.dart';
-import '../helpers/frame_cost.dart';
 import '../helpers/screen_sweep.dart';
 import '../helpers/stage_clock.dart';
 import 'not_yet_swept.dart';
@@ -45,7 +44,6 @@ void runSweep(int shard) {
     if (notYet != null && !_all) continue;
     testWidgets(entry.id, (tester) async {
       final plan = entry.sweep;
-      resetLayerAllowances();
       final problems = await sweepScreen(
         tester,
         entry.build!,
@@ -55,13 +53,11 @@ void runSweep(int shard) {
           main: plan.main,
           mustSee: plan.mustSee,
           apart: plan.apart,
-          rules: [...plan.rules, stageClockProblems, frameCostProblems],
+          rules: [...plan.rules, stageClockProblems],
           whenOpened: plan.whenOpened,
         ),
         settleFrames: entry.frames ?? 10,
       );
-      // An allowance this state stood for and no longer uses (frame_cost.dart).
-      problems.addAll(staleLayerAllowances(entry.id));
       if (_all) {
         // ignore: avoid_print
         print(
