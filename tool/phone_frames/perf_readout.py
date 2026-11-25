@@ -56,7 +56,7 @@ def compare(moments, record):
     lines = [
         (
             "tap | first change: phone-frames / app | request left: pf / app | "
-            "round trip: pf / app"
+            "round trip: pf / app | the app's own: lift to handled"
         )
     ]
     for m in moments:
@@ -67,20 +67,23 @@ def compare(moments, record):
             lines.append(f"{m['name']} | no app record")
             continue
         tap = m["tap"]
-        frame = mine["down_frame"] if mine["hold"] else mine["up_frame"]
+        # The first frame after the touch (phone-frames' first changed pixel
+        # is the control's pressed look, drawn for the down).
+        frame = mine["down_frame"]
         app_first = None if frame is None else round(frame - mine["down"])
         req = requests.get(mine["request"])
         app_left = app_trip = None
         if req and req["left"] is not None:
             app_left = round(req["left"] - mine["down"])
-            end = req["arrived"] if req["arrived"] is not None else req["done"]
-            app_trip = None if end is None else round(end - req["left"])
+            if req.get("net_start") is not None and req.get("net_end") is not None:
+                app_trip = round(req["net_end"] - req["net_start"])
         pf_left = pf_trip = None
         if tap["requests"]:
             left, trip = tap["requests"][0].rsplit(" ", 2)[-2].split("+")
             pf_left, pf_trip = int(left), int(trip)
         lines.append(
             f"{m['name']} ({mine['control']}) | {tap['first_ms']} / {app_first} | "
-            f"{pf_left} / {app_left} | {pf_trip} / {app_trip}"
+            f"{pf_left} / {app_left} | {pf_trip} / {app_trip} | "
+            f"lift heard {mine.get('heard_ms')}"
         )
     return lines

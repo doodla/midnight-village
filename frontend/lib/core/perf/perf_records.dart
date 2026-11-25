@@ -29,9 +29,16 @@ class TapRecord {
   /// down, since a hold answers while the finger is still on the glass.
   var hold = false;
 
-  /// The first frame drawn after the down was handled, and after the lift.
+  /// The first frame drawn after the down was handled, and after the lift
+  /// (when it was handed to the browser: the engine's own raster finish).
   double? downFrameAt;
   double? upFrameAt;
+
+  /// The time inside each of those frames (its callbacks), by which its
+  /// own `FrameTiming` is found; not reported.
+  double? downFrameMark;
+  double? upFrameMark;
+  double? shownMark;
 
   /// The request the tap caused (the first it made), if any.
   HttpRecord? request;
@@ -65,7 +72,7 @@ class TapRecord {
   double? get toLeft => _gap(from, request?.leftAt);
   double? get roundTrip => request?.roundTrip;
   double? get toApplied =>
-      _gap(request?.arrivedAt ?? request?.doneAt, appliedAt);
+      _gap(request?.netEnd ?? request?.arrivedAt ?? request?.doneAt, appliedAt);
   double? get toShown => _gap(appliedAt, shownAt);
   double? get total => _gap(from, shownAt ?? screenAt);
 
@@ -80,6 +87,8 @@ class TapRecord {
     'down_frame': _r(downFrameAt),
     'up_frame': _r(upFrameAt),
     'request': request?.id,
+    'heard_ms': _r(heard),
+    'pressed_ms': _r(_gap(downAt, downFrameAt)),
     'applied': _r(appliedAt),
     'shown': _r(shownAt),
     'worst_frame': _r(worstFrame),
@@ -114,6 +123,15 @@ class HttpRecord {
   double? doneAt;
   int? status;
 
+  /// The browser's own record of the request (Resource Timing): when it
+  /// went out and when the whole answer was in, before the app's code could
+  /// run for it (a busy page runs it later: [sat]).
+  double? netStart;
+  double? netEnd;
+
+  /// The full address, only to find the browser's record; never reported.
+  String? url;
+
   /// The server's own `Server-Timing` (connection, total), when the browser
   /// may read it.
   double? serverConnect;
@@ -121,7 +139,11 @@ class HttpRecord {
 
   bool get isPoll => cause == 'poll';
   double? get waited => _gap(queuedAt, leftAt);
-  double? get roundTrip => _gap(leftAt, arrivedAt ?? doneAt);
+  double? get roundTrip =>
+      _gap(netStart, netEnd) ?? _gap(leftAt, arrivedAt ?? doneAt);
+
+  /// How long the answer waited on the phone for the app to run.
+  double? get sat => _gap(netEnd, arrivedAt ?? doneAt);
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -133,6 +155,8 @@ class HttpRecord {
     'left': _r(leftAt),
     'arrived': _r(arrivedAt),
     'done': _r(doneAt),
+    'net_start': _r(netStart),
+    'net_end': _r(netEnd),
     'status': status,
     'server_connect': serverConnect,
     'server_total': serverTotal,
@@ -179,6 +203,8 @@ class ScreenRecord {
   final double causeAt;
   double? firstFrameAt;
   double? contentAt;
+  double? firstMark;
+  double? contentMark;
 
   double? get toFirstFrame => _gap(causeAt, firstFrameAt);
   double? get toContent => _gap(causeAt, contentAt);
@@ -208,6 +234,10 @@ class FrameStats {
   final rasters = <double>[];
   final totals = <double>[];
 
+  /// What is neither build nor raster: from the vsync to the build, and
+  /// between the build and the raster.
+  final others = <double>[];
+
   /// Frames drawn at rest (no touch, socket message or screen change in the
   /// second before), and how long the screen was at rest.
   var restFrames = 0;
@@ -225,6 +255,7 @@ class FrameStats {
       builds.add(build);
       rasters.add(raster);
       totals.add(total);
+      others.add(total - build - raster);
     }
   }
 
@@ -240,6 +271,7 @@ class FrameStats {
     'worst': _r(worst),
     'build_median': _r(median(builds)),
     'raster_median': _r(median(rasters)),
+    'other_median': _r(median(others)),
     'total_median': _r(median(totals)),
     'rest_frames': restFrames,
     'rest_ms': restMs.round(),

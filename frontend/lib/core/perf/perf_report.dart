@@ -13,9 +13,11 @@ abstract final class PerfWords {
   static const noTap = 'Tap anything:\nits time shows here.';
   static const legs =
       'heard: finger to the app. screen: finger to the first frame. left: '
-      'finger to the request leaving. answer: its round trip. applied: the '
-      'answer to the app having it. shown: to the frame after. total: '
-      'finger to the last of these.';
+      'finger to the request leaving. answer: its round trip, as the '
+      'browser saw it. applied: the answer in to the app having used it '
+      '(a busy page shows here). shown: to the frame after. total: finger '
+      'to the last of these. A tap is timed from the lift, a hold from the '
+      'touch.';
 }
 
 /// The strip's two lines for the last tap that finished:
@@ -49,7 +51,7 @@ String shortReport(FieldRecorder r, {String commit = ''}) {
   }
   out.writeln(
     'Frames per screen: count, over 16/32/50/100 ms, worst, '
-    'build/raster median, at rest per minute',
+    'build/raster/other median, at rest per minute',
   );
   final screens = r.frames.entries.toList()
     ..sort((a, b) => b.value.frames.compareTo(a.value.frames));
@@ -58,11 +60,13 @@ String shortReport(FieldRecorder r, {String commit = ''}) {
     out.writeln(
       ' $screen: ${f.frames}, ${f.over16}/${f.over32}/${f.over50}/'
       '${f.over100}, ${_n(f.worst)}, ${_ms0(median(f.builds))}/'
-      '${_ms0(median(f.rasters))}, ${rest == null ? '-' : _n(rest)}',
+      '${_ms0(median(f.rasters))}/${_ms0(median(f.others))}, '
+      '${rest == null ? '-' : _n(rest)}',
     );
   }
   out.writeln(
-    'Requests, median/worst ms: waited to leave, round trip, server total',
+    'Requests, median/worst ms: waited to leave, round trip, answer '
+    'waited for the page, server total',
   );
   final paths = _grouped(r.requests, (q) => '${q.method} ${q.path}');
   for (final (path, list) in paths.take(10)) {
@@ -70,7 +74,7 @@ String shortReport(FieldRecorder r, {String commit = ''}) {
     out.writeln(
       ' $path x${list.length}${polls > 0 ? ' ($polls polls)' : ''}: '
       '${_mw(list.map((q) => q.waited))} ${_mw(list.map((q) => q.roundTrip))} '
-      '${_mw(list.map((q) => q.serverTotal))}',
+      '${_mw(list.map((q) => q.sat))} ${_mw(list.map((q) => q.serverTotal))}',
     );
   }
   out.writeln('Screen changes, median/worst ms: to first frame, to content');

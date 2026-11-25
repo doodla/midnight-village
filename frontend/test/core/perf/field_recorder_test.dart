@@ -155,6 +155,42 @@ void main() {
     await s.close(tester);
   });
 
+  testWidgets('where the engine reports frame timings, a tap\'s frames are '
+      'the engine\'s own raster finish, and the tap finishes only on them', (
+    tester,
+  ) async {
+    final recorder = _on(tester);
+    final s = await _talk(tester);
+    FrameTiming drawn(double endMs) {
+      final end = (endMs * 1000).round();
+      return FrameTiming(
+        vsyncStart: end - 3000,
+        buildStart: end - 3000,
+        buildFinish: end - 2000,
+        rasterStart: end - 2000,
+        rasterFinish: end,
+        rasterFinishWallTime: end,
+      );
+    }
+
+    // The engine reports here: from now a tap waits for its frames' timings.
+    recorder.takeTimings([drawn(_now(tester) - 500)]);
+    await _pressReady(tester, s);
+    final tap = recorder.taps.singleWhere((t) => t.control == 'main_button');
+    expect(tap.done, isFalse, reason: 'its frames\' timings are not in yet');
+
+    // The frames were finished 7 ms after each stand-in's mark.
+    final later = _now(tester) + 7;
+    recorder.takeTimings([drawn(later)]);
+    expect(tap.done, isTrue);
+    expect(tap.shownAt, later);
+    expect(tap.upFrameAt, later);
+    expect(recorder.finished.value, same(tap));
+
+    await s.settle(tester);
+    await s.close(tester);
+  });
+
   test('a long report stays short enough to paste in a chat', () {
     var t = 0.0;
     final recorder = FieldRecorder(

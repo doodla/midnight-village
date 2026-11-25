@@ -23,20 +23,34 @@ typedef ControlAt = String? Function(Offset position, int viewId);
 /// - Every frame (`FrameTiming`), counted per screen.
 /// - Every request, socket message and screen change.
 ///
-/// A frame's time is when it was handed to the browser: the first timer
-/// after the frame's own callbacks (the drawing ran in the frame's task,
-/// before it). Nothing here schedules a frame or waits for anything.
+/// A frame's time is when the engine finished drawing it (its own
+/// `FrameTiming`, found by a time taken inside the frame); until that
+/// timing arrives (the engine hands timings over in batches), the first
+/// timer after the frame stands in. A request's round trip is the
+/// browser's own record of it (Resource Timing), so the time its answer
+/// waited for a busy page is told apart. Nothing here schedules a frame or
+/// waits for anything.
 class FieldRecorder implements PerfRecorder {
   FieldRecorder({
     required this.now,
     required this.controlAt,
     this.environment = const {},
+    this.resourceTiming,
   });
 
   /// The page's clock, in ms (the clock pointer events and frames use).
   final double Function() now;
   final ControlAt controlAt;
   final Map<String, Object?> environment;
+
+  /// The browser's record of the request to [url] that went out after
+  /// [after] (ms): when it went and when its answer was in. Null: unknown.
+  final ({double start, double end})? Function(String url, double after)?
+  resourceTiming;
+
+  /// Whether the engine reports frame timings here (a test's binding does
+  /// not): a tap then finishes on its frames' own timings.
+  var _timed = false;
 
   static const _keptTaps = 400;
   static const _keptRequests = 1500;
@@ -133,8 +147,11 @@ class FieldRecorder implements PerfRecorder {
         // belongs to this tap: a tap's handler runs as the finger lifts,
         // before this route hears the lift, and a hold's while it is down.
         _current = tap;
-        _frameAfter((at) {
-          tap.downFrameAt = at;
+        _finishWaiting();
+        _frameAfter((mark, at) {
+          tap
+            ..downFrameMark = mark
+            ..downFrameAt ??= at;
           _maybeFinish(tap);
         });
       case PointerUpEvent():
@@ -159,8 +176,10 @@ class FieldRecorder implements PerfRecorder {
         Timer.run(() {
           if (identical(_current, tap)) _current = null;
         });
-        _frameAfter((at) {
-          tap.upFrameAt = at;
+        _frameAfter((mark, at) {
+          tap
+            ..upFrameMark = mark
+            ..upFrameAt ??= at;
           _maybeFinish(tap);
         });
       case PointerCancelEvent():
@@ -171,19 +190,30 @@ class FieldRecorder implements PerfRecorder {
     }
   }
 
-  /// Calls [then] with the time the next frame was handed to the browser.
-  void _frameAfter(void Function(double at) then) {
-    SchedulerBinding.instance.addPostFrameCallback(
-      (_) => Timer.run(() => then(now())),
-    );
+  /// Calls [then] once the next frame is drawn: with a time inside it (its
+  /// own callbacks, before the engine finishes it), and the first timer
+  /// after it (the stand-in until its timing arrives).
+  void _frameAfter(void Function(double mark, double at) then) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      final mark = now();
+      _refine();
+      Timer.run(() {
+        then(mark, now());
+        _refine();
+      });
+    });
   }
 
-  void _maybeFinish(TapRecord tap) {
+  /// Finishes [tap] once every frame it waits for is known: by its own
+  /// timing, or with [force] by the stand-in (a new touch came first).
+  void _maybeFinish(TapRecord tap, {bool force = false}) {
     if (tap.done || tap.upAt == null || tap.screenAt == null) return;
     final request = tap.request;
-    if (tap.madePlayerRequest || request != null) {
-      if (tap.shownAt == null) return;
-    }
+    final last = (tap.madePlayerRequest || request != null)
+        ? tap.shownMark
+        : (tap.hold ? tap.downFrameMark : tap.upFrameMark);
+    if (last == null) return;
+    if (_timed && !force && _frameOf(last) == null) return;
     tap
       ..done = true
       ..worstFrame = _worstBetween(tap.from, tap.shownAt ?? tap.screenAt!);
@@ -224,7 +254,7 @@ class FieldRecorder implements PerfRecorder {
   void _answered(HttpRecord record) {
     _activity(record.doneAt!);
     // A tap that made a read only: the read's answer is what it applied.
-    for (final tap in taps.reversed.take(8)) {
+    for (final tap in _lastTaps) {
       if (identical(tap.request, record) && !tap.madePlayerRequest) {
         _applied(tap);
       }
@@ -233,10 +263,26 @@ class FieldRecorder implements PerfRecorder {
 
   void _applied(TapRecord tap) {
     tap.appliedAt = now();
-    _frameAfter((at) {
-      tap.shownAt = at;
+    _frameAfter((mark, at) {
+      tap
+        ..shownMark = mark
+        ..shownAt ??= at;
       _maybeFinish(tap);
     });
+  }
+
+  /// A new touch: the taps still waiting for their frames' timings finish
+  /// on what is known (on a still screen the engine holds the last timings
+  /// until it draws again).
+  /// The last few taps, oldest first (so the newest finishes last, and the
+  /// strip shows it).
+  Iterable<TapRecord> get _lastTaps =>
+      taps.length <= 8 ? taps.toList() : taps.sublist(taps.length - 8);
+
+  void _finishWaiting() {
+    for (final tap in _lastTaps) {
+      _maybeFinish(tap, force: true);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -308,15 +354,18 @@ class FieldRecorder implements PerfRecorder {
     _screenSince = at;
     _activity(at);
     _keep(screens, change, _keptScreens);
-    _frameAfter((t) => _firstFrame(change, t));
+    _frameAfter((mark, at) => _firstFrame(change, mark, at));
   }
 
-  void _firstFrame(ScreenRecord change, double at) {
+  void _firstFrame(ScreenRecord change, double mark, double at) {
+    change.firstMark ??= mark;
     change.firstFrameAt ??= at;
     if (_waiting == 0) {
-      change.contentAt = at;
+      change
+        ..contentMark ??= mark
+        ..contentAt ??= at;
     } else if (identical(screens.lastOrNull, change)) {
-      _frameAfter((t) => _firstFrame(change, t));
+      _frameAfter((m, t) => _firstFrame(change, m, t));
     }
   }
 
@@ -330,13 +379,17 @@ class FieldRecorder implements PerfRecorder {
   // Frames
   // ---------------------------------------------------------------------------
 
-  /// Recent frames (start, total ms), for a tap's worst frame.
-  final _recent = <(double, double)>[];
+  /// Recent frames (build start, raster finish, total ms): a tap's worst
+  /// frame, and each leg's frame by its own timing.
+  final _recent = <(double, double, double)>[];
 
   void _timings(List<FrameTiming> timings) {
+    _timed = true;
     for (final timing in timings) {
       final start =
           timing.timestampInMicroseconds(FramePhase.buildStart) / 1000;
+      final end =
+          timing.timestampInMicroseconds(FramePhase.rasterFinish) / 1000;
       final total = timing.totalSpan.inMicroseconds / 1000;
       final rest = !_recentActivity.any(
         (a) => a <= start && start - a < busyFor,
@@ -349,7 +402,7 @@ class FieldRecorder implements PerfRecorder {
             total,
             rest: rest,
           );
-      _keep(_recent, (start, total), 600);
+      _keep(_recent, (start, end, total), 600);
       // A tap that finished before its last frames' timings came in.
       for (final tap in taps.reversed.take(4)) {
         final end = tap.shownAt ?? tap.screenAt;
@@ -357,6 +410,35 @@ class FieldRecorder implements PerfRecorder {
           if (total > tap.worstFrame) tap.worstFrame = total;
         }
       }
+    }
+    _refine();
+  }
+
+  /// When the frame that [mark] (a time inside it) belongs to was drawn:
+  /// the first frame the engine finished after it.
+  double? _frameOf(double? mark) {
+    if (mark == null) return null;
+    for (final (_, end, _) in _recent) {
+      if (end >= mark) return end;
+    }
+    return null;
+  }
+
+  /// Puts each recent leg's frame on its own timing, and finishes the taps
+  /// that were waiting for it.
+  void _refine() {
+    if (!_timed) return;
+    for (final tap in _lastTaps) {
+      tap
+        ..downFrameAt = _frameOf(tap.downFrameMark) ?? tap.downFrameAt
+        ..upFrameAt = _frameOf(tap.upFrameMark) ?? tap.upFrameAt
+        ..shownAt = _frameOf(tap.shownMark) ?? tap.shownAt;
+      _maybeFinish(tap);
+    }
+    for (final change in screens.reversed.take(4)) {
+      change
+        ..firstFrameAt = _frameOf(change.firstMark) ?? change.firstFrameAt
+        ..contentAt = _frameOf(change.contentMark) ?? change.contentAt;
     }
   }
 
@@ -367,7 +449,7 @@ class FieldRecorder implements PerfRecorder {
 
   double _worstBetween(double from, double to) {
     var worst = 0.0;
-    for (final (start, total) in _recent) {
+    for (final (start, _, total) in _recent) {
       if (start >= from && start <= to && total > worst) worst = total;
     }
     return worst;
@@ -423,9 +505,11 @@ class _HttpMark implements HttpMark {
 
   void _name(RequestOptions options) {
     if (_record.method.isNotEmpty) return;
+    final url = options.uri.toString();
     _record
       ..method = options.method.toUpperCase()
-      ..path = cleanPath(options.uri.toString());
+      ..path = cleanPath(url)
+      ..url = url;
   }
 
   @override
@@ -467,6 +551,17 @@ class _HttpMark implements HttpMark {
       _record
         ..serverConnect = timing.connect
         ..serverTotal = timing.total;
+    }
+    final url = _record.url;
+    if (url != null) {
+      final net = _recorder.resourceTiming?.call(
+        url,
+        (_record.leftAt ?? _record.queuedAt) - 1,
+      );
+      _record
+        ..netStart = net?.start
+        ..netEnd = net?.end
+        ..url = null;
     }
     _recorder._answered(_record);
   }

@@ -50,6 +50,29 @@ Map<String, Object?> perfEnvironment() {
   return env;
 }
 
+/// Lets the browser keep a record of every request of a long game (it keeps
+/// 250 by default, then drops new ones).
+void perfPrepare() {
+  try {
+    web.window.performance.setResourceTimingBufferSize(5000);
+  } catch (_) {}
+}
+
+/// The browser's own record of the request to [url] that started after
+/// [after]: when it went out and when the whole answer was in.
+({double start, double end})? perfResourceTiming(String url, double after) {
+  try {
+    for (final entry
+        in web.window.performance.getEntriesByName(url, 'resource').toDart) {
+      final timing = entry as web.PerformanceResourceTiming;
+      if (timing.startTime >= after && timing.responseEnd > 0) {
+        return (start: timing.startTime, end: timing.responseEnd);
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
 /// The graphics chip's name, as WebGL says it (Chrome gives it plainly).
 String? _gpu() {
   final canvas = web.HTMLCanvasElement();

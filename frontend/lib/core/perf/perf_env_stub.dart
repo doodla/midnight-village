@@ -8,3 +8,8 @@ double perfNow() => _clock.elapsedMicroseconds / 1000;
 Map<String, String> pageQuery() => const {};
 
 Map<String, Object?> perfEnvironment() => const {};
+
+void perfPrepare() {}
+
+({double start, double end})? perfResourceTiming(String url, double after) =>
+    null;

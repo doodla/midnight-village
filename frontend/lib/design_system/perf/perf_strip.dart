@@ -21,10 +21,12 @@ import 'control_kind.dart';
 /// once, before the app runs.
 void startPerfField() {
   if (!kIsWeb || !perfSwitchedOn(pageQuery(), openTabStorage())) return;
+  perfPrepare();
   final recorder = FieldRecorder(
     now: perfNow,
     controlAt: controlAt,
     environment: perfEnvironment(),
+    resourceTiming: perfResourceTiming,
   )..install();
   Perf.recorder = recorder;
 }
