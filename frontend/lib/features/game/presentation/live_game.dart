@@ -11,6 +11,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/requests/player_request.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/primitives/pending.dart' show RequestRefused;
+import '../../../design_system/primitives/countdown.dart' show Countdown;
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
 import '../../auth/domain/auth_state.dart';
@@ -276,7 +277,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     final moved =
         before == null ||
         now == null ||
-        now.difference(before).abs() > _clockMovedBy;
+        now.difference(before).abs() > Countdown.movedBy;
     _serverDate = fetched.serverDate;
     _sinceFetch
       ..reset()
@@ -288,7 +289,6 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   /// that differs from what they read): they read again now, not at their
   /// next tick.
   final clockMoved = ValueNotifier<int>(0);
-  static const _clockMovedBy = Duration(milliseconds: 50);
 
   /// How long until [time] on the server's clock: from the last answer's
   /// `Date` and the time since it arrived, so the phone's own clock is never

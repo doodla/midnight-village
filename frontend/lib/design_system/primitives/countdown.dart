@@ -48,6 +48,11 @@ class Countdown {
   /// differently for the same moment): the clock reads again at once, not at
   /// its own next tick.
   final Listenable? moved;
+
+  /// How far the server's clock must move between two answers to tell the
+  /// clocks (the `Date` header is whole seconds, so most answers move it
+  /// by less).
+  static const movedBy = Duration(milliseconds: 50);
   final int? _heldSeconds;
   final double? _heldShare;
 
