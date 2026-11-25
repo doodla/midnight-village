@@ -6,10 +6,13 @@ import 'package:midnight_village/core/audio/sound_set.dart';
 import 'engine_fixture.dart';
 import 'fake_audio_backend.dart';
 
-// The battery: an output left running renders silence, so it sleeps when
-// nothing can sound and wakes on the next gesture or theme.
+// The output's life: an output left running renders silence, so it sleeps
+// when nothing can sound and wakes on the next gesture or theme; a closed
+// one is replaced.
 
 void main() {
+  group('a closed output', closedTests);
+
   test('the idle length covers the theme fading out and the longest cue', () {
     expect(
       SoundTiming.idle,
@@ -86,6 +89,50 @@ void main() {
         async.elapse(SoundTiming.idle - SoundTiming.mute);
       }
       expect(backend.suspends, 0);
+    });
+  });
+}
+
+void closedTests() {
+  test('a closed output is dropped, said once, and the next touch opens a '
+      'new one where the theme and the cues come back', () {
+    fakeAsync((async) {
+      final backend = FakeAudioBackend(decodeAtOnce: false);
+      final (engine, log) = started(backend);
+      backend.tap();
+      engine.theme(ThemeVariant.table);
+      backend
+        ..finishDecode(knockFile)
+        ..finishDecode(tableFile);
+      async.flushMicrotasks();
+      expect(engine.playing, ThemeVariant.table);
+      engine.theme(ThemeVariant.night);
+      backend.close();
+      for (var i = 0; i < 5; i++) {
+        backend.send(activates: false);
+        engine.play(knock);
+      }
+      expect(log.where((l) => l.contains('closed')), hasLength(1));
+      expect(log, hasLength(1), reason: 'not a line per tap');
+      expect(backend.opens, 1, reason: 'no activation yet');
+      expect(backend.held, isEmpty, reason: 'all released');
+
+      // The decode begun on the closed output lands: stale, released.
+      backend.finishDecode(nightFile);
+      async.flushMicrotasks();
+      expect(backend.held, isEmpty);
+
+      backend.tap();
+      async.flushMicrotasks();
+      expect(backend.opens, 2);
+      backend
+        ..finishDecode(knockFile)
+        ..finishDecode(nightFile);
+      async.flushMicrotasks();
+      expect(engine.playing, ThemeVariant.night);
+      engine.play(knock);
+      expect(backend.fired, [knockFile]);
+      expect(log, hasLength(1));
     });
   });
 }

@@ -43,6 +43,10 @@ class SoundEngine {
   double _volume;
   bool _hidden = false;
 
+  /// Bumped when a closed output is dropped: a cue decoded on it is stale.
+  int _generation = 0;
+  bool _closedLogged = false;
+
   /// Puts the output to sleep when nothing can sound (see [_settle]).
   Timer? _idle;
 
@@ -105,6 +109,7 @@ class SoundEngine {
   void gesture({required bool activates}) {
     if (!_started) return;
     _guard('gesture', () {
+      _dropIfClosed();
       if (_hidden || _muted) return;
       if (!_backend.isOpen) {
         if (!activates) return;
@@ -123,6 +128,7 @@ class SoundEngine {
     if (!_started) return;
     _hidden = !shown;
     _guard('visibility', () {
+      _dropIfClosed();
       if (!_backend.isOpen) return;
       if (!shown) {
         _idle?.cancel();
@@ -140,6 +146,7 @@ class SoundEngine {
   /// with the others when it runs again (a cue late is worse than none).
   void play(Sfx cue) {
     _guard('play ${cue.name}', () {
+      _dropIfClosed();
       if (!_canSound) return;
       final file = _set.cues[cue] ?? _cueNamed(cue.name);
       if (file == null) return;
@@ -160,6 +167,7 @@ class SoundEngine {
     if (variant == _theme.wanted) return;
     _theme.wanted = variant;
     _guard('theme ${variant?.name}', () {
+      _dropIfClosed();
       _reconcile();
       _wake();
       _settle();
@@ -170,6 +178,7 @@ class SoundEngine {
     if (muted == _muted) return;
     _muted = muted;
     _guard('mute', () {
+      _dropIfClosed();
       if (!_backend.isOpen) return;
       final ramp = SoundTiming.seconds(SoundTiming.mute);
       _backend.master(muted ? 0 : _volume, ramp);
@@ -207,6 +216,26 @@ class SoundEngine {
         AudioState.closed => false,
         _ => _resumeAsked,
       };
+
+  /// A closed output (a lost device, a crashed renderer) is dropped with
+  /// everything decoded on it, so the next activating gesture opens a new
+  /// one; said once a visit, not on every tap.
+  void _dropIfClosed() {
+    if (!_backend.isOpen || _backend.state != AudioState.closed) return;
+    _idle?.cancel();
+    _idle = null;
+    _generation++;
+    _theme.drop();
+    for (final clip in _clips.values) {
+      _guard('release', () => _backend.release(clip));
+    }
+    _clips.clear();
+    _decoding.clear();
+    _backend.discard();
+    if (_closedLogged) return;
+    _closedLogged = true;
+    _log('SoundEngine: the output closed; a new one opens on the next touch');
+  }
 
   /// A stopped output asked to run again outside a gesture, when a theme is
   /// wanted (a browser may hold it until the next touch, which asks again).
@@ -277,6 +306,7 @@ class SoundEngine {
   /// Decodes a cue (all of them are small and kept).
   void _decode(String path) {
     if (_clips.containsKey(path) || !_decoding.add(path)) return;
+    final generation = _generation;
     final Future<Clip> decoded;
     try {
       decoded = _backend.decode(path);
@@ -288,11 +318,15 @@ class SoundEngine {
     unawaited(
       decoded.then(
         (clip) {
+          if (generation != _generation) {
+            _guard('release', () => _backend.release(clip));
+            return;
+          }
           _decoding.remove(path);
           _clips[path] = clip;
         },
         onError: (Object e) {
-          _decoding.remove(path);
+          if (generation == _generation) _decoding.remove(path);
           _log('SoundEngine: could not decode $path: $e');
         },
       ),

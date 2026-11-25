@@ -192,10 +192,7 @@ class FakeAudioBackend implements AudioBackend {
   }
 
   @override
-  void discard() {
-    opened = false;
-    held.clear();
-  }
+  void discard() => opened = false;
 
   @override
   AudioState get state => current;
