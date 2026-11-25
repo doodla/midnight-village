@@ -25,7 +25,19 @@
       "sends": 0,
       "publishes": 0
     },
+    "GET /me/table/ [results] (Doppelganger hand)": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
     "GET /me/table/ [talk]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [talk] (Doppelganger hand)": {
       "queries": 4,
       "lock_span": 0,
       "sends": 0,
@@ -37,7 +49,25 @@
       "sends": 0,
       "publishes": 0
     },
+    "GET /me/table/ [vote] (Doppelganger hand)": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [w1] (Doppelganger hand)": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
     "GET /me/table/ [w2]": {
+      "queries": 4,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /me/table/ [w2] (Doppelganger hand)": {
       "queries": 4,
       "lock_span": 0,
       "sends": 0,
@@ -61,7 +91,19 @@
       "sends": 0,
       "publishes": 0
     },
+    "GET /onuw/games/{game_id}/me/ [results] (Doppelganger hand)": {
+      "queries": 5,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
     "GET /onuw/games/{game_id}/me/ [talk]": {
+      "queries": 8,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [talk] (Doppelganger hand)": {
       "queries": 8,
       "lock_span": 0,
       "sends": 0,
@@ -73,7 +115,25 @@
       "sends": 0,
       "publishes": 0
     },
+    "GET /onuw/games/{game_id}/me/ [vote] (Doppelganger hand)": {
+      "queries": 8,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [w1] (Doppelganger hand)": {
+      "queries": 7,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
     "GET /onuw/games/{game_id}/me/ [w2]": {
+      "queries": 7,
+      "lock_span": 0,
+      "sends": 0,
+      "publishes": 0
+    },
+    "GET /onuw/games/{game_id}/me/ [w2] (Doppelganger hand)": {
       "queries": 7,
       "lock_span": 0,
       "sends": 0,
@@ -83,6 +143,12 @@
       "queries": 4,
       "lock_span": 0,
       "sends": 0,
+      "publishes": 0
+    },
+    "PATCH /lobbies/{code}/ [results] (Doppelganger hand)": {
+      "queries": 15,
+      "lock_span": 13,
+      "sends": 1,
       "publishes": 0
     },
     "PATCH /lobbies/{code}/ [waiting]": {
@@ -115,10 +181,40 @@
       "sends": 2,
       "publishes": 0
     },
+    "POST /onuw/games/{game_id}/action/ [w1] (Doppelganger hand)": {
+      "queries": 19,
+      "lock_span": 15,
+      "sends": 0,
+      "publishes": 0
+    },
     "POST /onuw/games/{game_id}/action/ [w2]": {
       "queries": 17,
       "lock_span": 8,
       "sends": 0,
+      "publishes": 1
+    },
+    "POST /onuw/games/{game_id}/action/ [w2] (Doppelganger hand)": {
+      "queries": 17,
+      "lock_span": 8,
+      "sends": 0,
+      "publishes": 1
+    },
+    "POST /onuw/games/{game_id}/advance-wave/ [w1] (Doppelganger hand) closes": {
+      "queries": 32,
+      "lock_span": 19,
+      "sends": 1,
+      "publishes": 1
+    },
+    "POST /onuw/games/{game_id}/advance-wave/ [w2] (Doppelganger hand) closes": {
+      "queries": 29,
+      "lock_span": 16,
+      "sends": 2,
+      "publishes": 1
+    },
+    "POST /onuw/games/{game_id}/end-discussion/ [talk] (Doppelganger hand) closes": {
+      "queries": 21,
+      "lock_span": 9,
+      "sends": 2,
       "publishes": 1
     },
     "POST /onuw/games/{game_id}/ready/ [look]": {
@@ -126,6 +222,18 @@
       "lock_span": 8,
       "sends": 1,
       "publishes": 0
+    },
+    "POST /onuw/games/{game_id}/ready/ [look] (Doppelganger hand)": {
+      "queries": 12,
+      "lock_span": 8,
+      "sends": 1,
+      "publishes": 0
+    },
+    "POST /onuw/games/{game_id}/ready/ [look] (Doppelganger hand) closes": {
+      "queries": 34,
+      "lock_span": 21,
+      "sends": 2,
+      "publishes": 1
     },
     "POST /onuw/games/{game_id}/ready/ [look] closes": {
       "queries": 34,
@@ -145,7 +253,19 @@
       "sends": 3,
       "publishes": 1
     },
+    "POST /onuw/games/{game_id}/reveal-votes/ [vote] (Doppelganger hand) closes": {
+      "queries": 12,
+      "lock_span": 7,
+      "sends": 2,
+      "publishes": 0
+    },
     "POST /onuw/games/{game_id}/vote/ [vote]": {
+      "queries": 13,
+      "lock_span": 9,
+      "sends": 1,
+      "publishes": 0
+    },
+    "POST /onuw/games/{game_id}/vote/ [vote] (Doppelganger hand)": {
       "queries": 13,
       "lock_span": 9,
       "sends": 1,
@@ -157,6 +277,12 @@
       "sends": 3,
       "publishes": 0
     },
+    "POST /onuw/lobbies/{code}/start/ [results] (Doppelganger hand)": {
+      "queries": 23,
+      "lock_span": 13,
+      "sends": 2,
+      "publishes": 1
+    },
     "POST /onuw/lobbies/{code}/start/ [waiting] closes": {
       "queries": 23,
       "lock_span": 13,
@@ -166,6 +292,12 @@
     "socket opens (game) [look]": {
       "queries": 37,
       "lock_span": 15,
+      "sends": 1,
+      "publishes": 1
+    },
+    "socket opens (game) [look] (Doppelganger hand)": {
+      "queries": 35,
+      "lock_span": 13,
       "sends": 1,
       "publishes": 1
     },

@@ -447,6 +447,8 @@ def persist_wave_results(
     for pid, data in changed.items():
         rows[pid].night_action_data = data
         touched[pid] = rows[pid]
+    # Both fields are written for every touched row (one read a moment ago): safe
+    # because every writer of a PlayerRole holds the Game row lock first, as this does.
     PlayerRole.objects.bulk_update(
         list(touched.values()), ["current_role", "night_action_data"]
     )

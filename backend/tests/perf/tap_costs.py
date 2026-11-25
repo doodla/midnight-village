@@ -55,6 +55,9 @@ MY_TABLE = "/me/table/"
 ACTION = "/onuw/games/{game_id}/action/"
 READY = "/onuw/games/{game_id}/ready/"
 VOTE = "/onuw/games/{game_id}/vote/"
+ADVANCE = "/onuw/games/{game_id}/advance-wave/"
+END_TALK = "/onuw/games/{game_id}/end-discussion/"
+REVEAL = "/onuw/games/{game_id}/reveal-votes/"
 
 
 @dataclass
@@ -120,6 +123,8 @@ class MeteredTable(Table):
     costs: list[Cost]
     _published: int
     _staging = True
+    # Added to every label: the second hand's requests are their own kinds.
+    tag = ""
 
     def _staged(
         self, path: str, body: dict[str, Any] | None, game_id: str, who: str
@@ -179,7 +184,7 @@ class MeteredTable(Table):
             yield
             elapsed = time.perf_counter() - started
         status = outcome.get("status", 200)
-        label = f"{what} [{before}]"
+        label = f"{what} [{before}]{self.tag}"
         if _stage(self) != before and status < 300:
             label += " closes"
         queries = captured.captured_queries
@@ -354,7 +359,55 @@ def play(run: Recording, players: int) -> list[Cost]:
         t.call("POST", names[0], "/lobbies/{code}/play-again/")
         t.call("GET", names[-1], MY_TABLE)
         t.call("GET", names[-1], LOBBY)
+        t.tag = " (Doppelganger hand)"
+        _doppelganger_hand(t, names)
         return t.costs
+
+
+def _doppelganger_hand(t: MeteredTable, names: list[str]) -> None:
+    """The second game: the Doppelganger at seat 1 copies the host's Seer and looks
+    at a card in window 1, and the host moves on every stage itself (move on in
+    both windows, end the talk, reveal the votes)."""
+    players = len(names)
+    roles = [DEALT[players][0], "Doppelganger", *DEALT[players][1:-1]]
+    centre = [*CENTRE[players][:2], DEALT[players][-1]]
+    counts: dict[str, int] = {}
+    for role in [*roles, *centre]:
+        counts[role] = counts.get(role, 0) + 1
+    t.call("PATCH", names[0], LOBBY, {"settings": {"deck": "custom", "roles": counts}})
+    t.clock.advance(30)
+    dealt = dict(zip(names, roles, strict=True))
+    t.start(dealt, centre)
+    for name in names:
+        t.connect(name)
+    _everyone(t, names, READY, {"ready": True})
+    _reads(t, names)
+
+    # Window 1: her look (the host's Seer), then her follow-up as the Seer.
+    look = [{"player_id": t.pid(names[0])}]
+    t.call("POST", names[1], ACTION, {"action_type": "choose", "picks": look})
+    follow = [{"player_id": t.pid(names[2 % players])}]
+    t.call("POST", names[1], ACTION, {"action_type": "choose", "picks": follow})
+    t.call("POST", names[0], ADVANCE)
+    _reads(t, names)
+
+    # Window 2: every phone with a choice chooses; the host moves it on.
+    for seat, name in enumerate(names):
+        if _choose_left(t, name):
+            picks = _picks(t, names, seat, dealt[name])
+            t.call("POST", name, ACTION, {"action_type": "choose", "picks": picks})
+    if Game.objects.get(id=t.game_id).current_wave == 2:
+        t.call("POST", names[0], ADVANCE)
+    _reads(t, names)
+
+    # The host ends the talk and reveals the votes before the last lock.
+    t.call("POST", names[0], END_TALK)
+    _reads(t, names)
+    for index, name in enumerate(names[:-1]):
+        target = t.pid(names[(index + 1) % players])
+        t.call("POST", name, VOTE, {"target_player_id": target, "lock": True})
+    t.call("POST", names[0], REVEAL)
+    _reads(t, names)
 
 
 def worst(costs: list[Cost]) -> dict[str, Cost]:

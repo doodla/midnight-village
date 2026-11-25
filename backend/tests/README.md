@@ -26,7 +26,10 @@ Every WebSocket send and `timers.schedule` / `cancel` in the night flow goes thr
 `tap_costs.play` plays one whole game the way the app does (a `v2` table, every phone
 reading `/me/` and `/me/table/`, real access tokens, the queue timer backend the live
 server runs, a forced deal where every seat holds a card that wakes) at 3, 6 and 10 seats,
-on the contract recorder (`tests/contract/recorder.py`), and measures every request, timer
+on the contract recorder (`tests/contract/recorder.py`), then a second hand by play again
+with a Doppelganger who copies the host's Seer and looks in window 1 while the host moves
+every stage on itself (move on in both windows, end the talk, reveal the votes); it
+measures every request, timer
 firing and game socket opening: database round trips, row locks and how long the first is
 held, socket messages (each is 4 Redis round trips on the live server before the answer
 leaves) and timer messages (a queue send each). `test_tap_query_budget.py` holds two rules:
@@ -35,6 +38,11 @@ budget), and at ten seats each kind of request costs exactly what `tap_budget.js
 never more than 40 round trips. A change that adds or removes a query fails until
 `just tap-budget` re-records the file; review its diff as you would a sample's. `just
 server-timing` prints the whole table (`just server-timing sql`: every query at ten seats).
+Not played there: leave, practice players, the night results ack, the token refresh.
+`test_header_hides_play.py` holds the rule that nothing in an answer varies with game state
+the caller cannot see, for the `Server-Timing` header: the host's answers in two games that
+differ only in what the Doppelganger did carry the same live header (rounded time aside), and
+with the header's detail on they would not.
 
 ## Migration tests
 
