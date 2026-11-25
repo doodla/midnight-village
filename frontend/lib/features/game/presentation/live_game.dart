@@ -215,7 +215,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     _failedFetches = 0;
     _retryTimer?.cancel();
     final outbox = (current?.outbox ?? Outbox.empty).afterFetch(me, seq);
-    state = AsyncData(
+    _set(
       current == null
           ? LiveGame._(server: me, outbox: outbox)
           : current.copyWith(
@@ -460,7 +460,16 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   void _update(LiveGame Function(LiveGame) change) {
     if (!ref.mounted) return;
     final current = state.value;
-    if (current != null) state = AsyncData(change(current));
+    if (current != null) _set(change(current));
+  }
+
+  /// The one way a loaded game's state is set: only when it differs
+  /// ([LiveGame.==]). The same `/me/` again (the poll past a deadline, a
+  /// heal, a reconnect), a retry that fails again, a presence already known:
+  /// nothing is told, so nothing is drawn.
+  void _set(LiveGame next) {
+    if (state case AsyncData(:final value) when value == next) return;
+    state = AsyncData(next);
   }
 
   @override

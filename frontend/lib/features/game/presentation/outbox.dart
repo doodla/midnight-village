@@ -61,6 +61,20 @@ class OutboxItem {
     leg: leg ?? this.leg,
     confirmAfter: confirmAfter ?? this.confirmAfter,
   );
+
+  /// The same tap ([id]: its [request] is the one made then) at the same
+  /// place.
+  @override
+  bool operator ==(Object other) =>
+      other is OutboxItem &&
+      other.id == id &&
+      other.lane == lane &&
+      other.key == key &&
+      other.leg == leg &&
+      other.confirmAfter == confirmAfter;
+
+  @override
+  int get hashCode => Object.hash(id, lane, key, leg, confirmAfter);
 }
 
 /// The key a [lane]'s taps belong to in [me]: the stage; for a choose, the
@@ -159,6 +173,20 @@ class Outbox {
     }
     return me;
   }
+
+  /// The same taps where they were: a fetch that ends none of them leaves
+  /// the outbox as it was ([afterFetch]), and redraws nothing.
+  @override
+  bool operator ==(Object other) =>
+      other is Outbox &&
+      mapEquals(other._current, _current) &&
+      mapEquals(other._queued, _queued);
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAllUnordered(_current.values),
+    Object.hashAllUnordered(_queued.values),
+  );
 }
 
 /// What became of a tap.

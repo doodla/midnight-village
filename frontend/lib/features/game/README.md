@@ -84,6 +84,8 @@ There is one game flow: the screens read one model and one table.
   (the last answer's `Date` plus the time since; the phone's clock only when no `Date` is readable, and then only to time a fetch), one fetch, then one every
   `HealTiming.poll` while the stage is unchanged;
   `/me/table/` and `/me/` are each fetched again when the other is ahead.
+  The state is set only when it differs (`LiveGameNotifier._set`; `LiveGame`, `GameMe` (by the body it was read from) and `Outbox` compare by value):
+  the poll's unchanged `/me/`, a retry that fails again or a presence already known tells nobody and draws no frame (`live_game_still_test.dart`).
   A later good fetch clears `tableClosed`;
   a 404 also sets 01's banner ("This table has closed.", `JoinFlow.tableClosed`), where the phone lands.
   The game sockets (`gameWebSocketProvider` and its stream and state, `game/presentation/game_socket.dart`) are autoDispose:

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../design_system/faces/face_content.dart' show serverRole;
@@ -60,9 +62,15 @@ class MyVote {
 /// `NightSeat.seatsOf`, `NightReport.fromMe`), run once on the same body, so
 /// the board, the faces and this model can never read the night differently.
 /// The rest (phase, stage, deadline, counts, the vote, ready) is read here.
+///
+/// Two are equal when they were read from the same body and carry the same
+/// taps and counts on it ([==]): a poll or a heal that brings back the
+/// `/me/` already shown changes nothing, so it redraws nothing (the owner,
+/// 24 November 2026: "it felt like I was watching a ppt").
 @immutable
 class GameMe {
   const GameMe._({
+    required String body,
     required this.playerId,
     required this.gameId,
     required this.lobbyCode,
@@ -86,7 +94,7 @@ class GameMe {
     required this.ready,
     required this.progress,
     required this.voteTargets,
-  });
+  }) : _body = body;
 
   /// A `/me/` body. One without a `stage` key is a broken payload (a failed
   /// fetch, healed like any other).
@@ -108,6 +116,7 @@ class GameMe {
     final voteTargets = me['vote_targets'] as List?;
     final finalRole = role['current_role'] as String?;
     return GameMe._(
+      body: jsonEncode(me),
       playerId: me['player_id'] as int,
       gameId: me['game_id'] as String,
       lobbyCode: me['lobby_code'] as String,
@@ -157,6 +166,10 @@ class GameMe {
     'progress',
     'vote_targets',
   ];
+
+  /// The body this was read from, as text: everything below but the values
+  /// a tap or an event puts on it ([_with]) follows from it.
+  final String _body;
 
   /// This phone's own player id (`player_id`).
   final int playerId;
@@ -249,6 +262,7 @@ class GameMe {
     int? hostId,
     bool? isHost,
   }) => GameMe._(
+    body: _body,
     playerId: playerId,
     gameId: gameId,
     lobbyCode: lobbyCode,
@@ -312,4 +326,34 @@ class GameMe {
   /// With the host role where a `host_changed` event says it is now.
   GameMe withHost(int hostId) =>
       _with(hostId: hostId, isHost: hostId == playerId);
+
+  /// The same body, with the same values put on it: the [prompt]'s count
+  /// (the one part of it a tap moves, [ChoosePrompt.afterChoose]), the vote,
+  /// ready, the counts, the results seen and the host.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GameMe &&
+          other._body == _body &&
+          other.prompt?.chosen == prompt?.chosen &&
+          other.prompt?.choosesLeft == prompt?.choosesLeft &&
+          other.myVote == myVote &&
+          other.ready == ready &&
+          other.progress == progress &&
+          other.nightResultsSeen == nightResultsSeen &&
+          other.hostId == hostId &&
+          other.isHost == isHost;
+
+  @override
+  int get hashCode => Object.hash(
+    _body,
+    prompt?.chosen,
+    prompt?.choosesLeft,
+    myVote,
+    ready,
+    progress,
+    nightResultsSeen,
+    hostId,
+    isHost,
+  );
 }
