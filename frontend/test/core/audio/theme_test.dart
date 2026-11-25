@@ -116,6 +116,34 @@ void main() {
     });
   });
 
+  test('a cut voice is silent before the new one starts', () {
+    expect(SoundTiming.declick, lessThan(SoundTiming.lead));
+  });
+
+  test('the start is scheduled from the clock at the start call, with a '
+      'lead of at least the output\'s base latency, and stays in phase', () {
+    fakeAsync((async) {
+      final backend = FakeAudioBackend()..baseLatency = 0.08;
+      final (engine, _) = started(backend);
+      backend.tap();
+      engine.theme(ThemeVariant.table);
+      async.flushMicrotasks();
+      backend.advance(5);
+      engine.theme(ThemeVariant.night);
+      async.flushMicrotasks();
+      backend.advance(0.4);
+      // Time passes while the switch cuts the voice fading out.
+      backend.slowCalls = 0.05;
+      engine.theme(ThemeVariant.table);
+      async.flushMicrotasks();
+      final table = backend.loops.first;
+      for (final l in backend.loops) {
+        expect(l.at - l.calledAt, closeTo(0.08, 1e-9));
+        expect(l.offset, closeTo((l.at - table.at) % 4, 1e-9));
+      }
+    });
+  });
+
   int themesHeld(FakeAudioBackend b) =>
       b.held.where((p) => p != knockFile).length;
 

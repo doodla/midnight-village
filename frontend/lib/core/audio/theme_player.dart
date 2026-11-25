@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'audio_backend.dart';
 import 'sound_set.dart';
@@ -95,7 +96,17 @@ class ThemePlayer {
       old == null ? SoundTiming.themeIn : SoundTiming.crossfade,
     );
     if (old != null) _cutOutgoing();
-    final at = _backend.now + SoundTiming.seconds(SoundTiming.lead);
+    // The start is scheduled from the clock read at the moment of the call,
+    // never from a time read earlier: a start time already past when the
+    // source gets it would start at once, out of phase. The lead is at least
+    // what the output says it adds (baseLatency), so the start lands ahead
+    // of what is being rendered. A real phone must confirm this (the proof
+    // runs desktop Chromium, whose baseLatency is a few milliseconds).
+    final lead = math.max(
+      SoundTiming.seconds(SoundTiming.lead),
+      _backend.baseLatency,
+    );
+    final at = _backend.now + lead;
     final t0 = _t0 ??= at;
     _current = _backend.loop(
       clip,

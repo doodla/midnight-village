@@ -21,6 +21,9 @@ class FakeLoop {
   final double fadeIn;
   final LoopPoints? points;
 
+  /// The audio clock when `loop()` was called.
+  double calledAt = 0;
+
   /// When its (last) fade out starts, and how long it is: the last `stop()`
   /// wins, as in Web Audio.
   double? fadedAt;
@@ -68,6 +71,10 @@ class FakeAudioBackend implements AudioBackend {
   double baseLatency = 0;
 
   double clock = 0;
+
+  /// Audio time that passes during each fade call (a busy main thread while
+  /// the clock renders on), to catch a start time read too early.
+  double slowCalls = 0;
   bool opened = false;
   AudioState current = AudioState.suspended;
   int opens = 0;
@@ -308,7 +315,7 @@ class FakeAudioBackend implements AudioBackend {
       fadeIn,
       points,
     );
-    loops.add(l);
+    loops.add(l..calledAt = clock);
     return Voice(l, variant);
   }
 
@@ -320,6 +327,7 @@ class FakeAudioBackend implements AudioBackend {
     void Function()? ended,
   }) {
     _maybeThrow();
+    clock += slowCalls;
     final l = voice.native as FakeLoop;
     final from = at == null || at < clock ? clock : at;
     l
