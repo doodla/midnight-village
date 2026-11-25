@@ -337,7 +337,12 @@ async def game(run, bots, g, mine, names, seen):
         f"{tag}: 04 hold the card",
         "^Your card, hidden",
         ["Ready"],
-        hold=1.6,
+        # As a person holds: until the card has counted as looked at. On the
+        # slowed phone the face shows about 1.2 s after the touch and its timers
+        # run up to 1 s late, so 1.6 s raced the count (seen 2.3 s in the app):
+        # lost, the phone stayed on 04 and every later moment measured a
+        # different screen than it named.
+        hold=3.5,
         tolerate=True,
     )
     await run.tap(
