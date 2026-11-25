@@ -21,6 +21,11 @@ software, SwiftShader, on another process).
 Every number comes from the page (`page_probe.RECORDER`) and the compositor's
 screencast; `report.py` turns them into rows and budgets. Exits 1 when a budget
 is broken, 2 when the game could not be played. Run through `just phone-frames`.
+
+`--perf <dir>`: the app's own field recorder on (`?perf=1`, `frontend/lib/core/perf/`,
+the readout a real phone gives the owner); after the games its strip and summary are
+pictured, its report copied through its own buttons, and its numbers put beside these
+(`perf_readout.py`; `<dir>/compare.txt`).
 """
 
 import argparse
@@ -30,6 +35,7 @@ import os
 import sys
 
 import httpx
+import perf_readout
 from moments import Run
 from page_probe import RECORDER, Page
 from playwright.async_api import async_playwright
@@ -317,6 +323,15 @@ async def play(args, measuring, boxes):
             }
             forced["center"] = centre
             await game(run, bots, g, mine, names, seen)
+        if args.perf and measuring:
+            # The app's own readout, as the owner would copy it.
+            record = await perf_readout.read(P, ctx, args.app, args.perf)
+            lines = perf_readout.compare(run.moments, record)
+            print("\n[phone-frames] the app's readout beside phone-frames:")
+            print("\n".join(lines))
+            perf_readout.write(
+                os.path.join(args.perf, "compare.txt"), "\n".join(lines) + "\n"
+            )
         await run.collect()
         await ctx.close()
         await browser.close()
@@ -337,7 +352,12 @@ async def game(run, bots, g, mine, names, seen):
         f"{tag}: 04 hold the card",
         "^Your card, hidden",
         ["Ready"],
-        hold=1.6,
+        # As a person holds: until the card has counted as looked at. On the
+        # slowed phone the face shows about 1.2 s after the touch and its timers
+        # run up to 1 s late, so 1.6 s raced the count (seen 2.3 s in the app):
+        # lost, the phone stayed on 04 and every later moment measured a
+        # different screen than it named.
+        hold=3.5,
         tolerate=True,
     )
     await run.tap(
@@ -426,6 +446,11 @@ def main():
         "--dpr", type=float, default=2.625, help="device pixels per point (2.625)"
     )
     a.add_argument("--analyse", default="", help="report a saved .raw.json again")
+    a.add_argument(
+        "--perf",
+        default="",
+        help="open the app with ?perf=1 and keep its readout here (perf_readout.py)",
+    )
     args = a.parse_args()
     boxes = {}
     if not args.analyse:

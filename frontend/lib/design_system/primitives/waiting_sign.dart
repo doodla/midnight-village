@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/perf/perf.dart';
 import '../copy/copy.dart';
+import '../feel/ambient.dart';
 import '../layout/space.dart';
 import '../skin/skin.dart';
 import 'fit_line.dart';
@@ -71,12 +73,15 @@ class _WaitingState extends State<Waiting> {
   @override
   void initState() {
     super.initState();
+    // The field recorder: a screen's content is in once no wait is shown.
+    Perf.recorder.waitingShown();
     _sign = Timer(Motion.signAfter, () => setState(() => _signed = true));
     _slow = Timer(Motion.slowAfter, () => setState(() => _slowed = true));
   }
 
   @override
   void dispose() {
+    Perf.recorder.waitingGone();
     _sign?.cancel();
     _slow?.cancel();
     super.dispose();
@@ -153,7 +158,7 @@ class _WaitingState extends State<Waiting> {
 /// calm, one idea, nothing that moves but the light. They fade in over
 /// [Motion.settle] when [shown] turns true. With reduce motion all three
 /// burn steadily.
-class WaitingSign extends StatefulWidget {
+class WaitingSign extends StatelessWidget {
   const WaitingSign({super.key, this.shown = true});
 
   final bool shown;
@@ -179,57 +184,22 @@ class WaitingSign extends StatefulWidget {
   }
 
   @override
-  State<WaitingSign> createState() => _WaitingSignState();
-}
-
-class _WaitingSignState extends State<WaitingSign>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _loop = AnimationController(
-    vsync: this,
-    duration: Motion.waitLoop,
-  );
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _sync();
-  }
-
-  @override
-  void didUpdateWidget(WaitingSign oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _sync();
-  }
-
-  /// Turning only while it is in view and motion is allowed (an unseen sign
-  /// asks for no frames).
-  void _sync() {
-    final turn = widget.shown && !MediaQuery.disableAnimationsOf(context);
-    if (turn && !_loop.isAnimating) {
-      unawaited(_loop.repeat());
-    } else if (!turn && _loop.isAnimating) {
-      _loop.stop();
-      _loop.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _loop.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final steady = MediaQuery.disableAnimationsOf(context);
     return AnimatedOpacity(
-      opacity: widget.shown ? 1 : 0,
+      opacity: shown ? 1 : 0,
       duration: Motion.within(context, Motion.settle),
       curve: Motion.curve,
       child: ExcludeSemantics(
-        child: AnimatedBuilder(
-          animation: _loop,
-          builder: (context, _) => SizedBox(
+        // Its job is to show the wait, so it loops while shown, with no
+        // rest; only the lanterns' paint follows it, in its own layer.
+        child: Ambient.continuous(
+          still: 1,
+          period: Motion.waitLoop,
+          curve: Curves.linear,
+          reverse: false,
+          running: shown,
+          builder: (context, loop, _) => SizedBox(
             height: WaitingSign.height,
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -237,11 +207,18 @@ class _WaitingSignState extends State<WaitingSign>
               spacing: Sizes.waitGap,
               children: [
                 for (var i = 0; i < 3; i++)
-                  PaperLantern(
-                    width: Sizes.waitLantern,
-                    cord: WaitingSign.cords[i],
-                    lit: steady ? 1 : WaitingSign.lit(i, _loop.value),
-                  ),
+                  steady
+                      ? PaperLantern(
+                          width: Sizes.waitLantern,
+                          cord: WaitingSign.cords[i],
+                          lit: 1,
+                        )
+                      : PaperLantern.driven(
+                          width: Sizes.waitLantern,
+                          cord: WaitingSign.cords[i],
+                          loop: loop,
+                          litAt: (t) => WaitingSign.lit(i, t),
+                        ),
               ],
             ),
           ),

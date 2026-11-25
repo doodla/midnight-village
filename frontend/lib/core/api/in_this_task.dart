@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../perf/perf.dart';
+
 /// Runs [send] (a request through Dio) so that it leaves in the task that
 /// called it: the tap's own, on a phone.
 ///
@@ -17,9 +19,13 @@ import 'package:dio/dio.dart';
 /// queued); a timer with a length is left as it is, and once the request
 /// has left everything runs as it always did (the answer is handled as
 /// before). Nothing waits more for it: it only waits less.
+///
+/// The field recorder (`core/perf/`) hears each request queued here, leaving
+/// ([requestLeft]), answered ([LeavesHere]) and handed back; off, it is a
+/// null object and nothing more is done.
 Future<T> inThisTask<T>(Future<T> Function() send) {
-  final way = _WayOut();
-  return runZoned(
+  final way = _WayOut()..perf = Perf.recorder.httpQueued();
+  final sent = runZoned(
     send,
     zoneValues: {_WayOut: way},
     zoneSpecification: ZoneSpecification(
@@ -38,14 +44,21 @@ Future<T> inThisTask<T>(Future<T> Function() send) {
       },
     ),
   );
+  return way.perf?.watch(sent) ?? sent;
 }
 
 /// The request of this zone has left the phone (handed to the network, or
 /// to a test's stand-in server): from here on its timers are ordinary.
-void requestLeft() => (Zone.current[_WayOut] as _WayOut?)?.left = true;
+void requestLeft([RequestOptions? options]) {
+  final way = Zone.current[_WayOut] as _WayOut?;
+  if (way == null) return;
+  way.left = true;
+  way.perf?.left(options);
+}
 
 class _WayOut {
   var left = false;
+  HttpMark? perf;
 }
 
 /// An adapter that says when the request leaves ([requestLeft]), then hands
@@ -61,8 +74,14 @@ class LeavesHere implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) {
-    requestLeft();
-    return inner.fetch(options, requestStream, cancelFuture);
+    requestLeft(options);
+    final answer = inner.fetch(options, requestStream, cancelFuture);
+    final perf = (Zone.current[_WayOut] as _WayOut?)?.perf;
+    if (perf == null) return answer;
+    return answer.then((body) {
+      perf.arrived(body.statusCode, body.headers);
+      return body;
+    });
   }
 
   @override

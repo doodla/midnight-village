@@ -5,6 +5,7 @@ import 'core/router/app_router.dart';
 import 'core/router/back_policy.dart';
 import 'design_system/copy/copy.dart';
 import 'design_system/load_once_bundle.dart';
+import 'design_system/perf/perf_strip.dart';
 import 'design_system/skin/ground.dart';
 import 'design_system/skin/ground_scope.dart';
 import 'design_system/skin/skin_choice.dart';
@@ -39,8 +40,10 @@ class App extends ConsumerWidget {
       // The browser's history holds one entry for the app, so its Back is
       // the phone's Back (`BackPolicy`).
       routerConfig: oneHistoryEntry(ref.watch(appRouterProvider)),
+      // With `?perf=1`, the field recorder's strip under the app (off: the
+      // app itself, untouched).
       builder: (context, child) =>
-          GroundScope(ground: GroundKind.night, child: child!),
+          GroundScope(ground: GroundKind.night, child: perfStripAround(child!)),
     );
   }
 }

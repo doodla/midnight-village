@@ -185,6 +185,9 @@ class Run:
 
     async def cold(self, name, url, markers):
         P = self.P
+        if self.args.perf:
+            # The app's own field recorder on (`just phone-frames --perf <dir>`).
+            url += ("&" if "?" in url else "?") + "perf=1"
         await P.page.goto(url, wait_until="commit")
         await P.page.wait_for_function("window.__pf !== undefined")
         if not self.measuring:
