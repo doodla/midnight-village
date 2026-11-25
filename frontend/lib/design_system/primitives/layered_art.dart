@@ -5,6 +5,7 @@ import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/skin.dart';
 import 'scene_arrival.dart';
+import 'still.dart';
 
 /// Where a [LayeredScene]'s canvas lies in the box it is drawn in: the canvas
 /// scaled to cover the box and kept around the scene's focus, exactly as a
@@ -84,7 +85,10 @@ typedef SceneSlotBuilder =
 /// it only where that one has paint.
 ///
 /// It is its own repaint boundary: the screen around it repainting (a button
-/// press, the hold ring breathing) does not draw the layers again.
+/// press, the hold ring breathing) does not draw the layers again. At rest
+/// each run of layers between two slots is one still picture (`Still`), the
+/// shadows' blends done once in it, so a frame draws one picture per run
+/// and what a slot draws (the end board's sun) sits between them, live.
 class LayeredArt extends StatelessWidget {
   const LayeredArt(
     this.id, {
@@ -145,89 +149,107 @@ class LayeredArt extends StatelessWidget {
     final arrival = travel ? SceneArrival.maybeOf(context) : null;
     final clock = travel ? SceneArrival.sceneOf(context) : null;
     final ratio = MediaQuery.devicePixelRatioOf(context);
-    return RepaintBoundary(
-      child: ClipRect(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final scene = from == null
-                ? flat
-                : LayeredScene(
-                    folder: flat.folder,
-                    canvas: flat.canvas,
-                    focus: focusFrom(flat, constraints.biggest, from!),
-                    layers: flat.layers,
-                  );
-            final geometry = SceneGeometry.cover(scene, constraints.biggest);
+    final framed = ClipRect(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scene = from == null
+              ? flat
+              : LayeredScene(
+                  folder: flat.folder,
+                  canvas: flat.canvas,
+                  focus: focusFrom(flat, constraints.biggest, from!),
+                  layers: flat.layers,
+                );
+          final geometry = SceneGeometry.cover(scene, constraints.biggest);
 
-            Widget placed(SceneLayer layer) {
-              final rect = geometry.rect(layer.anchor, layer.size);
-              return Positioned.fromRect(
-                rect: rect,
-                child: _Travel(
-                  from: layer.from * geometry.scale,
-                  arrival: arrival,
-                  clock: clock,
-                  span: layer.span,
-                  child: Image(
-                    image: art.layer(id, layer).decodedFor(rect.size, ratio),
-                    fit: BoxFit.fill,
-                    gaplessPlayback: true,
-                    excludeFromSemantics: true,
+          Widget placed(SceneLayer layer) {
+            final rect = geometry.rect(layer.anchor, layer.size);
+            return Positioned.fromRect(
+              rect: rect,
+              child: _Travel(
+                from: layer.from * geometry.scale,
+                arrival: arrival,
+                clock: clock,
+                span: layer.span,
+                child: Image(
+                  image: art.layer(id, layer).decodedFor(rect.size, ratio),
+                  fit: BoxFit.fill,
+                  gaplessPlayback: true,
+                  excludeFromSemantics: true,
+                ),
+              ),
+            );
+          }
+
+          final cast = <String, List<SceneLayer>>{};
+          for (final entry in scene.layers) {
+            if (entry case SceneLayer(:final clipTo?)) {
+              (cast[clipTo] ??= []).add(entry);
+            }
+          }
+          final children = <Widget>[];
+          var run = <Widget>[];
+          void bake() {
+            if (run.isEmpty) return;
+            children.add(
+              Positioned.fill(
+                child: Still(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.none,
+                    children: run,
                   ),
                 ),
-              );
-            }
-
-            final cast = <String, List<SceneLayer>>{};
-            for (final entry in scene.layers) {
-              if (entry case SceneLayer(:final clipTo?)) {
-                (cast[clipTo] ??= []).add(entry);
-              }
-            }
-            final children = <Widget>[];
-            for (final entry in scene.layers) {
-              switch (entry) {
-                case SceneLayer(clipTo: != null):
-                  break;
-                case SceneLayer():
-                  final shadows = cast[entry.file];
-                  children.add(
-                    shadows == null
-                        ? placed(entry)
-                        : Positioned.fill(
-                            child: _SrcAtopStack(
-                              // At rest the layer is the moon's own rect;
-                              // while the scene moves it, as far as it moves.
-                              room: arrival == null
-                                  ? 0
-                                  : entry.from.distance * geometry.scale,
-                              children: [
-                                placed(entry),
-                                for (final shadow in shadows) placed(shadow),
-                              ],
-                            ),
-                          ),
-                  );
-                case SceneSlot():
-                  final builder = slots[entry.name];
-                  if (builder != null) {
-                    children.add(
-                      Positioned.fill(
-                        child: builder(context, geometry, entry, arrival),
-                      ),
-                    );
-                  }
-              }
-            }
-            return Stack(
-              fit: StackFit.expand,
-              clipBehavior: Clip.none,
-              children: children,
+              ),
             );
-          },
-        ),
+            run = [];
+          }
+
+          for (final entry in scene.layers) {
+            switch (entry) {
+              case SceneLayer(clipTo: != null):
+                break;
+              case SceneLayer():
+                final shadows = cast[entry.file];
+                run.add(
+                  shadows == null
+                      ? placed(entry)
+                      : Positioned.fill(
+                          child: _SrcAtopStack(
+                            // At rest the layer is the moon's own rect;
+                            // while the scene moves it, as far as it moves.
+                            room: arrival == null
+                                ? 0
+                                : entry.from.distance * geometry.scale,
+                            children: [
+                              placed(entry),
+                              for (final shadow in shadows) placed(shadow),
+                            ],
+                          ),
+                        ),
+                );
+              case SceneSlot():
+                final builder = slots[entry.name];
+                if (builder != null) {
+                  bake();
+                  children.add(
+                    Positioned.fill(
+                      child: builder(context, geometry, entry, arrival),
+                    ),
+                  );
+                }
+            }
+          }
+          bake();
+          return Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.none,
+            children: children,
+          );
+        },
       ),
     );
+    return Still.isInside(context) ? framed : RepaintBoundary(child: framed);
   }
 }
 

@@ -369,9 +369,10 @@ class _TopArt extends StatelessWidget {
     // Dressed up, the ground under the picture is the mood (a lit pool, a
     // vignette), never one flat colour: the picture's own paper thins away
     // into it, so no seam shows where the picture ends and the form lies on
-    // its foreground. Its own layer, painted once.
+    // its foreground. One still picture, the fade done once in it: a frame
+    // draws the picture, never the mask.
     if (context.dress.isPaper && veil == 0) {
-      return RepaintBoundary(
+      return Still(
         child: ShaderMask(
           blendMode: BlendMode.dstIn,
           shaderCallback: (rect) => LinearGradient(

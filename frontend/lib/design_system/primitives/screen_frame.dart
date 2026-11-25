@@ -16,6 +16,7 @@ import 'layered_art.dart';
 import 'mood.dart';
 import 'paper_light.dart';
 import 'scene_arrival.dart';
+import 'still.dart';
 
 part 'screen_frame_layout.dart';
 
