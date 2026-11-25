@@ -39,6 +39,10 @@ def test_the_settings_come_from_the_environment(monkeypatch):
         "6543",
     )
     assert db["CONN_MAX_AGE"] == 0
+    assert db["ENGINE"] == "apps.core.pooled_postgres"
+    assert db["OPTIONS"]["pool"]["min_size"] == 0
+    assert db["OPTIONS"]["pool"]["max_size"] == 5
+    assert db["OPTIONS"]["sslmode"] == "require"
     assert (
         s.CHANNEL_LAYERS["default"]["BACKEND"]
         == "channels_redis.core.RedisChannelLayer"
@@ -51,6 +55,17 @@ def test_the_settings_come_from_the_environment(monkeypatch):
     ]
     assert s.CORS_ALLOWED_ORIGINS == ["https://app.example.com"]
     assert s.CSRF_TRUSTED_ORIGINS == ["https://api.example.com"]
+
+
+def test_an_old_conn_max_age_on_the_project_cannot_stop_the_pool(monkeypatch):
+    # Django refuses a pool with persistent connections; an old DB_CONN_MAX_AGE left
+    # on the project must not take the server down.
+    monkeypatch.setenv("DB_CONN_MAX_AGE", "60")
+    monkeypatch.setenv("DB_POOL_MAX_SIZE", "3")
+    db = load(monkeypatch).DATABASES["default"]
+
+    assert db["CONN_MAX_AGE"] == 0
+    assert db["OPTIONS"]["pool"]["max_size"] == 3
 
 
 def test_timers_use_the_queue_and_nothing_recovers_at_start_up(monkeypatch):

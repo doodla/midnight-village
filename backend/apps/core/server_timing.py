@@ -3,8 +3,9 @@
 On the live server (``SERVER_TIMING_DETAIL`` off, the default and the Vercel
 settings) it carries only what cannot tell anyone about the game:
 
-* ``connect``: how long this request took to get its database connection (TCP, TLS
-  and sign-in; the live settings open one per request), only when it made one;
+* ``connect``: how long this request took to get its database connection, only
+  when it asked for one (live, from the pool: a reused one costs its check, one
+  round trip; a new one TCP, TLS and the sign-in);
 * ``total``: from this middleware's start to the answer, rounded to
   ``TOTAL_STEP_MS``, so it says no more than a stopwatch on the phone does.
 
