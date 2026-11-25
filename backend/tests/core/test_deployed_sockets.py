@@ -72,6 +72,38 @@ class TheSocketLeg(ChannelsLiveServerTestCase):
         names = sorted(get_user_model().objects.values_list("display_name", flat=True))
         assert names == sorted(deployed_sockets.GUEST_NAMES)
 
+    def test_the_latency_leg_times_every_kind_of_request_and_leaves_no_table(self):
+        timings = deployed_check.beside("deployed_timing").Timings()
+
+        deployed_check.deal_is_heard(
+            self.live_server_url, say=lambda _: None, timings=timings
+        )
+
+        rows = {row["kind"]: row for row in timings.rows()}
+        for kind in (
+            "make a guest",
+            "open a table",
+            "join",
+            "read the table",
+            "where am I",
+            "set a short game",
+            "deal",
+            "read the game",
+            "play again",
+            "leave",
+        ):
+            assert kind in rows, sorted(rows)
+        # each read is repeated, over a connection kept open
+        assert rows["read the table"]["count"] == deployed_check.REPEATS
+        assert rows["read the table"]["median_ms"] is not None
+        # this server says what each answer cost it, as the live one does
+        assert rows["deal"]["server_total_median"] is not None
+        assert rows["deal"]["connects"] >= 0
+        assert len(timings.heard["game_started"]) == 2
+        assert len(timings.heard["lobby_update (play again)"]) == 2
+        assert "| deal |" in timings.table()
+        assert Lobby.objects.count() == 0
+
     def test_a_listener_that_hears_nothing_fails_and_everyone_still_leaves(self):
         original = deployed_sockets.Listener.hear
 

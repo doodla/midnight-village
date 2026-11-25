@@ -244,9 +244,14 @@ def play_to_results(call, game: str, tokens: list[str]) -> None:
     raise SocketFailed(f"the game did not reach its results in {PLAYED:.0f} s")
 
 
-def deal_is_heard(call, api: str, origin: str | None, guest, say=print) -> None:
+def deal_is_heard(
+    call, api: str, origin: str | None, guest, say=print, heard=None, repeats=0
+) -> None:
     """The whole leg. `guest(name)` makes a guest and returns its token (the check's
-    own, so its clean-up knows them)."""
+    own, so its clean-up knows them). For the latency leg: `repeats` more of each
+    read and three settings changes (so each kind of request has several times),
+    and `heard(event, seconds)` is told how long after its request was SENT each
+    listener had the event."""
     tokens = [guest(name) for name in GUEST_NAMES]
     host, listeners = tokens[0], []
     table = call(
@@ -268,6 +273,12 @@ def deal_is_heard(call, api: str, origin: str | None, guest, say=print) -> None:
         host,
         {"settings": {"deck": "custom", "roles": DECK, "seats": 3, **LENGTHS}},
     )
+    short = {"settings": {"deck": "custom", "roles": DECK, "seats": 3, **LENGTHS}}
+    for _ in range(repeats):
+        call("read the table", "GET", f"/api/lobbies/{code}/", (200,), tokens[1])
+        call("where am I", "GET", "/api/me/table/", (200,), tokens[1])
+    for _ in range(min(repeats, 3)):
+        call("set a short game", "PATCH", f"/api/lobbies/{code}/", (200,), host, short)
     try:
         for token in tokens[1:]:
             # a socket is accepted only from an origin the server knows: the app's,
@@ -292,8 +303,16 @@ def deal_is_heard(call, api: str, origin: str | None, guest, say=print) -> None:
             say(
                 f"  guest {number} heard game_started {waited:.2f} s after the deal's answer (the deal took {took:.2f} s)"
             )
+            if heard:
+                heard("game_started", took + waited)
+        for _ in range(repeats):
+            call(
+                "read the game", "GET", f"/api/onuw/games/{game}/me/", (200,), tokens[1]
+            )
         play_to_results(call, game, tokens)
+        sent = time.monotonic()
         call("play again", "POST", f"/api/lobbies/{code}/play-again/", (200,), host, {})
+        took = time.monotonic() - sent
         for number, listener in enumerate(listeners, 2):
             try:
                 _, waited = listener.hear(
@@ -310,6 +329,8 @@ def deal_is_heard(call, api: str, origin: str | None, guest, say=print) -> None:
             say(
                 f"  guest {number} heard the table reopen {waited:.2f} s after play again's answer"
             )
+            if heard:
+                heard("lobby_update (play again)", took + waited)
     finally:
         for listener in listeners:
             listener.close()

@@ -21,6 +21,9 @@ hand. It uses only public addresses (no Vercel, database or Redis account):
    must hear the deal and the restart within seconds (tool/deployed_sockets.py).
    Nothing else opens a socket against the live server, and the deal and a restart
    reach the other phones no other way;
+   With `--timings <file>` every request of this step is timed and a few reads and
+   changes are repeated (tool/deployed_timing.py): a table of how long the live
+   server took, per kind of request. A report; it never fails the check;
 6. everyone leaves, always, even when a step failed or its answer was lost: each
    guest asks the server where it sits and leaves that table (the last one out
    deletes it). What stays behind: two guest accounts named `Deploy check A` and
@@ -36,6 +39,7 @@ through the deployed routing. This one does, against what players are using.
 
 usage: tool/deployed_check.py --api https://<server> [--app https://<app>]
                               [--commit <sha>] [--wait <seconds>] [--sockets]
+                              [--timings <file.json>]
 Without --app the app steps are skipped (a local server, the backend's test).
 Exit 0 when everything holds; 1 with one line per failed step.
 """
@@ -56,12 +60,16 @@ class Failed(Exception):
     pass
 
 
+AGENT = "midnight-village-deployed-check"
+REPEATS = 5  # how many times the latency leg repeats each read
+
+
 def call(method, url, body=None, token=None, origin=None, headers=None):
     """(status, headers, bytes) of one request; an HTTP error status is an answer, not an exception."""
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
-    req.add_header("User-Agent", "midnight-village-deployed-check")
+    req.add_header("User-Agent", AGENT)
     if data is not None:
         req.add_header("Content-Type", "application/json")
     if token:
@@ -317,36 +325,67 @@ def start_and_join(api, origin=None, on_table=None):
             raise Failed("; ".join(problems))
 
 
-_socket_leg = None
+_beside = {}
 
 
-def socket_leg():
-    """tool/deployed_sockets.py, loaded once from beside this file (no install, no path)."""
-    global _socket_leg
-    if _socket_leg is None:
+def beside(name):
+    """A tool from beside this file, loaded once (no install, no path)."""
+    if name not in _beside:
         import importlib.util
         from pathlib import Path
 
         spec = importlib.util.spec_from_file_location(
-            "deployed_sockets", Path(__file__).resolve().parent / "deployed_sockets.py"
+            name, Path(__file__).resolve().parent / f"{name}.py"
         )
-        _socket_leg = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_socket_leg)
-    return _socket_leg
+        _beside[name] = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_beside[name])
+    return _beside[name]
 
 
-def deal_is_heard(api, origin=None, patience=90, say=print):
+def socket_leg():
+    return beside("deployed_sockets")
+
+
+def deal_is_heard(api, origin=None, patience=90, say=print, timings=None):
     """The socket leg (tool/deployed_sockets.py): three guests, two listening on the
     lobby's socket; the host deals and plays again, and both must hear each within
     seconds. Everyone always leaves: a table in a game cannot be left, so leaving is
-    tried until the game (its lengths are short) has ended, for `patience` seconds."""
+    tried until the game (its lengths are short) has ended, for `patience` seconds.
+    With `timings` (tool/deployed_timing.py) every request is timed into it, over
+    connections kept open, and a few reads and changes are repeated for it."""
     sockets = socket_leg()
     guests = []
+    kept = beside("deployed_timing").KeptOpen(api) if timings is not None else None
+
+    def timed(what, method, path, body, token):
+        sent = {"Accept": "application/json", "User-Agent": AGENT}
+        if body is not None:
+            sent["Content-Type"] = "application/json"
+        if token:
+            sent["Authorization"] = f"Bearer {token}"
+        if origin:
+            sent["Origin"] = origin
+        try:
+            status, headers, raw, seconds, new = kept.request(
+                "all",
+                method,
+                path,
+                body,
+                sent,  # one connection: one handshake in all
+            )
+        except (OSError, ValueError) as e:
+            raise Failed(f"{method} {path}: no answer ({e})") from e
+        kind = "make a guest" if what.startswith("guest ") else what
+        timings.add(kind, seconds, headers.get("Server-Timing"), new)
+        return status, headers, raw
 
     def request(what, method, path, want, token=None, body=None):
-        status, headers, raw = call(
-            method, f"{api}{path}", body=body, token=token, origin=origin
-        )
+        if kept is not None:
+            status, headers, raw = timed(what, method, path, body, token)
+        else:
+            status, headers, raw = call(
+                method, f"{api}{path}", body=body, token=token, origin=origin
+            )
         kind = headers.get("Content-Type", "")
         if status not in want or "application/json" not in kind:
             start = raw[:160].decode("utf-8", "replace").replace("\n", " ")
@@ -367,7 +406,15 @@ def deal_is_heard(api, origin=None, patience=90, say=print):
         return made["access"]
 
     try:
-        sockets.deal_is_heard(request, api, origin, guest, say)
+        sockets.deal_is_heard(
+            request,
+            api,
+            origin,
+            guest,
+            say,
+            heard=timings.add_heard if timings is not None else None,
+            repeats=REPEATS if timings is not None else 0,
+        )
     except sockets.SocketFailed as e:
         raise Failed(str(e)) from e
     finally:
@@ -397,11 +444,21 @@ def deal_is_heard(api, origin=None, patience=90, say=print):
                     time.sleep(2)  # the game ends by its own short timers
             except Failed as e:
                 problems.append(str(e))
+        if kept is not None:
+            kept.close()
         if problems and sys.exc_info()[0] is None:
             raise Failed("; ".join(problems))
 
 
-def run(api, app=None, commit=None, wait=900, app_commit=None, sockets=False):
+def run(
+    api,
+    app=None,
+    commit=None,
+    wait=900,
+    app_commit=None,
+    sockets=False,
+    timings_to=None,
+):
     """Every step in order; returns the list of failures (empty when all hold)."""
     api, app = api.rstrip("/"), (app or "").rstrip("/") or None
     steps = []
@@ -431,11 +488,12 @@ def run(api, app=None, commit=None, wait=900, app_commit=None, sockets=False):
             ),
         )
     )
+    timings = beside("deployed_timing").Timings() if timings_to else None
     if sockets:
         steps.append(
             (
                 "a deal and a restart are heard on the socket",
-                lambda: deal_is_heard(api, origin=app),
+                lambda: deal_is_heard(api, origin=app, timings=timings),
             )
         )
     failures = []
@@ -450,6 +508,9 @@ def run(api, app=None, commit=None, wait=900, app_commit=None, sockets=False):
                 # No deploy arrived (Vercel skipped it, or it failed): the rest
                 # checks the builds that ARE serving, which players are on.
                 arrived["commit"] = None
+    if timings is not None and timings.requests:
+        # a report, never a failure: what was measured is said even when a step failed
+        timings.report(timings_to, api=api, commit=commit)
     return failures
 
 
@@ -478,6 +539,11 @@ def main(argv=None):
         action="store_true",
         help="also prove that a deal and a restart reach the other players' sockets",
     )
+    p.add_argument(
+        "--timings",
+        metavar="FILE",
+        help="with --sockets: time every request of that step, print the table and write it as JSON",
+    )
     args = p.parse_args(argv)
     failures = run(
         args.api,
@@ -486,6 +552,7 @@ def main(argv=None):
         args.wait,
         args.app_commit,
         sockets=args.sockets,
+        timings_to=args.timings,
     )
     if failures:
         print(f"\nThe live game is NOT proven working: {len(failures)} step(s) failed.")
