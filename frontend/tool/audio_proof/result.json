@@ -1,0 +1,123 @@
+{
+  "browser": "158.0.8127.36",
+  "launchedWith": "--autoplay-policy=document-user-activation-required",
+  "profile": {
+    "viewport": {
+      "width": 412,
+      "height": 839
+    },
+    "isMobile": true,
+    "hasTouch": true,
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.8010.12 Mobile Safari/537.36"
+  },
+  "input": "page.touchscreen.tap",
+  "loopFile": "dawn-a.mp3",
+  "cueFile": "knock-a.mp3",
+  "policyWithoutGesture": [
+    "suspended",
+    "suspended"
+  ],
+  "contextMadeOnTouchPointerdown": {
+    "stateWhenMadeOnPointerdown": "suspended",
+    "at": "after pointerup",
+    "stateAtPointerup": "suspended",
+    "stateAfterClick": "suspended"
+  },
+  "a": {
+    "themeAskedBeforeGesture": true,
+    "firstTapEvents": [
+      {
+        "type": "pointerdown:touch",
+        "activeAtEvent": false
+      },
+      {
+        "type": "pointerup:touch",
+        "activeAtEvent": true
+      },
+      {
+        "type": "touchend",
+        "activeAtEvent": true
+      },
+      {
+        "type": "mousedown",
+        "activeAtEvent": true
+      },
+      {
+        "type": "click:touch",
+        "activeAtEvent": true
+      }
+    ],
+    "contextsAfterFirstPointerdown": 0,
+    "contextMadeOn": "pointerup:touch",
+    "stateWhenMade": "running",
+    "contextsAfterGesture": 1,
+    "stateAfterGesture": "running",
+    "themePlayingAfterGesture": "table"
+  },
+  "b": {
+    "taps": 20,
+    "cueStarts": 20,
+    "theCall_pointerupToStartMs": {
+      "median": 0.10000000009313226,
+      "max": 0.20000000018626451
+    },
+    "outputLatency": {
+      "baseLatencyMs": 10,
+      "outputLatencyMs": 32,
+      "sampleRate": 44100,
+      "note": "what the device adds after start(), apart from the call; headless renders to no real device"
+    }
+  },
+  "e": {
+    "stateBeforeTap": "suspended",
+    "stateAfterTap": "running",
+    "cueStartedOnThatTap": true,
+    "microtasksRanBetweenEngineAndPageListeners": true
+  },
+  "d": {
+    "visibilityWhenBehind": "visible",
+    "stateWhenBehind": "running",
+    "note": "headless kept the page visible; hidden simulated by overriding visibilityState and dispatching visibilitychange",
+    "stateWhenHiddenSimulated": "suspended",
+    "clockAdvancedWhileHiddenMs": 0,
+    "stateWhenShown": "running",
+    "themeAfterShown": "table",
+    "clockAdvancedAfterShownMs": 298.9569160997729
+  },
+  "c": {
+    "trimmedLoopPoints": false,
+    "rate": 48000,
+    "fileSeconds": 0.9403958333333333,
+    "fileLeadingSilenceSamples": 367,
+    "fileTrailingSilenceSamples": 1216,
+    "renderedSeconds": 3.228,
+    "switchAtSeconds": 1.408,
+    "crossfadeEndsAtSeconds": 2.928,
+    "voicesDuringCrossfade": 2,
+    "voicesAtEnd": 1,
+    "comparedFromSeconds": 0.82,
+    "maxAbsDifference": 5.960464477539063e-8,
+    "maxAbsDifferenceAtSeconds": 2.9251875,
+    "differenceToSignalDb": -151.14121720353606,
+    "longestSilentRunInOutputSamples": 1583,
+    "longestSilentRunInLoopedPartOfFileSamples": 1216
+  },
+  "cTrimmed": {
+    "trimmedLoopPoints": true,
+    "rate": 48000,
+    "fileSeconds": 0.9403958333333333,
+    "fileLeadingSilenceSamples": 367,
+    "fileTrailingSilenceSamples": 1216,
+    "renderedSeconds": 3.228,
+    "switchAtSeconds": 1.408,
+    "crossfadeEndsAtSeconds": 2.928,
+    "voicesDuringCrossfade": 2,
+    "voicesAtEnd": 1,
+    "comparedFromSeconds": 0.82,
+    "maxAbsDifference": 8.940696716308594e-8,
+    "maxAbsDifferenceAtSeconds": 2.8263333333333334,
+    "differenceToSignalDb": -145.86498991259214,
+    "longestSilentRunInOutputSamples": 33,
+    "longestSilentRunInLoopedPartOfFileSamples": 33
+  }
+}

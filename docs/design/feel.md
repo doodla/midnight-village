@@ -1,4 +1,4 @@
-# How the game feels: motion, touch and vibration
+# How the game feels: motion, touch, vibration and sound
 
 One reference for every polish pass (issue #28) and every new screen. The owner's bar
 (22 November 2026): "a game that can win awards. Micro interactions matter", "look prettier and
@@ -7,7 +7,7 @@ section 4; a reviewer checks against section 5. Do not invent timings or gesture
 needs: use the tokens here, or add one here first.
 
 Where this page and `../specs/frontend/first-time-play.md` differ, the spec wins (its sections 7
-and 8 first). A difference found later goes to section 6, not decided here. Status words, as of this
+and 8 first). A difference found later is put to the owner, not decided here. Status words, as of this
 page: **exists** is built as written; **pass N** is to build in pass N of the whole-game review
 in #28 (1 dusk and dawn, 2 night board, 3 your card, 4 vote and count, 5 results, 6 table, 7 join,
 8 press feel; pass 1 covers deal to night and night to talk only, which corrects #28's list: vote to
@@ -23,8 +23,9 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
    the table's setting. The one held beat, the count's 1.2 s, stays (decided 22 Nov 2026): a tap skips it, so it is not an added wait.
 3. **Reduce motion gets the same information, instantly.** Slides, lifts, scales, wipes, staggers,
    flips and breathing become a cut to the end state. A colour or outline change still shows.
-4. **Night is silent and still.** From the deal to the last night window: no vibration, no sound,
-   and nothing that differs by role or only on the phone that acted (design brief section 3.3 and
+4. **Night is silent and still.** From the deal to the last night window: no vibration, no sound
+   that only some phones make (the theme, the same on every phone, may play: section 6), and
+   nothing that differs by role or only on the phone that acted (design brief section 3.3 and
    7, spec sections 3 and 8). Same board, same motion on every phone. Secrets show only while
    held. The one exception is the owner's: your own card's face landing on 04 gives one light
    tap (section 3), the same on every phone whatever the role.
@@ -184,7 +185,10 @@ that only one phone gets because of its role or what it did at night; no `heavyI
 
 How it is built (`frontend/lib/design_system/feel/haptics.dart`): one `Haptics` class is the one place that asks for a vibration, and nothing else calls
 `HapticFeedback` (`haptics_only_here_test.dart` fails any direct call, as `fixture_sources_test.dart` does for fixtures).
-`tick`, `light` and `thud` take the touched widget's context and do nothing on the night's ground (so the call must be made from under the screen's own ground); there is no call for a card landing, and none may be added (the owner's line above). None throws; a test listens on the platform channel to see what fired. A
+`tick`, `light` and `thud` take the touched widget's context and do nothing on the night's ground (so the call must be made from under the screen's own ground);
+there is no call for a card landing, and none may be added (the owner's line above).
+None throws; a test listens on the platform channel to see what fired.
+A
 vibration goes with a visible change on the same frame and is never the only sign.
 
 Where there is nothing to vibrate it does nothing, and the screen is complete without it: a phone
@@ -273,7 +277,11 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 ### What a wait shows, over time
 
-One body for every place the app waits (`Waiting`), laid in the frame of the screen it waits for: the opening (the saved account, then `/me/table/`: 01's village and its title), 04's village and "Your card", 08's sky and "The village wakes", 09's band and "Who dies today?", 10's and 11's ground. The screen's frame is up in the first frame; nothing is held back.
+One body for every place the app waits (`Waiting`), laid in the frame of the screen it waits for:
+the opening (the saved account, then `/me/table/`: 01's village and its title), 04's village and "Your card", 08's sky and "The village wakes", 09's band and
+"Who dies today?", 10's and 11's ground.
+The screen's frame is up in the first frame;
+nothing is held back.
 
 | Wait so far | The player sees | Reduce motion |
 |---|---|---|
@@ -388,7 +396,7 @@ frontend rules say; the owner sees them before the pass merges.
 3. Nothing waits: the new screen takes touches at frame one; any tap finishes the motion; no
    minimum time was added.
 4. With reduce motion the same information shows at once, with no movement.
-5. Night: no vibration, no sound, same layout and motion on every role's phone; faces held above
+5. Night: no vibration, no sound but what every phone plays alike, same layout and motion on every role's phone; faces held above
    the thumb are cut in and out, never faded half-seen.
 6. Vibration: only the three names, only where section 3 allows, always with a visible change.
 7. Usability held: targets (48 px, 44 only where named in the pass), 14 and 12 px floors, contrast,
@@ -396,10 +404,80 @@ frontend rules say; the owner sees them before the pass merges.
 8. One look: original Shadow paper art, no recolour or filter; new art shown to the owner.
 9. The row for the moment in section 4 is updated in the same change (status, timings).
 
-## 6. Open question
+## 6. Sound
 
-For the owner. Everything else raised while writing this page was decided on 22 November 2026 and
-sits in the body above.
+The owner asked for sound on 24 November 2026: "Use 11labs for the audio... I want something
+nice, eery and it should be loopable for the main theme... Proper sfx as well." The same day:
+"Every tap was delayed... I need a focus on performance". So the rule: **sound never delays a
+start, a tap or a frame.**
 
-1. Should the game ever make a sound? Today it makes none, and this page assumes none. Say so if
-   you want some, for example a soft knock when the dead card turns over.
+**Built (the mechanism; nothing is heard yet).** `Sounds` (`frontend/lib/design_system/feel/sounds.dart`)
+is the one place a screen asks for a sound, as `Haptics` is for a vibration
+(`sounds_only_here_test.dart`): `Sounds.play(Sfx.x)` for a cue, and for the stage's piece of the
+theme a `ThemeDriver` (`Sounds.claimTheme()`, then `set(ThemeVariant.night)`). Neither throws nor
+waits. The logic is `SoundEngine`
+(`frontend/lib/core/audio/`, pure Dart, tested over a fake backend); on the web it plays through
+Web Audio, elsewhere it is silent for now (Android's own backend is a later piece).
+
+- **The theme has ONE owner**: the shell that maps the stage to its variant claims it once and
+  drives it. Screens never call it, and nothing sets it from a `dispose`: the scene switcher keeps
+  the arriving and the leaving screen alive together, so two drivers would fight and the last call
+  would win. A second claim throws.
+- **What plays is data**: `Sounds.catalogue`, a `SoundSet` of cue and theme-variant names to their
+  files (one or more encodings, `.ogg` before `.m4a`: the first the platform decodes). It is
+  empty, and with it empty the app creates nothing: no listener, no audio context.
+- **After the first picture**: started from `main.dart` once the skin's art is in. The cues are
+  fetched ahead; nothing is decoded before the first touch.
+- **The first touch unlocks** (browsers refuse sound before a user activation): a passive listener
+  on the page makes the audio context on the first event that is an activation. On a phone that is
+  the finger's lift (pointerup, then touchend and click), not its pointerdown: Android does not
+  count a touch's pointerdown, and a context made there starts suspended. A mouse's press and a
+  key count at once. Every later gesture that finds the output stopped asks it to run again
+  (`resume()` is cheap; one asked on a pointerdown may stay pending, and nothing waits on it). A
+  cue asked for before then is dropped; the theme asked for is remembered and starts on that
+  touch.
+- **A cue** is decoded ahead and started in the same call as the tap, never late: it plays only
+  when the output is running, or when that very gesture asked it to run from inside an activation
+  (Flutter's tap fires on the same pointerup). Any other (before the unlock, muted, hidden, not
+  decoded, the output stopped) is dropped, never stored to burst out with the others. A file whose
+  fetch or decode failed is given up on for the visit (one log line).
+- **The theme** is one loop in stage variants (table, night, vote, reveal), the same length, so a
+  switch starts the new variant where the music is and crossfades in phase. A variant is decoded
+  on its first need, one at a time and only the one wanted; until it is ready the music already
+  playing goes on. At most two play at once and two stay decoded, counting the one decoding: a
+  third asked for mid-crossfade waits for the outgoing voice to end. A switch is scheduled from the
+  audio clock read at the start call, at least the output's own latency ahead (to be confirmed on
+  a real phone). A file may carry loop points (from the WAV master, in samples or
+  seconds), which also cut an encoder's padding: an mp3 or m4a looped whole has a gap.
+- **Hidden is silent**: the context is suspended while the page or app is hidden and the loop
+  continues on return.
+- **The battery**: the output is never opened while muted, and is suspended when nothing can sound
+  (muted, or no theme wanted once its fade out and the longest cue are over: `SoundTiming.idle`);
+  the next gesture or theme wakes it. If the browser closes it, it is dropped and the next touch
+  makes a new one (said once in the log, not on every tap).
+- **Muted and the volume** are remembered on the device (`SoundSettings`, listenable; no control
+  is built yet). Mute ramps the master to silence (no click); muted, nothing new is decoded.
+
+Lengths (`SoundTiming`, `frontend/lib/core/audio/audio_backend.dart`): crossfade 1.5 s, theme in
+0.8 s, theme out 1.2 s, mute 60 ms, volume 40 ms, a cut voice 15 ms, the theme scheduled 20 ms
+ahead or the output's own latency if more (so a switch lands on an exact sample; a cue starts at
+once), the longest cue 3 s, idle 4.2 s before an output with nothing to play sleeps.
+
+In a browser (`frontend/tool/audio_proof/`, last result in `result.json` beside it): headless
+Chromium as an Android phone (a touch profile, 412 wide, `page.touchscreen.tap`), launched with
+the autoplay rule `--autoplay-policy=document-user-activation-required`. It enforced the rule: a
+context made on load stays suspended, and one made and resumed on a touch's pointerdown stays
+suspended through the lift and the click (its resume never settles), which is why the engine
+waits for the lift. The engine's context is made on the first pointerup, running; the cue's
+`start()` is called 0.1 to 0.2 ms after the pointerup the tap handler fires on ("the call"),
+apart from what the device adds after it (base latency 10 ms, output latency 32 ms in headless,
+which renders to no real speaker); after the browser suspends the context, the next tap resumes
+it and its own cue starts; the theme renders sample-exact across loop ends and a switch. Not shown
+there: hiding the page (headless keeps it visible; simulated), Chrome on a real phone suspending
+on its own, Safari's interrupted state, and a real phone's latency and lead, which a phone must
+confirm.
+
+**Still to choose (the owner, by ear):** which cues exist and where they fire (a soft knock when
+the dead card turns over, the seal, the dawn were among the candidates); which stages take which
+variant and whether the night has the theme at all; the default volume; where a mute control
+sits. Until then nothing calls `Sounds`.

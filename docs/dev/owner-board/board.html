@@ -118,6 +118,8 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
 .takes { display: grid; gap: 12px }
 .take { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 12px; background: var(--paper-2); border-radius: var(--r); border: 1.5px solid var(--line) }
 .take .tl { width: 44px; height: 44px; border-radius: 50%; background: var(--chip); color: var(--chip-ink); font-family: var(--f-display); font-size: 26px; line-height: 1; display: grid; place-items: center; padding-bottom: 2px }
+.take.wordy { grid-template-columns: minmax(0, 1fr) }
+.take .th { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: 21px; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere }
 .take .tb { display: grid; gap: 10px; min-width: 0 }
 .take .tn { margin: 0; font-size: 14px; color: var(--ink-soft); min-height: 44px; display: flex; align-items: center }
 .take .tn:empty { display: none }
@@ -433,8 +435,10 @@ h2 .n { font-family: var(--f-body); font-size: 14px; font-weight: 700; backgroun
     if (!takes.length) return null;
     var box = el("div", "takes");
     takes.forEach(function (t) {
-      var row = el("div", "take"), tb = el("div", "tb");
-      var tl = el("div", "tl", String(t.label)); tl.setAttribute("aria-hidden", "true"); row.appendChild(tl);
+      var wordy = Array.from(String(t.label)).length > 2;   // A, B, C keep the circle; any longer label is a heading line
+      var row = el("div", wordy ? "take wordy" : "take"), tb = el("div", "tb");
+      if (wordy) tb.appendChild(el("p", "th", String(t.label)));
+      else { var tl = el("div", "tl", String(t.label)); tl.setAttribute("aria-hidden", "true"); row.appendChild(tl); }
       if (t.note) tb.appendChild(el("p", "tn", t.note));
       function button(cls, icon, text, label, many) {
         var b = el("button", cls); b.type = "button"; b.innerHTML = icon; b._idle = text;
