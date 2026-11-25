@@ -268,8 +268,11 @@ Weight: the layers are `assets/skins/shadow_paper/layers/night_village/` (8 file
 off unless named (`?atmo=flame,clouds` on the web address, `--dart-define=ATMO=...`, or `all`), so
 with no switch the app is today's exactly (the "nothing idles" rules above hold). Ambient effects
 (`feel/atmo_parts.dart`, `feel/atmo_village.dart`) read one shared slow clock (`AmbientClock`, 30
-frames a second, `?atmo_fps=`) that runs only while an effect on screen listens, stops under a
-covering route (`TickerMode`) and in the background, and stands still with reduce motion. Moments
+frames a second, `?atmo_fps=`). The rule (from the phone measurement: every frame redraws the
+whole screen): an effect is a small layer over a still picture, and its life comes in seeded
+bursts with real rest between (`Bursts`, `Ambient.restFor`): between bursts it leaves the clock and
+the screen asks for no frame. The clock holds while a finger is down, under a covering route
+(`TickerMode`) and in the background, and everything is still with reduce motion. Moments
 (`feel/atmo_moments.dart`, `AtmoDeal`, `Carried`) paint moved (`PaintShift`) while the part is
 hit where it rests, so nothing waits. The measured costs, clips and verdicts are in the piece's
 hand-over (not kept in the repo); `tool/atmo/windows_lit.py` makes the one new picture (the lit
