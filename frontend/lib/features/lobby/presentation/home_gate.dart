@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/perf/perf.dart';
 import '../../../core/router/back_policy.dart';
 import '../../../design_system/primitives/scene_switcher.dart';
 import '../../auth/domain/auth_state.dart';
@@ -46,6 +47,8 @@ class HomeGate extends ConsumerWidget {
     // The app renews itself for a newer build at a safe moment, by what is
     // shown (`mayReloadNow`).
     ref.read(newBuildProvider)?.seen(place);
+    // The field recorder's screen (off: nothing).
+    Perf.recorder.screen(place);
     return BackPolicy(
       rule: rule,
       place: place,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 
 import '../logging/app_logger.dart';
+import '../perf/perf.dart';
 
 /// The token of the one door every request a player's tap makes goes out
 /// through. Every method that writes to the server (`POST`, `PATCH`,
@@ -61,12 +62,15 @@ final ValueNotifier<int> playerRequestsOut = ValueNotifier(0);
 /// Runs [send] with the door open, and shuts it when [send] is done.
 Future<T> playerRequest<T>(Future<T> Function(Door door) send) async {
   final door = Door._();
+  // The field recorder: a tap's request, until its answer is applied.
+  final perf = Perf.recorder.playerRequestStarted();
   playerRequestsOut.value++;
   try {
     return await send(door);
   } finally {
     door._open = false;
     playerRequestsOut.value--;
+    perf?.applied();
   }
 }
 

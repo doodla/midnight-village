@@ -128,6 +128,23 @@ their scatter tilts).
 | `waitLoop` | 1500 ms | One round of the sign of life: three paper lanterns lit one after another (issue 10) |
 | `curve` | easeOutCubic | Everything above, except the count's flip (easeInOut); inside a scene, each part runs its stretch of the 500 ms in this curve |
 | `Motion.within(context, d)` | `d`, or zero under reduce motion | The shell and the scene switcher use it; the other five places that check reduce motion move to it in their passes |
+| `ambient` | 4 s | One round of something that idles (`Ambient`'s default period) |
+| `breathe` | easeInOutSine | `Ambient`'s default curve: a breath, slow at both ends |
+| `restLeast`, `restMost` | 8 s, 16 s | How long something that idles rests, still, between bursts: a length in this range taken from its own id, the same on every phone |
+
+Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`); the parts move onto it in a later piece.
+Everything that loops goes through `Ambient` (`feel/ambient.dart`), and a screen at rest is idle most of the time:
+an effect is a small layer over a still picture, never a reason to draw the screen again.
+- **Burst and rest**: it plays one round (or a few), then truly rests at its still look (no frame at all) for `restLeast` to `restMost`, then plays again.
+  Only something whose job is to show a wait loops without rest (`Ambient.continuous`: the waiting sign's lanterns, a busy button's lantern).
+- **Teaching is finite**: the hold cue breathes three times, then stands still (still the sign);
+  it breathes once more only after a tap on the locked Ready before a hold, never once learned.
+- **Yield to the finger**: a touch anywhere ends every burst at once (back at its still look, no animation, counted as played), and its rest starts again a `settle` after the last lift;
+  so the frame that answers the press, and the frames where the tap commits and its answer arrives, draw no decoration.
+  A waiting sign (`Ambient.continuous`) only holds under a finger and goes on a `settle` after the last lift.
+  A lift the app never hears (a tab hidden under a finger, a device removed) lets go too.
+- It runs only with the app in front, its screen not covered, and motion allowed (reduce motion: its still look).
+Both are in `frontend/lib/design_system/README.md`, "Press and Ambient".
 
 Their own constants (not `Motion`): `PaperFlip` (`primitives/paper_flip.dart`, the one card
 turn-over: turning to the face `PaperFlip.turn` = `quick` 160 ms, back to the cover
@@ -136,7 +153,7 @@ turn-over: turning to the face `PaperFlip.turn` = `quick` 160 ms, back to the co
 `HoldToReveal.flip` is its `turn`); `HoldToReveal.holdDelay` 120 ms (a touch shorter than this is
 a tap, longer is a hold: the face shows after it) and `revealedAfter` 800 ms (a reveal counts once
 seen this long; a count, not a wait); `CueWave` 120 ms each, 90 ms apart, lifts 8 px (night) and
-6 px (vote); `HoldCue` breath 1400 ms, scale 1.06; a replayed cue runs 3 s. A list that staggers
+6 px (vote); `HoldCue` breath 1400 ms, scale 1.06, three breaths then still; a replayed cue runs 3 s. A list that staggers
 takes `stagger` × (rows − 1) + `settle` on the count, and `stagger` × steps + `settle` on the
 results' night. There is no cap, so a list is short only because a table seats at most 10: 10 rows
 take 1.6 s. A tap finishes them.
@@ -146,7 +163,7 @@ take 1.6 s. A tap finishes them.
 | Token | Start value | Pass | Why |
 |---|---|---|---|
 | `Motion.land` (built, pass 4a: `Curves.easeOutBack`) | a curve with at most 10% overshoot | 4, 6 | The lock stamp; a joining player's row dropping in |
-| `Motion.ambient` | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
+| `Motion.ambient` (built with `Ambient`, its default period) | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
 | the reduce-motion helper, the rest | Today six places check it (shell, the card flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
 ## 3. Vibration
@@ -246,7 +263,8 @@ motion: "cut" is the end state at once; "same" is unchanged.
 | Hold | After 120 ms the card turns over in place like a piece of cut paper (`PaperFlip`): from its back (the game's back) it lifts 8 px and grows 3% as it goes through its edge, its shadow falls further from it, and it lands face up a few degrees past flat and settles; the face is never mirrored; it is built offstage from the moment the turn is asked for and shown only once past the edge. Measured: the turn is 160 ms; edge on at about 34 ms, the face 87% wide at about 68 ms, where the old fade was already 88% opaque at 45 ms, so the face reads about 50 ms later than the fade did. The settle peaks at 1.6% past flat, not 3%. The trade is taken because the turn reads as paper, and release hides the face within one frame. In a first game the ring fills over the 0.8 s it takes to count. One light tap as the face lands (section 3) | 120 ms, then `quick` (the frames read better than `press`'s five frames; decided in pass 3) | Cut, and the tap | exists (pass 3) |
 | Release | The card turns back through its edge to its back at once, never slower than `press`; let go mid-turn it goes back from where it is, taken again it goes on from there | `press` | Cut | exists (pass 3) |
 | A reveal counts (0.8 s seen) | "Ready" locked becomes amber; the ring stops for good | `press` | Cut | exists |
-| Tap "Ready" before holding | The `hold` ring breathes for 3 s; the button does not move | 3 s | Ring still, visible | exists |
+| The card arrives (first game) | The `hold` ring breathes three times (1.4 s each), then stands still on the card: the same ring and word, nothing drawing. A touch ends a breath under way (the ring is still at once) | 3 × 1400 ms | Ring still, visible | exists |
+| A tap on "Ready" before holding | The ring breathes once more, then rests; on a phone that has learned it, "Ready" shows the ring for 3 s; the button does not move | 1400 ms; 3 s | Ring still, visible | exists |
 | "Ready" tapped | "Ready ✓", settled (no fill or outline), the pips count up on the tap, not on the answer. No vibration | `press` | Cut | exists |
 | Everyone ready, or the backstop | All phones go to the board together; night to night, so a plain crossfade, no wipe | `settle` | Cut | exists |
 
@@ -291,7 +309,7 @@ nothing is held back.
 | A fetch failing (offline, a 5xx) | "One moment" with "Try again" (the fetch now instead of at its next turn: the opening, 04, 08 and 09 offer it), alone on one line where the lanterns hung; it is made again by itself with backoff | Same |
 | The answer | The screen's content crossfades in (`settle`) over the frame; one wait is one key, so the wait is never faded into itself | Cut |
 | Over a screen already shown, the phone loses the server | "One moment" settles in over the top; the screen and the seat stay | Cut in |
-| A tap's request in flight | The tapped control's busy mark in the frame of the tap, busy until the next screen is up | Same |
+| A tap's request in flight | The tapped control's busy mark in the frame of the tap, busy until the next screen is up; its flame breathes for as long as the request is on its way, with no rest: its job is to show the wait (`Ambient.continuous`) | Same |
 | A tap's request that failed | Words and "Try again" above the control, nothing else moves; or the server's reason with no button | Same |
 
 ### Talk (08)

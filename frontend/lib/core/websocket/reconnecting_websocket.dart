@@ -4,6 +4,7 @@ import 'dart:math' show min;
 import 'package:web_socket_channel/web_socket_channel.dart' as wsc;
 
 import '../logging/app_logger.dart';
+import '../perf/perf.dart';
 import '../storage/token_storage.dart';
 import 'websocket_channel.dart';
 
@@ -200,7 +201,10 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
     // connection opens can arrive before there is a listener.
     _channelSubscription = channel.stream.listen(
       (event) {
-        if (!_disposed && attempt == _attempt) _messageController.add(event);
+        if (!_disposed && attempt == _attempt) {
+          Perf.recorder.socketMessage(_url, event);
+          _messageController.add(event);
+        }
       },
       onError: (Object _) => lost(),
       onDone: lost,
@@ -283,6 +287,7 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
 
   void _emitState(WebSocketConnectionState state) {
     if (!_disposed && !_stateController.isClosed) {
+      Perf.recorder.socketState(_url, state);
       _stateController.add(state);
     }
   }

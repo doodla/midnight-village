@@ -138,9 +138,20 @@ abstract final class Motion {
   static const curve = Curves.easeOutCubic;
 
   /// A stamp coming down: a short move that overshoots its rest by under a
-  /// tenth and settles (the vote's seal). Used over [quick]; nothing else
-  /// bounces.
+  /// tenth and settles (the vote's seal; a press coming back up, `Pressable`).
+  /// Used over [quick]; nothing else bounces.
   static const land = Curves.easeOutBack;
+
+  /// One round of something that idles (`Ambient`): a lantern's breath, a
+  /// window's glow; and the curve that breathes it, slow at both ends.
+  static const ambient = Duration(seconds: 4);
+  static const breathe = Curves.easeInOutSine;
+
+  /// How long something that idles rests, still, between one burst and the
+  /// next (`Ambient`): a length in this range, the same on every phone. A
+  /// screen at rest draws nothing for most of its time.
+  static const restLeast = Duration(seconds: 8);
+  static const restMost = Duration(seconds: 16);
 
   /// [duration], or no time at all when the phone asks for reduced motion
   /// (the shell and the scene switcher read it here; a motion that checks
