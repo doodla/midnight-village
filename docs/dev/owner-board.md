@@ -1,6 +1,9 @@
 # Owner's board: how to update it
 
-The owner does not read issues or pull requests. Anything that needs the owner's eyes or a decision goes on this board: big pictures, few plain words, and for a decision, the choices and what happens by default. Before and after pictures of anything visible go here before it merges.
+The owner does not read issues or pull requests.
+Anything that needs the owner's eyes or a decision goes on this board:
+big pictures, few plain words, and for a decision, the choices and what happens by default.
+Before and after pictures of anything visible go here before it merges.
 
 Board: https://claude.ai/artifact/K5KpLD8VjvzBbYr5VjiBJK (private to the owner; page source
 `docs/dev/owner-board/board.html`, hero art `docs/dev/owner-board/art/village-band.webp`).

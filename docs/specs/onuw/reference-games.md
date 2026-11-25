@@ -2,7 +2,9 @@
 
 > Complete example games, traced from the deal to the result. Use them to test the rules engine and to check that the results screen explains every outcome.
 >
-> Every game here has been replayed through two night models written from the rules (one role at a time, and one shared window) and through the engine's vote and win logic. All three agree on every game. The table at the end lists what each game covers and the cases with no game yet.
+> Every game here has been replayed through two night models written from the rules (one role at a time, and one shared window) and through the engine's vote
+> and win logic. All three agree on every game.
+> The table at the end lists what each game covers and the cases with no game yet.
 
 Center cards are numbered 1 to 3. The night is listed in the official order, which is the order the server applies actions in.
 
@@ -111,7 +113,9 @@ Votes: Alice → Bob, Bob → Alice, Carol → Alice, Dave → Alice, Eve → Al
 
 ## Game 4: Doppelganger Chaos
 
-The Doppelganger copies the Robber and steals the Werewolf card at once. The player who was dealt Werewolf still wakes as a Werewolf, alone, and does not see the thief. A dead player holding the Doppelganger card counts as the role it copied.
+The Doppelganger copies the Robber and steals the Werewolf card at once.
+The player who was dealt Werewolf still wakes as a Werewolf, alone, and does not see the thief.
+A dead player holding the Doppelganger card counts as the role it copied.
 
 **Players (5):** Alice = Doppelganger, Bob = Robber, Carol = Werewolf, Dave = Seer, Eve = Villager
 
@@ -394,7 +398,8 @@ Votes: Alice → Dave, Bob → Alice, Carol → Alice, Dave → Alice.
 
 ## Game 12: Robber, Troublemaker and Drunk touch the same cards
 
-Order matters. The Robber, the Troublemaker and the Drunk all touch the same cards, and the result depends on applying them Robber, then Troublemaker, then Drunk. The Robber sees the card they took before the Troublemaker moves it on.
+Order matters. The Robber, the Troublemaker and the Drunk all touch the same cards, and the result depends on applying them Robber, then Troublemaker, then
+Drunk. The Robber sees the card they took before the Troublemaker moves it on.
 
 **Players (5):** Alice = Robber, Bob = Troublemaker, Carol = Drunk, Dave = Werewolf, Eve = Villager
 
@@ -629,7 +634,8 @@ Votes: Alice → Carol, Bob → Carol, Carol → Alice, Dave → Alice, Eve → 
 
 ## Game 19: The Hunter shoots a copied Hunter: no second shot
 
-The Doppelganger copies the Hunter. The real Hunter dies and shoots the Doppelganger, who dies. The Doppelganger's own Hunter power does not fire in turn, so the Werewolf they voted for survives and wins.
+The Doppelganger copies the Hunter. The real Hunter dies and shoots the Doppelganger, who dies.
+The Doppelganger's own Hunter power does not fire in turn, so the Werewolf they voted for survives and wins.
 
 **Players (5):** Alice = Doppelganger, Bob = Hunter, Carol = Werewolf, Dave = Villager, Eve = Seer
 
@@ -698,7 +704,10 @@ Votes: Alice → Bob, Bob → Alice, Carol → Alice, Dave → Alice, Eve → Al
 
 ## Game 21: Nobody acts
 
-Every player with a choice lets the clock run out. No cards move. The Drunk is in the center this time: a Drunk at the table who runs out of time must still swap, with a center card the server picks (see the Drunk in `roles.md`), so a table where nobody moves cannot include a dealt Drunk.
+Every player with a choice lets the clock run out.
+No cards move. The Drunk is in the center this time:
+a Drunk at the table who runs out of time must still swap, with a center card the server picks (see the Drunk in `roles.md`), so a table where nobody moves
+cannot include a dealt Drunk.
 
 **Players (5):** Alice = Werewolf, Bob = Seer, Carol = Robber, Dave = Troublemaker, Eve = Villager
 

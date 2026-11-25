@@ -17,16 +17,24 @@ work stands: `docs/dev/status.md`.
 ## How we work
 
 - Write plainly and briefly: the owner is not an engineer. Decide and carry on.
-- Fun first: a friendly game at a table. Do not over-index on secrecy or peeking. No added waits, minimum response times or assumed timer lengths: every length is the table's setting. Test: would friends notice the protection, or only the friction?
+- Fun first: a friendly game at a table. Do not over-index on secrecy or peeking.
+  No added waits, minimum response times or assumed timer lengths:
+  every length is the table's setting. Test:
+  would friends notice the protection, or only the friction?
 - Few words on screen; elements do the job; teach a gesture once by doing it, then never again. A player's name is never truncated.
 - A look ("skin") is a complete design with its own layouts and original art, never a recolour or filter. One look today: Shadow paper.
 - A screen is judged by eye: render it (`just screens`), look at every picture, and hand over before and after.
 - The owner plays the live app. What they hit is in `docs/dev/owner-feedback.md`: read it before touching a screen.
 - Fix the cause as a mechanism, not the instance.
 - A source file stays under 600 lines (`tool/check_file_sizes.py`, in `just check` and the commit gate); one already over may shrink but never grow (the check compares with main; there is no list).
-- Every test run builds its own database (`test_<DB_NAME>_<process id>`), so runs side by side never collide. `just test-harness` takes its own free port and stops only its own backend. Timer tests wait on the timer itself (`backend/tests/timer_threads.py`), never on a sleep.
+- A line of a note stays under 200 characters, one sentence to a line (`tool/doc_lines.py --fix <file>` does it; in `just check`): two branches that add a word to one long line clash.
+- Every test run builds its own database (`test_<DB_NAME>_<process id>`), so runs side by side never collide.
+  `just test-harness` takes its own free port and stops only its own backend.
+  Timer tests wait on the timer itself (`backend/tests/timer_threads.py`), never on a sleep.
 - Test fixtures come only from `contract_samples/`; after a payload change run `just samples` and review the diff.
-- The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes"). Do not touch the owner's Vercel, Neon or Redis accounts; ask before generating large batches of art.
+- The server is LIVE: every push migrates the shared database (rules: `backend/CLAUDE.md`, "Deploy-safe changes").
+  Do not touch the owner's Vercel, Neon or Redis accounts;
+  ask before generating large batches of art.
 - Ordering and concurrency logic (server stage handling, the phone's outbox) is model-checked in focused slices: `docs/dev/models/README.md`.
 
 ## Commands (repo root)
@@ -51,8 +59,11 @@ Every recipe runs from the repo root, and from `frontend/` and `backend/` too. M
 ## Commits
 
 - `type(scope): description`; types feat, fix, test, refactor, docs, chore. Tests: descriptive names, seeded, several players; coverage 80% minimum.
-- Git's own hooks (`.claude/hooks/git/`, switched on by `.claude/hooks/session-start.sh` at every session start) run the fast checks for what you commit (format, lint, types, analyze: seconds); never `--no-verify` or any other bypass.
-- GitHub is the wall: it runs every check on every pull request, and nothing merges to main except by pull request with every check green. Run `just piece-check` while you work; `just gate-full` runs the whole local suite on demand (minutes).
+- Git's own hooks (`.claude/hooks/git/`, switched on by `.claude/hooks/session-start.sh` at every session start) run the fast checks for what you commit
+  (format, lint, types, analyze: seconds);
+  never `--no-verify` or any other bypass.
+- GitHub is the wall: it runs every check on every pull request, and nothing merges to main except by pull request with every check green.
+  Run `just piece-check` while you work; `just gate-full` runs the whole local suite on demand (minutes).
 - A change under `.claude/` updates `docs/claude-architecture.md` in the same commit.
 
 ## Pointers

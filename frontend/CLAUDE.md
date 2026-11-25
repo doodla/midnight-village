@@ -133,7 +133,9 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
 - **Names are never cut**: they wrap between words or are set smaller (`FitWords`, `FitLine`),
   never an ellipsis; the fit sweep and `just screens` fail on cut text.
 - **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
-  for anything that says something true; no uppercase micro-labels; one amber fill per screen (08's "Ready to vote" is its one, the owner's choice of 23 November 2026); a selection is lift plus outline, never amber.
+  for anything that says something true; no uppercase micro-labels;
+  one amber fill per screen (08's "Ready to vote" is its one, the owner's choice of 23 November 2026);
+  a selection is lift plus outline, never amber.
 - **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks
   `ScreenFrame(dress: Dress.paper)`; sizes, angles and colours are the skin's, never a number
   in a screen. Detail: `docs/app-rules.md`, "The dress", and `lib/design_system/README.md`.
@@ -146,7 +148,8 @@ After a payload change: `just samples` in `backend/`, then fix the fixtures that
   board, from its top, only while held. Nothing vibrates on a card (owner, 23 November 2026).
 - **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
   the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
-  at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is (`lib/design_system/README.md`, "Where information a player asks for appears").
+  at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is
+  (`lib/design_system/README.md`, "Where information a player asks for appears").
 
 ## Screens
 

@@ -18,7 +18,10 @@ It never returns `allow` (that could skip auto mode's own permission checks) or
 - **Modes** (`config.toml`): `enforce` denies, `warn` tells the agent but lets the call through, `off` skips the rule. Start new rules in `warn`.
 - **Allowed models**: edit `allowed_models` in `config.toml`. An entry matches any model name containing it, case-insensitively.
 - **Rule crashes**: with `on_error = "closed"`, a crash is reported at the rule's mode: an `enforce` rule denies the call, a `warn` rule only warns. With `"open"`, the crash is only logged.
-- **Runner crashes** (bad stdin, bad `config.toml`, Python older than 3.11 with no `tomllib`): the runner prints what broke to stderr and exits 2, which blocks the call. `GUARDRAILS_OFF=runner` lets a crashed runner through. If `python3` itself is missing, the shell fails and `onFailure: "block"` in `settings.json` is what blocks.
+- **Runner crashes** (bad stdin, bad `config.toml`, Python older than 3.11 with no `tomllib`):
+  the runner prints what broke to stderr and exits 2, which blocks the call.
+  `GUARDRAILS_OFF=runner` lets a crashed runner through.
+  If `python3` itself is missing, the shell fails and `onFailure: "block"` in `settings.json` is what blocks.
 - **Escape hatch**: `GUARDRAILS_OFF=rule_a,rule_b` disables rules for a session.
 - **Decision log**: every warn and deny is appended to `logs/decisions.jsonl` (gitignored), or to `$GUARDRAILS_LOG` if set.
 

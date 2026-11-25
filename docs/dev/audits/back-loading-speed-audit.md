@@ -171,7 +171,10 @@ no retry inside a tap.
 
 Exist (`test_screens/screen_catalogue.dart`): `05-night-loading`, `08-talk-not-sent`,
 `10-count-waiting`, `01-join-closed`, `01-join-link-elsewhere`, `02-table-handover`.
-(Rendered: `frontend/build/screens/` after `just screens 390 report` in this audit: 136 rendered, 0 findings.) Looked at: `10-count-waiting.png` is a bare lavender page with "One moment" in a box at the foot, nothing else: the one designed waiting state reads as a blank page, not as the game; `05-night-loading.png` is the sleeping village and candle, deliberate-looking but it is the night's words, used today for non-night waits (04).
+(Rendered: `frontend/build/screens/` after `just screens 390 report` in this audit: 136 rendered, 0 findings.) Looked at:
+`10-count-waiting.png` is a bare lavender page with "One moment" in a box at the foot, nothing else:
+the one designed waiting state reads as a blank page, not as the game;
+`05-night-loading.png` is the sleeping village and candle, deliberate-looking but it is the night's words, used today for non-night waits (04).
 
 NO gallery entry (nobody has looked at them): web first paint / Android launch; app start
 blank (`AuthInitial`); the shell's `_Nothing` on night and on day ground; the "One moment"
