@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../copy/copy.dart';
 import '../faces/face_content.dart';
@@ -261,6 +262,13 @@ class _HoldToRevealState extends State<HoldToReveal>
   /// laid out again at every frame (it follows the card), and that drew the
   /// whole screen again at every tick of the clock long after the hold.
   void _closePortal() {
+    // Asked in a build (the screen took [HoldToReveal.open] away): the
+    // overlay cannot be changed while the tree is built, so after the frame.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => _closePortal());
+      return;
+    }
     if (mounted && !_visible && _portal.isShowing) _portal.hide();
   }
 
