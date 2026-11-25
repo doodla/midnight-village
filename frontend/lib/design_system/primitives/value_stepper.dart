@@ -1,9 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
 import '../skin/skin.dart';
+import 'finger_hold.dart';
 import 'fit_line.dart';
 import 'paper_piece.dart';
 
@@ -165,7 +167,16 @@ class LabelledStepper extends StatelessWidget {
         ? words
         : Align(
             alignment: AlignmentDirectional.centerStart,
-            child: GestureDetector(onLongPress: hold, child: words),
+            child: RawGestureDetector(
+              gestures: {
+                FingerTimedLongPress:
+                    GestureRecognizerFactoryWithHandlers<FingerTimedLongPress>(
+                      () => FingerTimedLongPress(duration: kLongPressTimeout),
+                      (recognizer) => recognizer.onLongPress = hold,
+                    ),
+              },
+              child: words,
+            ),
           );
     final caption = this.caption;
     final named = caption == null

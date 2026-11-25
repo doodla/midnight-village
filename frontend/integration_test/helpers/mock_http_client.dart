@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
+import 'package:midnight_village/core/api/in_this_task.dart' show requestLeft;
 
 /// Thrown when a request is made to an endpoint with no registered mock response.
 ///
@@ -216,6 +217,8 @@ class _MockInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    // Here the request has left the phone: the stand-in server has it.
+    requestLeft();
     _requests.add(options);
     final key = '${options.method.toUpperCase()}:${options.path}';
     try {
