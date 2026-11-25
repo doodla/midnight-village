@@ -63,6 +63,8 @@ class _PerfStripState extends State<PerfStrip> {
     return Stack(
       children: [
         Column(
+          // The strip runs edge to edge.
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
               child: MediaQuery.removePadding(
@@ -74,7 +76,9 @@ class _PerfStripState extends State<PerfStrip> {
             if (!keyboard)
               _Strip(
                 recorder: widget.recorder,
-                bottom: media.viewPadding.bottom,
+                bottom: media.padding.bottom > media.viewPadding.bottom
+                    ? media.padding.bottom
+                    : media.viewPadding.bottom,
                 onTap: () => setState(() => _open = !_open),
               ),
           ],
