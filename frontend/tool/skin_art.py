@@ -155,6 +155,8 @@ def _end() -> None:
 # are full-canvas masters on the night village's canvas, cut to their box.
 FLAME = (120, 106)
 ATMO_QUALITY = 72
+# The moon's phases are mostly the sky's dark paper: a lower quality holds it.
+MOON_QUALITY, MOON_ALPHA = 55, 60
 
 
 def _atmo() -> None:
@@ -171,7 +173,13 @@ def _atmo() -> None:
         box = im.getchannel("A").getbbox()
         assert box is not None, f"{src} is empty"
         im = im.crop(box)
-        im.save(folder / f"{src.stem}.webp", "WEBP", method=6, quality=ATMO_QUALITY)
+        im.save(
+            folder / f"{src.stem}.webp",
+            "WEBP",
+            method=6,
+            quality=MOON_QUALITY,
+            alpha_quality=MOON_ALPHA,
+        )
         print(
             f"atmo/moon/{src.stem}.webp  size {im.width}x{im.height}"
             f"  anchor ({box[0]}, {box[1]})"

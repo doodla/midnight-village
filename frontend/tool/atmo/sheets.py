@@ -138,8 +138,9 @@ def flame_sheet(out: Path) -> None:
     )
 
 
-def village(phase: Image.Image | None, anchor=(0, 0)) -> Image.Image:
-    """The night village with every layer at rest and [phase] on the moon."""
+def village(phase: Image.Image | None, anchor=(0, 0), clouds=True) -> Image.Image:
+    """The night village with every layer at rest and [phase] on the moon
+    (without the clouds themselves when not [clouds])."""
 
     def at(name):
         im = rgba(LAYERS / name)
@@ -153,29 +154,25 @@ def village(phase: Image.Image | None, anchor=(0, 0)) -> Image.Image:
     moon = at("moon.png")
     v.alpha_composite(moon)
     moon_a = np.asarray(moon.getchannel("A")).astype(np.float32) / 255
-    if phase is not None:
-        p = Image.new("RGBA", v.size, (0, 0, 0, 0))
-        p.alpha_composite(phase, anchor)
-        v.alpha_composite(p)
     for n in ("moon_shadow_dark.png", "moon_shadow_cream.png"):
         s = np.asarray(at(n)).astype(np.float32)
         s[..., 3] *= moon_a  # clipTo: 'moon'
         v.alpha_composite(Image.fromarray(s.astype(np.uint8), "RGBA"))
-    for n in ("clouds_dark_bleed16.png", "clouds_cream_bleed16.png"):
+    # the phase: over the moon and the clouds' shadows on it, under the clouds
+    if phase is not None:
+        p = Image.new("RGBA", v.size, (0, 0, 0, 0))
+        p.alpha_composite(phase, anchor)
+        v.alpha_composite(p)
+    for n in ("clouds_dark_bleed16.png", "clouds_cream_bleed16.png") if clouds else ():
         v.alpha_composite(at(n))
     return v
 
 
 # The phases in the month's order; None is the full moon (no file).
 PHASES = [
-    "crescent_young",
-    "crescent_waxing",
-    "quarter_first",
-    "gibbous_waxing",
-    None,
-    "gibbous_waning",
-    "quarter_last",
-    "crescent_waning",
+    "crescent_thin_waxing", "crescent_fat_waxing", "gibbous_thin_waxing",
+    "gibbous_fat_waxing", None, "gibbous_fat_waning", "gibbous_thin_waning",
+    "crescent_fat_waning", "crescent_thin_waning",
 ]
 
 
@@ -184,23 +181,18 @@ def moon_sheet(out: Path) -> None:
     crop = (470, 50, 744, 330)
     tiles, scenes = [], []
     for name in PHASES:
-        if name is None:
-            v = village(None)
-        else:
-            master = rgba(ROOT / f"docs/design/art/atmo/moon/{name}.png")
-            box = master.getchannel("A").getbbox()
-            webp = rgba(SKIN / f"atmo/moon/{name}.webp")
-            v = village(webp, box[:2])
-        moon_only = Image.new("RGBA", (768, 1024), GROUND)
-        moon_only.alpha_composite(rgba(LAYERS / "moon.png"))
+        webp, box = None, (0, 0)
         if name is not None:
-            moon_only.alpha_composite(webp, box[:2])
-        t = moon_only.crop(crop)
+            master = rgba(ROOT / f"docs/design/art/atmo/moon/{name}.png")
+            box = master.getchannel("A").getbbox()[:2]
+            webp = rgba(SKIN / f"atmo/moon/{name}.webp")
+        v = village(webp, box)
+        t = village(webp, box, clouds=False).crop(crop)
         tiles.append(t.resize((t.width * 2, t.height * 2), Image.NEAREST))
         scenes.append(v.crop((300, 0, 768, 420)))
     tw, th = tiles[0].size
     sw, sh = scenes[0].size
-    cols = 4
+    cols = 5
     a = Image.new("RGBA", (cols * (tw + gap) + gap, 2 * (th + gap) + gap), GROUND)
     for i, t in enumerate(tiles):
         a.alpha_composite(

@@ -53,8 +53,8 @@ FRAMES = [
     dict(h=1.00, w=1.00, lean=0, bow=0),  # 1 rest: today's flame
     dict(h=0.90, w=1.06, lean=13, bow=3),  # 2 a draught leans it right
     dict(h=0.64, w=1.20, lean=5, bow=-2),  # 3 it gutters: low and fat
-    dict(h=0.58, w=1.10, lean=-5, bow=-1, tongue=(-6, -15, -22, 0.95)),  # 4 split
-    dict(h=0.84, w=0.95, lean=-11, bow=-3, tongue=(-9, -21, -34, 0.78)),  # 5
+    dict(h=0.58, w=1.10, lean=-5, bow=-1, tongue=(-3, -7, -16, 0.9)),  # 4 a sliver tears
+    dict(h=0.84, w=0.95, lean=-11, bow=-3, tongue=(-5, -9, -30, 0.5)),  # 5 a fleck
     dict(h=1.10, w=0.90, lean=6, bow=2),  # 6 recovers, stretched
     dict(h=0.96, w=1.03, lean=-3, bow=-1),  # 7
     dict(h=1.01, w=0.99, lean=1, bow=0),  # 8 back toward the rest
@@ -142,7 +142,7 @@ def grain(rng: np.random.Generator) -> np.ndarray:
     fine = cv2.GaussianBlur(
         rng.standard_normal((h, w)).astype(np.float32), (0, 0), 0.5 * SS
     )
-    fine *= 4.5 / fine.std()
+    fine *= 5.5 / fine.std()
     slow = cv2.GaussianBlur(
         rng.standard_normal((h, w)).astype(np.float32), (0, 0), 2.6 * SS
     )
@@ -162,10 +162,10 @@ def grain(rng: np.random.Generator) -> np.ndarray:
     fib = cv2.GaussianBlur(fib, (0, 0), 0.3 * SS) * 6
     # specks: the flecks in the paper that catch the light or sit dark in it
     speck = np.zeros((h, w), np.float32)
-    n = int(0.05 * W * H)
+    n = int(0.11 * W * H)
     xs, ys = rng.integers(0, w, n), rng.integers(0, h, n)
     speck[ys, xs] = rng.choice([-1.0, 1.0], n, p=[0.35, 0.65]) * rng.uniform(0.5, 1, n)
-    speck = cv2.GaussianBlur(speck, (0, 0), 0.35 * SS) * (16 / speck_peak(0.35 * SS))
+    speck = cv2.GaussianBlur(speck, (0, 0), 0.35 * SS) * (22 / speck_peak(0.35 * SS))
     return fine + slow + fib + speck
 
 
@@ -273,7 +273,7 @@ def tongue_mask() -> np.ndarray:
     """The piece of the tip that flies off: the flame above a round cut."""
     yy, xx = np.mgrid[0 : H * SS, 0 : W * SS].astype(np.float32)
     X, Y = (xx + 0.5) / SS, (yy + 0.5) / SS
-    return (((X - 61.5) / 9.0) ** 2 + ((Y - 30) / 19.0) ** 2 < 1).astype(np.float32)
+    return (((X - 60.0) / 6.5) ** 2 + ((Y - 33) / 17.0) ** 2 < 1).astype(np.float32)
 
 
 def tongue(paper: np.ndarray, f: dict, outline: np.ndarray) -> np.ndarray:
