@@ -12,6 +12,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../test_screens/screen_catalogue.dart';
+import '../helpers/frame_cost.dart';
 import '../helpers/screen_sweep.dart';
 import '../helpers/stage_clock.dart';
 import 'not_yet_swept.dart';
@@ -53,7 +54,7 @@ void runSweep(int shard) {
           main: plan.main,
           mustSee: plan.mustSee,
           apart: plan.apart,
-          rules: [...plan.rules, stageClockProblems],
+          rules: [...plan.rules, stageClockProblems, frameCostProblems],
           whenOpened: plan.whenOpened,
         ),
         settleFrames: entry.frames ?? 10,

@@ -128,18 +128,27 @@ class LayeredArt extends StatelessWidget {
   /// Decodes every layer of [id] for a [box] of logical pixels, as they are
   /// drawn in it, so the first frame of a scene finds them. Not awaited.
   static void precache(BuildContext context, LayeredSceneId id, Size box) {
+    for (final image in decodes(context, id, box)) {
+      precacheImage(image, context, onError: (_, _) {});
+    }
+  }
+
+  /// Every layer of [id] as it is decoded for a [box] of logical pixels.
+  static List<ImageProvider> decodes(
+    BuildContext context,
+    LayeredSceneId id,
+    Size box,
+  ) {
     final art = context.skin.art;
     final scene = art.layeredScene(id);
     final geometry = SceneGeometry.cover(scene, box);
     final ratio = MediaQuery.devicePixelRatioOf(context);
-    for (final layer in scene.files) {
-      final size = geometry.rect(layer.anchor, layer.size).size;
-      precacheImage(
-        art.layer(id, layer).decodedFor(size, ratio),
-        context,
-        onError: (_, _) {},
-      );
-    }
+    return [
+      for (final layer in scene.files)
+        art
+            .layer(id, layer)
+            .decodedFor(geometry.rect(layer.anchor, layer.size).size, ratio),
+    ];
   }
 
   @override

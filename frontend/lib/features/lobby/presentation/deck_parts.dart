@@ -299,6 +299,20 @@ class _Chips extends StatelessWidget {
   );
 }
 
+/// The art 03 draws on a phone like [context]'s, as it decodes it: every
+/// role's portrait at its grid card's box. Decoded ahead while 02 shows
+/// (`ArtAhead`), so 03 opens on pictures already decoded.
+List<ImageProvider> deckArt(BuildContext context) {
+  final width = MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0, ScreenFrame.maxWidth).toDouble();
+  final box = _Grid._decodeBox(context, width - 2 * Space.gutter);
+  final ratio = MediaQuery.devicePixelRatioOf(context);
+  return [
+    for (final role in deckOrder) context.roleArt(role).decodedFor(box, ratio),
+  ];
+}
+
 /// Every role, face up, lit with its count when in [deck]: a tap puts one
 /// in, a lit card's minus takes one out, a hold reads it. Three across, or
 /// two where three would set a name ("Doppelganger") under the 14 px
@@ -334,11 +348,21 @@ class _Grid extends StatelessWidget {
     return widest;
   }
 
+  /// How many cards across, in a grid [room] wide.
+  static int _columns(BuildContext context, double room) =>
+      room >= 3 * _widestName(context) + 2 * _gap ? 3 : 2;
+
+  /// The box each card's portrait is decoded for, in a grid [room] wide.
+  static Size _decodeBox(BuildContext context, double room) {
+    final columns = _columns(context, room);
+    return RoleCard.gridDecodeBox((room - (columns - 1) * _gap) / columns);
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, room) {
-      final name = _widestName(context);
-      final columns = room.maxWidth >= 3 * name + 2 * _gap ? 3 : 2;
+      final columns = _columns(context, room.maxWidth);
+      final decodeAt = _decodeBox(context, room.maxWidth);
       return GridView.count(
         crossAxisCount: columns,
         shrinkWrap: true,
@@ -358,6 +382,7 @@ class _Grid extends StatelessWidget {
               onLongPress: () => unawaited(showRoleSheet(context, role)),
               onRemove: () => onRemove(role),
               removeLabel: SpokenCopy.takeOut.fill({'role': role.displayName}),
+              decodeAt: decodeAt,
             ),
         ],
       );

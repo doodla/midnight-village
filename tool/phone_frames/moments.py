@@ -47,8 +47,13 @@ class Run:
             await asyncio.sleep(0.1)
 
     async def rest(self, name, seconds=3.0):
+        tracing = self.measuring and getattr(self.args, "trace", "")
+        if tracing:
+            await self.P.trace_start()
         t0 = await self.P.now()
         await asyncio.sleep(seconds)
+        if tracing:
+            await self.P.trace_stop(tracing, name)
         if self.measuring:
             self.moments.append(
                 {"name": name, "kind": "screen", "t0": t0, "t1": await self.P.now()}

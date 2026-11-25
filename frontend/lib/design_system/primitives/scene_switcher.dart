@@ -79,10 +79,21 @@ class SceneSwitcher<T> extends StatefulWidget {
   /// brings it in, so a scene never lands on an empty header and the same
   /// decoded pictures are found. Not awaited.
   static void precacheHeader(BuildContext context, LayeredSceneId id) {
+    for (final image in headerArt(context, id)) {
+      precacheImage(image, context, onError: (_, _) {});
+    }
+  }
+
+  /// The layers of a scene's arriving header ([id]) as its screen decodes
+  /// them, on a phone like [context]'s.
+  static List<ImageProvider> headerArt(
+    BuildContext context,
+    LayeredSceneId id,
+  ) {
     final size = MediaQuery.sizeOf(context);
     final top = MediaQuery.paddingOf(context).top;
     final width = size.width.clamp(0, ScreenFrame.maxWidth).toDouble();
-    LayeredArt.precache(context, id, switch (id) {
+    return LayeredArt.decodes(context, id, switch (id) {
       LayeredSceneId.nightVillage => Size(
         width,
         TopArtLayout.backdrop.height + top,

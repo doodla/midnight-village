@@ -10,7 +10,6 @@ import '../../../../design_system/layout/space.dart';
 import '../../../../design_system/primitives/art_precache.dart';
 import '../../../../design_system/primitives/notice.dart';
 import '../../../../design_system/primitives/scene_switcher.dart';
-import '../../../../design_system/skin/art_set.dart';
 import '../../../../design_system/skin/card_back.dart';
 import '../../../../design_system/skin/card_back_scope.dart';
 import '../../../../design_system/skin/ground.dart';
@@ -26,6 +25,7 @@ import '../../domain/screen_table.dart';
 import '../card_back_provider.dart';
 import '../live_game.dart';
 import '../table_screen.dart';
+import 'art_ahead.dart';
 import 'end_screen.dart';
 import 'night_screen.dart';
 import 'talk_screen.dart';
@@ -72,8 +72,8 @@ class _TableShellState extends ConsumerState<TableShell>
   /// night's own `/me/` lands, the night's first screen is the card's frame.
   var _dealt = false;
 
-  /// The day's layers are decoded once this phone is at the night.
-  var _dawnWarm = false;
+  /// The screen whose next screens' art was last decoded ahead (`ArtAhead`).
+  AppScreen? _aheadOf;
 
   /// The game whose card back has been decoded (the fallback's is decoded at
   /// start).
@@ -85,20 +85,18 @@ class _TableShellState extends ConsumerState<TableShell>
     _wakelock = ref.read(wakelockServiceProvider);
     _keepAwake(_wakelock.enable);
     WidgetsBinding.instance.addObserver(this);
-    _warm(LayeredSceneId.nightVillage);
   }
 
-  /// The layers of a header decoded before the scene that brings it in, at
-  /// the size the screen draws them, so a scene never lands on an empty
-  /// header and the same decoded pictures are found. Not awaited: the app
-  /// does not start slower for it. The night's (04's village) when the shell
-  /// first shows, since the deal comes to every phone; the day's (08's dawn)
-  /// once the phone is at the night, so a player who is not yet dealt does
-  /// not fetch it.
-  void _warm(LayeredSceneId id) {
+  /// The art of the screens that can come after [screen], decoded while it
+  /// shows (`ArtAhead`): 03's portraits while on 02, 04's village from the
+  /// table, 08's dawn from the night, the end board's square during the
+  /// vote. After the frame, never awaited: the app does not wait for it.
+  void _ahead(AppScreen screen) {
+    if (_aheadOf == screen) return;
+    _aheadOf = screen;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      SceneSwitcher.precacheHeader(context, id);
+      ArtAhead.warm(context, screen);
     });
   }
 
@@ -144,14 +142,12 @@ class _TableShellState extends ConsumerState<TableShell>
   Widget build(BuildContext context) {
     final at = ref.watch(tableScreenProvider);
     final shown = at.value;
+    if (shown?.screen case final screen?) _ahead(screen);
     switch (shown?.screen) {
       case AppScreen.table || AppScreen.deck:
         _dealt = true;
       case AppScreen.yourCard || AppScreen.nightBoard:
-        if (!_dawnWarm) {
-          _dawnWarm = true;
-          _warm(LayeredSceneId.dawnGallows);
-        }
+        break;
       case _:
         _dealt = false;
     }

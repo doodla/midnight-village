@@ -426,6 +426,9 @@ def main():
         "--dpr", type=float, default=2.625, help="device pixels per point (2.625)"
     )
     a.add_argument("--analyse", default="", help="report a saved .raw.json again")
+    a.add_argument(
+        "--trace", default="", help="a Chrome trace of each screen at rest, here"
+    )
     args = a.parse_args()
     boxes = {}
     if not args.analyse:

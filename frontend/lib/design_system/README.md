@@ -706,7 +706,7 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   (every role and portrait, under every scope, with and without a game, the precaches' lists) against the bundle.
 - Art: `assets/skins/shadow_paper/{roles,tokens,scenes}/*.webp` and `layers/<scene>/*.webp` (the layered headers), at the pixel sizes the `ArtSet` declares
   (the contract test decodes each to check, and fails on a layer nothing declares).
-  Every picture is drawn through `ArtPicture`, which decodes it at the size it is shown (`ArtImage.decodedFor`: the full size, a half or a quarter).
+  Every picture is drawn through `ArtPicture`, which decodes it at the size it is shown (`ArtImage.decodedFor`: rounded up to an eighth of the full width, so never more than a step larger than drawn; the screen sweep fails a picture decoded larger).
   At start `SkinLoader.prepare` first reads the picture the app opens on
   (`openingArt`: 01's village, which the opening wait shows too; only its bytes: 01 decodes it at the size it draws, from those bytes; a full-size copy decoded here was one no screen drew),
   then runs `precacheArt(secretArt(skin))`, decoding every role portrait and the card back in use

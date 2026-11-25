@@ -24,6 +24,7 @@ import '../../../design_system/primitives/world_timer.dart';
 import '../../../design_system/skin/dress.dart';
 import '../../../design_system/skin/ground.dart';
 import '../../../design_system/skin/skin.dart';
+import '../../../design_system/skin/werewolf_portrait.dart';
 import '../../game/presentation/table_screen.dart' show localStepsProvider;
 import '../domain/lobby_state.dart';
 import '../domain/role_config.dart';

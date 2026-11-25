@@ -7,6 +7,7 @@
 # A build is kept in frontend/build/phone_frames/ and reused while the frontend's
 # commit and the backend port are the same (PHONE_FRAMES_REBUILD=1 forces one).
 # PHONE_FRAMES_FRONTEND=<a frontend folder> measures another checkout (main).
+# PHONE_FRAMES_PROFILE=1 builds a profile build (names kept, for `--trace`).
 # Not in the required checks: it needs Chrome, a web build and a few minutes.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -26,12 +27,14 @@ echo "[phone-frames] backend on $api_port"
 (cd "$root" && HARNESS_PORT=$api_port just harness-serve > "$work/backend.log" 2>&1) &
 pids+=($!)
 
-web="$front/build/phone_frames/web"
-stamp="$(git -C "$front" rev-parse HEAD)-$(git -C "$front" status --porcelain -- lib web pubspec.yaml assets | sha1sum | cut -c1-8)-$api_port"
+mode=release
+[ "${PHONE_FRAMES_PROFILE:-}" = 1 ] && mode=profile
+web="$front/build/phone_frames/web-$mode"
+stamp="$mode-$(git -C "$front" rev-parse HEAD)-$(git -C "$front" status --porcelain -- lib web pubspec.yaml assets | sha1sum | cut -c1-8)-$api_port"
 if [ "${PHONE_FRAMES_REBUILD:-}" = 1 ] || [ "$(cat "$web/.phone_frames" 2>/dev/null)" != "$stamp" ]; then
   echo "[phone-frames] building the web app (release, as tool/vercel_build.sh) for it"
   rm -rf "$web"
-  (cd "$front" && flutter build web --release --dart-define=ENV=prod \
+  (cd "$front" && flutter build web --$mode --dart-define=ENV=prod \
     --dart-define=API_ORIGIN="http://127.0.0.1:$api_port" --dart-define=BUILD_COMMIT= \
     --output "$web" > "$work/build.log" 2>&1) || { tail -30 "$work/build.log"; exit 2; }
   echo "$stamp" > "$web/.phone_frames"

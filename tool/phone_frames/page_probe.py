@@ -17,6 +17,8 @@
 import asyncio
 import base64
 import io
+import os
+import re
 import time
 
 from PIL import Image, ImageChops
@@ -205,6 +207,49 @@ class Page:
         await self.cdp.send(
             "Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []}
         )
+
+    # A Chrome trace of a moment (`--trace`): the main thread's tasks, the
+    # JavaScript samples (named in a profile build) and the GPU process.
+    TRACE = [
+        "devtools.timeline",
+        "disabled-by-default-devtools.timeline",
+        "disabled-by-default-devtools.timeline.frame",
+        "v8.execute",
+        "disabled-by-default-v8.cpu_profiler",
+        "blink.user_timing",
+        "gpu",
+        "viz",
+        "toplevel",
+    ]
+
+    async def trace_start(self):
+        await self.cdp.send(
+            "Tracing.start",
+            {
+                "transferMode": "ReturnAsStream",
+                "traceConfig": {"includedCategories": self.TRACE},
+            },
+        )
+
+    async def trace_stop(self, folder, name):
+        done = asyncio.get_running_loop().create_future()
+        self.cdp.once(
+            "Tracing.tracingComplete",
+            lambda e: done.done() or done.set_result(e["stream"]),
+        )
+        await self.cdp.send("Tracing.end")
+        stream = await done
+        chunks = []
+        while True:
+            got = await self.cdp.send("IO.read", {"handle": stream})
+            chunks.append(got["data"])
+            if got.get("eof"):
+                break
+        await self.cdp.send("IO.close", {"handle": stream})
+        os.makedirs(folder, exist_ok=True)
+        safe = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_")
+        with open(os.path.join(folder, safe + ".json"), "w") as f:
+            f.write("".join(chunks))
 
     async def screencast(self, on):
         if on:
