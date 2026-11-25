@@ -111,6 +111,62 @@ void main() {
       expect(h.revealed, 1);
     });
 
+    group('timed from the finger, on a phone too busy for its timers', () {
+      /// The finger down and up by its own clock, [held] apart, while the
+      /// app has [handled] of time between handling the two.
+      Future<void> busyHold(
+        WidgetTester tester, {
+        required Duration held,
+        Duration handled = Duration.zero,
+      }) async {
+        const landed = Duration(seconds: 30);
+        final finger = TestPointer(9);
+        await tester.sendEventToBinding(
+          finger.down(tester.getCenter(_card), timeStamp: landed),
+        );
+        await tester.pump(handled);
+        await tester.sendEventToBinding(finger.up(timeStamp: landed + held));
+        await tester.pump();
+      }
+
+      testWidgets('held 1.6 s, both handled at once: it counts, and the face '
+          'is not left up', (tester) async {
+        final h = _Harness();
+        await tester.pumpWidget(h.build());
+        await busyHold(tester, held: const Duration(milliseconds: 1600));
+        expect(h.revealed, 1);
+        expect(_face, findsNothing);
+        await tester.pump(const Duration(seconds: 2));
+        expect(h.revealed, 1, reason: 'once');
+      });
+
+      testWidgets('the face up late: the lift counts it by the finger', (
+        tester,
+      ) async {
+        final h = _Harness();
+        await tester.pumpWidget(h.build());
+        // The face showed (its timer ran) but the app saw only 300 ms of
+        // the finger's 1.2 s.
+        await busyHold(
+          tester,
+          held: const Duration(milliseconds: 1200),
+          handled: const Duration(milliseconds: 300),
+        );
+        expect(h.revealed, 1);
+        expect(h.changes, [true, false]);
+      });
+
+      testWidgets('a glance stays a glance: 0.5 s does not count', (
+        tester,
+      ) async {
+        final h = _Harness();
+        await tester.pumpWidget(h.build());
+        await busyHold(tester, held: const Duration(milliseconds: 500));
+        await tester.pump(const Duration(seconds: 1));
+        expect(h.revealed, 0);
+      });
+    });
+
     testWidgets('it stays as long as it is held: no cap', (tester) async {
       await tester.pumpWidget(_Harness().build());
       final longHold = await _press(tester);

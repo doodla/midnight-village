@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
@@ -11,6 +10,7 @@ import '../layout/space.dart';
 import '../skin/ground_scope.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
+import 'finger_hold.dart';
 import 'paper_flip.dart';
 import 'paper_light.dart';
 
@@ -45,7 +45,11 @@ class HoldPress extends InheritedWidget {
 /// - The face shows [holdDelay] after the press and hides on release, however
 ///   long it is held (no cap: spec section 8).
 /// - [onRevealed] fires once the face has been visible [revealedAfter]: a
-///   reveal counts then (it learns the `hold` cue and opens gates).
+///   reveal counts then (it learns the `hold` cue and opens gates). Both are
+///   timed from the finger, by the pointer events' own times
+///   ([FingerTimedLongPress], [fingerTime]): a busy phone that handles the
+///   landing late still counts a hold of [holdDelay] plus [revealedAfter]
+///   as the finger lifts.
 /// - A tap is not a reveal: it reaches the [cover] at once (on the night
 ///   board, a pick), with no double-tap wait.
 /// - A screen reader's activate, a switch or the keyboard (Enter, Space)
@@ -137,6 +141,12 @@ class _HoldToRevealState extends State<HoldToReveal>
   var _touching = false;
   Timer? _counts;
 
+  /// When the finger on the card landed and lifted, by the events' own
+  /// times ([fingerTime]): a hold that lasted long enough counts on the
+  /// lift even when the app was too busy to run its timers meanwhile.
+  Duration? _landed;
+  Duration? _lifted;
+
   bool get _visible => _shown != null;
 
   @override
@@ -225,7 +235,18 @@ class _HoldToRevealState extends State<HoldToReveal>
   }
 
   void _release() {
-    if (_shown == _Shown.held) _hide();
+    if (_shown != _Shown.held) return;
+    final landed = _landed;
+    final lifted = _lifted;
+    if (_counts != null &&
+        landed != null &&
+        lifted != null &&
+        fingerTime(landed, lifted) >=
+            HoldToReveal.holdDelay + HoldToReveal.revealedAfter) {
+      _stopTimers();
+      widget.onRevealed?.call();
+    }
+    _hide();
   }
 
   /// A finger lands or lifts: only the card turning in place shows it.
@@ -292,8 +313,13 @@ class _HoldToRevealState extends State<HoldToReveal>
                   )
                 : null,
             child: Listener(
-              onPointerDown: (_) => _touch(true),
-              onPointerUp: (_) {
+              onPointerDown: (event) {
+                _landed = event.timeStamp;
+                _lifted = null;
+                _touch(true);
+              },
+              onPointerUp: (event) {
+                _lifted = event.timeStamp;
                 _touch(false);
                 _release();
               },
@@ -306,11 +332,11 @@ class _HoldToRevealState extends State<HoldToReveal>
                 // Assistive technology shows it through the Semantics above.
                 excludeFromSemantics: true,
                 gestures: {
-                  LongPressGestureRecognizer:
+                  FingerTimedLongPress:
                       GestureRecognizerFactoryWithHandlers<
-                        LongPressGestureRecognizer
+                        FingerTimedLongPress
                       >(
-                        () => LongPressGestureRecognizer(
+                        () => FingerTimedLongPress(
                           duration: HoldToReveal.holdDelay,
                         ),
                         (recognizer) => recognizer

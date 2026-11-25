@@ -17,6 +17,12 @@ session reads; this page is for when you are about to touch the thing a rule is 
 - A control that waits for the next screen is freed when that read fails (`readAnswered`), and says "One moment" with "Try again".
 - A failure is the control's: never global state that can show up later on another screen.
 - Nothing here waits.
+- **A tap's request leaves the phone in the tap's own task** (owner, 24 November 2026: "Every tap was delayed and took a second to respond"; measured,
+  0.4 to 1.6 s from the finger to the request on a slowed phone): the session's tokens are held in memory (`TokenStorage`: storage is read once at start and
+  written through on every change), so signing a request reads no storage, and `AuthenticatedClient` and `ApiClient` send through `inThisTask`
+  (`core/api/in_this_task.dart`: Dio's own steps of no length run as microtasks, not as browser tasks the app's frames can come between).
+  `tap_leaves_now_test.dart` presses 08's "Ready to vote" with a storage that never answers after start and fails unless the request has reached the
+  HTTP client before any time passes or any frame is drawn. A second tab shares the saved session as before: its writes are read back (`storage` event).
 
 ## Waits: every place the app waits is `Waiting`
 

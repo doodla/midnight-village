@@ -77,7 +77,40 @@ void main() {
 
   group('AuthInterceptor', () {
     group('onRequest', () {
-      test('adds Bearer token when access token is present', () async {
+      test('signs with the token held in memory, before returning', () {
+        when(
+          () => mockStorage.held,
+        ).thenReturn((access: 'my_access_token', refresh: 'my_refresh'));
+
+        final options = RequestOptions(path: '/api/resource/');
+        final handler = MockRequestInterceptorHandler();
+
+        // Not awaited: the request is passed on in the same call.
+        buildInterceptor().onRequest(options, handler);
+
+        final captured =
+            verify(() => handler.next(captureAny())).captured.single
+                as RequestOptions;
+        expect(captured.headers['Authorization'], 'Bearer my_access_token');
+        verifyNever(() => mockStorage.accessToken);
+      });
+
+      test('no Authorization header when no token is held', () {
+        when(() => mockStorage.held).thenReturn((access: null, refresh: null));
+
+        final options = RequestOptions(path: '/api/resource/');
+        final handler = MockRequestInterceptorHandler();
+
+        buildInterceptor().onRequest(options, handler);
+
+        final captured =
+            verify(() => handler.next(captureAny())).captured.single
+                as RequestOptions;
+        expect(captured.headers.containsKey('Authorization'), false);
+      });
+
+      test('before storage was ever read, waits for that one read', () async {
+        when(() => mockStorage.held).thenReturn(null);
         when(
           () => mockStorage.accessToken,
         ).thenAnswer((_) async => 'my_access_token');
@@ -85,7 +118,8 @@ void main() {
         final options = RequestOptions(path: '/api/resource/');
         final handler = MockRequestInterceptorHandler();
 
-        await buildInterceptor().onRequest(options, handler);
+        buildInterceptor().onRequest(options, handler);
+        await pumpEventQueue();
 
         final captured =
             verify(() => handler.next(captureAny())).captured.single
@@ -93,22 +127,20 @@ void main() {
         expect(captured.headers['Authorization'], 'Bearer my_access_token');
       });
 
-      test(
-        'does not add Authorization header when no token in storage',
-        () async {
-          when(() => mockStorage.accessToken).thenAnswer((_) async => null);
+      test('a storage that cannot be read refuses the request', () async {
+        when(() => mockStorage.held).thenReturn(null);
+        when(
+          () => mockStorage.accessToken,
+        ).thenAnswer((_) async => throw StateError('no storage'));
+        registerFallbackValue(DioException(requestOptions: RequestOptions()));
 
-          final options = RequestOptions(path: '/api/resource/');
-          final handler = MockRequestInterceptorHandler();
+        final handler = MockRequestInterceptorHandler();
+        buildInterceptor().onRequest(RequestOptions(path: '/x/'), handler);
+        await pumpEventQueue();
 
-          await buildInterceptor().onRequest(options, handler);
-
-          final captured =
-              verify(() => handler.next(captureAny())).captured.single
-                  as RequestOptions;
-          expect(captured.headers.containsKey('Authorization'), false);
-        },
-      );
+        verify(() => handler.reject(any())).called(1);
+        verifyNever(() => handler.next(any()));
+      });
     });
 
     group('onError', () {

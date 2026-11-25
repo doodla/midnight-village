@@ -4,10 +4,15 @@ import 'package:flutter/foundation.dart';
 import '../config/env.dart';
 import '../requests/player_request.dart';
 import 'auth_interceptor.dart';
+import 'in_this_task.dart';
 import '../update/stale_page_interceptor.dart';
 import 'logging_interceptor.dart';
 
 /// Authenticated HTTP client that injects JWT tokens on every request.
+///
+/// Every request leaves in the task that made it ([inThisTask]; the token
+/// is held in memory, `TokenStorage.held`): a tap's request is not held
+/// back behind the frames the app draws meanwhile.
 ///
 /// Wraps [Dio] with an [AuthInterceptor] attached. Use this client for all
 /// endpoints that require authentication. Unauthenticated endpoints (e.g. guest
@@ -48,22 +53,23 @@ class AuthenticatedClient {
   /// How long a request waits to connect, and for its answer.
   static const timeout = Duration(seconds: 10);
 
-  Future<Response<T>> get<T>(String path) => _dio.get<T>(path);
+  Future<Response<T>> get<T>(String path) =>
+      inThisTask(() => _dio.get<T>(path));
 
   /// The writes take the [Door] (`core/requests/player_request.dart`): the
   /// one door every request a player's tap makes goes through.
   Future<Response<T>> post<T>(Door door, String path, {Object? data}) {
     door.require('POST $path');
-    return _dio.post<T>(path, data: data);
+    return inThisTask(() => _dio.post<T>(path, data: data));
   }
 
   Future<Response<T>> patch<T>(Door door, String path, {Object? data}) {
     door.require('PATCH $path');
-    return _dio.patch<T>(path, data: data);
+    return inThisTask(() => _dio.patch<T>(path, data: data));
   }
 
   Future<Response<T>> delete<T>(Door door, String path, {Object? data}) {
     door.require('DELETE $path');
-    return _dio.delete<T>(path, data: data);
+    return inThisTask(() => _dio.delete<T>(path, data: data));
   }
 }

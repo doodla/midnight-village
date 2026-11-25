@@ -142,10 +142,12 @@ class _Phone {
       return AuthenticatedClient.forTesting(dio: signedIn);
     }
 
+    // One holder of the tokens for the app and its sockets, as in the app.
+    final tokens = TokenStorage(storage: device);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          tokenStorageProvider.overrideWithValue(TokenStorage(storage: device)),
+          tokenStorageProvider.overrideWithValue(tokens),
           userStorageProvider.overrideWithValue(UserStorage(storage: device)),
           apiClientProvider.overrideWithValue(ApiClient(dio: http.dio)),
           authenticatedClientProvider.overrideWith(signedInClient),
@@ -156,7 +158,7 @@ class _Phone {
           lobbyWebSocketFactoryProvider.overrideWithValue((code) {
             final socket = ReconnectingWebSocket(
               url: 'ws://midnight.example/ws/lobby/$code/',
-              tokenStorage: TokenStorage(storage: device),
+              tokenStorage: tokens,
               channelFactory: (_) =>
                   MockWebSocketChannel(opens: _lobbyOpens?.future),
             );
