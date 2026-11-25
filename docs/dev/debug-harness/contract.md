@@ -303,7 +303,8 @@ auto-finalize); happy-path
 transitions use existing host endpoints (`advance-wave`, `end-discussion`,
 `reveal-votes`). DEBUG-only. Mechanism (the review corrected the draft):
 
-(Superseded: timers are now `ScheduledTimer` rows, `apps/core/timers.py`; the in-process `_registry` only holds the memory backend's threads and `debug-fire-timer` claims the row, see the "durable rows" note above.) It used to read: `apps/onuw/timers.py` `_registry` stores **`threading.Timer` objects, not callbacks**.
+(Superseded: timers are now `ScheduledTimer` rows, `apps/core/timers.py`; the in-process `_registry` only holds the memory backend's threads and `debug-fire-timer` claims the row, see the "durable rows" note above.)
+It used to read: `apps/onuw/timers.py` `_registry` stores **`threading.Timer` objects, not callbacks**.
 To fire synchronously: look up `f"{game_id}:{suffix}"`, then `timer.cancel()` (so the
 wall-clock copy doesn't also fire) and call `timer.function(*timer.args)`. This
 composes safely — there's no `ATOMIC_REQUESTS`, and `make_idempotent_callback` opens

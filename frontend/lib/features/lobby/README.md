@@ -70,7 +70,11 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   code once read) is `ScanSession` (`presentation/scan/scan_session.dart`), outside 01's widgets, because
   `HomeGate` swaps one 01 for another when a join starts; it closes when the join ends or is
   refused. The camera refused, none, or an insecure page: `ScanProblem`, a `ShutteredWindow`, one line and "Type
-  the code". A scanner left open when 01 goes away ends (`ScanSession.left`), so only a tap starts the camera; a table's link shows none. A scanned code goes into 01's draft (`JoinDraft`) like a typed one, so 01, made again while the join runs or when it is refused, has the code in its field; the scanned join is `JoinFlow.join`, through `playerRequest`, with the same "Not sent." and "Try again". In browsers with no built-in detector the scanner decodes with the app's own `web/zxing/` (`own_decoder_web.dart`). The ways in are `JoinFlow`
+  the code". A scanner left open when 01 goes away ends (`ScanSession.left`), so only a tap starts the camera;
+  a table's link shows none. A scanned code goes into 01's draft (`JoinDraft`) like a typed one, so 01, made again while the join runs or when it is refused,
+  has the code in its field; the scanned join is `JoinFlow.join`, through `playerRequest`, with the same "Not sent." and "Try again".
+  In browsers with no built-in detector the scanner decodes with the app's own `web/zxing/` (`own_decoder_web.dart`).
+  The ways in are `JoinFlow`
   (`join_flow.dart`), outside any widget: the account (this device's when it has that name,
   else a new guest: the server has no rename), then `createTable` (always `defaults: "v2"`)
   or a join by code (`already_in_lobby` is no refusal: the player is there), then the screen
@@ -87,7 +91,13 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   `already_in_lobby` names no seat, so `/me/table/` is read then, as after any failure. The
   flow holds `/me/table/` until the frame that shows the table has taken it (let go sooner,
   it was disposed and read again). Counted in
-  `test/features/lobby/presentation/answers_used_test.dart`. Refusals are the spec's banners; no answer is "Not sent." with "Try again". "Start a table" and "Join" each show busy on themselves in the frame of the tap (the other way in and the field are dead meanwhile), and 01 stays until `/me/table/` names 02. Every request here goes through `playerRequest` (`core/requests`); `JoinFlow` is the one place a busy is global state (the account it makes first swaps the screen), and its failure is cleared once the phone is at any screen but 01, so it can never show up later after a Leave. A
+  `test/features/lobby/presentation/answers_used_test.dart`.
+  Refusals are the spec's banners; no answer is "Not sent." with "Try again".
+  "Start a table" and "Join" each show busy on themselves in the frame of the tap (the other way in and the field are dead meanwhile), and 01 stays until
+  `/me/table/` names 02. Every request here goes through `playerRequest` (`core/requests`);
+  `JoinFlow` is the one place a busy is global state (the account it makes first swaps the screen), and its failure is cleared once the phone is at any screen
+  but 01, so it can never show up later after a Leave.
+  A
   link to another table while seated at one, and the server's 409 `already_at_table`, say
   "You're at another table." with "Go there" (it reads `/me/table/` again): never a silent
   second seat.
@@ -130,7 +140,16 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   own answer says why; while this phone's own change is on its way (`CanDealSoon`) it keeps
   "Start the game", `PrimaryButton.waiting`. Nobody is asked to be ready. A deal
   refused all the same says why when the refusal gives a reason worth saying
-  (`LobbyNotifier.dealRefusal`), never a bare "Not sent.". A quiet "Leave" (`TextAction`): the host's a word at the main button's side (left of it, on its line), a guest's a word right under the set-up (never alone at the foot of an empty screen); the host's asks first ("Stay" / "Leave"). Either shows it is on its way at once (`busy`: a `BusyMark` lantern in its own padding, the words unmoved). The deal stays busy until `/me/table/` names the next screen (`LobbyNotifier.deal` returns only then), so Deal is never live again between the answer and the dusk. Leave is a `Pending` too (`AtTableScreen._leave`): busy until `/me/table/` names 01, "Not sent." or the server's reason on the control, and a seat read that keeps failing frees it and says "One moment" with "Try again". 02 and 03 wait with `Waiting` (lanterns, "One moment" with "Try again" for a lobby that cannot be read), never a bare ground. Leaving
+  (`LobbyNotifier.dealRefusal`), never a bare "Not sent.".
+  A quiet "Leave" (`TextAction`): the host's a word at the main button's side (left of it, on its line), a guest's a word right under the set-up
+  (never alone at the foot of an empty screen);
+  the host's asks first ("Stay" / "Leave").
+  Either shows it is on its way at once (`busy`: a `BusyMark` lantern in its own padding, the words unmoved).
+  The deal stays busy until `/me/table/` names the next screen (`LobbyNotifier.deal` returns only then), so Deal is never live again between the answer and the
+  dusk. Leave is a `Pending` too (`AtTableScreen._leave`):
+  busy until `/me/table/` names 01, "Not sent." or the server's reason on the control, and a seat read that keeps failing frees it and says "One moment" with
+  "Try again". 02 and 03 wait with `Waiting` (lanterns, "One moment" with "Try again" for a lobby that cannot be read), never a bare ground.
+  Leaving
   (`LobbyNotifier.leave`): `not_in_lobby` (400) and a table gone (404) count as left (an
   earlier leave got there); another refusal says why ("That table is playing now.", else
   "Can't leave now."); no answer (no connection, the client's 10 s wait run out, a 5xx):
