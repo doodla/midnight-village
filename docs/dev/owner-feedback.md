@@ -4,6 +4,19 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 24 November 2026, playing the live app with friends: the start and play again (written, verbatim)
+
+> updates are really slow. Someone starts the game and it takes forever for my screen to update. Same with restarts as well
+
+> 5-7 seconds ish. But that feels like forever.
+
+HANDLED (branch `start-lands-fast`): the socket and the server were fast; the phone was not.
+A phone that missed `game_started` or `play_again` (its socket down at that moment, the phone
+asleep) waited at 02 for the 15 s poll; now any lobby that says the table is in a game, the
+socket coming back and the app coming back read where the phone sits at once. And the event
+itself moves the screen (the dusk on `game_started`, 02 on `play_again`), the reads filling in
+behind. `just phone-timing` measures tap to guest screen on a slowed phone against a budget.
+
 ## 24 November 2026, when an open app reloads itself to a new version (the owner's board: a button, not their words)
 
 > Reload only when nobody waits

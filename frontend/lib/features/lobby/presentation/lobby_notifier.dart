@@ -15,14 +15,17 @@ import '../../../design_system/copy/copy.dart';
 import '../../../design_system/primitives/pending.dart' show RequestRefused;
 import '../../../features/auth/domain/auth_state.dart';
 import '../../../features/auth/presentation/auth_notifier.dart';
+import '../../game/domain/game_me.dart' show GamePhase;
 import '../data/lobby_service.dart';
 import '../domain/lobby_state.dart';
 import '../domain/settings_lane.dart';
+import '../domain/where_am_i.dart';
 import 'deal_refusal.dart';
 import 'where_am_i_provider.dart';
 
 part 'lobby_notifier.g.dart';
 part 'lobby_taps.dart';
+part 'lobby_seat.dart';
 
 /// A leave the server refused, with the words to show ([why]): never "Not
 /// sent.", which is only for a leave that did not reach the server.
@@ -104,12 +107,12 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
 /// - `game_started` -> extract game_id for navigation (WS provider auto-disposes)
 ///
 /// A table runs several games one after another: every start sets a new
-/// [LobbyState.startedGameId], and a lobby opened while a game is already
-/// running (the start event came before the socket was up) looks the game up.
+/// [LobbyState.startedGameId] and seats this phone in the game; a lobby
+/// ahead of the phone asks where it sits (lobby_seat.dart).
 /// Its first read heals like every fetch a screen depends on: retried until
 /// it answers ([retryForever]); 02 and 03 say "One moment" meanwhile.
 @Riverpod(retry: retryForever)
-class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
+class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
   StreamSubscription<dynamic>? _wsSubscription;
   StreamSubscription<WebSocketConnectionState>? _connectionSubscription;
   Timer? _noticeTimer;
@@ -133,12 +136,13 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
   Future<void>? _refreshing;
   bool _refreshAgain = false;
 
-  /// Shown from a join's answer ([LobbySeed], not settled): read once more
-  /// when the socket is first up.
+  /// Read once more when the socket is first up, as when it comes back
+  /// (not a table its host just opened: [LobbySeed] settled).
   bool _readWhenUp = false;
 
   /// The lobby state events act on: the snapshot being replayed on, else the
   /// lobby under the screen.
+  @override
   LobbyState? get _current => _working ?? _base;
 
   /// [next] is the lobby under the screen (in a replay, the snapshot replayed
@@ -174,6 +178,7 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     // Another host named: this phone's lane is a guest's (nothing kept).
     if (_me case final me?) _lane = _lane.hosting(isHost: base.hostId == me);
     state = AsyncData(_lane.over(base));
+    _askWhereIfMoved(base);
   }
 
   /// Whether a lobby the server sent is shown: not older than the newest
@@ -213,18 +218,18 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     _buffering = true;
     _buffered.clear();
     final seed = ref.read(lobbySeedProvider).take(code);
-    _readWhenUp = seed != null && !seed.settled;
+    _readWhenUp = seed?.settled != true;
     _connectWebSocket(code);
+
+    _readOnResume();
 
     // The start's or the join's answer is the lobby: no read before 02.
     if (seed != null) return _first(seed.lobby);
 
     // Fetch initial lobby state
-    final lobbyState = await service.fetchLobby(code);
-
-    if (lobbyState.status == 'in_game') unawaited(_findRunningGame());
-
-    return _first(lobbyState);
+    final lobbyState = _first(await service.fetchLobby(code));
+    _askWhereIfMoved(_base ?? lobbyState);
+    return lobbyState;
   }
 
   /// The first lobby: the newest shown, with the events held meanwhile.
@@ -262,7 +267,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
         },
       );
       // After a dropped connection comes back, read the lobby again: events
-      // (including a host change) may have been missed meanwhile.
+      // (including a host change) may have been missed meanwhile; a lobby
+      // ahead of the phone asks where it sits (judged: one read).
       final ws = _webSocket;
       if (ws is ReconnectingWebSocket) {
         var wasDown = false;
@@ -271,7 +277,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
               (wasDown || _readWhenUp)) {
             wasDown = false;
             _readWhenUp = false;
-            unawaited(refreshLobby());
+            // After the first read (it may predate the socket listening).
+            unawaited(future.then((_) => refreshLobby(), onError: (_) {}));
           } else if (s == WebSocketConnectionState.disconnected ||
               s == WebSocketConnectionState.reconnecting) {
             wasDown = readOnDrop(s, refreshLobby);
@@ -512,28 +519,17 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps {
     if (id != null) _applyStartedGame(id);
   }
 
-  /// Records the started game and flips the table to in-game so listeners
-  /// (the lobby screen) open it.
+  /// Records the started game, flips the table to in-game, and puts this
+  /// phone in it ([_seatIn]); a start it is already in changes nothing.
   @override
   void _applyStartedGame(String id) {
+    if (_alreadyIn(id)) return;
     gameId = id;
     final current = _current;
     if (current != null) {
       _set(current.copyWith(status: 'in_game', startedGameId: id));
     }
-  }
-
-  /// A lobby opened while its game is already running missed `game_started`.
-  Future<void> _findRunningGame() async {
-    // Let build finish first.
-    await Future<void>.delayed(Duration.zero);
-    if (!ref.mounted) return;
-    try {
-      final id = await ref.read(lobbyServiceProvider).activeGameIdAt(code);
-      if (id != null && ref.mounted && gameId == null) _applyStartedGame(id);
-    } catch (e) {
-      logger.d('Could not look up the running game ($e)');
-    }
+    _seatIn(id);
   }
 
   /// What a refused deal means to the host ([dealRefusalOf]).

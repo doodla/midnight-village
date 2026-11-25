@@ -153,13 +153,6 @@ class IntegrationTestSetup {
           data: ServerBodies.myTableNone,
         ),
       )
-      ..when(method: 'GET', path: '/onuw/me/current-game/').thenReturn(
-        Response<Map<String, dynamic>>(
-          requestOptions: RequestOptions(path: '/onuw/me/current-game/'),
-          statusCode: 200,
-          data: ServerBodies.currentGameNone,
-        ),
-      )
       ..when(method: 'GET', path: '/onuw/me/recent-games/').thenReturn(
         Response<Map<String, dynamic>>(
           requestOptions: RequestOptions(path: '/onuw/me/recent-games/'),

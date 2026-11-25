@@ -131,6 +131,10 @@ test-contract:
 test-harness:
     {{frontend_just}} test-harness
 
+# Tap to guest screen on a slowed phone (deal, play again) against a budget; own backend, web build, Chrome. About 5 minutes. Usage: just phone-timing [rounds]
+phone-timing *args:
+    tool/phone_timing/run.sh {{args}}
+
 # --- Code Quality ---
 
 # Run backend linting
