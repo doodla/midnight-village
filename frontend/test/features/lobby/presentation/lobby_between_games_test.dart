@@ -47,24 +47,12 @@ class _Table {
   LobbyNotifier get notifier => container.read(lobbyProvider(_code).notifier);
 }
 
-Future<_Table> _open({
-  LobbyState? lobby,
-  String? runningGameId,
-  String runningGameCode = _code,
-  bool lookUpFails = false,
-}) async {
+Future<_Table> _open({LobbyState? lobby}) async {
   final service = _MockLobbyService();
   final ws = MockWebSocketChannel();
   when(
     () => service.fetchLobby(_code),
   ).thenAnswer((_) async => lobby ?? _lobby());
-  if (lookUpFails) {
-    when(() => service.activeGameIdAt(_code)).thenThrow(Exception('offline'));
-  } else {
-    when(
-      () => service.activeGameIdAt(_code),
-    ).thenAnswer((_) async => runningGameCode == _code ? runningGameId : null);
-  }
   final container = ProviderContainer(
     overrides: [
       lobbyServiceProvider.overrideWithValue(service),
@@ -78,9 +66,6 @@ Future<_Table> _open({
   final sub = container.listen(lobbyProvider(_code), (_, _) {});
   addTearDown(sub.close);
   await container.read(lobbyProvider(_code).future);
-  // The running game is looked up after the first build.
-  await Future<void>.delayed(Duration.zero);
-  await Future<void>.delayed(Duration.zero);
   return _Table(container, service, ws);
 }
 
@@ -130,38 +115,6 @@ void main() {
 
       expect(t.lobby.startedGameId, 'game-three');
     });
-
-    test('finds a game that already started before the lobby opened', () async {
-      final t = await _open(
-        lobby: _lobby(status: 'in_game'),
-        runningGameId: 'game-two',
-      );
-
-      expect(t.lobby.startedGameId, 'game-two');
-    });
-
-    test('ignores a running game that belongs to another table', () async {
-      final t = await _open(
-        lobby: _lobby(status: 'in_game'),
-        runningGameId: 'elsewhere',
-        runningGameCode: 'OTHER1',
-      );
-
-      expect(t.lobby.startedGameId, isNull);
-    });
-
-    test(
-      'a failed look-up for the running game leaves the lobby as it is',
-      () async {
-        final t = await _open(
-          lobby: _lobby(status: 'in_game'),
-          lookUpFails: true,
-        );
-
-        expect(t.lobby.startedGameId, isNull);
-        expect(t.lobby.status, 'in_game');
-      },
-    );
 
     test('a deal that does not reach the server says "Not sent." and Try '
         'again deals', () async {

@@ -14,10 +14,10 @@ import '../../../helpers/table_setup.dart';
 // row"): an answer that says where the player sits is used, never read
 // again. Start = the guest account, then the table (its answer is the
 // lobby); Join = the account, then the join; Deal = the start, then the
-// table and the dealt game side by side (its answer does not say the phase,
-// so the deal keeps main's two reads in one round trip). Every request the
-// app sends is listed (a request with no mock fails the test), so a read
-// added back fails here.
+// dealt game's `/me/` only (a new deal is always at the night: the answer is
+// where the host sits, and the dusk starts on it). Every request the app
+// sends is listed (a request with no mock fails the test), so a read added
+// back fails here.
 
 /// The requests sent from the [from]th on, as "METHOD path", leaving out
 /// 01's home numbers (the players online, the last game), which are read
@@ -96,7 +96,10 @@ void main() {
       ..answer('POST', '/auth/guest/', _guest('Ben', ben), status: 201)
       ..answer('POST', '/lobbies/$code/join/', joined)
       // Where the server has Ben now (never asked: the join said it).
-      ..answer('GET', '/me/table/', serverMyTable(code: code));
+      ..answer('GET', '/me/table/', serverMyTable(code: code))
+      // The lobby, read once more as its socket is up (a join said before
+      // the socket listened).
+      ..answer('GET', '/lobbies/$code/', joined);
     await tester.enterText(find.byType(TextField), 'Ben');
     await tester.pump();
     await _tapText(tester, JoinCopy.joinTable);
@@ -117,6 +120,7 @@ void main() {
     expect(_sent(setup, from), [
       'POST /auth/guest/',
       'POST /lobbies/$code/join/',
+      'GET /lobbies/$code/',
     ]);
     await setup.close(tester);
   });
@@ -141,9 +145,14 @@ void main() {
     await _tapText(tester, JoinCopy.join);
     await _until(tester, () => _shows(find.byType(AtTableView)));
 
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(Duration.zero);
+    }
     expect(_sent(setup, from), [
       'POST /lobbies/V9YC2J/join/',
       'GET /me/table/',
+      'GET /lobbies/V9YC2J/',
+      // Once more as its socket is up; where the player sits is not.
       'GET /lobbies/V9YC2J/',
     ]);
     await setup.close(tester);
@@ -179,16 +188,21 @@ void main() {
     await _tapText(tester, BannerCopy.tryAgain);
     await _until(tester, () => _shows(find.byType(AtTableView)));
 
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(Duration.zero);
+    }
     expect(_sent(setup, from), [
       'POST /lobbies/V9YC2J/join/',
       'GET /me/table/',
+      'GET /lobbies/V9YC2J/',
+      // Once more as its socket is up; where the player sits is not.
       'GET /lobbies/V9YC2J/',
     ]);
     await setup.close(tester);
   });
 
-  testWidgets('Deal: the start, then the table and the dealt game read side '
-      'by side (one round trip after the answer, as on main)', (tester) async {
+  testWidgets('Deal: the start, then the dealt game alone (where the host '
+      'sits is the answer: no read of it)', (tester) async {
     final setup = await TableSetup.pump(
       tester,
       lobby: v2Lobby('detail_auto_deck_5'),
@@ -211,14 +225,16 @@ void main() {
       TableCopy.start,
       beforeLift: () => from = setup.http.requests.length,
     );
-    await _until(tester, () {
-      final sent = _sent(setup, from);
-      return sent.contains(me) && sent.contains('GET /me/table/');
-    });
+    await _until(tester, () => _sent(setup, from).contains(me));
+    // A few frames more: nothing reads where the host sits.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(Duration.zero);
+    }
 
     final sent = _sent(setup, from);
-    expect(sent.first, 'POST /onuw/lobbies/V9YC2J/start/');
-    expect(sent.skip(1).take(2).toSet(), {'GET /me/table/', me});
+    expect(sent.take(2), ['POST /onuw/lobbies/V9YC2J/start/', me]);
+    // (A later `/me/` is the recorded stage's own deadline read.)
+    expect(sent.toSet(), {'POST /onuw/lobbies/V9YC2J/start/', me});
     await setup.close(tester);
   });
 }

@@ -106,6 +106,17 @@ test-migrations: _env
 samples: _env
     UPDATE_CONTRACT_SAMPLES=1 uv run pytest tests/contract/test_contract_samples.py --no-cov -q
 
+# Re-record tests/perf/tap_budget.json (what each request costs the server at ten
+# seats) after a change that adds or removes a query: review the diff, commit it.
+tap-budget: _env
+    UPDATE_TAP_BUDGET=1 uv run pytest tests/perf/test_tap_query_budget.py --no-cov -q -k budget_says
+
+# Print, per request, timer and socket opening of a whole game at 3, 6 and 10 seats:
+# database round trips, row locks, socket and timer messages and the time here
+# (local Postgres). `just server-timing sql` also prints the queries at ten seats.
+server-timing what="1": _env
+    SERVER_TIMING={{what}} uv run pytest tests/perf/test_server_timing.py --no-cov -q -s
+
 # Run tests with coverage report (uses pyproject.toml config)
 test-cov: _env
     uv run pytest

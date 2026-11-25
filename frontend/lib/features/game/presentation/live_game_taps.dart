@@ -21,6 +21,11 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
   abstract int _ids;
   abstract int? _acked;
 
+  /// This phone's own play again is on its way: its answer seats the phone
+  /// with the table's lobby ([playAgain]), so the `play_again` event that
+  /// may come first reads `/me/table/` as before instead of seating it.
+  bool _playingAgain = false;
+
   // ---------------------------------------------------------------------------
   // Taps out, through the outbox.
   // ---------------------------------------------------------------------------
@@ -262,16 +267,19 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
   /// ([serverAnswered]) says why ([RequestRefused]), never "Not sent."; no
   /// answer reaches the caller as it is. The answer is the table's lobby,
   /// waiting, with this game still its newest: 02 shows it ([LobbySeed]) and
-  /// `/me/table/` takes it ([seatFromAnswer]), so nothing is asked after the
+  /// `/me/table/` takes it ([seatFromServer]), so nothing is asked after the
   /// tap.
   Future<void> playAgain() => _atTable((door) async {
     final LobbyState lobby;
+    _playingAgain = true;
     try {
       lobby = await ref
           .read(lobbyServiceProvider)
           .playAgain(door, _game.server.lobbyCode);
     } catch (e) {
       throw _refused(e, BannerCopy.cannotDeal) ?? e;
+    } finally {
+      _playingAgain = false;
     }
     if (!ref.mounted) return true;
     // Others may leave before 02's socket listens: read once more then.
@@ -283,7 +291,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
         game: (id: gameId, phase: GamePhase.results),
       );
       if (seat != null) {
-        seatFromAnswer(ref, user.id, seat);
+        seatFromServer(ref, user.id, seat);
         return true;
       }
     }
@@ -314,7 +322,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
       : null;
 
   /// Runs a tap at the game's table. [call] says whether its answer already
-  /// put the phone where it sits ([seatFromAnswer]); else `/me/table/` is
+  /// put the phone where it sits ([seatFromServer]); else `/me/table/` is
   /// read after it. Read again after a seat was put, it would be asked for
   /// all the same whenever the seat had been taken in between.
   Future<void> _atTable(Future<bool> Function(Door door) call) async {
@@ -339,7 +347,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
       _healTimer?.cancel();
       return;
     }
-    ref.invalidate(myTableProvider);
+    askWhere(ref);
     _update((s) => s.copyWith(tableClosed: true));
     ref.read(joinFlowProvider.notifier).tableClosed();
   }

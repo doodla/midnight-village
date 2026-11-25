@@ -131,6 +131,10 @@ test-contract:
 test-harness:
     {{frontend_just}} test-harness
 
+# Tap to guest screen on a slowed phone (deal, play again) against a budget; own backend, web build, Chrome. About 5 minutes. Usage: just phone-timing [rounds]
+phone-timing *args:
+    tool/phone_timing/run.sh {{args}}
+
 # --- Code Quality ---
 
 # Run backend linting
@@ -420,3 +424,11 @@ test-migrations *args:
 # (frontend) Usage: just end-link-pictures [folder]
 end-link-pictures *args:
     {{frontend_just}} end-link-pictures {{args}}
+
+# (backend) What each request of a game costs the server at 3, 6 and 10 seats (`sql`: the queries)
+server-timing *args:
+    {{backend_just}} server-timing {{args}}
+
+# (backend) Re-record tests/perf/tap_budget.json after a change that adds or removes a query
+tap-budget *args:
+    {{backend_just}} tap-budget {{args}}
