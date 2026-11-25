@@ -251,11 +251,35 @@ There is one look today: **Shadow paper** (from `docs/design/mocks/S*.dc.html`).
 
 ## Press and Ambient (`feel/`: the motion layer; no part uses them yet)
 
-One press and one loop for the whole kit, so a tap answers the frame the finger lands and nothing idles unseen (`docs/design/feel.md`, principles 1, 3 and 6). Today each tappable primitive keeps its own `_touch` and the three loops (`WaitingSign`, `LanternMark`, `HoldCue`) their own `repeat`; they move onto these one at a time, in a later piece.
+One press and one loop for the whole kit, so a tap answers the frame the finger lands and nothing idles unseen (`docs/design/feel.md`, principles 1, 3 and 6).
+Today each tappable primitive keeps its own `_touch` and the three loops (`WaitingSign`, `LanternMark`, `HoldCue`) their own `repeat`;
+they move onto these one at a time, in a later piece.
 
-- **`Pressable`** (`feel/press.dart`): a `Listener` round the part. The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it; it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, a slide off the part or past the tap's slop (`holds: true`, for a hold, only on the lift or cancel), over `Motion.quick` on `Motion.land` (a settle under a tenth past rest). It never joins the gesture arena: the `GestureDetector`, `InkWell` or `HoldToReveal` inside fires exactly when it would without it (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through; it runs when the part is built, never per frame, so only a paint layer listens. `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest). Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws). A locked part keeps `enabled` and still answers; only a part that must not move turns it off. Its own `RepaintBoundary`. Adopting it:
+- **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
+  The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
+  it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, a slide off the part or past the tap's slop
+  (`holds: true`, for a hold, only on the lift or cancel), over `Motion.quick` on `Motion.land` (a settle under a tenth past rest).
+  It never joins the gesture arena: the `GestureDetector`, `InkWell` or `HoldToReveal` inside fires exactly when it would without it
+  (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through;
+  it runs when the part is built, never per frame, so only a paint layer listens.
+  `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest).
+  Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws).
+  A locked part keeps `enabled` and still answers;
+  only a part that must not move turns it off.
+  Its own `RepaintBoundary`. Adopting it:
   `Pressable(builder: (context, press, child) => PressSink(press: press, by: dip, child: child), child: GestureDetector(onTap: onTap, child: paper))`
-- **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`; today's three loops are a dated list that only shrinks). It ticks only while the app is in front (`AppForeground`, one lifecycle observer for every `Ambient`: `resumed` or `inactive`, which is still on screen; not `hidden` or `paused`), its `TickerMode` is on (a covered or leaving screen) and its owner's `running` holds; stopped, it holds where it was and goes on from there. With reduce motion it rests at its declared `still`. No visibility check beyond these: a part scrolled out of a lazy list is not built, and a screen under a sheet still shows through the scrim, so it keeps living there. Period `Motion.ambient` and curve `Motion.breathe` by default (there and back; `reverse: false` for a turn). The loop drives paint only, in its own `RepaintBoundary`: hand it to a painter's `repaint:` or a `FadeTransition`, never an `AnimatedBuilder` round the child. Adopting it:
+- **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock
+  (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`; today's three loops are a dated list that only shrinks).
+  It ticks only while the app is in front
+  (`AppForeground`, one lifecycle observer for every `Ambient`: `resumed` or `inactive`, which is still on screen; not `hidden` or `paused`), its `TickerMode`
+  is on (a covered or leaving screen) and its owner's `running` holds;
+  stopped, it holds where it was and goes on from there.
+  With reduce motion it rests at its declared `still`.
+  No visibility check beyond these: a part scrolled out of a lazy list is not built, and a screen under a sheet still shows through the scrim, so it keeps
+  living there. Period `Motion.ambient` and curve `Motion.breathe` by default (there and back; `reverse: false` for a turn).
+  The loop drives paint only, in its own `RepaintBoundary`:
+  hand it to a painter's `repaint:` or a `FadeTransition`, never an `AnimatedBuilder` round the child.
+  Adopting it:
   `Ambient(still: 1, period: Motion.waitLoop, builder: (context, loop, child) => CustomPaint(painter: _Glow(loop), child: child))`, where `_Glow` passes `loop` as `super(repaint: loop)`.
 
 ## Scene changes (the dusk and the dawn)

@@ -130,7 +130,10 @@ their scatter tilts).
 | `ambient` | 4 s | One round of something that idles (`Ambient`'s default period); built, no loop uses it yet |
 | `breathe` | easeInOutSine | `Ambient`'s default curve: a breath, slow at both ends |
 
-Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`), and everything that loops through `Ambient` (`feel/ambient.dart`: only in front, ticking and with motion allowed). Both are in `frontend/lib/design_system/README.md`, "Press and Ambient"; the parts move onto them in a later piece.
+Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`), and everything
+that loops through `Ambient` (`feel/ambient.dart`: only in front, ticking and with motion allowed).
+Both are in `frontend/lib/design_system/README.md`, "Press and Ambient";
+the parts move onto them in a later piece.
 
 Their own constants (not `Motion`): `PaperFlip` (`primitives/paper_flip.dart`, the one card
 turn-over: turning to the face `PaperFlip.turn` = `quick` 160 ms, back to the cover
