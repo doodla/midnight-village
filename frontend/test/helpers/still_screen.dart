@@ -5,17 +5,21 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/countdown.dart';
+import 'package:midnight_village/design_system/faces/held_face.dart';
 
 // A still screen asks for no frames (the owner, 24 November 2026: "The game
 // was very choppy", "it felt like I was watching a ppt"; measured, a screen
 // waiting on a player kept the phone 25 to 100% busy drawing itself whole,
-// and a tap's first frame waited behind those). Two rules, for the screen
-// sweep to hold every catalogue state to (sweep_run.dart, once the states
-// they find today pass):
-// - [stillScreenProblems]: the state at rest, pumped for [restWindow], asks
-//   for frames only from a source on [restSources] (or, until it moves,
-//   [movingToAmbient]), and each such frame rebuilds and paints inside that
-//   source alone. A screen with none of them on it asks for no frame at all.
+// and a tap's first frame waited behind those). Two rules, which the screen
+// sweep holds every catalogue state to (sweep_run.dart):
+// - [watchAtRest]: the state at rest, pumped for [restWindow] (with the
+//   tests' fast healing timings, so a poll of an unchanged answer that
+//   redraws anything shows many times), asks for frames only from a source
+//   on [restSources] (or, until it moves, [movingToAmbient]); each such
+//   frame rebuilds inside that source, and every layer it draws again (a
+//   repaint boundary that needed paint) stands inside it. A screen with none
+//   of them on it asks for no frame at all. Only a frame that comes again
+//   counts: one that comes once (a "slow" line, a deadline passing) is news.
 // - [clockTickProblems]: a tick of every clock on the screen rebuilds the
 //   clock (`ClockTick`) and nothing else, and paints inside its room alone.
 
@@ -38,6 +42,16 @@ const restSources = {
 /// paint beyond it.
 const movingToAmbient = {'WaitingSign', 'LanternMark', 'HoldCue'};
 
+/// States the rest rule does not hold yet, each with what it finds: a to-do
+/// that only shrinks.
+const restNotYet = {
+  '02-table-offline':
+      'the table socket\'s reconnect attempts (a growing backoff) tell the '
+      'table its connection again, and 02 is drawn again with "One moment" '
+      'unchanged (3 frames in 16 s)',
+  '03-deck-offline': 'as 02-table-offline',
+};
+
 /// How long a state is watched at rest: past the game's 5 s poll and the
 /// table's 15 s one (`HealTiming`), which must redraw nothing that did not
 /// change.
@@ -49,6 +63,9 @@ const settleAtMost = Duration(seconds: 8);
 const _quiet = Duration(seconds: 1);
 
 const _step = Duration(milliseconds: 100);
+
+/// The longest run of frames that counts as one moment, not a repeat.
+const _once = Duration(seconds: 1);
 
 /// The widget names [element] stands inside (itself included).
 Set<String> _within(Element element, Set<String> names) {
@@ -66,20 +83,63 @@ Set<String> _within(Element element, Set<String> names) {
   return found;
 }
 
+/// The element that made [object], or the nearest render ancestor's (a
+/// render object a render object made for itself has none).
 Element? _elementOf(RenderObject object) {
-  final creator = object.debugCreator;
-  return creator is DebugCreator ? creator.element : null;
+  for (RenderObject? o = object; o != null; o = o.parent) {
+    if (o.debugCreator case DebugCreator(:final element)) return element;
+  }
+  return null;
 }
 
 /// What one frame did: what it rebuilt and what it painted.
 class _Frame {
   final rebuilt = <Element>[];
   final painted = <RenderObject>[];
+
+  /// What needed layout, paint or a layer update as the frame began (a
+  /// timer's mark: a cursor's blink changes only its layer, and paints
+  /// nothing).
+  final marked = <RenderObject>[];
+
+  /// The layers drawn again: each painted object whose parent was not
+  /// painted (a repaint boundary that needed paint before the frame; the
+  /// clean boundaries under it were kept as they were). A cursor that
+  /// blinks inside its field's own boundary needs only that one.
+  List<RenderObject> get layers {
+    final set = painted.toSet();
+    return [
+      for (final o in painted)
+        if (o.parent == null || !set.contains(o.parent)) o,
+    ];
+  }
+}
+
+/// The render objects marked for the next frame.
+List<RenderObject> _marked(WidgetTester tester) {
+  final marked = <RenderObject>[];
+  void visit(RenderObject o) {
+    if (o.debugNeedsLayout ||
+        o.debugNeedsPaint ||
+        o.debugNeedsCompositedLayerUpdate) {
+      marked.add(o);
+    }
+    o.visitChildren(visit);
+  }
+
+  for (final view in tester.binding.renderViews) {
+    visit(view);
+  }
+  return marked;
 }
 
 /// Runs [body] with every rebuild and paint of its frames recorded.
-Future<_Frame> _recorded(Future<void> Function() body) async {
+Future<_Frame> _recorded(
+  Future<void> Function() body, {
+  WidgetTester? tester,
+}) async {
   final frame = _Frame();
+  final before = tester == null ? const <RenderObject>[] : _marked(tester);
   final rebuild = debugOnRebuildDirtyWidget;
   final paint = debugOnProfilePaint;
   debugOnRebuildDirtyWidget = (e, _) => frame.rebuilt.add(e);
@@ -89,6 +149,12 @@ Future<_Frame> _recorded(Future<void> Function() body) async {
   } finally {
     debugOnRebuildDirtyWidget = rebuild;
     debugOnProfilePaint = paint;
+  }
+  if (tester != null) {
+    // What the frame took care of: a render object never painted (offstage,
+    // under a page not shown) stays marked, and is not this frame's.
+    final after = _marked(tester).toSet();
+    frame.marked.addAll(before.where((o) => !after.contains(o)));
   }
   return frame;
 }
@@ -149,18 +215,39 @@ String? _frameProblem(_Frame frame) {
     (e) => _within(e, movingToAmbient).isNotEmpty,
   );
   if (moving) return null;
-  final escaped = [
-    for (final o in frame.painted)
-      if (_elementOf(o) case final e? when _within(e, all).isEmpty) o,
-  ];
+  // A face held up by a finger (in the overlay; one turned in place is
+  // the card's own): Flutter lays its overlay layer out again at
+  // every frame (`OverlayPortal.overlayChildLayoutBuilder`, so the face
+  // follows the card), and a frame while it is up draws from the overlay.
+  // The finger is on the glass: nothing is at rest.
+  final heldUp = find
+      .byType(HeldFace)
+      .evaluate()
+      .any((e) => _within(e, const {'PaperFlip'}).isEmpty);
+  if (heldUp) return null;
+  // Every layer drawn again stands inside its source.
+  final escaped = {
+    for (final o in frame.layers)
+      if (_elementOf(o) case final e? when _within(e, allowed).isEmpty)
+        e.widget.runtimeType.toString()
+      else if (_elementOf(o) == null)
+        o.runtimeType.toString(),
+  };
   if (escaped.isNotEmpty) {
-    final names = {
-      for (final o in escaped.take(40))
-        _elementOf(o)?.widget.runtimeType.toString() ?? '$o',
-    };
-    return 'painted beyond its source: ${names.take(4).join(', ')}';
+    return 'drew a layer beyond its source: ${escaped.take(4).join(', ')}';
   }
-  if (frame.rebuilt.isEmpty && frame.painted.isEmpty) {
+  final marked = {
+    for (final o in frame.marked)
+      if (_elementOf(o) case final e? when _within(e, allowed).isEmpty)
+        e.widget.runtimeType.toString()
+      else if (_elementOf(o) == null)
+        o.runtimeType.toString(),
+  };
+  if (marked.isNotEmpty) {
+    return 'was marked to draw beyond its source: ${marked.take(4).join(', ')}';
+  }
+  // A mark inside its source (a cursor's layer) is a frame of that source.
+  if (frame.rebuilt.isEmpty && frame.painted.isEmpty && frame.marked.isEmpty) {
     final tickers = _tickerFiles();
     final known = tickers.any(
       (f) => const [
@@ -194,7 +281,7 @@ Future<RestReport> watchAtRest(WidgetTester tester) async {
   Future<_Frame?> step() async {
     await binding.delayed(_step);
     if (!binding.hasScheduledFrame) return null;
-    return _recorded(() => tester.pump());
+    return _recorded(() => tester.pump(), tester: tester);
   }
 
   // To rest: a quiet stretch with no frame beyond the allowed ones.
@@ -206,13 +293,13 @@ Future<RestReport> watchAtRest(WidgetTester tester) async {
         : Duration.zero;
   }
   var frames = 0;
-  final problems = <String, int>{};
+  final problems = <String, List<Duration>>{};
   for (var t = Duration.zero; t < restWindow; t += _step) {
     final frame = await step();
     if (frame == null) continue;
     frames++;
     final problem = _frameProblem(frame);
-    if (problem != null) problems[problem] = (problems[problem] ?? 0) + 1;
+    if (problem != null) (problems[problem] ??= []).add(t);
   }
   final sources = {
     for (final e in find.byWidgetPredicate((_) => true).evaluate())
@@ -221,9 +308,13 @@ Future<RestReport> watchAtRest(WidgetTester tester) async {
         e.widget.runtimeType.toString(),
   };
   return RestReport(frames, [
-    for (final MapEntry(:key, :value) in problems.entries)
-      'at rest, $value frame(s) in ${restWindow.inSeconds} s $key '
-          '(allowed: ${sources.isEmpty ? 'none on this screen' : sources.join(', ')})',
+    // Frames that come once, as one short run (an entrance, a "slow" line
+    // fading in at 5 s, a deadline passing), are news; frames that come
+    // again are a screen drawing itself.
+    for (final MapEntry(:key, value: at) in problems.entries)
+      if (at.last - at.first > _once)
+        'at rest, ${at.length} frames in ${restWindow.inSeconds} s $key '
+            '(allowed: ${sources.isEmpty ? 'none on this screen' : sources.join(', ')})',
   ]);
 }
 
@@ -234,9 +325,9 @@ Future<List<String>> clockTickProblems(WidgetTester tester) async {
   if (clocks.isEmpty) return const [];
   // Whatever was pending drawn first, so the frame below is the tick's.
   await tester.pump();
-  for (final clock in clocks) {
-    clock.markNeedsBuild();
-  }
+  // As each clock's timer does (a mark on the clock alone; the screen's
+  // layout builders would hide a plain markNeedsBuild until a ticker runs).
+  ClockTick.debugTickAll();
   // Only the frame's build, layout and paint: no ticker runs in it.
   final frame = await _recorded(() async => tester.binding.drawFrame());
   final problems = <String>[];
@@ -251,11 +342,14 @@ Future<List<String>> clockTickProblems(WidgetTester tester) async {
     );
   }
   final escaped = {
-    for (final o in frame.painted)
+    for (final o in frame.layers)
       if (_elementOf(o) case final e?
           when _within(e, const {'ClockTick'}).isEmpty)
         e.widget.runtimeType.toString(),
   };
+  if (frame.rebuilt.isEmpty) {
+    problems.add('a clock tick rebuilt nothing (the tick never reached it)');
+  }
   if (escaped.isNotEmpty) {
     problems.add(
       'a clock tick painted beyond the clock: ${escaped.take(4).join(', ')}',

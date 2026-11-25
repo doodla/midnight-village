@@ -185,8 +185,9 @@ class _HoldToRevealState extends State<HoldToReveal>
       _anchor = anchor;
       _showings++;
     });
-    // A face turned in place needs no overlay layer.
-    if (!widget.inPlace) _portal.show();
+    // A face turned in place, or shown elsewhere ([HoldToReveal.away]),
+    // needs no overlay layer.
+    if (!widget.inPlace && !widget.away) _portal.show();
     if (!wasVisible) widget.onRevealChanged?.call(true);
   }
 
