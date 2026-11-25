@@ -2,19 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/art_picture.dart';
+import 'package:midnight_village/design_system/primitives/faint_art.dart';
 import 'package:midnight_village/design_system/primitives/still.dart';
 import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 
 import '../helpers/frame_cost.dart';
 import '../helpers/pump_skinned.dart';
+import 'not_yet_swept.dart';
+import 'sweep_run.dart';
 
-/// The frame-cost rule sees what it must, and only that.
+/// The frame-cost rule sees what it must, and only that; its lists name
+/// only what is there.
 void main() {
   final portrait = SkinId.fallback.skin.art.role(RoleId.seer);
-  const screen = Size(800, 600);
 
-  Future<List<String>> problemsOf(WidgetTester tester, Widget child) async {
+  Future<List<String>> problemsOf(
+    WidgetTester tester,
+    Widget child, {
+    Map<String, LayerAllowance> allowed = const {},
+  }) async {
     await pumpSkinned(tester, Center(child: child));
     await tester.runAsync(() async {
       for (final e in find.byType(Image).evaluate()) {
@@ -22,7 +29,7 @@ void main() {
       }
     });
     await tester.pump();
-    return frameCostProblems(tester, screen);
+    return frameCostProblemsWith(tester, allowed: allowed);
   }
 
   Widget mask(Widget child) => ShaderMask(
@@ -58,6 +65,27 @@ void main() {
     );
   });
 
+  testWidgets('a layer is told by the app widget it is in, not Flutter\'s', (
+    tester,
+  ) async {
+    final faint = SizedBox(width: 200, height: 200, child: FaintArt(portrait));
+    expect(await problemsOf(tester, faint), [
+      allOf(contains('from Opacity in FaintArt'), contains('name FaintArt')),
+    ]);
+    // Named, it passes, and its state used it; another state's line is
+    // stale only for that state.
+    const allowed = {'FaintArt': LayerAllowance('a-state', 'a faint picture')};
+    resetLayerAllowances();
+    expect(await problemsOf(tester, faint, allowed: allowed), isEmpty);
+    expect(staleLayerAllowances('a-state', allowed: allowed), isEmpty);
+    resetLayerAllowances();
+    expect(await problemsOf(tester, box, allowed: allowed), isEmpty);
+    expect(staleLayerAllowances('a-state', allowed: allowed), [
+      contains('FaintArt is in layerAllowed for a-state'),
+    ]);
+    expect(staleLayerAllowances('other', allowed: allowed), isEmpty);
+  });
+
   testWidgets('inside a Still they are one picture, no problem', (
     tester,
   ) async {
@@ -70,7 +98,7 @@ void main() {
     );
   });
 
-  testWidgets('a picture decoded for its box passes; at full size it fails', (
+  testWidgets('a picture decoded for its box passes; larger, it fails', (
     tester,
   ) async {
     expect(
@@ -91,7 +119,7 @@ void main() {
         ),
       ),
     );
-    expect(full, [contains('decoded 576 wide')]);
+    expect(full, [contains('decoded 576 wide, its box asks for 144')]);
     final plain = await problemsOf(
       tester,
       SizedBox(
@@ -101,5 +129,27 @@ void main() {
       ),
     );
     expect(plain, [contains('without ArtImage.decodedFor')]);
+  });
+
+  test('every allowance names a widget of the app, why, and a swept state '
+      'that shows it', () {
+    final swept = {for (final e in sweptEntries()) e.id};
+    for (final MapEntry(:key, :value) in layerAllowed.entries) {
+      expect(appClasses, contains(key), reason: 'layerAllowed: $key');
+      expect(value.why.length, greaterThan(20), reason: '$key says why');
+      expect(swept, contains(value.seenOn), reason: '$key: ${value.seenOn}');
+      expect(
+        notYetSwept.containsKey(value.seenOn),
+        isFalse,
+        reason: '$key: ${value.seenOn} is not swept yet, so never checked',
+      );
+    }
+    for (final MapEntry(:key, :value) in {
+      ...undecodedAllowed,
+      ...decodedAheadAllowed,
+    }.entries) {
+      expect(appClasses, contains(key), reason: key);
+      expect(value.length, greaterThan(20), reason: '$key says why');
+    }
   });
 }

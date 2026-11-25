@@ -146,8 +146,10 @@ card and no main button; `stage_clock_test.dart` places every timer the table se
 (the owner, 24 November 2026: 04 had a deadline and no clock).
 Every state is held to what a frame costs too (`test/helpers/frame_cost.dart`, a guard file, added by `sweep_run.dart`):
 painted once into a recording canvas (a `Still`'s inside is one picture there, as on a frame), it may fill no layer of its own (a `saveLayer`, an opacity,
-a `ShaderMask`, a `BackdropFilter`, an image or colour filter) outside the named parts of `layerAllowed`, each with why, and no picture may be decoded more
-than two eighths of its width larger than it is drawn, or drawn without `ArtImage.decodedFor` (`undecodedAllowed`: the nine-slice frames).
+a `ShaderMask`, a `BackdropFilter`, an image or colour filter) but in the app widgets of `layerAllowed` (a layer is told by the nearest widget of the app's own above it, never
+Flutter's), each with why and the state that shows it, which fails the line once it no longer uses it (`staleLayerAllowances`); no picture may be decoded larger
+than its box asks for (`ArtImage.decodeWidth`; `decodedAheadAllowed`: a held face's portrait), or drawn without `ArtImage.decodedFor` (`undecodedAllowed`: the nine-slice frames).
+`frame_cost_test.dart` is its self-test.
 `test/screen_cases/not_yet_swept.dart` lists the states that fail today, each with its fault in one line (`--dart-define=SWEEP_ALL=true` prints them);
 it only shrinks. A test presses with `pressLikeAFinger` (`test/helpers/finger.dart`):
 down, six frames of 16 ms, up. A plain `tester.tap` on anything that takes a tap fails the test

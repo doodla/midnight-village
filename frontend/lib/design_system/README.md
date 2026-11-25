@@ -706,7 +706,7 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   (every role and portrait, under every scope, with and without a game, the precaches' lists) against the bundle.
 - Art: `assets/skins/shadow_paper/{roles,tokens,scenes}/*.webp` and `layers/<scene>/*.webp` (the layered headers), at the pixel sizes the `ArtSet` declares
   (the contract test decodes each to check, and fails on a layer nothing declares).
-  Every picture is drawn through `ArtPicture`, which decodes it at the size it is shown (`ArtImage.decodedFor`: rounded up to an eighth of the full width, so never more than a step larger than drawn; the screen sweep fails a picture decoded larger).
+  Every picture is drawn through `ArtPicture`, which decodes it at the size it is shown (`ArtImage.decodedFor`: the full size, a half or a quarter; an `ArtDecode`, the same `ResizeImage` that knows its picture, so the screen sweep fails a picture decoded larger than its box asks for).
   At start `SkinLoader.prepare` first reads the picture the app opens on
   (`openingArt`: 01's village, which the opening wait shows too; only its bytes: 01 decodes it at the size it draws, from those bytes; a full-size copy decoded here was one no screen drew),
   then runs `precacheArt(secretArt(skin))`, decoding every role portrait and the card back in use
@@ -725,8 +725,8 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   `Mood` is its own such picture (composed once per size and light).
   Nothing inside a `Still` moves by itself: a thing that moves (the coming candle or mist, a breathing cue) sits ABOVE it in a `Stack`, in its own repaint boundary, so its frames never make the picture again (a repaint boundary inside one is refused in debug builds; `still_test.dart`).
   While a scene brings its screen in (`SceneArrival`) a `Still` is drawn live: its layers travel on every frame.
-  Every picture is decoded for the box it is drawn in (`ArtImage.decodedFor`, an `ArtDecode`), in eighths of its width, and the art of what comes next is decoded while the screen before shows (`ArtAhead`, `features/game/presentation/shell/art_ahead.dart`: one table of what can follow each screen, one of what each screen draws, from the screen's own code, never awaited).
-  The screen sweep holds it (`test/helpers/frame_cost.dart`): a screen at rest fills no layer of its own on a frame (a `saveLayer`, an opacity, a `ShaderMask`, a `BackdropFilter`, a filter) outside a `Still` but the named parts in `layerAllowed`, and no picture is decoded more than two steps larger than drawn.
+  The art of what comes next is decoded while the screen before shows, at the very size the next screen decodes it (`ArtAhead`, `features/game/presentation/shell/art_ahead.dart`: one table of what can follow each screen, one of what each screen draws, from the screen's own code, never awaited), so 03 opens on portraits 02 decoded.
+  The screen sweep holds it (`test/helpers/frame_cost.dart`): a screen at rest fills no layer of its own on a frame (a `saveLayer`, an opacity, a `ShaderMask`, a `BackdropFilter`, a filter) outside a `Still` but in the app widgets named in `layerAllowed` (each with why and a state that shows it; a line its state no longer uses fails), and no picture is decoded larger than its box asks for (`decodedAheadAllowed`: a held face's portrait, decoded ahead for the whole card).
 - Regenerating the art: `just skin-art` (`uv run --with pillow python tool/skin_art.py`) resizes the originals in `docs/design/art/` and cuts each layer master
   of `docs/design/art/layers/` to the box it paints (it prints the size and anchor the skin declares; how art gets in: `docs/design/README.md`).
   Deterministic: run it twice and nothing changes.

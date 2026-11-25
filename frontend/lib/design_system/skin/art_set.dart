@@ -267,12 +267,10 @@ class CandleArt {
 /// stay in view when it is cropped (CSS's `object-position`).
 ///
 /// A picture is always drawn through [decodedFor] (the `ArtPicture`
-/// primitive does it), which decodes it at the size it is shown, so a
-/// 44-wide thumbnail does not hold a 576-wide portrait in memory, nor a frame
-/// fill it. Sizes are rounded up to an eighth of the full width ([steps]), so
-/// a picture is never decoded more than a step larger than it is drawn, and
-/// the pictures decoded ahead (`precacheArt`, `ArtAhead`) are the ones later
-/// drawn.
+/// primitive does it), which decodes it no larger than it is shown, so a
+/// 44-wide thumbnail does not hold a 576-wide portrait in memory. Sizes are
+/// rounded up to a few steps (the full width, a half, a quarter), so the
+/// pictures precached at start (`precacheArt`) are the ones later drawn.
 @immutable
 class ArtImage {
   const ArtImage(
@@ -288,27 +286,22 @@ class ArtImage {
   final Size pixels;
   final Alignment focus;
 
-  /// The decode sizes: the full width in this many steps.
-  static const steps = 8;
-
-  /// The pixels a picture drawn to cover a [box] of logical pixels at
-  /// [devicePixelRatio] needs across (its full width when unbounded).
-  double neededWidth(Size box, double devicePixelRatio) {
-    final full = pixels.width;
-    if (!box.isFinite || box.isEmpty) return full;
-    final cover = math.max(box.width / full, box.height / pixels.height);
-    return full * cover * devicePixelRatio;
-  }
+  /// How many halvings below the full size a picture may be decoded at.
+  static const _steps = 2;
 
   /// The width, in pixels, to decode this picture at to cover a [box] of
   /// logical pixels at [devicePixelRatio]: the smallest step that is still
-  /// sharp, never larger than the picture.
+  /// sharp. An unbounded box gets the full size.
   int decodeWidth(Size box, double devicePixelRatio) {
     final full = pixels.width;
-    final step = full / steps;
-    final needed = neededWidth(box, devicePixelRatio);
-    final count = (needed / step - 1e-6).ceil().clamp(1, steps);
-    return (count * step).round();
+    if (!box.isFinite || box.isEmpty) return full.round();
+    final cover = math.max(box.width / full, box.height / pixels.height);
+    final needed = full * cover * devicePixelRatio;
+    var width = full;
+    for (var step = 0; step < _steps && width / 2 >= needed; step++) {
+      width /= 2;
+    }
+    return width.round();
   }
 
   /// The image to draw for a [box] of logical pixels at [devicePixelRatio].
@@ -328,9 +321,11 @@ class ArtImage {
   int get hashCode => Object.hash(path, pixels, focus);
 }
 
-/// A picture decoded for the box it is drawn in ([ArtImage.decodedFor]): a
-/// [ResizeImage] that knows its picture, so the screen sweep can tell how
-/// much larger than drawn it was decoded (`test/helpers/frame_cost.dart`).
+/// A picture decoded for the box it is drawn in ([ArtImage.decodedFor]):
+/// exactly the [ResizeImage] it stands for (the same key, so the same decoded
+/// picture in the cache), and it knows its picture, so the screen sweep can
+/// tell what it was decoded for (`test/helpers/frame_cost.dart`) and
+/// `ArtAhead`'s test that the next screen's art is the one it draws.
 class ArtDecode extends ResizeImage {
   ArtDecode(this.art, {required int width})
     : super(AssetImage(art.path), width: width, allowUpscaling: false);

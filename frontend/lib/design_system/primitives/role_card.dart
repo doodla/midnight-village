@@ -61,7 +61,6 @@ class RoleCard extends StatelessWidget {
     this.onLongPress,
     this.onRemove,
     this.removeLabel,
-    this.decodeAt,
   });
 
   final RoleId role;
@@ -73,13 +72,10 @@ class RoleCard extends StatelessWidget {
   final VoidCallback? onRemove;
   final String? removeLabel;
 
-  /// The box a grid card's portrait is decoded for, when the grid says it
-  /// (the same box its screen's art is decoded ahead at, `ArtAhead`).
-  final Size? decodeAt;
-
-  /// The box to decode a grid card's portrait for, in a cell [cellWidth]
-  /// wide: the cell's width at the portrait's shape.
-  static Size gridDecodeBox(double cellWidth) =>
+  /// The box a grid card's portrait is drawn in, in a cell [cellWidth]
+  /// wide: the cell's width at the portrait's shape (03's art is decoded
+  /// ahead for it, `deckArt`).
+  static Size gridPortraitBox(double cellWidth) =>
       Size(cellWidth, cellWidth / _gridAspect);
 
   /// How long a press lasts before it is a hold ([onLongPress]): shorter is
@@ -163,9 +159,7 @@ class RoleCard extends StatelessWidget {
     // lowered paper with no shadow, its colour mostly gone and faded
     // (`PaperParts.outSaturation`).
     if (context.dress.isPaper) {
-      final picture = ArtPicture(context.roleArt(role), decodeAt: decodeAt);
-      // Not a `Still`: the card lies tilted, and a picture of it turned with
-      // the card is resampled and softens its edges (up to 30 levels).
+      final picture = ArtPicture(context.roleArt(role));
       return AnimatedOpacity(
         duration: Motion.quick,
         opacity: lit ? 1 : skin.dimmed,
@@ -203,7 +197,7 @@ class RoleCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: corners,
-          child: ArtPicture(context.roleArt(role), decodeAt: decodeAt),
+          child: ArtPicture(context.roleArt(role)),
         ),
       ),
     );

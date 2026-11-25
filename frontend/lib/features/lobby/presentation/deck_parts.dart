@@ -306,7 +306,7 @@ List<ImageProvider> deckArt(BuildContext context) {
   final width = MediaQuery.sizeOf(
     context,
   ).width.clamp(0, ScreenFrame.maxWidth).toDouble();
-  final box = _Grid._decodeBox(context, width - 2 * Space.gutter);
+  final box = _Grid._portraitBox(context, width - 2 * Space.gutter);
   final ratio = MediaQuery.devicePixelRatioOf(context);
   return [
     for (final role in deckOrder) context.roleArt(role).decodedFor(box, ratio),
@@ -352,17 +352,16 @@ class _Grid extends StatelessWidget {
   static int _columns(BuildContext context, double room) =>
       room >= 3 * _widestName(context) + 2 * _gap ? 3 : 2;
 
-  /// The box each card's portrait is decoded for, in a grid [room] wide.
-  static Size _decodeBox(BuildContext context, double room) {
+  /// The box each card's portrait is drawn in, in a grid [room] wide.
+  static Size _portraitBox(BuildContext context, double room) {
     final columns = _columns(context, room);
-    return RoleCard.gridDecodeBox((room - (columns - 1) * _gap) / columns);
+    return RoleCard.gridPortraitBox((room - (columns - 1) * _gap) / columns);
   }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, room) {
       final columns = _columns(context, room.maxWidth);
-      final decodeAt = _decodeBox(context, room.maxWidth);
       return GridView.count(
         crossAxisCount: columns,
         shrinkWrap: true,
@@ -382,7 +381,6 @@ class _Grid extends StatelessWidget {
               onLongPress: () => unawaited(showRoleSheet(context, role)),
               onRemove: () => onRemove(role),
               removeLabel: SpokenCopy.takeOut.fill({'role': role.displayName}),
-              decodeAt: decodeAt,
             ),
         ],
       );

@@ -12,7 +12,6 @@ import 'package:midnight_village/design_system/primitives/art_precache.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
 import 'package:midnight_village/design_system/primitives/player_token.dart';
-import 'package:midnight_village/design_system/skin/art_set.dart';
 import 'package:midnight_village/design_system/skin/card_back.dart';
 import 'package:midnight_village/design_system/skin/ground.dart';
 import 'package:midnight_village/design_system/skin/ground_scope.dart';
@@ -62,26 +61,15 @@ void main() {
   group('a picture is decoded no larger than it is shown', () {
     final portrait = skin.art.role(RoleId.seer);
 
-    test('in eighths of the full size, at most a step larger than shown', () {
-      // 576 x 768 in steps of 72: a 44-wide thumbnail at 3x needs 132 pixels.
+    test('in steps of the full size, a half and a quarter', () {
+      // 576 x 768: a 44-wide thumbnail at 3x needs 135 pixels: a quarter.
       expect(portrait.decodeWidth(const Size(44, 58), 3), 144);
-      expect(portrait.decodeWidth(const Size(50, 68), 3), 216);
-      // 03's grid portrait, 113 wide on the owner's phone (2.625): not 576.
-      expect(portrait.decodeWidth(const Size(113, 151), 2.625), 360);
-      for (final ratio in [1.0, 2.0, 2.625, 3.0]) {
-        for (var w = 4.0; w < 700; w += 7) {
-          final box = Size(w, w * 4 / 3);
-          final needed = portrait.neededWidth(box, ratio);
-          final got = portrait.decodeWidth(box, ratio);
-          expect(got, lessThanOrEqualTo(576));
-          if (needed <= 576) {
-            expect(got, greaterThanOrEqualTo(needed.floor()));
-            expect(got - needed, lessThan(576 / ArtImage.steps + 1));
-          }
-        }
-      }
-      // Never smaller than a step, never larger than the picture.
-      expect(portrait.decodeWidth(const Size(4, 5), 1), 72);
+      expect(portrait.decodeWidth(const Size(50, 68), 3), 288);
+      // A held face's portrait, drawn across the card, is decoded whole.
+      expect(portrait.decodeWidth(HeldFace.portraitBox, 2), 576);
+      expect(portrait.decodeWidth(HeldFace.portraitBox, 1), 576);
+      // Never smaller than a quarter, never larger than the picture.
+      expect(portrait.decodeWidth(const Size(4, 5), 1), 144);
       expect(portrait.decodeWidth(Size.infinite, 1), 576);
     });
 
