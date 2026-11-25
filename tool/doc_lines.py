@@ -39,7 +39,6 @@ SKIPPED = (
     "frontend/ios/",
     "frontend/android/",
     ".claude/skills/",  # skills as their makers wrote them: an update would undo a reflow
-    "docs/design/feel.md",  # FOR NOW: being edited on another branch (25 Nov); take this line out after
 )
 
 FENCE = re.compile(r"^\s*(```|~~~)")
