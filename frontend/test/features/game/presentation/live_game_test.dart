@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/faces/face_content.dart';
+import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 import 'package:midnight_village/features/game/domain/game_me.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
@@ -339,19 +341,82 @@ void main() {
       await setup.notifier.choose(setup.game.me.stage!, picks);
       setup.answerMe(recordedMe('me_choose_chosen'));
       await setup.settle();
-      fetches.release(); // the old reply: chosen 0
+      fetches.release(); // the old reply: chosen 0, no result
       await setup.settle();
       expect(setup.game.server.prompt!.used, isFalse);
       expect(setup.game.me.prompt!.used, isTrue);
+      expect(setup.game.me.report.saw, isA<SeerPlayerResult>(), reason: 'kept');
+      // The next /me/ (an event, a reconnect) lists it itself.
+      setup.ws.addServerEvent(event('night_window_2'));
       await setup.settle();
-      fetches.releaseAll(); // the fetch after the answer: chosen 1
+      fetches.releaseAll();
       await setup.settle();
       expect(setup.game.server.prompt!.used, isTrue);
+      expect(setup.game.server.report.saw, isA<SeerPlayerResult>());
     });
+  });
+
+  group('a result settled at the choose comes with its answer', () {
+    test('the Seer sees her card at once: one request, no /me/', () async {
+      final setup = await phone('me_choose_prompt_seer');
+      setup.answerPost('/action/', 'game/choose_submitted_seer');
+      final fetches = setup.meFetches;
+      expect(setup.game.me.report.saw, isNull);
+
+      final answer = await setup.notifier.choose(setup.game.me.stage!, const [
+        PlayerPick(0),
+      ]);
+      await setup.settle();
+
+      expect(answer.forBoard, ChooseAnswer.taken);
+      expect(setup.posts('/action/'), 1);
+      expect(setup.meFetches, fetches, reason: 'the answer says it all');
+      final saw = setup.game.me.report.saw;
+      expect(saw, isA<SeerPlayerResult>());
+      expect((saw! as SeerPlayerResult).role, RoleId.werewolf);
+      expect(setup.game.me.nightResultCount, 1);
+      // On "You"'s held face, first, as My night shows it.
+      final you = setup.game.me.report.you(setup.game.me.prompt!);
+      expect(you.pages.first.lines, saw.page.lines);
+    });
+
+    test('the Robber learns her new card at once', () async {
+      final setup = await phone('me_choose_prompt_robber');
+      setup.answerPost('/action/', 'game/choose_submitted_robber');
+      final fetches = setup.meFetches;
+      await setup.notifier.choose(setup.game.me.stage!, const [PlayerPick(0)]);
+      await setup.settle();
+      expect(setup.meFetches, fetches);
+      expect(setup.game.me.report.saw, isA<RobbedResult>());
+    });
+
+    test(
+      'an older server answers its status alone: /me/ is read as before',
+      () async {
+        final setup = await phone('me_choose_prompt_seer');
+        setup.http.answer(
+          'POST',
+          '/onuw/games/${setup.gameId}/action/',
+          {'status': 'submitted'},
+          offContract: true, // the answer before night-result-now
+        );
+        setup.answerMe(recordedMe('me_choose_chosen'));
+        final fetches = setup.meFetches;
+        await setup.notifier.choose(setup.game.me.stage!, const [
+          PlayerPick(0),
+        ]);
+        await setup.settle();
+        expect(setup.meFetches, fetches + 1);
+        expect(setup.game.me.report.saw, isA<SeerPlayerResult>());
+      },
+    );
 
     test('a choose for a stage that is over is declined, not sent', () async {
       final setup = await phone('me_choose_prompt_seer');
-      final answer = await setup.notifier.choose('w1.000000000007', picks);
+      final answer = await setup.notifier.choose('w1.000000000007', const [
+        CenterPick(0),
+        CenterPick(2),
+      ]);
       expect(answer, isA<Declined>());
       expect(setup.posts('/action/'), 0);
     });

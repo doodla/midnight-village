@@ -240,6 +240,8 @@ class GameMe {
 
   GameMe _with({
     ChoosePrompt? prompt,
+    NightReport? report,
+    int? nightResultCount,
     MyVote? myVote,
     bool clearVote = false,
     bool? ready,
@@ -265,8 +267,8 @@ class GameMe {
     practiceIds: practiceIds,
     prompt: prompt ?? this.prompt,
     deck: deck,
-    report: report,
-    nightResultCount: nightResultCount,
+    report: report ?? this.report,
+    nightResultCount: nightResultCount ?? this.nightResultCount,
     nightResultsSeen: nightResultsSeen ?? this.nightResultsSeen,
     myVote: clearVote ? null : myVote ?? this.myVote,
     ready: clearReady ? null : ready ?? this.ready,
@@ -279,6 +281,14 @@ class GameMe {
     final open = prompt;
     return open == null ? this : _with(prompt: open.afterChoose);
   }
+
+  /// With [results] as this phone's `night_results`: what a taken choose
+  /// answered (the results `/me/` lists at that moment, a result settled at
+  /// the choose among them).
+  GameMe withNightResults(List<Map<String, dynamic>> results) => _with(
+    report: report.withResults(results),
+    nightResultCount: results.length,
+  );
 
   /// With this phone's [ready] flag as tapped, and the count with it: the
   /// table's count shows this phone's own tap at once, then the server's

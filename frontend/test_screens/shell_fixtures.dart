@@ -166,6 +166,32 @@ Future<void> pumpNightChosen(WidgetTester tester) async {
   await setup.settle(tester);
 }
 
+/// 06 right after Choose, "You" held: what the choose's answer brought, on
+/// its first page (the Seer's look at Cleo; [robber]: the card she took).
+Future<void> pumpNightChosenSeen(
+  WidgetTester tester, {
+  bool robber = false,
+}) async {
+  final prompt = robber ? 'me_choose_prompt_robber' : 'me_choose_prompt_seer';
+  final setup = await _shell(tester, sheet.recordedMe(prompt));
+  setup.answerPost(
+    '/action/',
+    robber ? 'game/choose_submitted_robber' : 'game/choose_submitted_seer',
+  );
+  final target = robber ? sheet.ana.name : sheet.cleo.name;
+  await pressLikeAFinger(tester, find.text(target).last);
+  await tester.pump();
+  await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
+  await setup.settle(tester);
+  await holdDown(
+    tester,
+    find.ancestor(
+      of: find.text(NightCopy.you),
+      matching: find.byType(FaceDownCard),
+    ),
+  );
+}
+
 /// 06, the Doppelganger's follow-up: her look is back with `/me/`, the board
 /// has armed again, and she holds "You" for what her copy may do.
 Future<void> pumpNightFollowUp(WidgetTester tester) async {

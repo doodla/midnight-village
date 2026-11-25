@@ -36,7 +36,23 @@ class StageReply {
 
   final StageAnswer answer;
   final Map<String, dynamic>? body;
+
+  /// A taken choose's own part, when the server sends it (contract, section
+  /// 5): this phone's `night_results` as `/me/` lists them now (a result
+  /// settled at the choose among them) and its prompt's `chooses_left`. Null
+  /// from an older server, whose answer is only its status: then the phone
+  /// reads `/me/` as before.
+  ChooseLearned? get learned {
+    final results = body?['night_results'];
+    final left = body?['chooses_left'];
+    if (results is! List || left is! int) return null;
+    if (!results.every((entry) => entry is Map<String, dynamic>)) return null;
+    return (results: results.cast<Map<String, dynamic>>(), choosesLeft: left);
+  }
 }
+
+/// What a taken choose answered for this phone alone ([StageReply.learned]).
+typedef ChooseLearned = ({List<Map<String, dynamic>> results, int choosesLeft});
 
 /// A request the outbox can hold and send again exactly as it was first
 /// made (a "Try again" never changes what was asked).
