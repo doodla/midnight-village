@@ -109,16 +109,18 @@ class DeckleBorder extends ShapeBorder {
   static final _cut = <(int, double, double, bool, bool, bool, Rect), Path>{};
   static const _cutMost = 512;
 
-  /// The same edges by their size alone, at the origin: while a piece moves
-  /// ([whileMoving]: a shadow tightening under a finger moves its rect each
-  /// frame) a path already cut is moved ([Path.shift]) instead of torn.
+  /// The same edges by their size alone, at the origin, made only while a
+  /// piece moves ([whileMoving]: a shadow tightening under a finger moves its
+  /// rect each frame): one is cut per size and moved ([Path.shift]) instead
+  /// of a new one torn every frame.
   static final _shapes =
       <(int, double, double, bool, bool, bool, Size), Path>{};
   static var _moving = false;
 
   /// Paints a frame of a piece on its way between two resting places (a
-  /// press's blend): its edges are moved copies, not cut again, and are not
-  /// kept. At rest every edge is cut where it lies, as it always was.
+  /// press's blend): its edges are moved copies, not cut again, and its
+  /// passing rects are not kept. At rest every edge is cut where it lies and
+  /// nothing more, as it always was.
   static void whileMoving(VoidCallback paint) {
     final was = _moving;
     _moving = true;
@@ -134,22 +136,35 @@ class DeckleBorder extends ShapeBorder {
   @visibleForTesting
   static int tornCount = 0;
 
+  /// How many moved edges are kept ([whileMoving]'s, one per size).
+  @visibleForTesting
+  static int get movedKept => _shapes.length;
+
   Path _cached(Rect rect) {
     final key = (seed, depth, step, torn, round, blob, rect);
     final found = _cut.remove(key);
     if (found != null) return _cut[key] = found;
-    final shapeKey = (seed, depth, step, torn, round, blob, rect.size);
-    final shape = _shapes.remove(shapeKey);
-    if (shape != null) _shapes[shapeKey] = shape;
-    if (_moving && shape != null) return shape.shift(rect.topLeft);
+    if (_moving) return _moved(rect);
+    // At rest: cut where it lies and kept, exactly as before a press could
+    // move it (nothing else is made for it).
     tornCount++;
     final path = _path(rect);
-    if (shape == null) {
-      if (_shapes.length >= _cutMost) _shapes.remove(_shapes.keys.first);
-      _shapes[shapeKey] = path.shift(-rect.topLeft);
-    }
     if (_cut.length >= _cutMost) _cut.remove(_cut.keys.first);
     return _cut[key] = path;
+  }
+
+  /// While moving: the edge of this size, cut once at the origin and kept
+  /// for the next frame, moved to [rect]. Its passing rects are not kept.
+  Path _moved(Rect rect) {
+    final key = (seed, depth, step, torn, round, blob, rect.size);
+    var shape = _shapes.remove(key);
+    if (shape == null) {
+      tornCount++;
+      shape = _path(Offset.zero & rect.size);
+      if (_shapes.length >= _cutMost) _shapes.remove(_shapes.keys.first);
+    }
+    _shapes[key] = shape;
+    return shape.shift(rect.topLeft);
   }
 
   @override
