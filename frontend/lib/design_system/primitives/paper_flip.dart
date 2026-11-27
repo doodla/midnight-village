@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../feel/press.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
@@ -193,7 +194,15 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     _face = widget.turned || PaperFlip.isFaceUp(_turn.value)
         ? RepaintBoundary(child: widget.face(context))
         : null;
-    final back = RepaintBoundary(child: widget.back);
+    final press = widget.press;
+    // A finger's own press dips the back by paint alone (nothing rebuilt).
+    final Widget back = press == null
+        ? RepaintBoundary(child: widget.back)
+        : PressSink(
+            press: press,
+            shrink: PaperFlip.dip,
+            child: RepaintBoundary(child: widget.back),
+          );
     final face = _face;
     final skin = context.skin;
     final elevation = context.ground.elevation.heroSlab;
@@ -201,7 +210,7 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     final radius = BorderRadius.circular(skin.shape.radius);
     return LayoutBuilder(
       builder: (context, _) => AnimatedBuilder(
-        animation: Listenable.merge([_turn, widget.press ?? _press]),
+        animation: Listenable.merge([_turn, _press]),
         builder: (context, _) {
           final value = _turn.value;
           final angle = value * math.pi;
@@ -209,8 +218,7 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
           // 0 flat, 1 edge on: the lift, the growth and the fall of the
           // shadow all follow it.
           final edgeOn = math.sin(angle.clamp(0.0, math.pi));
-          final pressed = _still ? 0.0 : (widget.press ?? _press).value;
-          final dip = pressed * (1 - (value * 2).clamp(0.0, 1.0));
+          final dip = _press.value * (1 - (value * 2).clamp(0.0, 1.0));
           final scale = 1 + PaperFlip.grow * edgeOn - PaperFlip.dip * dip;
           Matrix4 matrix(double dy, double scale, double turn) =>
               Matrix4.translationValues(0, dy, 0)

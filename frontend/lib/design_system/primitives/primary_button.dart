@@ -382,6 +382,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         : widget.phase == ButtonPhase.done
         ? const BoxDecoration()
         : BoxDecoration(
+            // An outline pressed fills with a hairline (as a secondary does).
+            color: down ? ground.hairline : null,
             borderRadius: radius,
             border: Border.all(color: ground.outline, width: skin.shape.stroke),
           );

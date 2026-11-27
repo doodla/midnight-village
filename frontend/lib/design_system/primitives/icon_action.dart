@@ -10,7 +10,7 @@ import 'secondary_button.dart';
 /// a Material icon button on a plain screen, exactly as it was; on a paper one
 /// a bone scrap with the glyph on it (a [PaperPiece]). [label] is spoken (and
 /// the plain tooltip). A finger presses it from the frame it lands
-/// (`Pressable`): plain, the button dips a hairline; dressed, the glyph dims.
+/// (`Pressable`): the glyph dims.
 class IconAction extends StatefulWidget {
   const IconAction({
     super.key,
@@ -26,7 +26,7 @@ class IconAction extends StatefulWidget {
   /// The side of its touch target (Material's icon button's).
   static const side = SecondaryButton.height;
 
-  /// The glyph's ink while pressed (dressed up), and its size focused.
+  /// The glyph's ink while pressed, and its size focused (dressed up).
   static const pressedInk = 0.6;
   static const focusedScale = 1.12;
 
@@ -43,8 +43,10 @@ class _IconActionState extends State<IconAction> {
     if (!context.dress.isPaper) {
       return Pressable(
         enabled: widget.onPressed != null,
-        builder: (context, press, child) =>
-            PressSink(press: press, by: PressSink.dip, child: child),
+        builder: (context, press, child) => FadeTransition(
+          opacity: press.drive(Tween(begin: 1, end: IconAction.pressedInk)),
+          child: child,
+        ),
         child: IconButton(
           onPressed: widget.onPressed,
           tooltip: widget.label,

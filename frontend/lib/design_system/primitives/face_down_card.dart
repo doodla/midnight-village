@@ -201,6 +201,8 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
   var _down = false;
 
   void _touch(bool down) {
+    // Only a card that takes a tap dips (a hold's cover presses by paint).
+    if (widget.onTap == null) return;
     if (_down != down && mounted) setState(() => _down = down);
   }
 
