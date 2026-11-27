@@ -28,8 +28,8 @@ typedef ControlAt = String? Function(Offset position, int viewId);
 ///
 /// A frame's time is when the engine finished drawing it (its own
 /// `FrameTiming`, found by a time taken inside the frame); until that
-/// timing arrives (the engine hands timings over in batches), the first
-/// timer after the frame stands in. A request's round trip is the
+/// timing arrives (the engine hands timings over in batches), that time
+/// stands in (no timer is started for it). A request's round trip is the
 /// browser's own record of it (Resource Timing), so the time its answer
 /// waited for a busy page is told apart. Nothing here schedules a frame or
 /// waits for anything.
@@ -203,20 +203,17 @@ class FieldRecorder implements PerfRecorder {
     }
   }
 
-  /// Calls [then] once the next frame is drawn: with a time inside it (its
-  /// own callbacks, before the engine finishes it), and the first timer
-  /// after it (the stand-in until its timing arrives).
+  /// Calls [then] once the next frame is drawn, with a time inside it (its
+  /// own callbacks, before the engine finishes it): the mark its timing is
+  /// found by, and the stand-in until that timing arrives.
   void _frameAfter(void Function(double mark, double at) then) {
+    // No timer: the time inside the frame stands in until the frame's own
+    // timing arrives (`_refine`), so a frame leaves nothing behind it.
     SchedulerBinding.instance.addPostFrameCallback(
       (_) => quietly(() {
         final mark = now();
+        then(mark, mark);
         _refine();
-        Timer.run(
-          () => quietly(() {
-            then(mark, now());
-            _refine();
-          }),
-        );
       }),
     );
   }
