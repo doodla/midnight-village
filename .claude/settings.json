@@ -20,6 +20,11 @@
             "command": "f=\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git_guard.py; [ -f \"$f\" ] || exit 0; exec python3 \"$f\"",
             "timeout": 30,
             "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/poll_guard.py; [ -f \"$f\" ] || exit 0; exec python3 \"$f\"",
+            "timeout": 10
           }
         ]
       }

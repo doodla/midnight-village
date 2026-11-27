@@ -88,54 +88,54 @@ _env:
 
 # Run all tests (and the migration tests when no arguments are given)
 test *args: _env
-    uv run pytest {{ if args == "" { "-n auto" } else { args } }}
+    ../tool/heavy.py -- uv run pytest {{ if args == "" { "-n auto" } else { args } }}
     {{ if args == "" { "just test-migrations" } else { "true" } }}
 
 # Every test on every core, no coverage report: the quick answer while building
 # (`just piece-check` at the root uses it)
 test-fast: _env
-    uv run pytest -n auto --no-cov -q -p no:cacheprovider
+    ../tool/heavy.py -- uv run pytest -n auto --no-cov -q -p no:cacheprovider
 
 # The migration tests, against a database built by the real migrations (no coverage)
 test-migrations: _env
-    uv run pytest --migrations --create-db --no-cov -m migration
+    ../tool/heavy.py -- uv run pytest --migrations --create-db --no-cov -m migration
 
 # Re-record contract_samples/ (repo root) from the real server, after a change
 # to any payload: review the diff, commit it, and update the app's fixtures if
 # a test now fails. `just test` fails while the committed samples are stale.
 samples: _env
-    UPDATE_CONTRACT_SAMPLES=1 uv run pytest tests/contract/test_contract_samples.py --no-cov -q
+    ../tool/heavy.py -- env UPDATE_CONTRACT_SAMPLES=1 uv run pytest tests/contract/test_contract_samples.py --no-cov -q
 
 # Re-record tests/perf/tap_budget.json (what each request costs the server at ten
 # seats) after a change that adds or removes a query: review the diff, commit it.
 tap-budget: _env
-    UPDATE_TAP_BUDGET=1 uv run pytest tests/perf/test_tap_query_budget.py --no-cov -q -k budget_says
+    ../tool/heavy.py -- env UPDATE_TAP_BUDGET=1 uv run pytest tests/perf/test_tap_query_budget.py --no-cov -q -k budget_says
 
 # Print, per request, timer and socket opening of a whole game at 3, 6 and 10 seats:
 # database round trips, row locks, socket and timer messages and the time here
 # (local Postgres). `just server-timing sql` also prints the queries at ten seats.
 server-timing what="1": _env
-    SERVER_TIMING={{what}} uv run pytest tests/perf/test_server_timing.py --no-cov -q -s
+    ../tool/heavy.py -- env SERVER_TIMING={{what}} uv run pytest tests/perf/test_server_timing.py --no-cov -q -s
 
 # Run tests with coverage report (uses pyproject.toml config)
 test-cov: _env
-    uv run pytest
+    ../tool/heavy.py -- uv run pytest
 
 # Run tests for specific marker (unit, integration, contract) - no coverage
 test-marker marker: _env
-    uv run pytest -m {{marker}} --no-cov
+    ../tool/heavy.py -- uv run pytest -m {{marker}} --no-cov
 
 # Run unit tests only (no coverage - may have insufficient coverage alone)
 test-unit: _env
-    uv run pytest -m unit --no-cov
+    ../tool/heavy.py -- uv run pytest -m unit --no-cov
 
 # Run integration tests only (no coverage - may have insufficient coverage alone)
 test-integration: _env
-    uv run pytest -m integration --no-cov
+    ../tool/heavy.py -- uv run pytest -m integration --no-cov
 
 # Run contract tests only (no coverage - may have insufficient coverage alone)
 test-contract: _env
-    uv run pytest -m contract --no-cov
+    ../tool/heavy.py -- uv run pytest -m contract --no-cov
 
 # --- Code Quality ---
 

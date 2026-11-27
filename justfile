@@ -48,10 +48,12 @@ test *args:
     {{backend_just}} test {{args}}
     just test-guardrails
 
-# Run the .claude/ hook tests: guardrails (python3 >= 3.11), the workflows' recipes and the commit gate's routing
+# Run the .claude/ hook tests: guardrails (python3 >= 3.11), the workflows' recipes and the commit gate's routing.
+# Without Flutter and Dart on PATH, as in GitHub's "Backend Checks" job (which runs this): a test that
+# needs them fails here, not only there (tool/path_without.py).
 test-guardrails:
-    python3 -m unittest discover -s .claude/guardrails/tests
-    .claude/hooks/test_gate_routing.sh
+    PATH="$(tool/path_without.py flutter dart)" python3 -m unittest discover -s .claude/guardrails/tests
+    PATH="$(tool/path_without.py flutter dart)" .claude/hooks/test_gate_routing.sh
 
 # When the change has a migration: the previous build's own tests on a database built by
 # this change's migrations (the live server migrates while the previous build serves).
@@ -80,15 +82,25 @@ tidy *args:
 copy-page *args:
     @tool/copy_page.py {{args}}
 
+# The queue every heavy command goes through (tool/heavy.py): a few at once, the rest wait their
+# turn and say where they are. The recipes that are heavy (tests, builds, screens, phone-frames,
+# the harness) use it themselves. `just heavy --status`: who holds a slot, since when, who waits.
+# Usage: just heavy <command...>   |   just heavy --status
+heavy *args:
+    @tool/heavy.py {{args}}
+
 # While building: the fast checks and only the tests this change can reach
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
+# Its heavy steps wait their turn in `just heavy`'s queue.
 piece-check *args:
     @tool/piece_check.py {{args}}
 
 # LAST, before a piece is handed over, and the only way to hand one over: refuses work
 # that is not committed and pushed, runs the checks the change reaches, draws every
 # screen state it reaches beside main, and writes the hand-over file (tool/handover.py).
-# `just handover <file> --plan` says what it would run and what that costs.
+# `just handover <file> --plan` says what it would run and what that costs. It also runs the
+# golden tests and every test that scans all of lib/ when the app's code changed, and says
+# how many of GitHub's required checks ran here (READY (N of M ...): never "GitHub will pass").
 handover *args:
     @tool/handover.py {{args}}
 
@@ -128,7 +140,7 @@ test-contract:
 
 # A whole game on a slowed phone (release web build, Chrome, CPU 4x): every screen, transition and tap against budgets; own backend. About 15 minutes. Usage: just phone-frames [--cpu 1|2|4] [--out f.json] [--perf dir] (the app's own ?perf=1 readout beside it: strip.png, sheet.png, report.txt, compare.txt)
 phone-frames *args:
-    tool/phone_frames/run.sh {{args}}
+    tool/heavy.py -- tool/phone_frames/run.sh {{args}}
 
 # The live server's round trips and socket events, with three throwaway guests at one throwaway table (read-mostly, no load)
 phone-frames-live *args:
@@ -141,7 +153,7 @@ test-harness:
 
 # Tap to guest screen on a slowed phone (deal, play again) against a budget; own backend, web build, Chrome. About 5 minutes. Usage: just phone-timing [rounds]
 phone-timing *args:
-    tool/phone_timing/run.sh {{args}}
+    tool/heavy.py -- tool/phone_timing/run.sh {{args}}
 
 # --- Code Quality ---
 
