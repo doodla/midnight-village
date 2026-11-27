@@ -786,7 +786,7 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws).
   A locked part keeps `enabled` and still answers;
   only a part that must not move turns it off.
-  Its own `RepaintBoundary`. Adopting it:
+  While pressed or settling it is its own repaint boundary (`PressLayer`); at rest none, so a part at rest draws exactly as without it. Adopting it:
   `Pressable(builder: (context, press, child) => PressSink(press: press, by: dip, child: child), child: GestureDetector(onTap: onTap, child: paper))`
 - **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock
   (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`, with no exceptions).

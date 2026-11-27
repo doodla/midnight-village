@@ -39,7 +39,9 @@ typedef PressBuilder =
 /// still answers and its words say what is missing. Only a part that must
 /// not move at all (a dimmed vote row) turns [enabled] off.
 ///
-/// It is its own [RepaintBoundary]: a press repaints the pressed part only.
+/// While it is pressed or settling it is its own repaint boundary
+/// ([PressLayer]): a press repaints the pressed part only. At rest it is
+/// none, so the part is drawn exactly as it would be without it.
 class Pressable extends StatefulWidget {
   const Pressable({
     super.key,
@@ -164,7 +166,8 @@ class _PressableState extends State<Pressable>
   }
 
   @override
-  Widget build(BuildContext context) => RepaintBoundary(
+  Widget build(BuildContext context) => PressLayer(
+    press: _press,
     child: Listener(
       onPointerDown: _down,
       onPointerMove: _move,
@@ -173,6 +176,66 @@ class _PressableState extends State<Pressable>
       child: widget.builder(context, _press.view, widget.child),
     ),
   );
+}
+
+/// A repaint boundary only while [press] is away from rest: the frames of a
+/// press repaint this part alone, and at rest it draws as if it were not
+/// there (a layer of its own would move the antialiasing of its edges).
+class PressLayer extends SingleChildRenderObjectWidget {
+  const PressLayer({super.key, required this.press, super.child});
+
+  final Animation<double> press;
+
+  @override
+  RenderPressLayer createRenderObject(BuildContext context) =>
+      RenderPressLayer(press);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    RenderPressLayer renderObject,
+  ) => renderObject.press = press;
+}
+
+/// [PressLayer]'s render object.
+class RenderPressLayer extends RenderProxyBox {
+  RenderPressLayer(this._press);
+
+  Animation<double> _press;
+  set press(Animation<double> value) {
+    if (value == _press) return;
+    if (attached) _press.removeListener(_moved);
+    _press = value;
+    if (attached) _press.addListener(_moved);
+    _moved();
+  }
+
+  var _layered = false;
+
+  void _moved() {
+    final layered = _press.value != 0;
+    if (layered == _layered) return;
+    _layered = layered;
+    // Its layer comes or goes: the parent draws it again, once.
+    markNeedsCompositingBitsUpdate();
+    markNeedsPaint();
+  }
+
+  @override
+  bool get isRepaintBoundary => _layered;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _press.addListener(_moved);
+    _moved();
+  }
+
+  @override
+  void detach() {
+    _press.removeListener(_moved);
+    super.detach();
+  }
 }
 
 /// The rest of [curve] after its first [head] of time (where it stood at
