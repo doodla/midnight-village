@@ -177,8 +177,10 @@ reconnects, which is a normal disconnect + connect to the presence rows.
 
 ## Request limits
 
-Two requests are limited, both open to anyone without signing in: making a guest
-(`sign_up`, 60 a minute) and the players-online number (`online_stats`, 600 a minute).
+Three kinds of request are limited, all open to anyone without signing in: making a guest
+(`sign_up`, 60 a minute), the players-online number (`online_stats`, 600 a minute) and the
+phones' speed summaries with their report (`field_summary`, 600 an hour; sent after the play,
+"Seeing the live app" below).
 Nothing a table does in a game is limited. They are there to stop one runaway script
 filling the database with guests, not to police players: friends at a table share one
 address, so the allowance is several tables all retrying at once
