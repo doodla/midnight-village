@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/feel/press.dart';
+import 'package:midnight_village/design_system/feel/press_paint.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
 import 'package:midnight_village/design_system/primitives/hold_to_reveal.dart';
@@ -204,6 +205,27 @@ List<Type> _layers(RenderObject root) {
   return out;
 }
 
+/// Whether a press piece under the part draws the press now: a sink moved,
+/// paper blended toward its pressed paper, ink dimmed. Pixels alone could be
+/// another's (an `InkWell`'s splash); this is the press's own paint.
+bool _drawsPressed(WidgetTester tester, _Part part) {
+  var pressed = false;
+  void visit(RenderObject r) {
+    pressed |= switch (r) {
+      RenderPressSink() => r.drawsPressed,
+      RenderPressDecoration() => r.drawsPressed,
+      RenderPressFade() => r.drawsPressed,
+      // TextAction's dim, as on main.
+      RenderAnimatedOpacity() => r.opacity.value < 1,
+      _ => false,
+    };
+    r.visitChildren(visit);
+  }
+
+  visit(tester.renderObject(_of(part).first));
+  return pressed;
+}
+
 /// [element] is Material's own: inside an `InkWell`, above what it holds.
 bool _insideInk(Element element) {
   InkWell? ink;
@@ -247,6 +269,11 @@ void main() {
         await tester.pump();
         final first = await FramePixels.of(tester);
         expect(_changed(rest, first, room), greaterThan(0));
+        expect(
+          _drawsPressed(tester, part),
+          isTrue,
+          reason: 'the change is the press\'s own paint',
+        );
         await finger.up();
         await tester.pumpAndSettle();
         expect(taps, part.commits ? 1 : 0);
@@ -267,6 +294,7 @@ void main() {
         await tester.pump();
         final after = await FramePixels.of(tester);
         expect(_changed(rest, after, room), greaterThan(0));
+        expect(_drawsPressed(tester, part), isTrue);
         await tester.pumpAndSettle();
         expect(taps, part.commits ? 1 : 0);
       });
@@ -294,6 +322,7 @@ void main() {
           _changed(rest, await FramePixels.of(tester), room),
           greaterThan(0),
         );
+        expect(_drawsPressed(tester, part), isTrue);
         expect(_travels(tester), isFalse);
         await finger.up();
         await tester.pump();
@@ -307,6 +336,14 @@ void main() {
         await _pump(tester, part, tap: () => taps++, still: true);
         final room = _room(tester, part);
         final rest = await FramePixels.of(tester);
+        // Read as each frame is painted: the lift comes right after it.
+        var drawnPressed = false;
+        var watching = true;
+        addTearDown(() => watching = false);
+        tester.binding.addPersistentFrameCallback((_) {
+          if (!watching || _of(part).evaluate().isEmpty) return;
+          drawnPressed |= _drawsPressed(tester, part);
+        });
         await plainTap(
           tester,
           find.byWidget(tester.widget(_of(part).first)),
@@ -318,6 +355,7 @@ void main() {
           greaterThan(0),
           reason: 'the frame after a quick tap is drawn pressed',
         );
+        expect(drawnPressed, isTrue, reason: 'by the press\'s own paint');
         expect(_travels(tester), isFalse);
         await tester.pump();
         expect(

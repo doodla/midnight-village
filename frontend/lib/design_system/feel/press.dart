@@ -328,6 +328,10 @@ class RenderPressFade extends RenderProxyBox {
 
   var _dimmed = false;
 
+  /// Whether it draws its child dimmed by the press now (a test reads it).
+  @visibleForTesting
+  bool get drawsPressed => _alpha != 255;
+
   void _moved() {
     final dimmed = _alpha != 255;
     if (dimmed != _dimmed) {
@@ -512,6 +516,10 @@ class RenderPressSink extends RenderProxyBox {
       ..multiply(Matrix4.diagonal3Values(scale, scale, 1))
       ..multiply(Matrix4.translationValues(-centre.dx, -centre.dy, 0));
   }
+
+  /// Whether it draws its child moved by the press now (a test reads it).
+  @visibleForTesting
+  bool get drawsPressed => _transform != null;
 
   /// The child is placed where it is drawn (an overlay that follows it, a
   /// test that reads where it is); it is still hit where it rests.

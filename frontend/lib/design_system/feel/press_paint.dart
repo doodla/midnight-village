@@ -203,6 +203,11 @@ class RenderPressDecoration extends RenderProxyBox {
     super.dispose();
   }
 
+  /// Whether it draws paper blended toward the pressed one now (a test
+  /// reads it).
+  @visibleForTesting
+  bool get drawsPressed => _press.value > 0 && _rest != _down;
+
   @override
   bool hitTestSelf(Offset position) => _rest.hitTest(
     size,
