@@ -167,12 +167,14 @@ void main() {
       'a player_joined reads nothing: the lobby_update sent with it is the table',
       () async {
         final t = await _open();
-        t.server = _lobby(hostId: 2, acting: true);
+        clearInteractions(t.service);
 
+        // The server agrees with the phone: the host has not moved.
         t.ws.addServerEvent(GameEvents.playerJoined());
         await _settle();
 
-        expect(t.lobby.hostId, 1, reason: 'no read: the host is as shown');
+        verifyNever(() => t.service.fetchLobby(any()));
+        expect(t.lobby.hostId, t.server.hostId);
       },
     );
   });

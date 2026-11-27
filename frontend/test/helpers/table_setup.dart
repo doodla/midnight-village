@@ -478,8 +478,6 @@ class TableSetup {
   /// How much of the app's time a [settle] lets pass.
   static const settleFor = Duration(milliseconds: 600);
 
-  /// Unmounts the app (its timers go with it; an answer still held runs
-  /// out the client's wait).
   /// The app's provider container (under its `ProviderScope`).
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(Navigator).first));
@@ -490,6 +488,8 @@ class TableSetup {
     tester,
   ).read(socketHealthProvider).report(SocketHealth.lobby(code), up: false);
 
+  /// Unmounts the app (its timers go with it; an answer still held runs
+  /// out the client's wait).
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(AuthenticatedClient.timeout + const Duration(seconds: 1));
