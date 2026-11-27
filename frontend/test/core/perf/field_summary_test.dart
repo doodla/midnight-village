@@ -106,6 +106,12 @@ Future<FieldRecorder> _requests(
 
 String _me(int i) => 'https://api.example/api/onuw/games/7/me/';
 
+/// A poll, then a read made as its answer came (an `event`, not a poll).
+const _pollThenEvent = [
+  (gap: 0.0, round: 100.0, total: 50.0, connect: 10.0),
+  (gap: 0.0, round: 100.0, total: 50.0, connect: 10.0),
+];
+
 void main() {
   testWidgets('a game\'s summary holds a tap\'s legs by kind, its frames and '
       'its request, and no player name, role or card', (tester) async {
@@ -292,9 +298,7 @@ void main() {
         'summary, never before', () async {
       var reads = 0;
       final sent = <String>[];
-      final recorder = await _requests([
-        (gap: 0, round: 100, total: 50, connect: 10),
-      ]);
+      final recorder = await _requests(_pollThenEvent);
       final beacon = FieldBeacon(
         recorder: recorder,
         commit: 'faf62a1',
@@ -326,11 +330,29 @@ void main() {
       expect(shown, ['vote', FieldBeacon.endBoard]);
     });
 
-    test('sends what was recorded when the tab is hidden', () async {
+    test('a tab hidden while nothing but polls went out sends nothing: they '
+        'go with the next summary', () async {
       final sent = <String>[];
       final recorder = await _requests([
         (gap: 0, round: 100, total: 50, connect: 10),
+        (gap: 5000, round: 100, total: 50, connect: 10),
       ]);
+      expect(recorder.requests.every((q) => q.isPoll), isTrue);
+      FieldBeacon(
+        recorder: recorder,
+        commit: 'faf62a1',
+        send: (s) {
+          sent.add(s);
+          return true;
+        },
+      ).hidden();
+      expect(sent, isEmpty);
+      expect(recorder.requests, hasLength(2), reason: 'kept for the next');
+    });
+
+    test('sends what was recorded when the tab is hidden', () async {
+      final sent = <String>[];
+      final recorder = await _requests(_pollThenEvent);
       final beacon = FieldBeacon(
         recorder: recorder,
         commit: 'faf62a1',

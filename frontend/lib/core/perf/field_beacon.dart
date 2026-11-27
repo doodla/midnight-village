@@ -52,8 +52,15 @@ class FieldBeacon {
     }, Priority.idle);
   }
 
-  /// The tab is being hidden (switched away, locked, closed).
-  void hidden() => flush('hidden');
+  /// The tab is being hidden (switched away, locked, closed). A phone locked
+  /// and opened again while nothing but polls went out sends nothing: they
+  /// go with the next summary (phones lock often in a game).
+  void hidden() {
+    final something =
+        recorder.taps.any((t) => t.done) ||
+        recorder.requests.any((q) => !q.isPoll);
+    if (something) flush('hidden');
+  }
 
   /// Sends what was recorded since the last send, and forgets it. Returns
   /// whether anything was sent.
