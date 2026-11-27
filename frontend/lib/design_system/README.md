@@ -780,7 +780,8 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   The plaque sinks into its backing, an outline fills with a hairline (a main one also dips), a scrap sinks into its shadow, a quiet word or a glyph dims;
   a locked or waiting button presses and returns. On 04 the cover gets the hold's press through `HoldPress.pressOf`: the hero sinks toward its slab's shadow
   (`FaceDownCard.heroPressKeep`, half) and `PaperFlip(press:)` shrinks it 2%, both from the frame the finger lands, and they stay down while held.
-  A deckled edge drawn somewhere new (a shadow that moves under a finger) is moved, never torn again (`DeckleBorder`'s cache by size).
+  While a press blends, a deckled edge (a shadow moving under a finger) is a moved copy of one already cut, never torn again (`DeckleBorder.whileMoving`);
+  at rest and all the way down every edge is cut where it lies, as before.
   Tests: `press_parts_test.dart` (the first frame, a quick tap, the lift, reduce motion and no rebuild, by the pixels drawn, for every part).
   Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws).
   A locked part keeps `enabled` and still answers;
