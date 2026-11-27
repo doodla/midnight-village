@@ -43,10 +43,8 @@ class _IconActionState extends State<IconAction> {
     if (!context.dress.isPaper) {
       return Pressable(
         enabled: widget.onPressed != null,
-        builder: (context, press, child) => FadeTransition(
-          opacity: press.drive(Tween(begin: 1, end: IconAction.pressedInk)),
-          child: child,
-        ),
+        builder: (context, press, child) =>
+            PressFade(press: press, to: IconAction.pressedInk, child: child),
         child: IconButton(
           onPressed: widget.onPressed,
           tooltip: widget.label,
@@ -71,8 +69,9 @@ class _IconActionState extends State<IconAction> {
           dimension: IconAction.side,
           child: Pressable(
             enabled: enabled,
-            builder: (context, press, child) => FadeTransition(
-              opacity: press.drive(Tween(begin: 1, end: IconAction.pressedInk)),
+            builder: (context, press, child) => PressFade(
+              press: press,
+              to: IconAction.pressedInk,
               child: child,
             ),
             child: Material(

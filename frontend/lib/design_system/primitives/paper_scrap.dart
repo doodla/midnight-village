@@ -109,10 +109,9 @@ class PaperScrap extends StatelessWidget {
                       )
                     : SizedBox(
                         width: width,
-                        child: FadeTransition(
-                          opacity: press.drive(
-                            Tween(begin: 1, end: context.skin.dimmed),
-                          ),
+                        child: PressFade(
+                          press: press,
+                          to: context.skin.dimmed,
                           child: words,
                         ),
                       ),

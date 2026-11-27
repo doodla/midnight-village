@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/feel/press.dart';
@@ -27,11 +28,22 @@ import '../../helpers/frame_pixels.dart';
 
 /// One part, how it is pressed, and what its tap counts.
 class _Part {
-  _Part(this.name, this.build, {this.paper = false, this.commits = true});
+  _Part(
+    this.name,
+    this.build, {
+    this.paper = false,
+    this.commits = true,
+    this.restLayers = const [],
+  });
 
   final String name;
   final Widget Function(VoidCallback tap) build;
   final bool paper;
+
+  /// The render objects of its own layer it has at rest, as origin/main's
+  /// part had before it pressed through `Pressable` (read off 862770c9):
+  /// a press adds none that stays.
+  final List<Type> restLayers;
 
   /// A tap on it acts (a hold's card does not: a tap is never a reveal).
   final bool commits;
@@ -75,6 +87,8 @@ final _parts = [
       'text action',
       (tap) => TextAction(label: 'Leave', onPressed: tap),
       paper: paper,
+      // Its dim was an `AnimatedOpacity` on main, a layer at full ink too.
+      restLayers: const [RenderAnimatedOpacity],
     ),
     _Part(
       'scrap',
@@ -95,6 +109,13 @@ final _parts = [
       ),
       paper: paper,
       commits: false,
+      // The turn's back and its face, the card's own art, and the ring.
+      restLayers: const [
+        RenderRepaintBoundary,
+        RenderRepaintBoundary,
+        RenderRepaintBoundary,
+        RenderAnimatedOpacity,
+      ],
     ),
   ],
 ];
@@ -165,6 +186,22 @@ bool _travels(WidgetTester tester) {
     if (moved != Matrix4.identity()) return true;
   }
   return false;
+}
+
+/// The render objects under [root] that draw in a layer of their own (a
+/// repaint boundary, or one that always composites), in paint order.
+List<Type> _layers(RenderObject root) {
+  final out = <Type>[];
+  void visit(RenderObject r) {
+    // Read as the pipeline reads it, to say whether it needs a layer.
+    // ignore: invalid_use_of_protected_member
+    final composites = r.alwaysNeedsCompositing;
+    if (r.isRepaintBoundary || composites) out.add(r.runtimeType);
+    r.visitChildren(visit);
+  }
+
+  visit(root);
+  return out;
 }
 
 /// [element] is Material's own: inside an `InkWell`, above what it holds.
@@ -290,6 +327,17 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(taps, part.commits ? 1 : 0);
+      });
+
+      testWidgets('at rest, before and after a press, no layer of its own '
+          'that main did not have', (tester) async {
+        await _pump(tester, part, tap: () {});
+        await tester.pumpAndSettle();
+        final root = tester.renderObject(_of(part).first);
+        expect(_layers(root), part.restLayers);
+        await pressAtLikeAFinger(tester, _room(tester, part).center);
+        await tester.pumpAndSettle();
+        expect(_layers(root), part.restLayers);
       });
 
       testWidgets('nothing below rebuilds on press', (tester) async {

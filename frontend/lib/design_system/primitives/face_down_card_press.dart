@@ -21,7 +21,8 @@ Widget _heroPaper(
       rest: paper(slab),
       down: paper(slab.pressed(keep)),
       duration: Duration.zero,
-      child: RepaintBoundary(child: child),
+      // Its own layer only while pressed: at rest it draws as before.
+      child: PressLayer(press: press, child: child),
     ),
   );
 }

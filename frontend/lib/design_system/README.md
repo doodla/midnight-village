@@ -787,7 +787,9 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   a tap down and up before a frame is drawn keeps its lift until that frame is done (a post-frame callback, never a timer), so it still shows one pressed frame.
   A locked part keeps `enabled` and still answers;
   only a part that must not move turns it off.
-  While pressed or settling it is its own repaint boundary (`PressLayer`); at rest none, so a part at rest draws exactly as without it. Adopting it:
+  While pressed or settling it is its own repaint boundary (`PressLayer`); at rest none, so a part at rest draws exactly as without it.
+  A dim is `PressFade` (an opacity layer only while it dims; a `FadeTransition` is a layer whenever it is visible), and 04's hero holds its art in a `PressLayer`:
+  at rest a part has exactly the layers main's had (`press_parts_test.dart` reads them off the render tree). Adopting it:
   `Pressable(builder: (context, press, child) => PressSink(press: press, by: dip, child: child), child: GestureDetector(onTap: onTap, child: paper))`
 - **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock
   (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`, with no exceptions).

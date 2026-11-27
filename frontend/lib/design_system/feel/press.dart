@@ -8,8 +8,8 @@ import 'package:flutter/widgets.dart';
 import '../layout/space.dart';
 
 /// Draws a part's own answer to a finger: [press] runs from 0 (at rest) to 1
-/// (all the way down). Hand it to a paint-only layer ([PressSink], a
-/// `FadeTransition`, a `CustomPainter`'s `repaint:`), never to a rebuild of
+/// (all the way down). Hand it to a paint-only layer ([PressSink],
+/// [PressFade], a `CustomPainter`'s `repaint:`), never to a rebuild of
 /// [child]: the builder runs when the part is built, not on every frame.
 typedef PressBuilder =
     Widget Function(
@@ -266,6 +266,120 @@ class RenderPressLayer extends RenderProxyBox {
   }
 }
 
+/// A part's ink dimmed by a press, by paint alone: [child] is drawn at full
+/// ink at rest and at [to] all the way down. Only while the press dims it is
+/// there an opacity layer; at rest there is none and no repaint boundary
+/// either (a `FadeTransition` is one whenever it is visible), so the part
+/// draws exactly as it would without it. It dims under reduce motion too (a
+/// tint is not a travel).
+class PressFade extends SingleChildRenderObjectWidget {
+  const PressFade({
+    super.key,
+    required this.press,
+    required this.to,
+    super.child,
+  });
+
+  final Animation<double> press;
+
+  /// The opacity all the way down.
+  final double to;
+
+  @override
+  RenderPressFade createRenderObject(BuildContext context) =>
+      RenderPressFade(press: press, to: to);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderPressFade renderObject) {
+    renderObject
+      ..press = press
+      ..to = to;
+  }
+}
+
+/// [PressFade]'s render object: it repaints when the press moves, and needs
+/// a layer of its own only while the press dims it.
+class RenderPressFade extends RenderProxyBox {
+  RenderPressFade({required Animation<double> press, required double to})
+    : _press = press,
+      _to = to;
+
+  Animation<double> _press;
+  set press(Animation<double> value) {
+    if (value == _press) return;
+    if (attached) _press.removeListener(_moved);
+    _press = value;
+    if (attached) _press.addListener(_moved);
+    _moved();
+  }
+
+  double _to;
+  set to(double value) {
+    if (value == _to) return;
+    _to = value;
+    _moved();
+  }
+
+  /// The alpha drawn now: 255 at rest (and in the settle just past it).
+  int get _alpha {
+    final opacity = 1 + (_to - 1) * _press.value;
+    return Color.getAlphaFromOpacity(opacity.clamp(0.0, 1.0));
+  }
+
+  var _dimmed = false;
+
+  void _moved() {
+    final dimmed = _alpha != 255;
+    if (dimmed != _dimmed) {
+      _dimmed = dimmed;
+      markNeedsCompositingBitsUpdate();
+    }
+    markNeedsPaint();
+  }
+
+  @override
+  bool get alwaysNeedsCompositing => child != null && _dimmed;
+
+  final _layer = LayerHandle<OpacityLayer>();
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _press.addListener(_moved);
+    _dimmed = _alpha != 255;
+  }
+
+  @override
+  void detach() {
+    _press.removeListener(_moved);
+    super.detach();
+  }
+
+  @override
+  void dispose() {
+    _layer.layer = null;
+    super.dispose();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    final alpha = _alpha;
+    if (alpha == 255 || !_dimmed) {
+      _layer.layer = null;
+      context.paintChild(child, offset);
+      return;
+    }
+    _layer.layer = context.pushOpacity(
+      offset,
+      alpha,
+      (context, offset) => context.paintChild(child, offset),
+      oldLayer: _layer.layer,
+    );
+  }
+}
+
 /// The rest of [curve] after its first [head] of time (where it stood at
 /// [start]), stretched to run 0 to 1: the press after its first frame.
 class _Rest extends Curve {
@@ -284,7 +398,7 @@ class _Rest extends Curve {
 /// by [by] (into its shadow) and shrinks by [shrink] of its size, both times
 /// the press. Nothing below it is rebuilt or laid out again, and its hit
 /// area and layout stay where they rest. With reduce motion nothing moves:
-/// pair it with a colour change (a tint, a `FadeTransition`) the part draws
+/// pair it with a colour change (a tint, a [PressFade]) the part draws
 /// itself.
 class PressSink extends SingleChildRenderObjectWidget {
   const PressSink({
