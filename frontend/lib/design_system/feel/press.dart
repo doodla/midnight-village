@@ -104,8 +104,10 @@ class _PressableState extends State<Pressable>
     return math.min(1, frame / Motion.press.inMicroseconds);
   }
 
+  // A pointer handler can outlive the part: the finger that pressed it is
+  // still routed to its listener after a rebuild took it away.
   void _down(PointerDownEvent event) {
-    if (!widget.enabled || _pointer != null) return;
+    if (!mounted || !widget.enabled || _pointer != null) return;
     if (event.buttons & kPrimaryButton == 0) return;
     _pointer = event.pointer;
     _from = event.position;
@@ -141,6 +143,7 @@ class _PressableState extends State<Pressable>
 
   void _release() {
     _pointer = null;
+    if (!mounted) return;
     if (_reduced) {
       _press.value = 0;
       return;

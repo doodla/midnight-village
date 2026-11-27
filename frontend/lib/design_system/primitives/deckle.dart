@@ -109,11 +109,25 @@ class DeckleBorder extends ShapeBorder {
   static final _cut = <(int, double, double, bool, bool, bool, Rect), Path>{};
   static const _cutMost = 512;
 
-  /// The same edges by their size alone, at the origin: a piece drawn
-  /// somewhere new (a shadow tightening under a finger moves its rect each
-  /// frame) moves a path already cut ([Path.shift]) instead of tearing it.
+  /// The same edges by their size alone, at the origin: while a piece moves
+  /// ([whileMoving]: a shadow tightening under a finger moves its rect each
+  /// frame) a path already cut is moved ([Path.shift]) instead of torn.
   static final _shapes =
       <(int, double, double, bool, bool, bool, Size), Path>{};
+  static var _moving = false;
+
+  /// Paints a frame of a piece on its way between two resting places (a
+  /// press's blend): its edges are moved copies, not cut again, and are not
+  /// kept. At rest every edge is cut where it lies, as it always was.
+  static void whileMoving(VoidCallback paint) {
+    final was = _moving;
+    _moving = true;
+    try {
+      paint();
+    } finally {
+      _moving = was;
+    }
+  }
 
   /// How many paths were torn (not found in the cache) since the app began:
   /// `paint_cache_test.dart` reads it.
@@ -126,13 +140,11 @@ class DeckleBorder extends ShapeBorder {
     if (found != null) return _cut[key] = found;
     final shapeKey = (seed, depth, step, torn, round, blob, rect.size);
     final shape = _shapes.remove(shapeKey);
-    final Path path;
-    if (shape != null) {
-      path = shape.shift(rect.topLeft);
-      _shapes[shapeKey] = shape;
-    } else {
-      tornCount++;
-      path = _path(rect);
+    if (shape != null) _shapes[shapeKey] = shape;
+    if (_moving && shape != null) return shape.shift(rect.topLeft);
+    tornCount++;
+    final path = _path(rect);
+    if (shape == null) {
       if (_shapes.length >= _cutMost) _shapes.remove(_shapes.keys.first);
       _shapes[shapeKey] = path.shift(-rect.topLeft);
     }

@@ -2,6 +2,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
+import '../primitives/deckle.dart';
 
 /// A part's paper under a finger, drawn by paint alone: [rest] at rest,
 /// [down] all the way down, and in between the two blended by the press
@@ -58,12 +59,19 @@ class _PressDecorationState extends AnimatedWidgetBaseState<PressDecoration> {
   }
 
   @override
-  Widget build(BuildContext context) => _PressBox(
-    press: widget.press,
-    rest: _rest!.evaluate(animation),
-    down: _down!.evaluate(animation),
-    child: widget.child,
-  );
+  Widget build(BuildContext context) {
+    final rest = _rest!.evaluate(animation);
+    final child = widget.child;
+    return _PressBox(
+      press: widget.press,
+      rest: rest,
+      down: _down!.evaluate(animation),
+      // Inside its border, as a `Container`'s decoration keeps its child.
+      child: child == null || rest.padding == EdgeInsets.zero
+          ? child
+          : Padding(padding: rest.padding, child: child),
+    );
+  }
 }
 
 class _PressBox extends SingleChildRenderObjectWidget {
@@ -204,9 +212,16 @@ class RenderPressDecoration extends RenderProxyBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    _painterAt(
-      _press.value,
+    final t = _press.value;
+    void draw() => _painterAt(
+      t,
     ).paint(context.canvas, offset, _configuration.copyWith(size: size));
+    // On its way between rest and down, a torn edge is moved, not torn.
+    if (t == 0 || t == 1) {
+      draw();
+    } else {
+      DeckleBorder.whileMoving(draw);
+    }
     super.paint(context, offset);
   }
 }

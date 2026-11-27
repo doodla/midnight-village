@@ -378,11 +378,12 @@ class _HoldToRevealState extends State<HoldToReveal>
                 : null,
             // The card turned in place presses the frame the finger lands, and
             // stays down while held (`Pressable`); nothing is rebuilt for it.
-            child: Pressable(
-              enabled: widget.inPlace,
-              holds: true,
-              builder: (context, press, _) => _held(context, press),
-            ),
+            child: widget.inPlace
+                ? Pressable(
+                    holds: true,
+                    builder: (context, press, _) => _held(context, press),
+                  )
+                : _held(context, kAlwaysDismissedAnimation),
           ),
         ),
       ),

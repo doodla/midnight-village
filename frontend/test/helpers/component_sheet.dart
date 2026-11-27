@@ -147,6 +147,9 @@ enum ComponentPage {
     switch (this) {
       case buttons:
         await tester.startGesture(tester.getCenter(find.byKey(pressedKey)));
+        // The press starts in the frame the finger lands and is all the way
+        // down by the next one drawn after it.
+        await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
       case cardHeld || cardHeldVillager:
         await holdDown(tester, find.byType(FaceDownCard));
