@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../copy/copy.dart';
+import '../feel/press.dart';
 import '../faces/face_content.dart';
 import '../faces/held_face.dart';
 import '../layout/space.dart';
@@ -19,18 +20,31 @@ import 'paper_light.dart';
 enum _Shown { held, activated, opened }
 
 /// Whether the [HoldToReveal] round this cover is being held now: the
-/// hold cue's ring fills while it is ([HoldCue]).
+/// hold cue's ring fills while it is ([HoldCue]). [press] is the finger's
+/// press on a card turned in place (04), from the frame it lands: the cover
+/// sinks its paper with it (`PressSink`, `PressDecoration`).
 class HoldPress extends InheritedWidget {
-  const HoldPress({super.key, required this.held, required super.child});
+  const HoldPress({
+    super.key,
+    required this.held,
+    this.press,
+    required super.child,
+  });
 
   final bool held;
+  final Animation<double>? press;
 
   /// False outside a [HoldToReveal].
   static bool of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<HoldPress>()?.held ?? false;
 
+  /// The finger's press on the cover; null outside a card turned in place.
+  static Animation<double>? pressOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<HoldPress>()?.press;
+
   @override
-  bool updateShouldNotify(HoldPress old) => old.held != held;
+  bool updateShouldNotify(HoldPress old) =>
+      old.held != held || old.press != press;
 }
 
 /// A secret behind press-and-hold (first-time play spec, section 2): [cover]
@@ -148,8 +162,6 @@ class _HoldToRevealState extends State<HoldToReveal>
   var _showings = 0;
   var _focusHighlight = false;
 
-  /// A finger is on the card (before it is a hold): the card dips.
-  var _touching = false;
   Timer? _counts;
 
   /// When the finger on the card landed and lifted, by the events' own
@@ -307,12 +319,6 @@ class _HoldToRevealState extends State<HoldToReveal>
     _hide();
   }
 
-  /// A finger lands or lifts: only the card turning in place shows it.
-  void _touch(bool down) {
-    if (!widget.inPlace || _touching == down || !mounted) return;
-    setState(() => _touching = down);
-  }
-
   void _lostFocus() {
     if (_shown == _Shown.activated) _hide();
   }
@@ -370,48 +376,12 @@ class _HoldToRevealState extends State<HoldToReveal>
                     ),
                   )
                 : null,
-            child: Listener(
-              onPointerDown: (event) {
-                _landed = event.timeStamp;
-                _lifted = null;
-                _touch(true);
-              },
-              onPointerUp: (event) {
-                _lifted = event.timeStamp;
-                _touch(false);
-                _release();
-              },
-              onPointerCancel: (_) {
-                _touch(false);
-                _release();
-              },
-              child: RawGestureDetector(
-                behavior: HitTestBehavior.opaque,
-                // Assistive technology shows it through the Semantics above.
-                excludeFromSemantics: true,
-                gestures: {
-                  FingerTimedLongPress:
-                      GestureRecognizerFactoryWithHandlers<
-                        FingerTimedLongPress
-                      >(
-                        () => FingerTimedLongPress(
-                          duration: HoldToReveal.holdDelay,
-                        ),
-                        (recognizer) => recognizer
-                          ..onLongPressStart = ((details) => _show(
-                            _Shown.held,
-                            _shareOf(details.localPosition),
-                          ))
-                          ..onLongPressEnd = ((_) => _release())
-                          ..onLongPressCancel = _release,
-                      ),
-                },
-                // Hidden information: the cover sets the size, shown or not.
-                child: HoldPress(
-                  held: _shown == _Shown.held,
-                  child: widget.inPlace ? _turned(context) : widget.cover,
-                ),
-              ),
+            // The card turned in place presses the frame the finger lands, and
+            // stays down while held (`Pressable`); nothing is rebuilt for it.
+            child: Pressable(
+              enabled: widget.inPlace,
+              holds: true,
+              builder: (context, press, _) => _held(context, press),
             ),
           ),
         ),
@@ -419,15 +389,49 @@ class _HoldToRevealState extends State<HoldToReveal>
     );
   }
 
+  Widget _held(BuildContext context, Animation<double> press) => Listener(
+    onPointerDown: (event) {
+      _landed = event.timeStamp;
+      _lifted = null;
+    },
+    onPointerUp: (event) {
+      _lifted = event.timeStamp;
+      _release();
+    },
+    onPointerCancel: (_) => _release(),
+    child: RawGestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // Assistive technology shows it through the Semantics above.
+      excludeFromSemantics: true,
+      gestures: {
+        FingerTimedLongPress:
+            GestureRecognizerFactoryWithHandlers<FingerTimedLongPress>(
+              () => FingerTimedLongPress(duration: HoldToReveal.holdDelay),
+              (recognizer) => recognizer
+                ..onLongPressStart = ((details) =>
+                    _show(_Shown.held, _shareOf(details.localPosition)))
+                ..onLongPressEnd = ((_) => _release())
+                ..onLongPressCancel = _release,
+            ),
+      },
+      // Hidden information: the cover sets the size, shown or not.
+      child: HoldPress(
+        held: _shown == _Shown.held,
+        press: widget.inPlace ? press : null,
+        child: widget.inPlace ? _turned(context, press) : widget.cover,
+      ),
+    ),
+  );
+
   static Widget _nothing(BuildContext context, OverlayChildLayoutInfo _) =>
       const SizedBox.shrink();
 
   /// In place: the card turns over like paper ([PaperFlip]): the cover is
   /// its back, in its own box, and the face its other side. The cover
   /// sets the size, so nothing about the hidden state depends on the secret.
-  Widget _turned(BuildContext context) => PaperFlip(
+  Widget _turned(BuildContext context, Animation<double> press) => PaperFlip(
     turned: _visible,
-    pressed: _touching,
+    press: press,
     back: widget.cover,
     face: (context) => IgnorePointer(
       child: HeldFace(

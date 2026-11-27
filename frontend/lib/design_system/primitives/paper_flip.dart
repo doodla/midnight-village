@@ -23,8 +23,9 @@ import '../skin/skin.dart';
 ///   proportion to what is left of it; taken again, goes on from there.
 ///   Under reduce motion it is a cut to the end state.
 /// - [pressed] (a finger on the card, before it is a hold) dips the back a
-///   little ([dip]) and gives it back as the turn begins. No dip under
-///   reduce motion.
+///   little ([dip]) and gives it back as the turn begins; or [press], a
+///   finger's own press (`Pressable`), which dips it in the frame the finger
+///   lands. No dip under reduce motion.
 /// - [onLanded] is told each time the face lands (the end of the turn to it,
 ///   a cut included): the card's one vibration goes here.
 ///
@@ -38,11 +39,13 @@ class PaperFlip extends StatefulWidget {
     required this.back,
     required this.face,
     this.pressed = false,
+    this.press,
     this.onLanded,
   });
 
   final bool turned;
   final bool pressed;
+  final Animation<double>? press;
   final Widget back;
 
   /// The face, at the back's size. Called from the moment the card is
@@ -198,7 +201,7 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     final radius = BorderRadius.circular(skin.shape.radius);
     return LayoutBuilder(
       builder: (context, _) => AnimatedBuilder(
-        animation: Listenable.merge([_turn, _press]),
+        animation: Listenable.merge([_turn, widget.press ?? _press]),
         builder: (context, _) {
           final value = _turn.value;
           final angle = value * math.pi;
@@ -206,7 +209,8 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
           // 0 flat, 1 edge on: the lift, the growth and the fall of the
           // shadow all follow it.
           final edgeOn = math.sin(angle.clamp(0.0, math.pi));
-          final dip = _press.value * (1 - (value * 2).clamp(0.0, 1.0));
+          final pressed = _still ? 0.0 : (widget.press ?? _press).value;
+          final dip = pressed * (1 - (value * 2).clamp(0.0, 1.0));
           final scale = 1 + PaperFlip.grow * edgeOn - PaperFlip.dip * dip;
           Matrix4 matrix(double dy, double scale, double turn) =>
               Matrix4.translationValues(0, dy, 0)

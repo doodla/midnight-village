@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../copy/copy.dart';
+import '../feel/press.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
@@ -19,7 +20,9 @@ export '../copy/copy.dart' show Words;
 /// at 48. The words are in the name face (16), never cut: they are set smaller
 /// or on two lines between words. It is a [PaperPiece] (part scrap), with the
 /// skin's flat pin through its top left; on a plain screen it is its words in
-/// the ground's ink, with the same target.
+/// the ground's ink, with the same target. A finger presses it from the frame
+/// it lands (`Pressable`): the paper sinks into its shadow; plain, the words
+/// dim as a quiet word's do.
 class PaperScrap extends StatelessWidget {
   const PaperScrap({
     super.key,
@@ -83,26 +86,37 @@ class PaperScrap extends StatelessWidget {
       value: busy ? SpokenCopy.working : null,
       excludeSemantics: true,
       onTap: tap,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: tap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: touchHeight),
-          child: Center(
-            widthFactor: 1,
-            heightFactor: 1,
-            child: _busy(
-              context,
-              context.dress.isPaper
-                  ? SizedBox(
-                      width: width,
-                      child: PaperPiece(
-                        part: PaperPart.scrap,
-                        id: id ?? label,
-                        child: words,
+      child: Pressable(
+        builder: (context, press, _) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: tap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: touchHeight),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: _busy(
+                context,
+                context.dress.isPaper
+                    ? SizedBox(
+                        width: width,
+                        child: PaperPiece(
+                          part: PaperPart.scrap,
+                          id: id ?? label,
+                          press: press,
+                          child: words,
+                        ),
+                      )
+                    : SizedBox(
+                        width: width,
+                        child: FadeTransition(
+                          opacity: press.drive(
+                            Tween(begin: 1, end: context.skin.dimmed),
+                          ),
+                          child: words,
+                        ),
                       ),
-                    )
-                  : SizedBox(width: width, child: words),
+              ),
             ),
           ),
         ),

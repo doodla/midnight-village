@@ -205,6 +205,10 @@ class PressSink extends SingleChildRenderObjectWidget {
   final Offset by;
   final double shrink;
 
+  /// The kit's small dip, for a part with no shadow to sink into (an
+  /// outlined button, a glyph): down by a hairline (`feel.md`, "Dip 2 px").
+  static const dip = Offset(0, Space.hairline);
+
   bool _still(BuildContext context) =>
       MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
