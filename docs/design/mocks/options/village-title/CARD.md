@@ -7,21 +7,27 @@ A picker card (`docs/dev/owner-board.md`, "Group the options for one slot").
 - **ask:** Which one should we build?
 - **pictures** (`pick`), each with its id and caption:
   - `today`: Today: plain white words
-  - `a`: A sign hung in the village
+  - `a`: A road sign by the path
+    - view `pick-short-a`: The sign on a small phone
   - `b`: Letters cut from paper
+    - view `pick-short-b`: The letters on a small phone
   - `c`: Cut out of the moon
-  - `d`: On the paper ribbon
-  - `a`'s view `pick-short`: The sign on a small phone
-- **default:** We build A, the sign.
+    - note: Gone on short phones
+- **default:** We build the pick, B.
 
-pick: A, because the name becomes a thing hanging in the village, larger than today and clear at a glance.
-It sits where the name sits today, so nothing else moves, and it still fits on the smallest phone.
+pick: B, because the name itself becomes cut paper in the scene, big and clear, with nothing added round it.
+A is charming, but its board is one more object between the village and your name, and its letters are smaller.
 
 ## Notes for the builder
 
-- Made by `make_options.py` from today's real screen (`frontend/build/screens/01-join.png`); every piece of art is the app's own.
-- A: the board is cut from the end board's notice frame (`docs/design/art/end/frame4.png`); the iron bracket and the cords are drawn.
-- C: the words are cut out of the moon, so the picture holds them; on a short phone, large text or the keyboard the picture is pushed off the top and the name goes with it.
-- D reuses the end board's ribbon, so the first and last screens would share it.
-- At text size 1.6 the sign, a picture with "Midnight Village" as its label, does not grow; it moves up with the form.
-- Rough: the bracket is plain flat iron; the letters' cut edges come from the font with a small jitter; branches cross the end of C's words.
+- Made by `make_options.py` from today's real screen (`frontend/build/screens/01-join.png`); only the title changes.
+- A: a post and a deckled indigo board cut from the sky's own paper, bone letters, two pins, turned 2.2 degrees.
+  A bone board with ink letters was tried (`make_options.py <screen> bone`); it read as a second name field.
+- B: one centred block; the first line's feet stand in the grass at the picture's foot.
+- A and B: the title's shadow is stronger than `PaperShadow` (contact .8, four steps at .22, leaning down-right),
+  so it reads on the dark ground; building it means a title shadow of its own or a change to the token.
+- C: the words are cut out of the moon, so the picture carries them;
+  on a short phone, large text or the keyboard the picture is pushed off the top and the name goes with it.
+- At text size 1.6 the title (art with "Midnight Village" as its label) does not grow; it moves up with the form.
+- Rough: the letters' cut edges are the font's outline with a small jitter, not hand-cut;
+  the short phones are put together from today's pieces, not rendered by the app.

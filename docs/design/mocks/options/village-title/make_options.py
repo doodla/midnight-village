@@ -2,15 +2,15 @@
 
 Usage (repo root): python3 docs/design/mocks/options/village-title/make_options.py [01-join.png]
 The screen defaults to frontend/build/screens/01-join.png (`just screens`). Deterministic: every
-random choice comes from a fixed seed. Writes today.png, a.png .. d.png, pick-short.png, sheet.png
-beside this file.
+random choice comes from a fixed seed. Writes today.png, a.png, b.png, c.png, pick-short-a.png,
+pick-short-b.png and sheet.png beside this file. A second argument, "bone", gives A's board in bone.
 
 Material, as docs/design/feel.md 1a: paper is cut, grained and lies on hard shadows made of
-stepped flat copies (a contact copy and five cast copies, no blur); light falls from above.
+stepped flat copies (no blur). The title's own shadow is stronger than PaperShadow and leans down-right,
+so it reads on the dark ground.
 Only the title changes: the name field and the two buttons are today's pixels, untouched.
 """
 
-import math
 import sys
 from pathlib import Path
 
@@ -26,9 +26,6 @@ SS = 4  # supersampling for every cut edge
 
 NIGHT_INK = (7, 9, 26)
 BONE_EDGE = (178, 166, 144)
-IRON = (38, 41, 50)
-IRON_EDGE = (74, 79, 92)
-TWINE = (146, 124, 88)
 
 # Today's screen, 780 x 1688 (390 x 844 at 2x): where things are.
 TITLE_BOX = (100, 1036, 680, 1136)
@@ -127,7 +124,7 @@ def knife_cut(mask_ss, seed, wobble=0.22):
     """A crisp cut edge a hand made: the outline moves a hair, in facets, then is cut clean."""
     h, w = mask_ss.shape
     soft = Image.fromarray((mask_ss * 255).astype(np.uint8), "L").filter(
-        ImageFilter.GaussianBlur(SS * 0.9)
+        ImageFilter.GaussianBlur(SS * 0.35)
     )  # construction only: thresholded below
     soft = np.asarray(soft).astype(np.float32) / 255
     cut = (soft + wobble * smooth_noise(h, w, SS * 6, seed) > 0.5).astype(np.float32)
@@ -239,161 +236,195 @@ def short_phone(base):
     return Image.fromarray(out).convert("RGBA"), 1136 * 720 / 780 - (1136 - dy)
 
 
-# ---------------------------------------------------------------- A: the village's sign
+# ---------------------------------------------------------------- the title's shadow
 
 
-def planks(width, height):
-    """A board of three planks, cut from the end board's notice frame: its top and bottom planks
-    (iron plates at their ends) and, between them, a plank's plain middle; no light inner strip."""
-    f = Image.open(ART / "end/frame4.png").convert("RGBA")
-    top = f.crop((8, 7, 660, 84))
-    bottom = f.crop((8, 778, 660, 853))
-    # the frame's middle nails would sit among the letters: plank from beside them covers them
-    for p in (top, bottom):
-        p.paste(p.crop((222, 0, 296, p.height)), (296, 0))
-    mid = top.crop((102, 2, 548, 75)).transpose(Image.FLIP_LEFT_RIGHT)
-    ph = height // 3
-    board = Image.new("RGBA", (width, ph * 3), (0, 0, 0, 0))
-    for i, p in enumerate([top, mid, bottom]):
-        board.alpha_composite(
-            p.resize((width, ph + 2), Image.LANCZOS), (0, i * ph - (1 if i else 0))
-        )
-    # the joins between planks: a hard dark line, the paper under it
-    a = np.asarray(board).astype(np.float32)
-    for j in (ph, 2 * ph):
-        a[j - 1 : j + 2, :, :3] *= 0.45
-    return rgba(a)
-
-
-def option_a(base, bone, cx, field_top, seed=11):
-    out = base.copy()
-    bw, bh = 470, 198
-    gap = 40
-    board_top = field_top - gap - bh
-    sign = planks(bw, bh)
-    # bone letters pasted on, each a hair off the line, as a hand pastes them
-    for li, (word, base_y) in enumerate([("Midnight", 86), ("Village", 166)]):
-        font = ImageFont.truetype(str(GLOOCK), 74)
-        widths = [font.getlength(ch) for ch in word]
-        x = (bw - sum(widths)) / 2
-        rng = np.random.default_rng(seed + li)
-        for ch, wch in zip(word, widths):
-            m, bl = glyph_mask(ch, 74, seed=int(rng.integers(1e6)), wobble=0.1)
-            piece, p = paper_piece(m, bone, 3, BONE_EDGE, 3, int(rng.integers(1e6)))
-            piece = rotated(piece, rng.uniform(-1.6, 1.6))
-            ox = x - 3 - p - (piece.width - m.shape[1] - 2 * p) / 2
-            oy = (
-                base_y
-                - bl
-                - p
-                - (piece.height - m.shape[0] - 2 * p) / 2
-                + rng.uniform(-1.5, 1.5)
-            )
-            over(sign, piece, (ox, oy))
-            x += wch
-    # two iron rings on the top edge
-    ring_x = [62, bw - 62]
-    d = ImageDraw.Draw(sign)
-    for rx in ring_x:
-        d.ellipse((rx - 9, -1, rx + 9, 17), outline=IRON_EDGE, width=4)
-    tilt = -1.2
-    sign_r = rotated(sign, tilt)
-    sx, sy = cx - sign_r.width / 2, board_top - (sign_r.height - bh) / 2
-    sa = np.asarray(sign_r)[..., 3].astype(np.float32) / 255
-    sh = hard_shadow(pad(sa, 30), 7)
-    # the bracket: a flat iron arm out of the wall on the left, a brace under it, a curl at its tip
-    arm_y = board_top - 62
-    tip = cx + bw / 2 - 18
-    W, H = out.size
-    iron = Image.new("L", (W * SS, H * SS), 0)
-    di = ImageDraw.Draw(iron)
-    s = SS
-    di.rectangle((-10 * s, (arm_y - 4) * s, tip * s, (arm_y + 12) * s), fill=255)
-    di.rectangle((0, (arm_y - 44) * s, 26 * s, (arm_y + 120) * s), fill=255)
-    # a scroll brace from low on the wall up under the arm
-    di.arc(
-        (0, (arm_y + 4) * s, 380 * s, (arm_y + 220) * s),
-        180,
-        270,
-        fill=255,
-        width=11 * s,
-    )
-    di.arc(
-        (38 * s, (arm_y + 28) * s, 84 * s, (arm_y + 74) * s),
-        330,
-        630,
-        fill=255,
-        width=8 * s,
-    )
-    di.arc(
-        ((tip - 20) * s, (arm_y - 26) * s, (tip + 20) * s, (arm_y + 14) * s),
-        180,
-        90,
-        fill=255,
-        width=9 * s,
-    )
-    ia = knife_cut(np.asarray(iron).astype(np.float32) / 255, seed + 7, 0.1)
-    over(out, hard_shadow(ia, 4))
-    face = solid(ia, IRON)
-    top_edge = ia * (1 - shift(ia, 0, 3))
-    face[..., :3] = np.where(top_edge[..., None] > 0.5, IRON_EDGE, face[..., :3])
-    over(out, rgba(face))
-    # the cords, from the arm to the rings, with their own thin shadow
-    th = math.radians(-tilt)
-    cords = Image.new("RGBA", out.size, (0, 0, 0, 0))
-    dc = ImageDraw.Draw(cords)
-    for rx in ring_x:
-        lx, ly = rx - bw / 2, 4 - bh / 2
-        px = cx + lx * math.cos(th) + ly * math.sin(th)
-        py = board_top + bh / 2 - lx * math.sin(th) + ly * math.cos(th)
-        top_x = px + (6 if rx > bw / 2 else -6)
-        dc.line((top_x, arm_y + 6, px, py), fill=TWINE + (255,), width=4)
-        for t in np.arange(0, 1, 7 / max(1, py - arm_y)):
-            qx, qy = top_x + (px - top_x) * t, arm_y + 6 + (py - arm_y - 6) * t
-            dc.line((qx - 2, qy - 1, qx + 2, qy + 2), fill=(96, 80, 56, 255), width=1)
-    ca = np.asarray(cords)[..., 3].astype(np.float32) / 255
-    over(out, hard_shadow(ca, 3))
-    over(out, cords)
-    over(out, sh, (sx - 30, sy - 30))
-    over(out, sign_r, (sx, sy))
+def title_shadow(alpha, drop):
+    """The title's hard shadow, made to read on the dark ground: the ground's shadow ink, a contact
+    copy (.8) and four stepped cast copies (.22 each), leaning down-right, away from the moon."""
+    out = Image.new("RGBA", (alpha.shape[1], alpha.shape[0]), (0, 0, 0, 0))
+    for k in range(4, 0, -1):
+        a = shift(dilate(alpha, drop * k / 10), 0.6 * drop * k / 4, drop * k / 4)
+        over(out, rgba(solid(a, NIGHT_INK, 0.22)))
+    c = 1 + 0.25 * drop
+    over(out, rgba(solid(shift(alpha, 0.6 * c, c), NIGHT_INK, 0.8)))
     return out
+
+
+def cut_piece(alpha, fill, edge_px, edge_color, drop, seed):
+    """A cut piece lying on the scene: its title shadow, its thickness, its grained face."""
+    p = int(drop * 2 + edge_px + 8)
+    a = pad(alpha, p)
+    h, w = a.shape
+    out = title_shadow(np.maximum(a, shift(a, 0, edge_px)), drop)
+    over(out, rgba(solid(shift(a, 0, edge_px), edge_color)))
+    tex = texture(fill, w, h, seed)
+    over(out, rgba(np.dstack([tex[..., :3], a * 255])))
+    return out, p
+
+
+def deckle(w, h, depth, step, seed):
+    """DeckleBorder: each side steps in by up to `depth` in nibbles of `step` px, seeded."""
+    rng = np.random.default_rng(seed)
+    W, H, d, st = w * SS, h * SS, depth * SS, step * SS
+
+    def edge(n):
+        pts = np.arange(0, n + st, st)
+        return np.interp(np.arange(n), pts, rng.uniform(0, d, len(pts)))
+
+    yy, xx = np.mgrid[:H, :W]
+    top, bot = edge(W), edge(W)
+    left, right = edge(H), edge(H)
+    m = (yy >= top[None, :]) & (yy < H - bot[None, :])
+    m &= (xx >= left[:, None]) & (xx < W - right[:, None])
+    return down(m.astype(np.float32))
+
+
+def pin_layer(size=18):
+    """PaperPin: a flat matte pin head (9 px), a darker rim, its own hard shadow."""
+    s = size + 16
+    img = Image.new("L", (s * SS, s * SS), 0)
+    ImageDraw.Draw(img).ellipse(
+        (6 * SS, 6 * SS, (6 + size) * SS, (6 + size) * SS), fill=255
+    )
+    a = down(np.asarray(img).astype(np.float32) / 255)
+    out = title_shadow(a, 3)
+    over(out, rgba(solid(a, (98, 36, 32))))
+    rim = a * (1 - shift(a, -2, -2))
+    over(out, rgba(solid(rim, (62, 22, 22))))
+    return out
+
+
+def lay(out, piece, p, mask, x, y, deg, rng=None):
+    """Turn a piece about its own centre and put its mask's top left at (x, y)."""
+    r = rotated(piece, deg)
+    ox = x - p - (r.width - mask.shape[1] - 2 * p) / 2
+    oy = y - p - (r.height - mask.shape[0] - 2 * p) / 2
+    over(out, r, (ox, oy))
+
+
+# ---------------------------------------------------------------- A: the road sign
+
+
+def option_a(base, bone, sky, cx, field_top, board="indigo", seed=11):
+    """A paper signpost at the roadside: a post planted in the grass at the picture's foot, a deckled
+    board on it where today's title sits, the name in two lines, a hair crooked, two pins."""
+    out = base.copy()
+    rng = np.random.default_rng(seed)
+    bw, bh = 404, 182
+    board_bottom = field_top - 30
+    board_top = board_bottom - bh
+    # the post: a strip of dark paper, its top cut at a slant, standing from the grass up past the board
+    post_w = 26
+    post_top = board_top - 70
+    post_h = field_top + 10 - post_top
+    pm = np.zeros((post_h * SS, post_w * SS), np.float32)
+    pm[:, :] = 1
+    for y in range(12 * SS):
+        pm[y, : int((12 * SS - y) * post_w / 12)] = (
+            0  # the slanted cut, high on the right
+        )
+    pa = knife_cut(pm, seed + 1, 0.08)
+    post_paper = np.clip(texture(sky, post_w, post_h, seed + 2) * 0.95 + 2, 0, 255)
+    post, pp = cut_piece(pa, post_paper, 3, (30, 30, 44), 5, seed + 3)
+    px = cx + 16 - post_w / 2
+    lay(out, post, pp, pa, px, post_top, -1.6)
+    # grass the post stands in: a few blades cut from the ground's paper, in front of its foot
+    blades = Image.new("L", (160 * SS, 70 * SS), 0)
+    db = ImageDraw.Draw(blades)
+    for i in range(9):
+        bx = rng.uniform(20, 140) * SS
+        tip = (bx + rng.uniform(-26, 26) * SS, rng.uniform(0, 30) * SS)
+        db.polygon([(bx - 5 * SS, 70 * SS), (bx + 5 * SS, 70 * SS), tip], fill=255)
+    ga = knife_cut(np.asarray(blades).astype(np.float32) / 255, seed + 4, 0.05)
+    gl = Image.new("RGBA", (ga.shape[1], ga.shape[0]), (0, 0, 0, 0))
+    over(gl, rgba(solid(ga, (24, 26, 40))))
+    over(out, gl, (px + post_w / 2 - 80, board_bottom - 34))
+    # the board: face, letters and pins built flat, then turned together
+    face = deckle(bw, bh, 6, 7, seed + 5)
+    if board == "indigo":
+        paper = np.clip(texture(sky, bw, bh, seed + 6) * 1.25, 0, 255)
+        edge_c, letter_fill, letter_edge = (18, 20, 36), bone, BONE_EDGE
+    else:
+        paper = texture(bone, bw, bh, seed + 6)
+        edge_c = BONE_EDGE
+        letter_fill = np.clip(texture(sky, 200, 60, seed + 7) * 0.8, 0, 255)
+        letter_edge = (12, 14, 28)
+    sign, sp = cut_piece(face, paper, 4, edge_c, 8, seed + 8)
+    font = ImageFont.truetype(str(GLOOCK), 72)
+    for li, (word, base_y) in enumerate([("Midnight", 82), ("Village", 156)]):
+        widths = [font.getlength(ch) for ch in word]
+        x = sp + (bw - sum(widths)) / 2
+        lrng = np.random.default_rng(seed + 20 + li)
+        for ch, wch in zip(word, widths):
+            m, bl = glyph_mask(ch, 72, seed=int(lrng.integers(1e6)), wobble=0.1)
+            piece, p = paper_piece(
+                m, letter_fill, 2, letter_edge, 2, int(lrng.integers(1e6))
+            )
+            lay(
+                sign,
+                piece,
+                p,
+                m,
+                x - 3,
+                sp + base_y - bl + lrng.uniform(-1.5, 1.5),
+                lrng.uniform(-1.4, 1.4),
+            )
+            x += wch
+    pin = pin_layer()
+    for pxp in (sp + 14, sp + bw - 32):  # in the corners, clear of the letters
+        over(sign, pin, (pxp - 8, sp + 2))
+    tilt = 2.2  # an old sign, a hair crooked
+    sr = rotated(sign, tilt)
+    over(out, sr, (cx - sr.width / 2, board_top + bh / 2 - sr.height / 2))
+    # the name field lies on top of all of it, as today
+    restore(out, base, field_top)
+    return out
+
+
+def restore(out, base, field_top):
+    """Put the form back on top: today's pixels from the name field's top down."""
+    b = np.asarray(base).copy()
+    o = np.asarray(out).copy()
+    band = slice(field_top - 6, field_top + 40)
+    lum = b[band, :, :3].astype(np.float32) @ np.array([0.3, 0.59, 0.11])
+    paper = (lum > 120)[..., None]
+    o[band] = np.where(paper, b[band], o[band])
+    o[field_top + 40 :] = b[field_top + 40 :]
+    out.paste(Image.fromarray(o, "RGBA"))
 
 
 # ---------------------------------------------------------------- B: cut letters
 
 
 def option_b(base, bone, cx, field_top, seed=23):
+    """Each letter cut from bone paper and laid on the scene; one centred block, its first line's
+    feet in the grass at the picture's foot."""
     out = base.copy()
-    size = 104
-    lines = [
-        ("Midnight", cx - 28, field_top - 166),
-        ("Village", cx + 40, field_top - 50),
-    ]
+    size = 108
     rng = np.random.default_rng(seed)
-    pieces = []
-    for word, lcx, baseline in lines:
-        font = ImageFont.truetype(str(GLOOCK), size)
+    font = ImageFont.truetype(str(GLOOCK), size)
+    lines = [("Midnight", field_top - 196), ("Village", field_top - 64)]
+    for word, baseline in lines:
         widths = [font.getlength(ch) * 1.04 for ch in word]
-        x = lcx - sum(widths) / 2
+        x = cx - sum(widths) / 2  # both lines centred on one axis: one block
         for ch, wch in zip(word, widths):
             k = 1 + rng.uniform(-0.05, 0.06)
             m, bl = glyph_mask(
                 ch, int(size * k), seed=int(rng.integers(1e6)), wobble=0.14
             )
-            piece, p = paper_piece(m, bone, 4, BONE_EDGE, 6, int(rng.integers(1e6)))
-            piece = rotated(piece, rng.uniform(-3.2, 3.2))
-            ox = x - 3 - p - (piece.width - m.shape[1] - 2 * p) / 2
-            oy = (
-                baseline
-                + rng.uniform(-6, 6)
-                - bl
-                - p
-                - (piece.height - m.shape[0] - 2 * p) / 2
+            piece, p = cut_piece(m, bone, 4, BONE_EDGE, 9, int(rng.integers(1e6)))
+            lay(
+                out,
+                piece,
+                p,
+                m,
+                x - 3,
+                baseline + rng.uniform(-6, 6) - bl,
+                rng.uniform(-3.2, 3.2),
             )
-            pieces.append((piece, ox, oy))
             x += wch
-    for piece, ox, oy in pieces:
-        over(out, piece, (ox, oy))
+    restore(out, base, field_top)
     return out
 
 
@@ -402,21 +433,25 @@ def option_b(base, bone, cx, field_top, seed=23):
 
 def option_c(base, sky, seed=31):
     """The words cut out of the moon: the sky's paper shows through, the moon's edge shadows it.
-    The moon is the disc at (433, 205), radius 160, on today's screen; what stands in front of it
-    (branches, roofs) is not cut."""
+    The moon is the disc at (433, 205), radius 160, on today's screen; the words sit in its clear
+    upper part, where no branch or roof stands in front of it."""
     out = base.copy()
     a = np.asarray(out).astype(np.float32)
     lum = a[..., :3] @ np.array([0.3, 0.59, 0.11])
     yy, xx = np.mgrid[: lum.shape[0], : lum.shape[1]]
     disc = ((xx - 433) ** 2 + (yy - 205) ** 2) < 156**2
     moon = (disc & (lum > 105)).astype(np.float32)
+    r2 = (xx - 433) ** 2 + (yy - 205) ** 2
+    clear = (r2 < 150**2) & (lum > 105)
+    in_front = dilate((~clear & (r2 < 175**2)).astype(np.float32), 5)
     hole = np.zeros(lum.shape, np.float32)
-    for word, cx, baseline in [("Midnight", 418, 170), ("Village", 402, 238)]:
-        m, bl = glyph_mask(word, 52, seed=seed + baseline, wobble=0.1)
+    for word, cx, baseline in [("Midnight", 432, 136), ("Village", 386, 191)]:
+        m, bl = glyph_mask(word, 46, seed=seed + baseline, wobble=0.1)
         h, w = m.shape
-        x0 = int(cx - w / 2)
-        y0 = int(baseline - bl)
+        x0, y0 = int(cx - w / 2), int(baseline - bl)
         hole[y0 : y0 + h, x0 : x0 + w] = np.maximum(hole[y0 : y0 + h, x0 : x0 + w], m)
+    crossed = float((hole * in_front).sum())
+    assert crossed < 1, f"a branch or a roof crosses a letter ({crossed:.0f})"
     hole *= moon
     tex = texture(sky, a.shape[1], a.shape[0], seed)
     a[..., :3] = a[..., :3] * (1 - hole[..., None]) + tex * hole[..., None]
@@ -429,45 +464,6 @@ def option_c(base, sky, seed=31):
             + np.array(NIGHT_INK) * sh_a[..., None] * alpha
         )
     return Image.fromarray(a.astype(np.uint8), "RGBA")
-
-
-# ---------------------------------------------------------------- D: the ribbon
-
-
-def option_d(base, cx, field_top):
-    """The end board's swallowtail ribbon (three-slice), the title inked on it, a hair off square."""
-    out = base.copy()
-    b = Image.open(ART / "end/banner.png").convert("RGBA")
-    s = 0.36
-    left, mid, right = (
-        b.crop((0, 0, 300, 477)),
-        b.crop((300, 0, 1140, 477)),
-        b.crop((1140, 0, 1460, 477)),
-    )
-    font = ImageFont.truetype(str(GLOOCK), 60)
-    tw = font.getlength("Midnight Village")
-    mw = int(tw + 40)
-    h = int(477 * s)
-    lw, rw = int(300 * s), int(320 * s)
-    ban = Image.new("RGBA", (lw + mw + rw, h), (0, 0, 0, 0))
-    ban.alpha_composite(left.resize((lw, h), Image.LANCZOS), (0, 0))
-    ban.alpha_composite(mid.resize((mw + 2, h), Image.LANCZOS), (lw - 1, 0))
-    ban.alpha_composite(right.resize((rw, h), Image.LANCZOS), (lw + mw, 0))
-    d = ImageDraw.Draw(ban)
-    d.text(
-        (lw + 20, 233 * s),
-        "Midnight Village",
-        font=font,
-        fill=(20, 23, 47, 255),
-        anchor="lm",
-    )
-    ban = rotated(ban, 1.0)
-    ba = np.asarray(ban)[..., 3].astype(np.float32) / 255
-    x = cx - ban.width / 2
-    y = field_top - 30 - ban.height + 22
-    over(out, hard_shadow(pad(ba, 30), 6), (x - 30, y - 30))
-    over(out, ban, (x, y))
-    return out
 
 
 # ---------------------------------------------------------------- frames and the sheet
@@ -518,30 +514,31 @@ def main():
         if len(sys.argv) > 1
         else ROOT / "frontend/build/screens/01-join.png"
     )
+    board = sys.argv[2] if len(sys.argv) > 2 else "indigo"
     today = Image.open(src).convert("RGBA")
     assert today.size == (780, 1688), today.size
     base = erase_title(today)
     bone, sky = samples(today)
+    short, _ = short_phone(base)
     shots = {
         "today": today,
-        "a": option_a(base, bone, 390, FIELD_TOP),
+        "a": option_a(base, bone, sky, 374, FIELD_TOP, board),
         "b": option_b(base, bone, 390, FIELD_TOP),
         "c": option_c(base, sky),
-        "d": option_d(base, 390, FIELD_TOP),
+        "pick-short-a": option_a(short, bone, sky, 346, 842, board),
+        "pick-short-b": option_b(short, bone, 360, 842),
     }
-    short, _ = short_phone(base)
-    shots["pick-short"] = option_a(short, bone, 360, 842)
     framed = {k: phone(v) for k, v in shots.items()}
     for k, v in framed.items():
         v.save(HERE / f"{k}.png", optimize=True)
     sheet(
         [
             ("Today", framed["today"]),
-            ("A  The village's sign", framed["a"]),
+            ("A  The road sign", framed["a"]),
             ("B  Cut letters", framed["b"]),
             ("C  On the moon", framed["c"]),
-            ("D  The ribbon", framed["d"]),
-            ("A, short phone", framed["pick-short"]),
+            ("A, short phone", framed["pick-short-a"]),
+            ("B, short phone", framed["pick-short-b"]),
         ],
         HERE / "sheet.png",
     )
