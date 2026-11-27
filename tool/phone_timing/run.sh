@@ -16,13 +16,32 @@ free() { python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)
 api_port=${PHONE_TIMING_PORT:-18791}
 app_port=$(free)
 work=$(mktemp -d)
-pids=()
-cleanup() { for p in "${pids[@]}"; do kill "$p" 2>/dev/null || true; done; rm -rf "$work"; }
+backend=""
+server=""
+# Stops what this run started (done, failed, Ctrl-C or killed): the backend's whole
+# process group (just, uv, runserver: a `kill` of one pid left runserver up), with a hard
+# kill after a short grace, and the app's file server. Nothing else.
+cleanup() {
+  if [ -n "$backend" ] && kill -0 -- "-$backend" 2>/dev/null; then
+    kill -TERM -- "-$backend" 2>/dev/null || true
+    for _ in $(seq 1 50); do
+      kill -0 -- "-$backend" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -KILL -- "-$backend" 2>/dev/null || true
+  fi
+  if [ -n "$server" ]; then kill "$server" 2>/dev/null || true; fi
+  rm -rf "$work"
+}
 trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 echo "[phone-timing] backend on $api_port"
-(cd "$root" && HARNESS_PORT=$api_port just harness-serve > "$work/backend.log" 2>&1) &
-pids+=($!)
+# Job control on: the backend gets a process group of its own (its pid).
+set -m
+(cd "$root" && HARNESS_PORT=$api_port exec just harness-serve > "$work/backend.log" 2>&1) &
+backend=$!
+set +m
 
 echo "[phone-timing] building the web app (release) for it"
 fe=${PHONE_TIMING_FRONTEND:-$root/frontend}
@@ -48,7 +67,7 @@ class H(http.server.SimpleHTTPRequestHandler):
     def log_message(s, *a): pass
 http.server.ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
 ' "$web" "$app_port" &
-pids+=($!)
+server=$!
 
 for _ in $(seq 1 120); do
   curl -sf "http://127.0.0.1:$api_port/api/health/" > /dev/null && break

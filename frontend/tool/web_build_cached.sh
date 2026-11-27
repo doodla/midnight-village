@@ -47,7 +47,8 @@ if [ ! -f "$out/.built" ]; then
   if [ -n "${WEB_BUILD_COMMAND:-}" ]; then
     $WEB_BUILD_COMMAND "$tmp/web" "$@" >&2
   else
-    flutter build web "$@" --output "$tmp/web" >&2
+    # a build is heavy: it waits its turn in the queue (tool/heavy.py; inside a heavy command it runs at once)
+    ../tool/heavy.py -- flutter build web "$@" --output "$tmp/web" >&2
   fi
   touch "$tmp/web/.built"
   if [ ! -f "$out/.built" ]; then

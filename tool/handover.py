@@ -13,7 +13,14 @@ not from a summary.
    with main without a conflict (it says the command that fixes each).
 2. Runs the checks this change reaches (`just piece-check`'s plan at both
    widths, plus the end-to-end harness when the app or the server changed) and
-   records each as passed or FAILED with its time.
+   records each as passed or FAILED with its time. When the app's code or assets
+   changed it also runs the golden tests and every test that scans all of `lib/`
+   (tool/lib_scans.py), which "the nearest test files" never reach and GitHub's
+   "Golden Tests" and "Widget Tests" do. A heavy step waits its turn in the queue
+   (tool/heavy.py).
+   It says which of GitHub's required checks ran here (tool/github_checks.py reads
+   them from the workflows and the ruleset): "READY (N of M of GitHub's checks run
+   here)" is the first line, and READY is never "GitHub will pass".
 
 It carries on where it stopped: a check that passed and a set of pictures drawn
 on this very commit are kept, each recorded the moment it finishes. A run that is
@@ -34,6 +41,7 @@ step it was in: run the same command again.
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -41,9 +49,15 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import heavy  # noqa: E402
+
 # What the harness and a drawn state cost, in seconds: said before anything runs.
 HARNESS_SECONDS, STATE_SECONDS, DRAW_START = 180, 2, 25
 HARNESS_FOR = ("frontend/lib/", "backend/apps/", "backend/config/", "contract_samples/")
+# A change under these can change a golden picture or fail a scan of all of lib/.
+APP_CODE = ("frontend/lib/", "frontend/assets/")
+GOLDEN_SECONDS = 120
 SPEC_FOR = ("frontend/lib/features/", "frontend/lib/design_system/copy/")
 OWNER_FEEDBACK = "docs/dev/owner-feedback.md"
 
@@ -126,20 +140,63 @@ def steps_for(changed: list[str], piece) -> list[tuple[str, str, list[str]]]:
     steps = piece.plan(changed, screens=True, both_widths=True)
     if any(name.startswith(HARNESS_FOR) for name in changed):
         steps.append(("the end-to-end harness", ".", ["just", "test-harness"]))
+    # The nearest test files never reach a picture test or a scan of all of lib/, and
+    # GitHub runs both: a change to the app's code or assets runs them here too.
+    all_tests = ("frontend", ["just", "test"])
+    everything = any((folder, cmd) == all_tests for _, folder, cmd in steps)
+    if any(name.startswith(APP_CODE) for name in changed) and not everything:
+        steps.append(("the golden tests", "frontend", ["just", "flutter-test-golden"]))
+        scans = tool("lib_scans").whole_lib_tests(ROOT)
+        if scans:
+            steps.append(
+                (
+                    f"{len(scans)} tests that scan all of lib/",
+                    "frontend",
+                    scan_command(scans),
+                )
+            )
     return steps
 
 
+SCAN_FLAGS = [
+    "--dart-define=ENV=dev",
+    "--exclude-tags",
+    "e2e",
+    "--reporter",
+    "failures-only",
+]
+
+
+def scan_command(files: list[str]) -> list[str]:
+    return ["flutter", "test", *SCAN_FLAGS, *files]
+
+
 def guess(what: str, command: list[str], piece) -> int:
-    return HARNESS_SECONDS if "harness" in what else piece.guess(what, command)
+    if "harness" in what:
+        return HARNESS_SECONDS
+    if "tests that scan" in what:
+        files = len(command) - 2 - len(SCAN_FLAGS)
+        return piece.FRONTEND_START + piece.FRONTEND_FILE * files
+    return GOLDEN_SECONDS if "golden" in what else piece.guess(what, command)
 
 
 def run_quietly(command, folder: Path, what: str, started: float, log: Path) -> bool:
     """Runs a step with its output kept in `log` (the harness alone prints tens of
     thousands of lines): a line every 30 s says it is alive, and a step that
-    fails shows its last lines and where the rest is."""
+    fails shows its last lines and where the rest is. A heavy step waits its turn in
+    the queue (tool/heavy.py), which says where it stands here, not in the log."""
     log.parent.mkdir(parents=True, exist_ok=True)
+    say = os.dup(2)
     with log.open("w") as out:
-        process = subprocess.Popen(command, cwd=folder, stdout=out, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(
+            heavy.wrap(command, what),
+            cwd=folder,
+            stdout=out,
+            stderr=subprocess.STDOUT,
+            pass_fds=(say,),
+            env={**os.environ, "HEAVY_SAY_FD": str(say)},
+        )
+        os.close(say)
         while True:
             try:
                 code = process.wait(timeout=30)
@@ -168,11 +225,21 @@ def run_checks(steps, head: str, piece, kept: Path) -> list[dict]:
                 f"== {number}/{len(steps)} {what}: passed on this commit already",
                 flush=True,
             )
-            results.append({**was, "what": what, "again": False})
+            results.append(
+                {
+                    **was,
+                    "what": what,
+                    "again": False,
+                    "folder": folder,
+                    "command": command,
+                }
+            )
             continue
         print(f"\n== {number}/{len(steps)} {what}", flush=True)
         started = time.monotonic()
-        log = kept.parent / "logs" / f"{number}-{what.split()[0]}-{what.split()[-1]}.log"
+        log = (
+            kept.parent / "logs" / f"{number}-{what.split()[0]}-{what.split()[-1]}.log"
+        )
         ok = run_quietly(command, ROOT / folder, what, started, log)
         result = {
             "ok": ok,
@@ -180,6 +247,8 @@ def run_checks(steps, head: str, piece, kept: Path) -> list[dict]:
             "what": what,
             "again": True,
             "log": "" if ok else str(log),
+            "folder": folder,
+            "command": command,
         }
         print(
             f"== {'ok' if ok else 'FAILED'} in {result['seconds']} s: {what}",
@@ -269,22 +338,33 @@ def write(
     states,
     why_all,
     found,
+    rows=None,
 ) -> bool:
     failed = [r for r in results if not r["ok"]]
     ready = not failed and not shots["missing"]
     cell = lambda text: (text or "(none)").replace("|", "\\|").replace("\n", " ")  # noqa: E731
-    out = [f"# Hand-over: {branch} at {head[:9]}", ""]
-    out.append(
-        "**READY**: every check passed and every reached state was drawn."
-        if ready
-        else "**NOT READY**: see FAILED below."
-    )
+    said = tool("github_checks").headline(rows, ready) if rows else "READY" if ready else "NOT READY"
+    out = [
+        f"**{said}**: "
+        + (
+            "every check run here passed and every reached state was drawn. READY does not"
+            " say GitHub will pass: its other checks are in the table below."
+            if ready
+            else "see FAILED below."
+        ),
+        "",
+        f"# Hand-over: {branch} at {head[:9]}",
+        "",
+    ]
     if shots["sheets"]:
         out += [
             "",
             "Look first (main | this change | changed pixels in red, at 412x915 and 360x640):",
         ]
         out += [f"- {sheet}" for sheet in shots["sheets"]]
+    if rows:
+        out += ["", "## GitHub's required checks, and how many ran here", ""]
+        out += tool("github_checks").table(rows)
     out += [
         "",
         "## Ready",
@@ -302,7 +382,9 @@ def write(
         out.append(
             f"| {'passed' if r['ok'] else '**FAILED**'} | {r['seconds']} s | {r['what']}{note} |"
         )
-    out += [f"- The output of `{r['what']}`: `{r['log']}`" for r in results if r.get("log")]
+    out += [
+        f"- The output of `{r['what']}`: `{r['log']}`" for r in results if r.get("log")
+    ]
     out += ["", "## Screens", ""]
     if not states:
         out.append("No app file that a screen draws changed: nothing to look at.")
@@ -340,7 +422,9 @@ def write(
             "- Each changed state alone, full size: `frontend/build/handover/<state>-<width>x<height>.png`"
         )
         for state, was, now in shots.get("wordier", []):
-            out.append(f"- More words on screen at once: `{state}` shows {now}, main shows {was}.")
+            out.append(
+                f"- More words on screen at once: `{state}` shows {now}, main shows {was}."
+            )
     out += ["", "## For the pull request", ""]
     if found["guards"]:
         out += [
@@ -362,7 +446,10 @@ def write(
             "```",
             "Words added",
         ]
-        out += [f"- {name}: <why, in a sentence>   (+{added})" for name, added in found["more_words"]]
+        out += [
+            f"- {name}: <why, in a sentence>   (+{added})"
+            for name, added in found["more_words"]
+        ]
         out += ["```"]
     out += ["", "## Words", ""]
     if found["words"]:
@@ -422,7 +509,9 @@ def main(argv: list[str]) -> int:
     states, why_all = shots_of.reached_states(changed, screens)
     cost = sum(guess(what, command, piece) for what, _, command in steps)
     drawing = (
-        (DRAW_START + STATE_SECONDS * len(states)) * 2 * len(shots_of.SIZES) if states else 0
+        (DRAW_START + STATE_SECONDS * len(states)) * 2 * len(shots_of.SIZES)
+        if states
+        else 0
     )
     print(
         f"handover: {branch} at {head[:9]}, {len(changed)} changed files, {behind} commits behind main."
@@ -439,7 +528,12 @@ def main(argv: list[str]) -> int:
         print(
             f"  {number}. {what}  (about {piece.minutes(guess(what, command, piece))})"
         )
+    gh = tool("github_checks")
+    checks = gh.required_checks(ROOT)
     if "--plan" in argv:
+        would = [{"ok": True, "folder": f, "command": c} for _, f, c in steps]
+        print("\nhandover: if every step passes, of GitHub's required checks:")
+        print("\n".join(gh.table(gh.judge(checks, would))))
         return 0
     out = ROOT / "frontend" / "build" / "handover"
     results = run_checks(steps, head, piece, out / f"checks-{head[:12]}.json")
@@ -449,6 +543,7 @@ def main(argv: list[str]) -> int:
         else {"changed": [], "missing": [], "sheets": [], "new": []}
     )
     target = Path(names[0]).resolve()
+    rows = gh.judge(checks, results)
     ready = write(
         target,
         branch,
@@ -460,15 +555,14 @@ def main(argv: list[str]) -> int:
         states,
         why_all,
         facts(changed, base),
+        rows,
     )
+    print("\nGitHub's required checks:")
+    print("\n".join(gh.table(rows)))
     print(f"\nhandover: wrote {target}")
     for sheet in shots["sheets"]:
         print(f"handover: look at {sheet}")
-    print(
-        "handover: READY."
-        if ready
-        else "handover: NOT READY (the file says what failed)."
-    )
+    print(f"handover: {gh.headline(rows, ready)}." if ready else "handover: NOT READY (the file says what failed).")
     return 0 if ready else 1
 
 
