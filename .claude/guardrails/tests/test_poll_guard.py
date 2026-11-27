@@ -117,17 +117,23 @@ class TheRuleIsWhereHelpersRead(unittest.TestCase):
 
     RULE = "run_in_background"
 
-    def test_both_kinds_of_brief_print_it(self):
-        for args in (["copy"], ["09"]):
-            done = subprocess.run(
-                [sys.executable, str(ROOT / "tool" / "brief.py"), *args],
-                capture_output=True,
-                text=True,
-                cwd=ROOT,
-            )
-            self.assertEqual(done.returncode, 0, done.stderr[-300:])
-            self.assertIn(self.RULE, done.stdout, args)
-            self.assertIn("Never poll with a sleep loop", done.stdout, args)
+    def test_an_area_brief_prints_it(self):
+        # not a screen's brief: that one walks the app with Flutter, which GitHub's backend job lacks
+        done = subprocess.run(
+            [sys.executable, str(ROOT / "tool" / "brief.py"), "copy"],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+        self.assertEqual(done.returncode, 0, done.stderr[-300:])
+        self.assertIn(self.RULE, done.stdout)
+        self.assertIn("Never poll with a sleep loop", done.stdout)
+
+    def test_a_screen_brief_prints_it_too(self):
+        # read from the source, for the same reason: both briefs print brief_areas.WAITING
+        source = (ROOT / "tool" / "brief.py").read_text()
+        self.assertIn('tool("brief_areas").WAITING', source)
+        self.assertIn(self.RULE, (ROOT / "tool" / "brief_areas.py").read_text())
 
     def test_the_running_the_work_page_says_it(self):
         text = (ROOT / "docs" / "dev" / "running-the-work.md").read_text()

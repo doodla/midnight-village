@@ -48,10 +48,12 @@ test *args:
     {{backend_just}} test {{args}}
     just test-guardrails
 
-# Run the .claude/ hook tests: guardrails (python3 >= 3.11), the workflows' recipes and the commit gate's routing
+# Run the .claude/ hook tests: guardrails (python3 >= 3.11), the workflows' recipes and the commit gate's routing.
+# Without Flutter and Dart on PATH, as in GitHub's "Backend Checks" job (which runs this): a test that
+# needs them fails here, not only there (tool/path_without.py).
 test-guardrails:
-    python3 -m unittest discover -s .claude/guardrails/tests
-    .claude/hooks/test_gate_routing.sh
+    PATH="$(tool/path_without.py flutter dart)" python3 -m unittest discover -s .claude/guardrails/tests
+    PATH="$(tool/path_without.py flutter dart)" .claude/hooks/test_gate_routing.sh
 
 # When the change has a migration: the previous build's own tests on a database built by
 # this change's migrations (the live server migrates while the previous build serves).

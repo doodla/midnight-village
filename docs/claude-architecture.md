@@ -164,6 +164,10 @@ The recipes that run tests, builds, screens, the harness, phone-frames and phone
 inherited slot, `kill -9`, nesting), that every heavy command in a justfile goes through it, and that every script that
 boots the backend stops its whole process group on any exit (`phone-timing` did not until now).
 
+**As GitHub's backend job runs it.** That job has no Flutter, so `just test-guardrails` runs its tests with Flutter and Dart
+off PATH (`tool/path_without.py`; `guardrails/tests/test_path_without.py`): a test that runs them fails on a builder's
+machine too, not only on the pull request (the first run of the heavy-queue change did, in a brief of a screen).
+
 **A rule holds per change.** A check that reads the whole tree can be passed by two pull
 requests separately and fail once both are merged, for a builder who did neither. So a rule
 compares a change with the main it was built on (`tool/change_base.py`, or the merge base in
