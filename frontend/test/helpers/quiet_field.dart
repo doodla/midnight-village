@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/core/perf/perf_env.dart';
 import 'package:midnight_village/design_system/perf/perf_strip.dart';
@@ -14,6 +15,13 @@ void quietFieldInTests() {
   if (!const bool.fromEnvironment('FIELD_QUIET')) return;
   void Function()? stop;
   setUp(() {
+    // A suite with no Flutter binding (the harness's API runners) draws
+    // nothing and taps nothing: there is nothing to record.
+    try {
+      WidgetsBinding.instance;
+    } catch (_) {
+      return;
+    }
     stop = startQuietField(now: perfNow, send: (_) => true).$2;
   });
   tearDown(() {
