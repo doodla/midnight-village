@@ -8,11 +8,17 @@
       }
     },
     {
+      "request": {
+        "method": "GET",
+        "path": "/onuw/games/{game_id}/me/",
+        "sent": null
+      }
+    },
+    {
       "answer": {
         "method": "GET",
         "path": "/onuw/games/{game_id}/me/",
         "status": 200,
-        "sent": null,
         "body": {
           "game_id": "00000000-0000-4000-a000-000000000034",
           "lobby_code": "J3MU5Z",
@@ -149,6 +155,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "look.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "look",
@@ -161,10 +177,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "look.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -356,10 +368,9 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/action/",
-        "status": 200,
         "sent": {
           "action_type": "choose",
           "picks": [
@@ -369,7 +380,14 @@
           ],
           "stage": "w2.000000000034",
           "chosen": 0
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/action/",
+        "status": 200,
         "body": {
           "status": "submitted",
           "night_results": [
@@ -514,15 +532,31 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/night-results/seen/",
+        "sent": {
+          "seen": 1
+        }
+      }
+    },
+    {
       "answer": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/night-results/seen/",
         "status": 200,
-        "sent": {
-          "seen": 1
-        },
         "body": {
           "night_results_seen": 1
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "talk.000000000034"
         }
       }
     },
@@ -539,10 +573,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "talk.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -728,18 +758,35 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
-        "status": 200,
         "sent": {
           "target_player_id": 109,
           "lock": false,
           "stage": "vote.000000000034"
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "status": 200,
         "body": {
           "status": "picked",
           "target_player_id": 109
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "sent": {
+          "target_player_id": 109,
+          "lock": true,
+          "stage": "vote.000000000034"
         }
       }
     },
@@ -756,11 +803,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
         "status": 200,
-        "sent": {
-          "target_player_id": 109,
-          "lock": true,
-          "stage": "vote.000000000034"
-        },
         "body": {
           "status": "submitted",
           "target_player_id": 109,
@@ -1437,6 +1479,13 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/lobbies/{code}/play-again/",
+        "sent": null
+      }
+    },
+    {
       "event": {
         "type": "play_again",
         "lobby_code": "J3MU5Z"
@@ -1447,7 +1496,6 @@
         "method": "POST",
         "path": "/lobbies/{code}/play-again/",
         "status": 200,
-        "sent": null,
         "body": {
           "code": "J3MU5Z",
           "host": {
@@ -1610,11 +1658,17 @@
       }
     },
     {
+      "request": {
+        "method": "GET",
+        "path": "/onuw/games/{game_id}/me/",
+        "sent": null
+      }
+    },
+    {
       "answer": {
         "method": "GET",
         "path": "/onuw/games/{game_id}/me/",
         "status": 200,
-        "sent": null,
         "body": {
           "game_id": "00000000-0000-4000-a000-000000000034",
           "lobby_code": "J3MU5Z",
@@ -1752,6 +1806,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "look.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "look",
@@ -1764,10 +1828,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "look.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -1948,10 +2008,9 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/action/",
-        "status": 200,
         "sent": {
           "action_type": "choose",
           "picks": [
@@ -1961,7 +2020,14 @@
           ],
           "stage": "w2.000000000034",
           "chosen": 0
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/action/",
+        "status": 200,
         "body": {
           "status": "submitted",
           "night_results": [
@@ -2106,13 +2172,19 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/night-results/seen/",
+        "sent": {
+          "seen": 1
+        }
+      }
+    },
+    {
       "answer": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/night-results/seen/",
         "status": 200,
-        "sent": {
-          "seen": 1
-        },
         "body": {
           "night_results_seen": 1
         }
@@ -2124,6 +2196,16 @@
         "stage": "talk",
         "done": 1,
         "needed": 6
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "talk.000000000034"
+        }
       }
     },
     {
@@ -2139,10 +2221,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "talk.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -2320,15 +2398,21 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
-        "status": 200,
         "sent": {
           "target_player_id": 110,
           "lock": false,
           "stage": "vote.000000000034"
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "status": 200,
         "body": {
           "status": "picked",
           "target_player_id": 110
@@ -2344,6 +2428,17 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "sent": {
+          "target_player_id": 110,
+          "lock": true,
+          "stage": "vote.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "vote",
@@ -2356,11 +2451,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
         "status": 200,
-        "sent": {
-          "target_player_id": 110,
-          "lock": true,
-          "stage": "vote.000000000034"
-        },
         "body": {
           "status": "submitted",
           "target_player_id": 110,
@@ -3044,11 +3134,17 @@
       }
     },
     {
+      "request": {
+        "method": "GET",
+        "path": "/onuw/games/{game_id}/me/",
+        "sent": null
+      }
+    },
+    {
       "answer": {
         "method": "GET",
         "path": "/onuw/games/{game_id}/me/",
         "status": 200,
-        "sent": null,
         "body": {
           "game_id": "00000000-0000-4000-a000-000000000034",
           "lobby_code": "J3MU5Z",
@@ -3187,6 +3283,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "look.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "look",
@@ -3199,10 +3305,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "look.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -3375,10 +3477,9 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/action/",
-        "status": 200,
         "sent": {
           "action_type": "choose",
           "picks": [
@@ -3391,7 +3492,14 @@
           ],
           "stage": "w2.000000000034",
           "chosen": 0
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/action/",
+        "status": 200,
         "body": {
           "status": "submitted",
           "night_results": [
@@ -3536,13 +3644,19 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/night-results/seen/",
+        "sent": {
+          "seen": 1
+        }
+      }
+    },
+    {
       "answer": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/night-results/seen/",
         "status": 200,
-        "sent": {
-          "seen": 1
-        },
         "body": {
           "night_results_seen": 1
         }
@@ -3565,6 +3679,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "talk.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "talk",
@@ -3577,10 +3701,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "talk.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -3750,15 +3870,21 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
-        "status": 200,
         "sent": {
           "target_player_id": 111,
           "lock": false,
           "stage": "vote.000000000034"
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "status": 200,
         "body": {
           "status": "picked",
           "target_player_id": 111
@@ -3782,6 +3908,17 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "sent": {
+          "target_player_id": 111,
+          "lock": true,
+          "stage": "vote.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "vote",
@@ -3794,11 +3931,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
         "status": 200,
-        "sent": {
-          "target_player_id": 111,
-          "lock": true,
-          "stage": "vote.000000000034"
-        },
         "body": {
           "status": "submitted",
           "target_player_id": 111,
@@ -4474,11 +4606,17 @@
       }
     },
     {
+      "request": {
+        "method": "GET",
+        "path": "/onuw/games/{game_id}/me/",
+        "sent": null
+      }
+    },
+    {
       "answer": {
         "method": "GET",
         "path": "/onuw/games/{game_id}/me/",
         "status": 200,
-        "sent": null,
         "body": {
           "game_id": "00000000-0000-4000-a000-000000000034",
           "lobby_code": "J3MU5Z",
@@ -4618,6 +4756,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "look.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "look",
@@ -4630,10 +4778,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "look.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -4927,13 +5071,19 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/night-results/seen/",
+        "sent": {
+          "seen": 1
+        }
+      }
+    },
+    {
       "answer": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/night-results/seen/",
         "status": 200,
-        "sent": {
-          "seen": 1
-        },
         "body": {
           "night_results_seen": 1
         }
@@ -4964,6 +5114,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "talk.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "talk",
@@ -4976,10 +5136,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "talk.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -5143,15 +5299,21 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
-        "status": 200,
         "sent": {
           "target_player_id": 112,
           "lock": false,
           "stage": "vote.000000000034"
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "status": 200,
         "body": {
           "status": "picked",
           "target_player_id": 112
@@ -5183,6 +5345,17 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "sent": {
+          "target_player_id": 112,
+          "lock": true,
+          "stage": "vote.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "vote",
@@ -5195,11 +5368,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
         "status": 200,
-        "sent": {
-          "target_player_id": 112,
-          "lock": true,
-          "stage": "vote.000000000034"
-        },
         "body": {
           "status": "submitted",
           "target_player_id": 112,
@@ -5864,11 +6032,17 @@
       }
     },
     {
+      "request": {
+        "method": "GET",
+        "path": "/onuw/games/{game_id}/me/",
+        "sent": null
+      }
+    },
+    {
       "answer": {
         "method": "GET",
         "path": "/onuw/games/{game_id}/me/",
         "status": 200,
-        "sent": null,
         "body": {
           "game_id": "00000000-0000-4000-a000-000000000034",
           "lobby_code": "J3MU5Z",
@@ -6009,6 +6183,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "look.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "look",
@@ -6021,10 +6205,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "look.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -6310,13 +6490,19 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/night-results/seen/",
+        "sent": {
+          "seen": 1
+        }
+      }
+    },
+    {
       "answer": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/night-results/seen/",
         "status": 200,
-        "sent": {
-          "seen": 1
-        },
         "body": {
           "night_results_seen": 1
         }
@@ -6355,6 +6541,16 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "talk.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "talk",
@@ -6367,10 +6563,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "talk.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -6526,15 +6718,21 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
-        "status": 200,
         "sent": {
           "target_player_id": 113,
           "lock": false,
           "stage": "vote.000000000034"
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "status": 200,
         "body": {
           "status": "picked",
           "target_player_id": 113
@@ -6574,6 +6772,17 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "sent": {
+          "target_player_id": 113,
+          "lock": true,
+          "stage": "vote.000000000034"
+        }
+      }
+    },
+    {
       "event": {
         "type": "progress",
         "stage": "vote",
@@ -6586,11 +6795,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
         "status": 200,
-        "sent": {
-          "target_player_id": 113,
-          "lock": true,
-          "stage": "vote.000000000034"
-        },
         "body": {
           "status": "submitted",
           "target_player_id": 113,
@@ -7247,11 +7451,17 @@
       }
     },
     {
+      "request": {
+        "method": "GET",
+        "path": "/onuw/games/{game_id}/me/",
+        "sent": null
+      }
+    },
+    {
       "answer": {
         "method": "GET",
         "path": "/onuw/games/{game_id}/me/",
         "status": 200,
-        "sent": null,
         "body": {
           "game_id": "00000000-0000-4000-a000-000000000034",
           "lobby_code": "J3MU5Z",
@@ -7390,6 +7600,16 @@
         "stage": "look",
         "done": 5,
         "needed": 6
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "look.000000000034"
+        }
       }
     },
     {
@@ -7541,10 +7761,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "look.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -7683,13 +7899,19 @@
       }
     },
     {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/night-results/seen/",
+        "sent": {
+          "seen": 1
+        }
+      }
+    },
+    {
       "answer": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/night-results/seen/",
         "status": 200,
-        "sent": {
-          "seen": 1
-        },
         "body": {
           "night_results_seen": 1
         }
@@ -7733,6 +7955,16 @@
         "stage": "talk",
         "done": 5,
         "needed": 6
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/ready/",
+        "sent": {
+          "ready": true,
+          "stage": "talk.000000000034"
+        }
       }
     },
     {
@@ -7880,10 +8112,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/ready/",
         "status": 200,
-        "sent": {
-          "ready": true,
-          "stage": "talk.000000000034"
-        },
         "body": {
           "status": "ok",
           "ready": true,
@@ -7896,15 +8124,21 @@
       }
     },
     {
-      "answer": {
+      "request": {
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
-        "status": 200,
         "sent": {
           "target_player_id": 108,
           "lock": false,
           "stage": "vote.000000000034"
-        },
+        }
+      }
+    },
+    {
+      "answer": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "status": 200,
         "body": {
           "status": "picked",
           "target_player_id": 108
@@ -7949,6 +8183,17 @@
         "stage": "vote",
         "done": 5,
         "needed": 6
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/onuw/games/{game_id}/vote/",
+        "sent": {
+          "target_player_id": 108,
+          "lock": true,
+          "stage": "vote.000000000034"
+        }
       }
     },
     {
@@ -8579,11 +8824,6 @@
         "method": "POST",
         "path": "/onuw/games/{game_id}/vote/",
         "status": 200,
-        "sent": {
-          "target_player_id": 108,
-          "lock": true,
-          "stage": "vote.000000000034"
-        },
         "body": {
           "status": "submitted",
           "target_player_id": 108,

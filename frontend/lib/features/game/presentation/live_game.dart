@@ -12,6 +12,7 @@ import '../../../core/requests/player_request.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/primitives/pending.dart' show RequestRefused;
 import '../../../design_system/primitives/countdown.dart' show Countdown;
+import '../../../core/websocket/socket_health.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/night/night_pick.dart';
 import '../../auth/domain/auth_state.dart';
@@ -25,6 +26,7 @@ import '../data/game_service.dart';
 import '../domain/game_event.dart';
 import '../domain/game_me.dart';
 import '../domain/game_outcome.dart';
+import '../domain/stage_progress.dart';
 import 'game_socket.dart';
 import 'outbox.dart';
 
@@ -101,6 +103,21 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   @override
   int? _acked;
 
+  /// A count heard while this phone's own ready or lock was out
+  /// ([_countOnItsWay]): its answer settles it ([_LiveGameTaps]).
+  @override
+  StageProgress? _heldProgress;
+
+  /// A ready or a vote of this phone's is queued or out, so a count the
+  /// table hears may or may not hold it yet.
+  bool get _countOnItsWay {
+    final box = _game.outbox;
+    return [OutboxLane.ready, OutboxLane.vote].any(
+      (lane) =>
+          box.queued(lane) != null || box.current(lane)?.leg == Leg.inFlight,
+    );
+  }
+
   @override
   GameService get _service => ref.read(gameServiceProvider);
   @override
@@ -108,7 +125,9 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
 
   @override
   Future<LiveGame> build(String gameId) async {
+    final health = ref.read(socketHealthProvider);
     ref.onDispose(() {
+      health.report(SocketHealth.game(gameId), up: false);
       _events?.cancel();
       _healTimer?.cancel();
       _retryTimer?.cancel();
@@ -209,13 +228,20 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     }
   }
 
-  /// Applies the `/me/` of fetch number [seq].
+  /// Applies the `/me/` of fetch number [seq], unless this phone was told a
+  /// newer stage meanwhile (its own view on the socket, [_acceptView]): the
+  /// newest wins ([GameMe.place]), so a read that crossed it changes nothing.
   void _accept(int seq, FetchedMe fetched) {
     final current = state.value;
     final me = fetched.me;
     _clockFrom(fetched);
     _failedFetches = 0;
     _retryTimer?.cancel();
+    if (current != null && me.place < current.server.place) {
+      if (current.fetchFailing) _update((s) => s.copyWith(fetchFailing: false));
+      return;
+    }
+    _heldProgress = null;
     final outbox = (current?.outbox ?? Outbox.empty).afterFetch(me, seq);
     _set(
       current == null
@@ -229,6 +255,34 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     );
     _afterApply(me);
     // A queued tap whose lane was waiting on a dropped request goes now.
+    for (final lane in OutboxLane.values) {
+      _next(lane);
+    }
+  }
+
+  /// This phone's own view as a stage opens ([OwnViewEvent]): the server's
+  /// `/me/` itself, so it is applied as a read would be, when it is of a later
+  /// stage than the one held (else the held one is as new or newer: a read in
+  /// the same stage was made after the stage opened). Its results, at the end,
+  /// are the end board's: nothing is asked for them.
+  void _acceptView(GameMe me, GameOutcome? results) {
+    final current = state.requireValue;
+    if (me.gameId != gameId) return;
+    final outcome = current.outcome ?? results;
+    if (me.place <= current.server.place) {
+      _update((s) => s.copyWith(outcome: outcome));
+      return;
+    }
+    _heldProgress = null;
+    _set(
+      current.copyWith(
+        server: me,
+        outbox: current.outbox.afterFetch(me, 0),
+        outcome: outcome,
+        tableClosed: false,
+      ),
+    );
+    _afterApply(me);
     for (final lane in OutboxLane.values) {
       _next(lane);
     }
@@ -334,8 +388,11 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     );
   }
 
-  /// `/me/table/` and `/me/` agree on the game's phase; when one is behind,
-  /// it is fetched again (once per mismatch).
+  /// `/me/table/` and `/me/` agree on the game's phase. When the table is
+  /// ahead, `/me/` is read again (once per mismatch). When `/me/` is ahead (a
+  /// stage changed: the server said so), the table is where the game is now,
+  /// and nothing is asked ([MyTable.inGameAt]: a game at its results is a
+  /// finished table); a table read still out decides instead, when it lands.
   void _compareTable(MyTable? table, {GameMe? me}) {
     final own = me ?? state.value?.server;
     if (table == null || own == null || table.gameId != gameId) return;
@@ -346,10 +403,18 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
       _meAskedAt = at;
       unawaited(refresh());
     } else if (own.phase.index > phase.index && _tableAskedAt != at) {
+      final viewer = _viewer;
+      if (!_named || viewer == null) return;
+      if (ref.read(myTableProvider).isLoading) return;
       _tableAskedAt = at;
-      _invalidateTable();
+      seatFromServer(ref, viewer, table.inGameAt(own.phase));
     }
   }
+
+  int? get _viewer => switch (ref.read(authProvider)) {
+    AuthAuthenticated(:final user) => user.id,
+    _ => null,
+  };
 
   /// Asks for `/me/table/` again, only for a game it names ([_named]).
   void _invalidateTable() {
@@ -379,6 +444,12 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   }
 
   void _onConnection(WebSocketConnectionState? connection) {
+    ref
+        .read(socketHealthProvider)
+        .report(
+          SocketHealth.game(gameId),
+          up: connection == WebSocketConnectionState.connected,
+        );
     switch (connection) {
       case WebSocketConnectionState.connected when _wasDisconnected:
         _wasDisconnected = false;
@@ -415,22 +486,24 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
       return;
     }
     switch (event) {
+      case OwnViewEvent(:final me, :final results):
+        _acceptView(me, results);
       case ProgressEvent(:final progress):
         final current = state.requireValue.server;
-        // While this phone's own ready or vote is not confirmed by a `/me/`,
-        // the screens count it themselves (`GameMe.withReady`, `withVote`)
-        // against the `/me/` they have; a count from elsewhere may already
-        // hold it, so the count and the flag are fetched together instead.
-        final own = _game.outbox;
-        final unconfirmed =
-            own.shown(OutboxLane.ready) != null ||
-            own.shown(OutboxLane.vote) != null;
-        if (_loop != null ||
-            unconfirmed ||
-            current.progress?.stage != progress.stage) {
+        if (_loop != null || current.progress?.stage != progress.stage) {
           unawaited(refresh());
-        } else {
+        } else if (_game.me.progress == current.progress) {
+          // Nothing of this phone's own is counted on top: the count is
+          // the server's, as it says.
           _update((s) => s.copyWith(server: current.withProgress(progress)));
+        } else if (_countOnItsWay) {
+          // This phone's own ready or lock is out: whether this count holds
+          // it is not known yet. Its answer carries the count it made; the
+          // two compared, nothing is read when they agree (its own event).
+          _heldProgress = progress;
+        } else {
+          // Counted here on a tap the server's answer did not confirm.
+          unawaited(refresh());
         }
       case PresenceEvent(:final playerId, :final connected):
         _update(
@@ -445,9 +518,15 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
         );
         _invalidateTable(); // its is_host
         if (_loop != null) unawaited(refresh());
-      case RefetchEvent():
-        _invalidateTable();
-        unawaited(refresh());
+      case RefetchEvent(:final place):
+        // Its own view came first, in the same batch: read only when this
+        // phone is behind the stage the table hears of (an older server, or
+        // the view lost). The seat is not asked: the table is where it was.
+        if (state.requireValue.server.place < place) unawaited(refresh());
+      case TableMovedEvent() when _playingAgain:
+        // This phone's own play again is out: its answer seats it. Should
+        // it not come, the table is read then ([playAgain]).
+        _movedWhilePlaying = true;
       case TableMovedEvent():
         _invalidateTable();
         unawaited(refresh());
@@ -467,10 +546,7 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     if (_playingAgain || !_named) return false;
     final table = ref.read(myTableProvider).value;
     if (table?.status != TableStatus.finished) return false;
-    final viewer = switch (ref.read(authProvider)) {
-      AuthAuthenticated(:final user) => user.id,
-      _ => null,
-    };
+    final viewer = _viewer;
     if (table == null || viewer == null) return false;
     seatFromServer(ref, viewer, table.backToWaiting());
     return true;

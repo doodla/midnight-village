@@ -78,6 +78,7 @@ class LiveGameSetup {
   factory LiveGameSetup.create(
     Map<String, dynamic> me, {
     DateTime Function()? clock,
+    HealTiming timing = testHealTiming,
   }) {
     final userId = me['player_id'] as int;
     final http = MockHttpClient();
@@ -101,7 +102,7 @@ class LiveGameSetup {
             (ref, id) => connection.stream,
           ),
           appResumesProvider.overrideWith((ref) => resumes.stream),
-          healTimingProvider.overrideWithValue(testHealTiming),
+          healTimingProvider.overrideWithValue(timing),
           clockProvider.overrideWithValue(clock ?? () => sampleClockStart),
         ],
       ),

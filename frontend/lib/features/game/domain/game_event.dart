@@ -3,15 +3,20 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/host/host_change.dart';
+import 'game_me.dart';
+import 'game_outcome.dart';
 import 'stage_progress.dart';
 
 /// A game socket event as a phone reads it.
 ///
 /// The rule that keeps a restarted phone on the right screen: an event never
-/// carries state of its own into the app. It either names a reason to fetch
-/// `/me/` again ([RefetchEvent]), or carries a value `/me/` (or the player
-/// list) also holds, in the same absolute form, so applying it twice, late,
-/// or never, and then fetching, ends in the same state:
+/// carries state of its own into the app. It either names a stage that `/me/`
+/// shows ([RefetchEvent]: read it again unless the `/me/` held is already
+/// there), or carries what `/me/` (or the player list, the results) also
+/// holds, in the same absolute form, so applying it twice, late, or never,
+/// and then fetching, ends in the same state:
+/// - [OwnViewEvent]: this phone's own `/me/`, whole, as a stage opens (and the
+///   results with it at the end), sent to this player alone;
 /// - [ProgressEvent]: `/me/`'s `progress` counts;
 /// - [PresenceEvent]: the player list's `connected` flag (not on any screen
 ///   decision);
@@ -35,13 +40,30 @@ sealed class GameEvent {
         connected: event['connected'] as bool,
       ),
       'host_changed' => HostEvent(HostChange.fromEvent(event)),
-      // A window opened, the phase moved, the votes are out, the
-      // game is over, the table went back to the lobby: what this phone sees
-      // next is in `/me/` (and `/me/table/`), never in the event.
-      'night_window' ||
-      'phase_change' ||
-      'vote_reveal' ||
-      'game_results' => RefetchEvent(type as String),
+      'me' => OwnViewEvent(
+        GameMe.fromJson((event['me'] as Map).cast<String, dynamic>()),
+        results: switch (event['results']) {
+          final Map<dynamic, dynamic> results => GameOutcome.fromJson(
+            results.cast<String, dynamic>(),
+          ),
+          _ => null,
+        },
+      ),
+      // A window opened, the phase moved, the votes are out, the game is
+      // over: what this phone sees next is in `/me/`, never in the event,
+      // which names only the stage it opens.
+      'night_window' => RefetchEvent(
+        type as String,
+        place: GameMe.placeOf(GamePhase.night, event['window'] as int),
+      ),
+      'phase_change' => RefetchEvent(
+        type as String,
+        place: GameMe.placeOf(GamePhase.fromServer(event['phase']), 0),
+      ),
+      'vote_reveal' || 'game_results' => RefetchEvent(
+        type as String,
+        place: GameMe.placeOf(GamePhase.results, 0),
+      ),
       'play_again' => const TableMovedEvent(),
       final other => IgnoredEvent(other is String ? other : null),
     };
@@ -56,11 +78,25 @@ sealed class GameEvent {
   }
 }
 
-/// Something changed that `/me/` shows: fetch it.
+/// A stage opened that `/me/` shows: fetch it, unless the `/me/` held is
+/// already at that stage or past it ([GameMe.place]: the server sends each
+/// player's own view of the stage just before this event).
 final class RefetchEvent extends GameEvent {
-  const RefetchEvent(this.type);
+  const RefetchEvent(this.type, {required this.place});
 
   final String type;
+
+  /// The place of the stage it opens ([GameMe.placeOf]).
+  final int place;
+}
+
+/// This phone's own `/me/` as a stage opens (`me`, sent to this player's own
+/// group only), and at the results the results ([results]).
+final class OwnViewEvent extends GameEvent {
+  const OwnViewEvent(this.me, {this.results});
+
+  final GameMe me;
+  final GameOutcome? results;
 }
 
 /// The table went back to waiting (`play_again`): where this phone is now

@@ -17,6 +17,7 @@ import 'package:midnight_village/core/storage/token_storage.dart';
 import 'package:midnight_village/core/storage/user_storage.dart';
 import 'package:midnight_village/core/wakelock/wakelock_service.dart';
 import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
+import 'package:midnight_village/core/websocket/socket_health.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart'
     show WebSocketConnectionState;
 import 'package:midnight_village/design_system/skin/ground.dart';
@@ -479,6 +480,16 @@ class TableSetup {
 
   /// Unmounts the app (its timers go with it; an answer still held runs
   /// out the client's wait).
+  /// The app's provider container (under its `ProviderScope`).
+  ProviderContainer container(WidgetTester tester) =>
+      ProviderScope.containerOf(tester.element(find.byType(Navigator).first));
+
+  /// The lobby socket counts as down for what heals a missing socket (the
+  /// table's slow poll, [SocketHealth]), as a socket that dropped does.
+  void lobbySocketDown(WidgetTester tester, String code) => container(
+    tester,
+  ).read(socketHealthProvider).report(SocketHealth.lobby(code), up: false);
+
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(AuthenticatedClient.timeout + const Duration(seconds: 1));

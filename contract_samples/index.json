@@ -762,6 +762,54 @@
       "description": "/me/ in the results phase."
     },
     {
+      "name": "http/game/me_results_six_ana",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Seer's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_ben",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Robber's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_cleo",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Troublemaker's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_dev",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Werewolf's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_esme",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Werewolf's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_fin",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Insomniac's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
       "name": "http/game/me_talk_practice",
       "kind": "http",
       "method": "GET",
@@ -1760,6 +1808,14 @@
       "path": "/lobbies/{code}/play-again/",
       "status": 200,
       "description": "The host takes the table back to the lobby."
+    },
+    {
+      "name": "http/lobby/play_again_app_table",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/play-again/",
+      "status": 200,
+      "description": "Play again at a table opened the way the app opens it (its settings carry the starting set): the lobby, waiting."
     },
     {
       "name": "http/lobby/play_again_not_finished",

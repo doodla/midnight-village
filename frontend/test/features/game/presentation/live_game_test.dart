@@ -13,8 +13,10 @@ import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/sample_sets.dart';
 import '../../../helpers/contract/server_json.dart';
+import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/live_game_setup.dart';
+import 'package:midnight_village/features/lobby/domain/where_am_i.dart';
 import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart';
 
 /// What `/me/table/` answers while [me]'s game runs.
@@ -107,13 +109,18 @@ void main() {
 
   group('events in any order, repeated or dropped; replies late', () {
     // Window 2 closing into the talk, as every seat heard it
-    // (ws_sequence/window_2), one recorded event per type.
+    // (ws_sequence/window_2), one recorded event per type; the seat's own
+    // view (`me`) is its view of the talk.
     const byType = {
       'progress': 'progress_talk_open',
       'night_window': 'night_window_2',
       'phase_change': 'phase_change_discussion',
+      'me': 'own_view',
     };
-    const fetching = {'night_window_2', 'phase_change_discussion'};
+    const fetching = {'night_window_2', 'phase_change_discussion', 'own_view'};
+    Object heardEvent(String name) => name == 'own_view'
+        ? GameEvents.ownView(recordedMe('me_discussion_choose_seer'))
+        : ContractSamples.map('ws/game/$name');
     final heard = ContractSamples.sequence('ws_sequence/window_2')['Ana']!;
 
     for (var seed = 0; seed < 16; seed++) {
@@ -144,7 +151,7 @@ void main() {
           if (i == moveAt) {
             live.answerMe(recordedMe('me_discussion_choose_seer'));
           }
-          live.ws.addServerEvent(event(name));
+          live.ws.addServerEvent(heardEvent(name));
           // Replies cross the network late, in their own time.
           if (random.nextBool()) {
             await live.settle();
@@ -338,7 +345,7 @@ void main() {
         path: '/onuw/games/${setup.gameId}/me/',
       );
       // A fetch leaves before the choose (it will say chosen 0).
-      setup.ws.addServerEvent(event('night_window_2'));
+      setup.resume(); // the app comes back: a read
       await setup.settle();
       expect(fetches.length, 1);
       setup.answerPost('/action/', 'game/choose_submitted_seer');
@@ -351,7 +358,7 @@ void main() {
       expect(setup.game.me.prompt!.used, isTrue);
       expect(setup.game.me.report.saw, isA<SeerPlayerResult>(), reason: 'kept');
       // The next /me/ (an event, a reconnect) lists it itself.
-      setup.ws.addServerEvent(event('night_window_2'));
+      setup.resume();
       await setup.settle();
       fetches.releaseAll();
       await setup.settle();
@@ -717,15 +724,42 @@ void main() {
       },
     );
 
-    test('a /me/ ahead of the table asks for the table; once', () async {
-      final setup = await phone('me_talk_ready');
-      final tables = setup.tableFetches;
-      // The server moved to the vote; the table answer lags behind.
-      setup.answerMe(recordedMe('me_voting_picked'), table: false);
-      await setup.notifier.refresh();
+    test(
+      'a /me/ ahead of the table moves the table with it; nothing asked',
+      () async {
+        final setup = await phone('me_talk_ready');
+        final tables = setup.tableFetches;
+        // The server moved to the vote: the table is in that game's vote.
+        setup.answerMe(recordedMe('me_voting_picked'), table: false);
+        await setup.notifier.refresh();
+        await setup.settle();
+        expect(setup.tableFetches, tables, reason: 'a stage change is no seat');
+        expect(
+          setup.container.read(myTableProvider).value?.gamePhase,
+          GamePhase.voting,
+        );
+        expect(setup.screen!.screen, AppScreen.vote, reason: '/me/ is ahead');
+      },
+    );
+
+    test('at the results the table is finished, so play again seats the '
+        'phone with no read', () async {
+      final setup = await phone('me_voting_picked');
+      setup.answerResults();
+      // Its own view of the end, on its socket: the table moves with it.
+      setup.ws.addServerEvent(GameEvents.ownView(recordedMe('me_results')));
       await setup.settle();
-      expect(setup.tableFetches, tables + 1);
-      expect(setup.screen!.screen, AppScreen.vote, reason: '/me/ is ahead');
+      expect(
+        setup.container.read(myTableProvider).value?.status,
+        TableStatus.finished,
+      );
+      final tables = setup.tableFetches;
+      final reads = setup.meFetches;
+      setup.ws.addServerEvent(event('play_again'));
+      await setup.settle();
+      expect(setup.tableFetches, tables);
+      expect(setup.meFetches, reads, reason: 'nothing of the old game read');
+      expect(setup.screen!.screen, AppScreen.table);
     });
 
     test('a table ahead of /me/ asks for /me/', () async {

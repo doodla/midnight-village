@@ -45,6 +45,18 @@ abstract final class ContractSamples {
       e.key: [for (final type in e.value as List) type as String],
   };
 
+  /// A `ws_stream/*` sample: per seat (player name), what that phone saw in a
+  /// whole game, in order: `{"event": <a game socket event>}`, `{"request":
+  /// {method, path, sent}}` as one of its own requests left, and `{"answer":
+  /// {method, path, status, body}}` when it was answered.
+  static Map<String, List<Map<String, dynamic>>> stream(String name) => {
+    for (final e in map(name).entries)
+      e.key: [
+        for (final item in e.value as List)
+          (item as Map).cast<String, dynamic>(),
+      ],
+  };
+
   /// Every event type any seat heard in the sequence sample [name].
   static Set<String> sequenceEventTypes(String name) => {
     for (final heard in sequence(name).values) ...heard,
@@ -128,6 +140,7 @@ class SampleInfo {
   bool get isHttp => kind == 'http';
   bool get isEvent => kind == 'ws';
   bool get isSequence => kind == 'ws_sequence';
+  bool get isStream => kind == 'ws_stream';
 
   /// Whether a request for [requestPath] would be answered by this endpoint.
   bool matchesPath(String requestPath) {

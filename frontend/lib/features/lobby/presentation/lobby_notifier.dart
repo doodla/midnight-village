@@ -10,6 +10,7 @@ import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/requests/player_request.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
+import '../../../core/websocket/socket_health.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../../design_system/copy/copy.dart';
 import '../../../design_system/primitives/pending.dart' show RequestRefused;
@@ -211,7 +212,11 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     final service = ref.read(lobbyServiceProvider);
 
     // Clean up on dispose
-    ref.onDispose(_dispose);
+    final health = ref.read(socketHealthProvider);
+    ref.onDispose(() {
+      health.report(SocketHealth.lobby(code), up: false);
+      _dispose();
+    });
 
     // Connect the socket BEFORE fetching, so no event between the server
     // reading the lobby and this phone hearing about it is lost.
@@ -273,6 +278,12 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
       if (ws is ReconnectingWebSocket) {
         var wasDown = false;
         _connectionSubscription = ws.connectionState.listen((s) {
+          ref
+              .read(socketHealthProvider)
+              .report(
+                SocketHealth.lobby(code),
+                up: s == WebSocketConnectionState.connected,
+              );
           if (s == WebSocketConnectionState.connected &&
               (wasDown || _readWhenUp)) {
             wasDown = false;
@@ -307,9 +318,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
       }
 
       switch (type) {
-        case 'player_joined':
-        case 'player_left':
-          _onPlayerListChanged();
+        // `player_joined` and `player_left` are not read: the `lobby_update`
+        // sent with each carries the whole table (contract, section 2).
         case 'lobby_update':
           _onLobbyUpdate(message);
         case 'game_started':
@@ -332,13 +342,6 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
     logger.w('Unexpected WebSocket message type: ${rawMessage.runtimeType}');
     return null;
   }
-
-  /// Re-fetch full lobby state when player list changes.
-  ///
-  /// The `player_joined` and `player_left` events carry only their type:
-  /// who is at the table is in the lobby body, read again here. Re-fetching
-  /// keeps us consistent with the server (spec US3 AS7).
-  Future<void> _onPlayerListChanged() => refreshLobby();
 
   /// Reads the lobby again from the server. The host (the effective host) is
   /// whatever the server says, so a missed `host_changed` heals here. Calls

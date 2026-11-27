@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/healing/healing.dart';
+import '../../../core/websocket/socket_health.dart';
 import '../../../design_system/skin/skin_choice.dart'
     show devicePreferencesProvider;
 import '../../auth/domain/auth_state.dart';
@@ -17,14 +18,16 @@ import 'lobby_notifier.dart';
 part 'where_am_i_provider.g.dart';
 
 /// Where this player sits (`GET /me/table/`): the first fetch of a cold
-/// start, fetched again (invalidated) when the table may have moved on (a
-/// phase change, play again, a host change, leave, reconnect, a lobby that
-/// says its table is in a game this phone was not told of). Coming back to
+/// start, fetched again (invalidated) when the seat may have changed (play
+/// again, a host change, leave, a refused game, reconnect, a lobby that
+/// says its table is in a game this phone was not told of; a stage change
+/// moves it from what `/me/` says, `MyTable.inGameAt`). Coming back to
 /// the app reads it again at once, whatever the screen: an event missed
 /// while the phone slept is healed by that one read. A failed fetch is
 /// retried until it succeeds ([retryForever]). At a waiting table or a
 /// finished game, where only an event would say the table moved on, it is
-/// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
+/// also polled slowly ([HealTiming.tablePoll]) while the socket that would
+/// hear its news is down ([SocketHealth]): the backstop, never the way
 /// a missed event heals; a poll that brings the same answer is not a new
 /// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
 /// device as the last seat ([LastSeat]).
@@ -64,6 +67,12 @@ Future<MyTable?> myTable(Ref ref) async {
     void armPoll() {
       poll = Timer(ref.read(healTimingProvider).tablePoll, () async {
         if (!ref.mounted || !current) return;
+        // A socket that is up hears the deal or play again itself: the poll
+        // heals only one that is down ([SocketHealth]).
+        final socket = table.status == TableStatus.waiting
+            ? SocketHealth.lobby(table.lobbyCode)
+            : SocketHealth.game(table.gameId ?? '');
+        if (ref.read(socketHealthProvider).isUp(socket)) return armPoll();
         final MyTable? read;
         try {
           read = await service.fetchMyTable();

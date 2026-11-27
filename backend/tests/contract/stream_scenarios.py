@@ -2,9 +2,10 @@
 
 For each seat, in order: every event its game socket received once it was open
 (the table's group and its own, as ``GameConsumer`` sends them) and the answer to
-every request that phone made itself (``method``, the app's ``path``, ``status``,
-the body it ``sent`` and the ``body`` it got). A request's events come before its
-answer: they are sent at its commit, before the answer leaves, so this is the order
+every request that phone made itself: a ``request`` as it leaves (``method``, the
+app's ``path``, the body it ``sent``) and its ``answer`` (``status``, ``body``). What a
+request causes is heard between the two
+(it is sent at its commit, before the answer leaves), so this is the order
 a phone sees when its socket is the faster of the two.
 
 The game is the app's: a ``v2`` table of six, dealt (forced) so that three seats
@@ -80,16 +81,21 @@ class StreamTable(Table):
         **kwargs: Any,
     ) -> tuple[int, Any]:
         sent = self._staged(path, body, self.game_id, who) if self.game_id else body
+        mine = bool(self.game_id) and who in self.listening
+        if mine:
+            # The tap leaves: what it causes is heard between this and its answer.
+            self.stream[who].append(
+                {"request": {"method": method, "path": path, "sent": sent}}
+            )
         status, payload = super().request(method, who, path, body, **kwargs)
         self._flush()
-        if self.game_id and who in self.listening:
+        if mine:
             self.stream[who].append(
                 {
                     "answer": {
                         "method": method,
                         "path": path,
                         "status": status,
-                        "sent": sent,
                         "body": payload,
                     }
                 }
@@ -183,7 +189,15 @@ def stream_table(run: Recording) -> StreamTable:
     _record_view(t, "results", "the game ended: her final card, and the results")
     # The host plays again: the table is waiting, every game socket is told.
     t.clock.advance(20)
-    t.call("POST", "Ana", PLAY_AGAIN)
+    t.record(
+        "lobby/play_again_app_table",
+        "POST",
+        "Ana",
+        PLAY_AGAIN,
+        status=200,
+        about="Play again at a table opened the way the app opens it (its "
+        "settings carry the starting set): the lobby, waiting.",
+    )
 
     t.recorder.add(
         "ws_stream/six_seats",
@@ -198,6 +212,20 @@ def stream_table(run: Recording) -> StreamTable:
         },
         t.stream,
     )
+    # The stream is closed: a read now is no phone's. Every seat's /me/ at the
+    # results (each card's own night data), so each view the stream holds is one
+    # the samples know.
+    t.listening.clear()
+    for name, role in DEALT.items():
+        t.record(
+            f"game/me_results_six_{name.lower()}",
+            "GET",
+            name,
+            ME,
+            status=200,
+            about=f"The {role}'s /me/ at the results of the six-seat game: the "
+            "final card and the night's own data.",
+        )
     return t
 
 

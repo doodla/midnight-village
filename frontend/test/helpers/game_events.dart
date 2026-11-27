@@ -89,6 +89,17 @@ abstract final class GameEvents {
     'reason': reason,
   });
 
+  /// This phone's own view as a stage opens (`me`, to this player alone,
+  /// before the table's event): [me] is a recorded `/me/` (`recordedMe`), and
+  /// at the results [results] a recorded `GET .../results/`.
+  static String ownView(
+    Map<String, dynamic> me, {
+    Map<String, dynamic>? results,
+  }) => _event(
+    me['phase'] == 'results' ? 'ws/game/me_results' : 'ws/game/me_talk',
+    {'me': me, if (results != null) 'results': results},
+  );
+
   /// The host took the table back to the lobby for another game.
   static String playAgain({required String lobbyCode}) =>
       _event('ws/game/play_again', {'lobby_code': lobbyCode});
