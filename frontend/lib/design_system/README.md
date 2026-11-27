@@ -770,6 +770,7 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, or a slide past the tap's slop from where it landed, on the screen as
   the tap measures it (just off the part's edge but within the slop it stays down: the tap still fires)
   (`holds: true`, for a hold, only on the lift or cancel), over `Motion.quick` on `Motion.land` (a settle under a tenth past rest).
+  04's card also comes up when its hold gives up before it is one (the finger slid past the hold's slop): `HoldToReveal` turns the press off until the lift.
   It never joins the gesture arena: the `GestureDetector`, `InkWell` or `HoldToReveal` inside fires exactly when it would without it
   (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through;
   it runs when the part is built, never per frame, so only a paint layer listens.

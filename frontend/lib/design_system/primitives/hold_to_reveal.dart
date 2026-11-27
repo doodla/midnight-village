@@ -306,6 +306,24 @@ class _HoldToRevealState extends State<HoldToReveal>
     _hide();
   }
 
+  /// The finger on the card in place is down, and whether the hold gave up
+  /// on it (it slid past the hold's slop before it was a hold): the card
+  /// comes back up though the finger stays, and presses again on the next.
+  var _fingerDown = false;
+  var _gaveUp = false;
+
+  void _cancelled() {
+    if (widget.inPlace && _fingerDown && _shown != _Shown.held && !_gaveUp) {
+      setState(() => _gaveUp = true);
+    }
+    _release();
+  }
+
+  void _fingerOff() {
+    _fingerDown = false;
+    if (_gaveUp) setState(() => _gaveUp = false);
+  }
+
   void _lostFocus() {
     if (_shown == _Shown.activated) _hide();
   }
@@ -368,6 +386,7 @@ class _HoldToRevealState extends State<HoldToReveal>
             child: widget.inPlace
                 ? Pressable(
                     holds: true,
+                    enabled: !_gaveUp,
                     builder: (context, press, _) => _held(context, press),
                   )
                 : _held(context, kAlwaysDismissedAnimation),
@@ -381,12 +400,17 @@ class _HoldToRevealState extends State<HoldToReveal>
     onPointerDown: (event) {
       _landed = event.timeStamp;
       _lifted = null;
+      _fingerDown = true;
     },
     onPointerUp: (event) {
       _lifted = event.timeStamp;
+      _fingerOff();
       _release();
     },
-    onPointerCancel: (_) => _release(),
+    onPointerCancel: (_) {
+      _fingerOff();
+      _release();
+    },
     child: RawGestureDetector(
       behavior: HitTestBehavior.opaque,
       // Assistive technology shows it through the Semantics above.
@@ -399,7 +423,7 @@ class _HoldToRevealState extends State<HoldToReveal>
                 ..onLongPressStart = ((details) =>
                     _show(_Shown.held, _shareOf(details.localPosition)))
                 ..onLongPressEnd = ((_) => _release())
-                ..onLongPressCancel = _release,
+                ..onLongPressCancel = _cancelled,
             ),
       },
       // Hidden information: the cover sets the size, shown or not.

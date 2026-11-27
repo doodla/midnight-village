@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/faces/held_face.dart';
+import 'package:midnight_village/design_system/feel/press.dart';
 import 'package:midnight_village/design_system/feel/press_paint.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
@@ -105,9 +107,48 @@ _Frame _frame(WidgetTester tester, Map<bool, (double, double)> rest) {
   fail('the card never went through its edge');
 }
 
+/// Whether the card draws a finger's press now (its shrink, its sink, its
+/// tightened shadow).
+bool _pressed(WidgetTester tester) {
+  var pressed = false;
+  void visit(RenderObject r) {
+    pressed |= switch (r) {
+      RenderPressSink() => r.drawsPressed,
+      RenderPressDecoration() => r.drawsPressed,
+      _ => false,
+    };
+    r.visitChildren(visit);
+  }
+
+  visit(tester.renderObject(find.byType(HoldToReveal)));
+  return pressed;
+}
+
 void main() {
   for (final paper in [false, true]) {
     final dress = paper ? 'dressed' : 'plain';
+
+    testWidgets('$dress: a finger that slides away before it is a hold '
+        'gives the card back up, though it is still down', (tester) async {
+      await _pump(tester, paper: paper);
+      final centre = tester.getCenter(find.byType(FaceDownCard));
+      final finger = await tester.startGesture(centre);
+      await tester.pump();
+      expect(_pressed(tester), isTrue);
+      // Past the hold's own slop before it is a hold: it never will be.
+      await finger.moveBy(const Offset(0, kTouchSlop * 2));
+      await tester.pumpAndSettle();
+      expect(_pressed(tester), isFalse);
+      expect(find.byType(HeldFace), findsNothing);
+      await finger.up();
+      await tester.pumpAndSettle();
+      // And the next finger presses it again.
+      final again = await tester.startGesture(centre);
+      await tester.pump();
+      expect(_pressed(tester), isTrue);
+      await again.up();
+      await tester.pumpAndSettle();
+    });
 
     testWidgets('$dress: held through the turn, no jump at the edge', (
       tester,
