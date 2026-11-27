@@ -289,6 +289,7 @@ class VoteView(APIView):
         if asked_refusal is not None:
             return asked_refusal
 
+        told: dict[str, Any] = {}
         try:
             errors = submit_vote(
                 game,
@@ -297,6 +298,7 @@ class VoteView(APIView):
                 lock=lock,
                 stage=stage,  # type: ignore[misc]
                 asked=asked,
+                told=told,
             )
         except WrongStageError:
             return _wrong_stage()
@@ -317,7 +319,14 @@ class VoteView(APIView):
             )
 
         if lock:
-            return Response({"status": "submitted"})
+            # The stored lock and the count the table was sent (a resend of a
+            # stored lock, which sends nothing, answers its status alone).
+            stored = (
+                {"target_player_id": target_player_id, "locked": True, **told}
+                if told
+                else {}
+            )
+            return Response({"status": "submitted", **stored})
         # The stored pick, echoed: a lost or reordered request shows what stuck.
         return Response({"status": "picked", "target_player_id": target_player_id})
 
@@ -358,8 +367,9 @@ class ReadyView(APIView):
         asked, refusal = ask.read(body)  # optional: the phone's tap time
         if refusal is not None:
             return refusal
+        told: dict[str, Any] = {}
         try:
-            errors = set_ready(game, request.user.id, ready, stage, asked)  # type: ignore[misc]
+            errors = set_ready(game, request.user.id, ready, stage, asked, told)  # type: ignore[misc]
         except WrongStageError:
             return _wrong_stage()
         except ask.StaleRequestError as stale:
@@ -372,7 +382,9 @@ class ReadyView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return Response({"status": "ok", "ready": ready})
+        # The stored flag and the count the table was sent: the tapper's phone
+        # shows both as the server holds them and reads nothing after its tap.
+        return Response({"status": "ok", "ready": ready, **told})
 
 
 class ForceRevealView(APIView):

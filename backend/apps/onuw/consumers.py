@@ -28,10 +28,10 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
     WebSocket consumer for an ONUW game session.
 
     Each connected player joins two channel groups:
-    - game_{game_id}: broadcast channel for all players (every event the game
-      sends today goes here: nothing in a game is sent to one player)
-    - game_{game_id}_player_{user_id}: a private channel, kept so an event meant
-      for one player has somewhere to go
+    - game_{game_id}: broadcast channel for all players (every table event:
+      counts, windows, phases, the reveal, the results, presence, host, play again)
+    - game_{game_id}_player_{user_id}: this player's own channel: their own view
+      as each stage opens (``own_view``), and nothing else
 
     An event type with no handler here (one an older deployment still sends while
     a new one goes live) is dropped by ``TolerantJsonWebsocketConsumer``.
@@ -170,6 +170,19 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
                 "lobby_code": event["lobby_code"],
             }
         )
+
+    async def own_view(self, event):
+        """Private: this player's own view as a stage opens (``own_view``), sent to
+        the player's own group. Forwarded only when it is this socket's player's
+        own (its ``player_id``): a view addressed anywhere else reaches nobody."""
+        view = event.get("me")
+        if not isinstance(view, dict) or view.get("player_id") != self.user_id:
+            logger.error("An own view reached a socket it is not for: dropped")
+            return
+        frame = {"type": "me", "me": view}
+        if "results" in event:
+            frame["results"] = event["results"]
+        await self.send_json(frame)
 
     async def game_results(self, event):
         """Broadcast: game results after vote resolution."""

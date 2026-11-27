@@ -76,6 +76,11 @@ class Cost:
     sends: int
     publishes: int
     batches: int = 0
+    # Messages to one player's own group (their own view as a stage opens,
+    # ``apps/onuw/own_view.py``): one per person by design, so counted apart from
+    # ``sends`` (the table's messages, which must not grow with the table). They
+    # go out in the same batch: they cost no Redis round trip of their own.
+    own_views: int = 0
 
     @property
     def queries(self) -> int:
@@ -205,7 +210,8 @@ class MeteredTable(Table):
                 sql=[q["sql"] for q in queries],
                 sql_ms=sum(float(q["time"]) for q in queries) * 1000,
                 ms=elapsed * 1000,
-                sends=len(self.layer.sent) - sent,
+                sends=sum(1 for g, _ in self.layer.sent[sent:] if "_player_" not in g),
+                own_views=sum(1 for g, _ in self.layer.sent[sent:] if "_player_" in g),
                 batches=self.layer.batches - batches,
                 publishes=self._published - published,
             )

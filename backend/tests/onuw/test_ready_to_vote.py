@@ -94,7 +94,12 @@ class TestTheTap:
         response = ready(night, "seer")
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == {"status": "ok", "ready": True}
+        # The stored flag and the count the table was sent.
+        assert response.data == {
+            "status": "ok",
+            "ready": True,
+            "progress": {"stage": "talk", "done": 1, "needed": 5},
+        }
         assert flag(night, "seer") is True
         assert all(flag(night, n) is False for n in ROLES if n != "seer")
 
@@ -105,7 +110,11 @@ class TestTheTap:
         ready(night, "wolf")
         undone = ready(night, "seer", False)
 
-        assert undone.data == {"status": "ok", "ready": False}
+        assert undone.data == {
+            "status": "ok",
+            "ready": False,
+            "progress": {"stage": "talk", "done": 1, "needed": 5},
+        }
         assert progress_events(night) == [(1, 5), (2, 5), (1, 5)]
         assert me(night, "wolf")["progress"] == {
             "stage": "talk",

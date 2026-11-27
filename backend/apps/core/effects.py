@@ -11,6 +11,7 @@ Shared by every app (game logic, host handover, presence, durable timers).
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from typing import Any
@@ -21,6 +22,8 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from apps.core import server_timing, timers
+
+logger = logging.getLogger(__name__)
 
 
 def after_commit(func: Callable[[], None]) -> None:
@@ -41,6 +44,33 @@ def send_after_commit(messages: list[tuple[str, dict[str, Any]]]) -> None:
     if channel_layer is None or not messages:
         return
     after_commit(lambda: _deliver(channel_layer, messages))
+
+
+def send_built_after_commit(
+    build: Callable[[], list[tuple[str, dict[str, Any]]]],
+    messages: list[tuple[str, dict[str, Any]]],
+    *,
+    what: str = "messages",
+) -> None:
+    """Like ``send_after_commit``, with more messages built once the transaction
+    has committed (``build``, which may read the database: it sees the committed
+    state), sent FIRST, in the same batch as ``messages``. A ``build`` that fails
+    is logged and ``messages`` still go out alone."""
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+
+    def run() -> None:
+        try:
+            built = build()
+        except Exception:
+            logger.exception("Could not build the %s to send", what)
+            built = []
+        batch = [*built, *messages]
+        if batch:
+            _deliver(channel_layer, batch)
+
+    after_commit(run)
 
 
 def _deliver(channel_layer: Any, messages: list[tuple[str, dict[str, Any]]]) -> None:

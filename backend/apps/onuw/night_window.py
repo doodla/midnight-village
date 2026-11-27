@@ -193,9 +193,11 @@ def _restore_deadline_timer(game: Game) -> None:
 
 def announce_window(game: Game, window: int) -> None:
     """Tell the table a window opened with ONE group event, the same bytes for every
-    phone and nothing per player (each phone reads its prompt from ``GET /me/``).
+    phone and nothing per player; before it, on each player's own group, their own
+    view with its prompt (``own_view``: a phone that missed it reads ``GET /me/``).
     The caller (``send_wave_prompts``) has set the deadline and the timer."""
-    basics._send_after_commit(
+    basics._send_stage_after_commit(
+        game,
         [
             (
                 f"game_{game.id}",
@@ -207,7 +209,7 @@ def announce_window(game: Game, window: int) -> None:
                     else None,
                 },
             )
-        ]
+        ],
     )
 
 
@@ -515,8 +517,9 @@ def transition_to_discussion(game: Game) -> None:
             {"game_id": str(game.id)},
         )
 
-    # Broadcast phase change to all players
-    basics._send_after_commit(
+    # Broadcast phase change to all players, each player's own view first
+    basics._send_stage_after_commit(
+        game,
         [
             (
                 f"game_{game.id}",
@@ -529,6 +532,6 @@ def transition_to_discussion(game: Game) -> None:
                 },
             ),
             (f"game_{game.id}", {"type": "progress", **readiness.talk_progress(game)}),
-        ]
+        ],
     )
     basics._practice_after_commit(game)

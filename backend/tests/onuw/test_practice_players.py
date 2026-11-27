@@ -820,10 +820,27 @@ def test_nothing_a_person_gets_names_a_practice_players_card(table):
     for group, event in game_events:
         if event.get("type") in ("vote.reveal", "game.results"):
             break
+        if event.get("type") == "own.view":
+            # Her own view, on her own group only: checked as her /me/ is (the
+            # deck in it is public, her own card is hers).
+            assert group.endswith(f"_player_{ana}"), group
+            view = event["me"]
+            if view["phase"] == "results":
+                break
+            for part in ("players", "night_results", "progress"):
+                check(view[part], f"own view {part}")
+            continue
         check(event, f"event {event.get('type')} to {group}")
-    # The practice players' night was played, and told to nobody.
+    # The practice players' night was played, and told to nobody before the end
+    # (the results, which show every card and the night's log to everyone, are
+    # the only message that holds it).
     assert t.log_of(b2)[0]["action_type"] == "swap_with_player"
-    assert not [e for _, e in t.recorder.events if "night_action" in json.dumps(e)]
+    before_end = [
+        e
+        for _, e in t.recorder.events
+        if not (e.get("type") == "own.view" and e["me"]["phase"] == "results")
+    ]
+    assert not [e for e in before_end if "night_action" in json.dumps(e)]
 
 
 def test_the_players_list_shows_practice_players_as_here(table):

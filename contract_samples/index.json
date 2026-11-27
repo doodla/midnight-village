@@ -2024,6 +2024,50 @@
       "description": "The owner is back and hosts again."
     },
     {
+      "name": "ws/game/me_night",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: window 2 opened: her prompt, her card. The body is her GET /me/."
+    },
+    {
+      "name": "ws/game/me_results",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: the game ended: her final card, and the results. The body is her GET /me/."
+    },
+    {
+      "name": "ws/game/me_talk",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: the talk opened: what her night told her. The body is her GET /me/."
+    },
+    {
+      "name": "ws/game/me_vote",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: the vote opened: who she may vote for. The body is her GET /me/."
+    },
+    {
       "name": "ws/game/night_window_1",
       "kind": "ws",
       "socket": "game",
@@ -2577,6 +2621,12 @@
       "kind": "ws_sequence",
       "socket": "game",
       "description": "What every seat's socket heard while window 2 was open."
+    },
+    {
+      "name": "ws_stream/six_seats",
+      "kind": "ws_stream",
+      "socket": "game",
+      "description": "A whole game at six seats as each phone saw it: every event its game socket received and the answer to each of its own requests, in order (a request's events before its answer)."
     }
   ]
 }

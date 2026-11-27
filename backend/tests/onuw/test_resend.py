@@ -22,6 +22,7 @@ seeded.
 
 from __future__ import annotations
 
+import json
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -441,7 +442,14 @@ class TestOtherRequestsResent:
 
         again = send(night, "seer", "onuw:vote", body)
 
-        assert outside(first.content) == outside(again.content) == SUBMITTED
+        # The same answer: the stored lock and the count (the count read again).
+        assert first.content == again.content
+        assert json.loads(first.content) == {
+            "status": "submitted",
+            "target_player_id": pid(night, "wolf"),
+            "locked": True,
+            "progress": {"stage": "vote", "done": 1, "needed": 5},
+        }
         assert snapshot(night) == before
         assert len(night.recorder.events) == events  # no second progress
 
@@ -497,7 +505,12 @@ class TestOtherRequestsResent:
 
         again = send(night, "seer", "onuw:ready", body)
 
-        assert first.content == again.content == b'{"status":"ok","ready":true}'
+        assert first.content == again.content
+        assert json.loads(first.content) == {
+            "status": "ok",
+            "ready": True,
+            "progress": {"stage": "look", "done": 1, "needed": 5},
+        }
         assert snapshot(night) == before
 
     def test_a_results_ack_resent_changes_nothing(self, make_p2) -> None:

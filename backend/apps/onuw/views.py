@@ -34,9 +34,9 @@ from .engine.assignment import assign_roles
 from .engine.decks import auto_deck
 from .models import Game, Phase, PlayerRole
 from .night_flow import begin_night
+from .own_view import me_body
 from .recovery import ensure_timers, timer_prefixes
 from .serializers import (
-    GameMeSerializer,
     GameStartResponseSerializer,
 )
 from .view_helpers import (
@@ -239,15 +239,8 @@ class GameMeView(APIView):
         except Exception:
             logger.exception("ensure_timers failed for game %s", game.id)
 
-        serializer = GameMeSerializer(
-            game,
-            context={
-                "player_role": player_role,
-                "all_player_roles": all_player_roles,
-                "request": request,
-            },
-        )
-        return Response(serializer.data)
+        # The one builder of a player's view, the socket's own view too.
+        return Response(me_body(game, player_role, all_player_roles))
 
 
 class SweepTimersView(APIView):

@@ -95,6 +95,31 @@ _schedule_after_commit = effects.schedule_after_commit
 _cancel_after_commit = effects.cancel_after_commit
 
 
+# Every person's own view of a game, each on their own group (``own_view``),
+# plugged in when the app is ready (``apps.py``): it stands on the serializers,
+# which this bottom layer cannot import.
+own_views: Callable[[Any], list[tuple[str, dict[str, Any]]]] | None = None
+
+
+def _send_stage_after_commit(
+    game: Game, messages: list[tuple[str, dict[str, Any]]]
+) -> None:
+    """Tell the table a stage opened (``messages``, the group events) once the
+    transaction commits, every person's own view FIRST in the same batch: a phone
+    that holds the new stage when the group event comes reads nothing
+    (``own_view``). Called by every stage opening after the deal: each night
+    window, the talk, the vote, the results."""
+    game_id = game.id
+
+    def build() -> list[tuple[str, dict[str, Any]]]:
+        if own_views is None:
+            logger.error("No own-view builder is plugged in: game %s", game_id)
+            return []
+        return own_views(game_id)
+
+    effects.send_built_after_commit(build, messages, what="own views")
+
+
 def _window_job_params(game: Game, window: int, *, deferred: bool = False) -> dict:
     return {"game_id": str(game.id), "wave": window, "deferred": deferred}
 

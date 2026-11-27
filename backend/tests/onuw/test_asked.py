@@ -182,7 +182,8 @@ class TestVote:
             assert reply.data["code"] == "vote_locked"
         for asked in (1000, 2000):
             again = vote(night, "seer", "wolf", asked, lock=True)
-            assert again.content == b'{"status":"submitted"}'
+            assert again.json()["status"] == "submitted"
+            assert again.json()["target_player_id"] == pid(night, "wolf")
         assert voted_for(night, "seer") == pid(night, "wolf")
 
     def test_a_stage_that_is_over_is_still_wrong_stage(self, voting) -> None:
@@ -302,7 +303,12 @@ class TestReady:
         first = ready(night, "seer", True, 50)
         again = ready(night, "seer", True, 50)
 
-        assert first.content == again.content == b'{"status":"ok","ready":true}'
+        assert first.content == again.content
+        assert first.json() == {
+            "status": "ok",
+            "ready": True,
+            "progress": {"stage": "talk", "done": 1, "needed": 5},
+        }
 
     def test_a_new_stage_starts_afresh(self, make_table) -> None:
         """The look's ready is not compared with the talk's: a phone whose clock

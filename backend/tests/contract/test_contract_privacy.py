@@ -122,3 +122,52 @@ def test_the_night_window_and_progress_events_go_to_the_whole_table(
     # Counts and window numbers only: no player id, no role.
     allowed = {"type", "stage", "done", "needed", "window", "deadline"}
     assert set(_payload(sample)) <= allowed
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [s for s in _socket_samples() if s["type"] == "me"],
+    ids=lambda s: s["name"],
+)
+def test_an_own_view_goes_to_one_player_on_their_own_group(
+    sample: dict[str, Any],
+) -> None:
+    assert sample["group"] == "player"
+    assert len(sample["recipients"]) == 1
+
+
+def _streams() -> list[dict[str, Any]]:
+    index = json.loads((SAMPLES_DIR / "index.json").read_text(encoding="utf-8"))
+    return [s for s in index["samples"] if s["kind"] == "ws_stream"]
+
+
+def test_there_is_a_whole_game_stream_to_check() -> None:
+    assert {s["name"] for s in _streams()} == {"ws_stream/six_seats"}
+
+
+@pytest.mark.parametrize("sample", _streams(), ids=lambda s: s["name"])
+def test_in_a_whole_game_every_seat_hears_the_same_kinds_and_only_its_own_view(
+    sample: dict[str, Any],
+) -> None:
+    """Every seat's socket hears the same kinds of event in the same order (who
+    connected before it aside), whatever it was dealt; each ``me`` it hears is
+    its own (the ``player_id`` its own ``/me/`` answered), and no other event
+    holds a key of a player's own view."""
+    own_keys = {"me", "your_role", "night_results", "action_prompt", "my_vote"}
+    streams: dict[str, list[dict[str, Any]]] = _payload(sample)
+    assert len(streams) >= 5
+    heard = {}
+    for seat, items in streams.items():
+        events = [i["event"] for i in items if "event" in i]
+        heard[seat] = [e["type"] for e in events if e["type"] != "player_presence"]
+        reads = [i["answer"] for i in items if "answer" in i]
+        mine = next(a for a in reads if a["method"] == "GET")["body"]["player_id"]
+        for event in events:
+            if event["type"] == "me":
+                assert event["me"]["player_id"] == mine, f"{seat}: another's view"
+            else:
+                assert not set(event) & own_keys, f"{seat}: {event['type']}"
+    reference = next(iter(heard.values()))
+    assert "me" in reference
+    for seat, kinds in heard.items():
+        assert kinds == reference, f"{seat} heard something different"

@@ -1,4 +1,9 @@
 {
   "status": "ok",
-  "ready": true
+  "ready": true,
+  "progress": {
+    "stage": "look",
+    "done": 1,
+    "needed": 5
+  }
 }
