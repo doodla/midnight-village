@@ -263,6 +263,35 @@ void main() {
         expect(_changed(rest, await FramePixels.of(tester), room), 0);
       });
 
+      testWidgets('reduce motion: a quick tap still shows one pressed frame', (
+        tester,
+      ) async {
+        var taps = 0;
+        await _pump(tester, part, tap: () => taps++, still: true);
+        final room = _room(tester, part);
+        final rest = await FramePixels.of(tester);
+        await plainTap(
+          tester,
+          find.byWidget(tester.widget(_of(part).first)),
+          why: 'a tap that is down and up before a frame is drawn',
+        );
+        await tester.pump();
+        expect(
+          _changed(rest, await FramePixels.of(tester), room),
+          greaterThan(0),
+          reason: 'the frame after a quick tap is drawn pressed',
+        );
+        expect(_travels(tester), isFalse);
+        await tester.pump();
+        expect(
+          _changed(rest, await FramePixels.of(tester), room),
+          0,
+          reason: 'and the next one at rest again',
+        );
+        await tester.pumpAndSettle();
+        expect(taps, part.commits ? 1 : 0);
+      });
+
       testWidgets('nothing below rebuilds on press', (tester) async {
         await _pump(tester, part, tap: () {});
         await tester.pumpAndSettle();

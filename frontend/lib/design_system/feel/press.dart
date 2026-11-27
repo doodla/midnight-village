@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
@@ -33,7 +34,9 @@ typedef PressBuilder =
 /// [Motion.land], so the paper springs a little past rest (under a tenth: the
 /// value dips just under 0) and settles. With reduce motion it is a cut: 1
 /// on the frame the finger lands, 0 on the lift, nothing in between, and the
-/// part shows the state with no travel ([PressSink] moves nothing then).
+/// part shows the state with no travel ([PressSink] moves nothing then). A
+/// tap down and up before a frame is drawn still gets its one pressed frame:
+/// the lift is kept until that frame is done (a frame, never a time).
 ///
 /// A part that cannot act yet (a locked button) keeps [enabled]: its press
 /// still answers and its words say what is missing. Only a part that must
@@ -83,6 +86,12 @@ class _PressableState extends State<Pressable>
   int? _pointer;
   Offset _from = Offset.zero;
 
+  /// Reduce motion: which down the next frame draws, and whether the lift
+  /// came before it (it is kept until that frame is done).
+  var _downs = 0;
+  var _drawn = true;
+  var _liftKept = false;
+
   // Read when they change, never in a pointer handler.
   var _reduced = false;
   DeviceGestureSettings? _gestures;
@@ -115,6 +124,10 @@ class _PressableState extends State<Pressable>
     _from = event.position;
     if (_reduced) {
       _press.value = 1;
+      _drawn = false;
+      _liftKept = false;
+      final down = ++_downs;
+      SchedulerBinding.instance.addPostFrameCallback((_) => _frameDone(down));
       return;
     }
     final from = _press.value;
@@ -147,10 +160,25 @@ class _PressableState extends State<Pressable>
     _pointer = null;
     if (!mounted) return;
     if (_reduced) {
-      _press.value = 0;
+      // Down and up before a frame: the frame still draws it down.
+      if (_drawn) {
+        _press.value = 0;
+      } else {
+        _liftKept = true;
+      }
       return;
     }
     _press.animateTo(0, duration: Motion.quick, curve: Motion.land);
+  }
+
+  /// The frame after a reduce-motion down is drawn: a lift kept for it goes
+  /// to rest now (the next frame draws it).
+  void _frameDone(int down) {
+    if (down != _downs) return;
+    _drawn = true;
+    if (!_liftKept || !mounted) return;
+    _liftKept = false;
+    if (_pointer == null) _press.value = 0;
   }
 
   @override

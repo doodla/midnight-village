@@ -783,7 +783,8 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   While a press blends, a deckled edge (a shadow moving under a finger) is a moved copy of one already cut, never torn again (`DeckleBorder.whileMoving`);
   at rest and all the way down every edge is cut where it lies, as before.
   Tests: `press_parts_test.dart` (the first frame, a quick tap, the lift, reduce motion and no rebuild, by the pixels drawn, for every part).
-  Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws).
+  Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws);
+  a tap down and up before a frame is drawn keeps its lift until that frame is done (a post-frame callback, never a timer), so it still shows one pressed frame.
   A locked part keeps `enabled` and still answers;
   only a part that must not move turns it off.
   While pressed or settling it is its own repaint boundary (`PressLayer`); at rest none, so a part at rest draws exactly as without it. Adopting it:
