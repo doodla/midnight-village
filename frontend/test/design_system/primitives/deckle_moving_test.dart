@@ -5,7 +5,9 @@ import 'package:midnight_village/design_system/primitives/deckle.dart';
 // A deckled edge at rest is cut where it lies and kept, as on main: nothing
 // more (no moved copy is made or kept for it), so a screen of paper costs
 // what it did. Only a press's blend (`DeckleBorder.whileMoving`) keeps one
-// edge per size and moves it, instead of tearing a new one every frame.
+// edge per size and moves it, instead of tearing a new one every frame; and
+// it starts from the resting edge of that size, so the frame the finger
+// lands tears nothing.
 
 void main() {
   test('at rest an edge is cut where it lies and no moved copy is kept', () {
@@ -30,7 +32,9 @@ void main() {
         moved.add(edge.getOuterPath(Offset(20, 30 + i * 0.25) & size));
       }
     });
-    expect(DeckleBorder.tornCount - torn, lessThanOrEqualTo(1));
+    // The press's frames (the first one too) tear nothing: the resting
+    // edge of that size is moved.
+    expect(DeckleBorder.tornCount, torn);
     // The moved edge is the resting one, moved.
     final at = moved.last.getBounds();
     final from = rest.getBounds().shift(const Offset(0, 6 * 0.25));
