@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/config/env.dart';
+import '../../core/perf/beacon.dart';
+import '../../core/perf/field_beacon.dart';
 import '../../core/perf/field_recorder.dart';
 import '../../core/perf/perf.dart';
 import '../../core/perf/perf_env.dart';
@@ -16,11 +19,17 @@ import '../skin/ground_scope.dart';
 import '../skin/skin.dart';
 import 'control_kind.dart';
 
-/// Switches the field recorder on when this tab asked for it (`?perf=1`,
-/// remembered for the tab; `?perf=0` switches it off). Web only. Called
-/// once, before the app runs.
+/// Switches the field recorder on, web only, called once before the app
+/// runs:
+/// - with its strip when this tab asked for it (`?perf=1`, remembered for
+///   the tab; `?perf=0` switches it off): kept on the phone, copied by hand;
+/// - else quietly on a build with a commit (the live app): no strip, and a
+///   summary per game goes to the server (`FieldBeacon`). A build with no
+///   commit (a local run, the tests) stays off and sends nothing.
 void startPerfField() {
-  if (!kIsWeb || !perfSwitchedOn(pageQuery(), openTabStorage())) return;
+  if (!kIsWeb) return;
+  final strip = perfSwitchedOn(pageQuery(), openTabStorage());
+  if (!strip && !quietField) return;
   perfPrepare();
   final recorder = FieldRecorder(
     now: perfNow,
@@ -29,11 +38,32 @@ void startPerfField() {
     resourceTiming: perfResourceTiming,
   )..install();
   Perf.recorder = recorder;
+  if (strip) {
+    _strip = recorder;
+    return;
+  }
+  final url = '${Env.apiUrl}/observe/summary/';
+  final beacon = FieldBeacon(
+    recorder: recorder,
+    commit: BuildId.mine,
+    send: (summary) => sendBeacon(url, summary),
+  );
+  recorder.screenChanged = beacon.screenShown;
+  whenHidden(beacon.hidden);
 }
 
-/// The field recorder's strip under the app, when it is on; otherwise the
-/// app itself, untouched.
-Widget perfStripAround(Widget app) => switch (Perf.recorder) {
+/// The quiet mode: on for a build with a commit; `--dart-define=FIELD_QUIET=true`
+/// switches it on in a build without one (`just phone-frames`, to measure
+/// what it costs).
+const bool quietField =
+    bool.fromEnvironment('FIELD_QUIET') ||
+    (BuildId.mine != BuildId.local && BuildId.mine != '');
+
+FieldRecorder? _strip;
+
+/// The field recorder's strip under the app, when `?perf=1` asked for it;
+/// otherwise the app itself, untouched (also while the quiet mode records).
+Widget perfStripAround(Widget app) => switch (_strip) {
   final FieldRecorder recorder => PerfStrip(recorder: recorder, child: app),
   _ => app,
 };

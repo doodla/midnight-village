@@ -134,6 +134,10 @@ phone-frames *args:
 phone-frames-live *args:
     python3 tool/phone_frames/live_rtt.py {{args}}
 
+# What real phones measured in real games (the live app's summaries, one per game): per kind of tap the median and 90th percentile of each leg by device, slowest screens, cold starts. Usage: just field-report [--games N] [--json] [--api origin]
+field-report *args:
+    python3 tool/field_report.py {{args}}
+
 # Boot the harness backend, then run the end-to-end harness (API + UI runners)
 # against it and tear it down (needs Postgres; see docs/dev/debug-harness/)
 test-harness:

@@ -355,7 +355,11 @@ class FieldRecorder implements PerfRecorder {
     _activity(at);
     _keep(screens, change, _keptScreens);
     _frameAfter((mark, at) => _firstFrame(change, mark, at));
+    screenChanged?.call(name);
   }
+
+  /// Told each new screen's name (the quiet mode's beacon: `FieldBeacon`).
+  void Function(String screen)? screenChanged;
 
   void _firstFrame(ScreenRecord change, double mark, double at) {
     change.firstMark ??= mark;
