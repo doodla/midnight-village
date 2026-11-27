@@ -136,7 +136,8 @@ def test_the_stats_number_allows_a_roomful_of_phones_polling(real_limits, db):
 
 
 def test_requests_inside_a_game_carry_no_limit():
-    """Only sign-up and the stats number are limited: nothing a table does in play.
+    """Only sign-up, the stats number and the phones' speed summaries (a beacon sent
+    after the play, ``apps/observe``) are limited: nothing a table does in play.
     Every route the server has is looked at, so a new limited view fails here."""
     assert "DEFAULT_THROTTLE_CLASSES" not in base.REST_FRAMEWORK
 
@@ -152,7 +153,12 @@ def test_requests_inside_a_game_carry_no_limit():
         view = getattr(callback, "cls", None) or getattr(callback, "view_class", None)
         if view is not None and getattr(view, "throttle_classes", None):
             limited.add(view.__name__)
-    assert limited == {"GuestCreateView", "OnlineStatsView"}
+    assert limited == {
+        "GuestCreateView",
+        "OnlineStatsView",
+        "SummaryView",
+        "ReportView",
+    }
 
 
 def test_the_harness_lifts_the_sign_up_limit_for_its_ninety_guests():

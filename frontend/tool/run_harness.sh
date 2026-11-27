@@ -105,10 +105,15 @@ cd "$FRONTEND_DIR"
 # device-bound binding falls back to a web device and dies, "Web devices are not
 # supported for integration tests yet"). They run on the host Dart VM under the
 # normal flutter_test binding when invoked by explicit path here.
+# HARNESS_DEFINES="NAME=value ...": more --dart-define's, e.g. FIELD_QUIET=true
+# for the live app's quiet field recorder on in every test.
+harness_defines=()
+for define in ${HARNESS_DEFINES:-}; do harness_defines+=("--dart-define=$define"); done
 flutter test --tags e2e \
   --file-reporter json:build/harness-report.jsonl \
   --dart-define=ENV=dev \
   --dart-define=HARNESS_PORT="$HARNESS_PORT" \
+  ${harness_defines[@]+"${harness_defines[@]}"} \
   test_e2e/api_runner_test.dart \
   test_e2e/api_lifecycle_test.dart \
   test_e2e/api_game_test.dart \

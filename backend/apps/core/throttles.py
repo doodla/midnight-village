@@ -2,7 +2,8 @@
 Request limits.
 
 What they are for: stopping one source from creating guest accounts by the thousand,
-and from scraping the "N at tables" number. Nothing else. They must never be felt at
+from scraping the "N at tables" number, and from filling the phones' speed summaries
+(``apps/observe``, sent after the play). Nothing else. They must never be felt at
 a table: friends in one room share one network address, so every allowance here is
 sized for several tables signing in, retrying and playing from ONE address. Requests
 inside a game carry no limit at all.

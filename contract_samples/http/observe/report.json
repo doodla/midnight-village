@@ -1,0 +1,178 @@
+{
+  "summaries": 1,
+  "at_game_end": 1,
+  "first": "2024-03-07T23:00:00Z",
+  "last": "2024-03-07T23:00:00Z",
+  "commits": {
+    "faf62a1": 1
+  },
+  "devices": {
+    "android chrome": 1
+  },
+  "taps": [
+    {
+      "kind": "talk tap main_button POST /api/onuw/games/·/ready/",
+      "device": "android chrome",
+      "taps": 6,
+      "legs": {
+        "heard": {
+          "p50": 3.6,
+          "p90": 6.2,
+          "worst": 6.2,
+          "values": 6
+        },
+        "screen": {
+          "p50": 24.9,
+          "p90": 55.5,
+          "worst": 55.5,
+          "values": 6
+        },
+        "left": {
+          "p50": 6.2,
+          "p90": 11.5,
+          "worst": 11.5,
+          "values": 6
+        },
+        "answer": {
+          "p50": 206.9,
+          "p90": 392.4,
+          "worst": 392.4,
+          "values": 6
+        },
+        "applied": {
+          "p50": 11.3,
+          "p90": 33.6,
+          "worst": 33.6,
+          "values": 6
+        },
+        "shown": {
+          "p50": 16.2,
+          "p90": 29.2,
+          "worst": 29.2,
+          "values": 6
+        },
+        "total": {
+          "p50": 342.4,
+          "p90": 456.2,
+          "worst": 456.2,
+          "values": 6
+        }
+      }
+    },
+    {
+      "kind": "vote tap player_row",
+      "device": "android chrome",
+      "taps": 4,
+      "legs": {
+        "screen": {
+          "p50": 41.3,
+          "p90": 51.0,
+          "worst": 51.0,
+          "values": 4
+        }
+      }
+    }
+  ],
+  "screens": [
+    {
+      "screen": "end",
+      "frames": 300,
+      "over_50": 9,
+      "over_100": 4,
+      "worst": 240.0,
+      "share_over_50": 0.03
+    },
+    {
+      "screen": "talk",
+      "frames": 900,
+      "over_50": 12,
+      "over_100": 3,
+      "worst": 180.0,
+      "share_over_50": 0.013
+    },
+    {
+      "screen": "vote",
+      "frames": 400,
+      "over_50": 2,
+      "over_100": 0,
+      "worst": 70.0,
+      "share_over_50": 0.005
+    }
+  ],
+  "changes": [
+    {
+      "change": "talk > vote (socket phase_change)",
+      "n": 1,
+      "first": {
+        "p50": 45.8,
+        "p90": 45.8,
+        "worst": 45.8,
+        "values": 1
+      },
+      "content": {
+        "p50": 185.0,
+        "p90": 185.0,
+        "worst": 185.0,
+        "values": 1
+      }
+    }
+  ],
+  "requests": [
+    {
+      "path": "POST /api/onuw/games/·/ready/",
+      "n": 6,
+      "round": {
+        "p50": 213.8,
+        "p90": 393.7,
+        "worst": 393.7,
+        "values": 6
+      },
+      "server": {
+        "p50": 50.0,
+        "p90": 150.0,
+        "worst": 150.0,
+        "values": 6
+      },
+      "connect": {
+        "p50": 18.8,
+        "p90": 24.8,
+        "worst": 24.8,
+        "values": 6
+      },
+      "outside": {
+        "p50": 157.6,
+        "p90": 222.6,
+        "worst": 222.6,
+        "values": 6
+      }
+    },
+    {
+      "path": "GET /api/onuw/games/·/me/",
+      "n": 3,
+      "round": {
+        "p50": 1605.5,
+        "p90": 1798.2,
+        "worst": 1798.2,
+        "values": 3
+      }
+    }
+  ],
+  "cold": {
+    "boot": 0,
+    "db_wake": 1,
+    "summaries_with_any": 1,
+    "latest": [
+      {
+        "received_at": "2024-03-07T23:00:00Z",
+        "device": "android chrome",
+        "kind": "db_wake",
+        "path": "GET /api/onuw/games/·/me/",
+        "gap_s": 412.0,
+        "round": 1900.0,
+        "server": 1350.0,
+        "connect": 1100.0,
+        "outside": 550.0
+      }
+    ]
+  }
+}

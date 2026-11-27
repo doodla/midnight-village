@@ -1,7 +1,8 @@
 """The committed contract samples are what the server sends today.
 
 ``contract_samples/`` (repo root) holds real response bodies and socket events,
-recorded by playing the games in ``scenarios.py`` through the real views,
+recorded by playing the games in ``scenarios.py`` (then the speed summaries of
+``observe_scenarios.py``) through the real views,
 services and consumer handlers. The app's tests build their fixtures from those
 files, so they can only claim states the server can produce. This test records
 everything again in memory and fails if a committed file differs, is missing
@@ -24,6 +25,7 @@ from typing import Any
 import pytest
 from repo_files import checkout_files
 
+from .observe_scenarios import observe_samples
 from .recorder import recording
 from .scenarios import record_all
 
@@ -40,9 +42,12 @@ def _text(payload: Any) -> str:
 
 
 def _committed() -> dict[str, str]:
+    """The server's samples. ``app/`` holds what the APP sends (recorded by the app's
+    own tests, e.g. ``field_summary_test.dart``), not the server's: not compared here."""
     return {
         path.relative_to(SAMPLES_DIR).as_posix(): path.read_text(encoding="utf-8")
         for path in checkout_files(SAMPLES_DIR, suffixes=(".json",))
+        if path.relative_to(SAMPLES_DIR).parts[0] != "app"
     }
 
 
@@ -77,6 +82,7 @@ def test_committed_samples_match_what_the_server_sends(
 ) -> None:
     with recording(django_capture_on_commit_callbacks) as run:
         record_all(run)
+        observe_samples(run)
     expected = {name: _text(p) for name, p in run.recorder.rendered().items()}
 
     if os.environ.get("UPDATE_CONTRACT_SAMPLES"):

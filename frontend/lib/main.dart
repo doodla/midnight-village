@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'app.dart';
+import 'core/perf/vercel_insights.dart';
 import 'core/web/start_done_stub.dart'
     if (dart.library.js_interop) 'core/web/start_done_web.dart';
 import 'design_system/feel/sounds.dart';
@@ -34,7 +35,8 @@ Future<void> main() async {
     systemBarsOver(SkinId.fallback.skin.ground(GroundKind.night)),
   );
   registerFontLicences();
-  // `?perf=1` on the web address: the field recorder (off otherwise).
+  // The field recorder: its strip with `?perf=1`; quiet on the live app (a
+  // summary per game to the server); off in a local run and the tests.
   startPerfField();
   // The cues this device has learned, before the first frame, so it is right.
   await restoreLearned();
@@ -54,6 +56,9 @@ Future<void> main() async {
           wolf: WerewolfPortrait.forGame(LastSeat.openingGame),
         )
         .whenComplete(webStartDone)
+        // Vercel's Speed Insights and Web Analytics, after the start (the live
+        // app only).
+        .whenComplete(startVercelInsights)
         .whenComplete(Sounds.start),
   );
 }

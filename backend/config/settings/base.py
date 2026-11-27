@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     # Local
     "apps.core",
     "apps.onuw",
+    "apps.observe",
 ]
 
 MIDDLEWARE = [
@@ -47,8 +48,10 @@ MIDDLEWARE = [
 
 # A web app may read only the response headers CORS exposes: the app reads the
 # server's clock from `Date` (to draw a stage's time against `deadline` and
-# `stage_started_at`). The allowed origins stay per environment.
-CORS_EXPOSE_HEADERS = ["Date"]
+# `stage_started_at`), and the field recorder reads `Server-Timing`
+# (apps/core/server_timing.py), so a round trip splits into the network and the
+# server. The allowed origins stay per environment.
+CORS_EXPOSE_HEADERS = ["Date", "Server-Timing"]
 
 ROOT_URLCONF = "config.urls"
 
@@ -118,6 +121,12 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    # DRF's own three, the JSON one made safe from deep nesting (apps/core/parsers.py).
+    "DEFAULT_PARSER_CLASSES": [
+        "apps.core.parsers.SafeJSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
+    ],
     # Per client address, sized so that tables sharing one network are never
     # refused (apps/core/throttles.py says what these are for).
     "DEFAULT_THROTTLE_RATES": {
@@ -125,6 +134,11 @@ REST_FRAMEWORK = {
         "sign_up": "60/minute",
         # GET /api/stats/online/ (the home screen polls it; a CDN absorbs most).
         "online_stats": "600/minute",
+        # POST /api/observe/summary/ (apps/observe): a phone sends one at the end of
+        # a game and when its tab is hidden; a room of tables shares one address.
+        "field_summary": "600/hour",
+        # GET /api/observe/report/: the owner reading it, apart from the summaries.
+        "field_report": "60/hour",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }
@@ -179,6 +193,11 @@ LOGGING = {
         },
     },
 }
+
+# The owner's key to the phones' speed report (GET /api/observe/report/, apps/observe):
+# sent in the X-Field-Report-Key header by `just field-report`. Unset, the report
+# answers 404 to everyone (closed by default; the summaries are still kept).
+FIELD_REPORT_KEY = os.environ.get("FIELD_REPORT_KEY", "")
 
 # Server-Timing detail (apps/core/server_timing.py): round trips, socket and timer
 # messages and each part's time. OFF here and on the live server: those counts can
