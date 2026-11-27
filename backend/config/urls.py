@@ -9,4 +9,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("apps.core.urls")),
     path("api/onuw/", include("apps.onuw.urls")),
+    path("api/observe/", include("apps.observe.urls")),
 ]

@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     # Local
     "apps.core",
     "apps.onuw",
+    "apps.observe",
 ]
 
 MIDDLEWARE = [
@@ -47,8 +48,10 @@ MIDDLEWARE = [
 
 # A web app may read only the response headers CORS exposes: the app reads the
 # server's clock from `Date` (to draw a stage's time against `deadline` and
-# `stage_started_at`). The allowed origins stay per environment.
-CORS_EXPOSE_HEADERS = ["Date"]
+# `stage_started_at`), and the field recorder reads `Server-Timing`
+# (apps/core/server_timing.py), so a round trip splits into the network and the
+# server. The allowed origins stay per environment.
+CORS_EXPOSE_HEADERS = ["Date", "Server-Timing"]
 
 ROOT_URLCONF = "config.urls"
 
@@ -125,6 +128,9 @@ REST_FRAMEWORK = {
         "sign_up": "60/minute",
         # GET /api/stats/online/ (the home screen polls it; a CDN absorbs most).
         "online_stats": "600/minute",
+        # POST /api/observe/summary/ (apps/observe): a phone sends one at the end of
+        # a game and when its tab is hidden; a room of tables shares one address.
+        "field_summary": "600/hour",
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
 }
