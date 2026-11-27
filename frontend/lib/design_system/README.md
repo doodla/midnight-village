@@ -907,8 +907,11 @@ The rules and what is still to choose: `docs/design/feel.md`, section 6.
 ## The field recorder's strip (`perf/`; only with `?perf=1` on the web address)
 
 Where a tap's time goes on a real phone, measured by the app itself (the recorder is `lib/core/perf/`; how the owner uses it: `docs/dev/owner-feedback.md`, 24 November).
-Off (always, unless the tab asked) the app is exactly as it is:
+On the live app (a build with a commit) the same recorder also runs quietly, with no strip: one small summary per game goes to the server
+(`core/perf/field_summary.dart`, `field_beacon.dart`; read with `just field-report`; `docs/dev/deploy-vercel.md`, "Seeing the live app").
+Off (a local run, the tests, unless the tab asked) the app is exactly as it is:
 `perfStripAround` returns the app itself, and every hook (`Perf.recorder`) is the constant `PerfOff`, which holds nothing and returns nothing.
+The quiet mode draws nothing either: `perfStripAround` wraps only for `?perf=1`.
 On, `PerfStrip` is a strip of paper at the bottom edge, above the system bar, in the caption type: the last tap's "finger → screen · request left · answer · worst" in ms.
 The app sits above it (the strip takes the bottom padding; the app is pushed up by the strip's height, never under it); it hides while the keyboard is up.
 It repaints only when a tap finishes, on its own layer (`RepaintBoundary`).

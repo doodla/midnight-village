@@ -48,6 +48,11 @@ screens changed on 23 and 24 November feel on a real phone; and why the four sou
 
 ## Known limits with no issue yet
 
+- The live app measures itself (`docs/dev/deploy-vercel.md`, "Seeing the live app"): Vercel
+  Speed Insights (score only on Hobby), and one summary per game on our own server, read with
+  `just field-report`. Web Analytics needs the owner's Enable click; the vitals' numbers,
+  function latency and longer logs need Pro.
+
 - Countdowns follow the server's clock (`server_clock_countdown_test.dart`), from a time in
   whole seconds that arrives after the network trip: two phones can show numbers about a
   second apart. Closing it needs the server's time in the `/me/` body.
