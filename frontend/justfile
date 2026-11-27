@@ -23,7 +23,7 @@ run-device device:
 
 # Run code generation
 gen:
-    dart run build_runner build --delete-conflicting-outputs
+    ../tool/heavy.py -- dart run build_runner build --delete-conflicting-outputs
 
 # Fail when the committed generated code is not what `just gen` makes now
 # (about 50 s: GitHub runs it, and `just gate-full`; the commit gate does not)
@@ -40,30 +40,30 @@ watch:
 # A red run ends with what failed: each failed test's file, name and first error line
 # (tool/failed_tests.py reads the run's own report).
 test:
-    flutter test --dart-define=ENV=dev --exclude-tags e2e --file-reporter json:build/test-report.jsonl || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
+    ../tool/heavy.py -- flutter test --dart-define=ENV=dev --exclude-tags e2e --file-reporter json:build/test-report.jsonl || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
 
 # The widget tests without the golden ones (GitHub runs those as their own job,
 # `just flutter-test-golden`; on Linux `just test` runs both). `just test-widgets 2 3` is
 # the second of three parts: GitHub runs the three side by side.
 test-widgets part="" of="":
-    flutter test --dart-define=ENV=dev --exclude-tags golden --file-reporter json:build/test-report.jsonl {{ if part == "" { "" } else { "--total-shards " + of + " --shard-index $((" + part + " - 1))" } }} || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
+    ../tool/heavy.py -- flutter test --dart-define=ENV=dev --exclude-tags golden --file-reporter json:build/test-report.jsonl {{ if part == "" { "" } else { "--total-shards " + of + " --shard-index $((" + part + " - 1))" } }} || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
 
 # Run tests with coverage (excludes the live-backend e2e harness)
 test-cov:
-    flutter test --dart-define=ENV=dev --coverage --exclude-tags e2e
+    ../tool/heavy.py -- flutter test --dart-define=ENV=dev --coverage --exclude-tags e2e
 
 # Run golden tests only (tagged 'golden'; Linux only, skipped on other OSes)
 flutter-test-golden:
-    flutter test --dart-define=ENV=dev --tags golden --file-reporter json:build/test-report.jsonl || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
+    ../tool/heavy.py -- flutter test --dart-define=ENV=dev --tags golden --file-reporter json:build/test-report.jsonl || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
 
 # Update the golden baselines in test/design_system/goldens/ (Linux only)
 flutter-golden-update:
-    flutter test --dart-define=ENV=dev --update-goldens --tags golden
+    ../tool/heavy.py -- flutter test --dart-define=ENV=dev --update-goldens --tags golden
 
 # Run integration tests on Chrome (requires Chrome installed)
 # Uses flutter drive because flutter test does not support web devices
 test-integration:
-    flutter drive \
+    ../tool/heavy.py -- flutter drive \
       --dart-define=ENV=dev \
       --driver=test_driver/integration_test.dart \
       --target=integration_test/auth_flow_test.dart \
@@ -71,7 +71,7 @@ test-integration:
 
 # Run integration tests in headless mode for CI
 test-integration-ci:
-    flutter drive \
+    ../tool/heavy.py -- flutter drive \
       --dart-define=ENV=dev \
       --driver=test_driver/integration_test.dart \
       --target=integration_test/auth_flow_test.dart \
@@ -85,7 +85,7 @@ test-integration-ci:
 # on any failure. The script tears the backend down on exit. Also available from
 # the repo root. See docs/dev/debug-harness/.
 test-harness:
-    tool/run_harness.sh
+    ../tool/heavy.py -- tool/run_harness.sh
 
 # Renders the catalogue in test_screens/ at 390x844 (2x) to build/screens/,
 # each next to its mock in build/screens/compare/, and prints a summary of the
@@ -125,7 +125,7 @@ screens width="390" mode="report":
     cores=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
     jobs="${SCREENS_JOBS:-$(( cores < 4 ? cores : 4 ))}"
     status=0
-    flutter test test_screens/screens_*of*_test.dart \
+    ../tool/heavy.py -- flutter test test_screens/screens_*of*_test.dart \
       test_screens/screens_shards_test.dart test_screens/screen_gallery_test.dart \
       --concurrency="$jobs" \
       --reporter expanded \
@@ -152,7 +152,7 @@ contact-sheet folder="build/screens" out="build/screens/contact_sheet.png":
 # looping WebP (390 wide, under 1.2 MB) in <folder>. No backend.
 # Usage: just loading-clips [folder]
 loading-clips folder="build/loading_clips_webp":
-    flutter test test_screens/loading_clips_test.dart \
+    ../tool/heavy.py -- flutter test test_screens/loading_clips_test.dart \
       --dart-define=ENV=dev \
       --dart-define=CLIPS_DIR=build/loading_clips
     python3 tool/loading_clips.py build/loading_clips {{folder}}
@@ -161,7 +161,7 @@ loading-clips folder="build/loading_clips_webp":
 # <folder>/dusk and <folder>/dawn (test/README.md). No backend.
 # Usage: just scene-frames [folder] [label]
 scene-frames folder="build/scene_frames" label="after":
-    flutter test test_screens/scene_frames_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/scene_frames_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=SCENE_FRAMES_DIR={{folder}} \
       --dart-define=SCENE_FRAMES_LABEL={{label}}
@@ -171,7 +171,7 @@ scene-frames folder="build/scene_frames" label="after":
 # PNG per 17 ms step into <folder>/<label>/pick and /candle. No backend.
 # Usage: just night-frames [folder] [label]
 night-frames folder="build/night_frames" label="run":
-    flutter test test_screens/night_frames_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/night_frames_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=NIGHT_FRAMES_DIR={{folder}} \
       --dart-define=NIGHT_FRAMES_LABEL={{label}}
@@ -180,7 +180,7 @@ night-frames folder="build/night_frames" label="run":
 # the pick, the lock and the seal landing; six players, one long name) into
 # <folder>/<label>/vote. Usage: just vote-frames [folder] [label] [width]
 vote-frames folder="build/vote_frames" label="run" width="360":
-    flutter test test_screens/vote_frames_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/vote_frames_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=VOTE_FRAMES_DIR={{folder}} \
       --dart-define=VOTE_FRAMES_LABEL={{label}} \
@@ -191,7 +191,7 @@ vote-frames folder="build/vote_frames" label="run" width="360":
 # frame every 33 ms, into <folder>/<case>/ and <folder>/film/.
 # Usage: just end-reveal-frames [folder] [width]
 end-reveal-frames folder="build/end_reveal" width="390":
-    flutter test test_screens/end_reveal_frames_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/end_reveal_frames_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=END_REVEAL_DIR={{folder}} \
       --dart-define=END_REVEAL_WIDTH={{width}}
@@ -200,7 +200,7 @@ end-reveal-frames folder="build/end_reveal" width="390":
 # nights, done, at 360, 390 and 412 wide, one PNG a step into <folder>/<game>/w<width>.
 # Usage: just end-link-pictures [folder]
 end-link-pictures folder="build/end_links":
-    flutter test test_screens/end_link_pictures_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/end_link_pictures_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=END_LINKS_DIR={{folder}}
 
@@ -208,7 +208,7 @@ end-link-pictures folder="build/end_links":
 # stepped through at a player's pace, a frame every 66 ms, to <folder>/film.
 # Usage: just end-night-frames [folder] [width]
 end-night-frames folder="build/end_night" width="360":
-    flutter test test_screens/end_night_frames_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/end_night_frames_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=END_NIGHT_DIR={{folder}} \
       --dart-define=END_NIGHT_WIDTH={{width}}
@@ -218,7 +218,7 @@ end-night-frames folder="build/end_night" width="360":
 # <folder>/<label>. No backend.
 # Usage: just card-frames [folder] [label]
 card-frames folder="build/card_frames" label="run":
-    flutter test test_screens/card_turn_frames_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/card_turn_frames_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=CARD_FRAMES_DIR={{folder}} \
       --dart-define=CARD_FRAMES_LABEL={{label}}
@@ -230,7 +230,7 @@ card-frames folder="build/card_frames" label="run":
 # someone who has never played and ask what they would do next. No backend.
 # Usage: just playtest-pack [width]
 playtest-pack width="390":
-    flutter test test_screens/playtest_pack_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/playtest_pack_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=SCREENS_WIDTH={{width}}
 
@@ -284,12 +284,12 @@ format-check:
 
 # A web build with no --dart-define must not contain the /debug toolbar
 check-release:
-    bash tool/check_release_has_no_debug.sh
+    ../tool/heavy.py -- bash tool/check_release_has_no_debug.sh
 
 # The built web page in Chromium, served as Vercel serves it: a first visit, a return,
 # and a deploy runs the new build on its first open (tool/web_smoke/). About 2 minutes.
 web-smoke *build:
-    bash tool/web_smoke/run.sh {{build}}
+    ../tool/heavy.py -- bash tool/web_smoke/run.sh {{build}}
 
 # Installs what `web-smoke` needs where it looks first (CI: the "Web page smoke" job)
 web-smoke-setup:
@@ -298,7 +298,7 @@ web-smoke-setup:
 
 # Build for web (production)
 build-web:
-    flutter build web --dart-define=ENV=prod
+    ../tool/heavy.py -- flutter build web --dart-define=ENV=prod
 
 # Build for iOS (production)
 build-ios:
@@ -322,7 +322,7 @@ clean:
 # The vote's locked row in pictures (each locked look, the lock in four frames,
 # the vote at several table sizes) into <folder>. Usage: just vote-pictures [folder] [width]
 vote-pictures folder="build/vote_pictures" width="360":
-    flutter test test_screens/vote_pictures_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/vote_pictures_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=VOTE_PICTURES_DIR={{folder}} \
       --dart-define=VOTE_PICTURES_WIDTH={{width}}
@@ -331,7 +331,7 @@ vote-pictures folder="build/vote_pictures" width="360":
 # table, your card and the night board in paper dress (a PNG each at 360 and
 # 390) into <folder>. Usage: just paper-dress [folder]
 paper-dress folder="build/paper_dress":
-    flutter test test_screens/paper_dress_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/paper_dress_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=PAPER_DRESS_DIR={{folder}}
 
@@ -339,7 +339,7 @@ paper-dress folder="build/paper_dress":
 # state, on the night and lantern grounds (a tall PNG each) into <folder>.
 # Usage: just paper-parts [folder]
 paper-parts folder="build/paper_parts":
-    flutter test test_screens/paper_parts_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/paper_parts_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=PAPER_PARTS_DIR={{folder}}
 
@@ -348,7 +348,7 @@ paper-parts folder="build/paper_parts":
 # <folder>: run on main and on a branch for before and after.
 # Usage: just paper-components [folder]
 paper-components folder="build/paper_components":
-    flutter test test_screens/paper_components_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/paper_components_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=PAPER_COMPONENTS_DIR={{folder}}
 
@@ -356,7 +356,7 @@ paper-components folder="build/paper_components":
 # players at the top and at the end), a 360 x 640 phone and text at 1.3 and 1.6,
 # into <folder>. Usage: just end-pictures [folder]
 end-pictures folder="build/end_pictures":
-    flutter test test_screens/end_pictures_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/end_pictures_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=END_PICTURES_DIR={{folder}}
 
@@ -364,7 +364,7 @@ end-pictures folder="build/end_pictures":
 # phone ready, My night held, three and ten players, a short phone, text 1.6 and
 # the host's phone, into <folder>. Usage: just talk-pictures [folder]
 talk-pictures folder="build/talk_pictures":
-    flutter test test_screens/talk_pictures_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/talk_pictures_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=TALK_PICTURES_DIR={{folder}}
 
@@ -372,6 +372,6 @@ talk-pictures folder="build/talk_pictures":
 # test/helpers/sheet/story_samples.dart, then at 360 x 640 and text 1.6), into
 # <folder>. Usage: just story-pictures [folder]
 story-pictures folder="build/story_pictures":
-    flutter test test_screens/story_pictures_test.dart --reporter expanded \
+    ../tool/heavy.py -- flutter test test_screens/story_pictures_test.dart --reporter expanded \
       --dart-define=ENV=dev \
       --dart-define=STORY_PICTURES_DIR={{folder}}

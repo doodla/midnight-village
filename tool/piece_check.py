@@ -40,6 +40,8 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import heavy  # noqa: E402
 DART_DIRECTIVE = re.compile(r"""^\s*(?:import|export|part)\s+['"]([^'"]+)['"]""", re.M)
 GENERATED_PART = re.compile(r"""^\s*part\s+['"][^'"]+\.(?:g|freezed)\.dart['"]""", re.M)
 # A change to one of these can alter any test of its side: run them all.
@@ -335,8 +337,9 @@ def minutes(seconds: float) -> str:
 
 def run_aloud(command: list[str], folder: Path, what: str, started: float) -> int:
     """Runs a step; while it runs, a line every HEARTBEAT seconds says it is alive
-    (a passing test run prints nothing for minutes, and silence looks like a hang)."""
-    process = subprocess.Popen(command, cwd=folder)
+    (a passing test run prints nothing for minutes, and silence looks like a hang). A heavy
+    step waits its turn in the queue (tool/heavy.py), saying where it stands."""
+    process = subprocess.Popen(heavy.wrap(command, what), cwd=folder)
     while True:
         try:
             return process.wait(timeout=HEARTBEAT)

@@ -173,7 +173,15 @@ COMMANDS = """\
   just piece-check          while building: fast checks + only the tests this change reaches
   just handover <file>      LAST, the only way to hand over
   just brief                every brief there is (screens and areas)
+  just heavy --status       who holds a slot of the heavy queue, since when, who waits
 """
+
+# Said in every brief: helpers burned half their steps polling a queued job.
+WAITING = """\
+A command that may take more than two minutes (tests, a build, screens, phone-frames, handover):
+start it once with run_in_background, end your turn, you are woken when it exits.
+Never poll with a sleep loop (a hook refuses it). Heavy recipes queue themselves (`just heavy`)
+and say where they stand."""
 
 
 def files_of(globs: list[str]) -> list[str]:
@@ -294,4 +302,5 @@ def brief(name: str, others_in) -> str:
     for branch, theirs in others.items():
         out.append(f"  {branch}: " + ", ".join(theirs))
     out.append("\n## Commands\n\n" + COMMANDS)
+    out.append("## Waiting\n\n" + WAITING + "\n")
     return "\n".join(out)

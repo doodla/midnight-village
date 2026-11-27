@@ -48,6 +48,7 @@ COMMANDS = """\
   just screens 390 strict      every state, strict (also 360)
   just copy-page               every word a player reads, on one page
   just handover <file>         LAST: the only way to hand over (checks, pictures, the file)
+  just heavy --status          who holds a slot of the heavy queue, who waits
   (all from the repo root)"""
 
 
@@ -478,6 +479,7 @@ def main(argv: list[str]) -> int:
     for branch, files in others.items():
         print(f"  {branch}: " + ", ".join(files))
     print("\n## Commands\n\n" + COMMANDS)
+    print("## Waiting\n\n" + tool("brief_areas").WAITING + "\n")
     return 0
 
 

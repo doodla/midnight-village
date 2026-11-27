@@ -17,9 +17,11 @@ WEB_RING="$(tool/web_build_cached.sh --release -t test_screens/scene_demo_main.d
 free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1])'; }
 PORT="$(free_port)"
 PORT_RING="$(free_port)"
-(cd "$WEB" && python3 -m http.server "$PORT" >/dev/null 2>&1) &
+# The servers are the background jobs themselves (not a subshell around them), so the trap
+# below stops the server and not only the shell that started it.
+python3 -m http.server --directory "$WEB" "$PORT" >/dev/null 2>&1 &
 SERVER=$!
-(cd "$WEB_RING" && python3 -m http.server "$PORT_RING" >/dev/null 2>&1) &
+python3 -m http.server --directory "$WEB_RING" "$PORT_RING" >/dev/null 2>&1 &
 SERVER_RING=$!
 trap 'kill $SERVER $SERVER_RING 2>/dev/null || true' EXIT
 mkdir -p "$OUT/pw"
