@@ -783,8 +783,8 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   the hero sinks toward its slab's shadow (`FaceDownCard.heroPressKeep`, half), both from the frame the finger lands, held down while the card lies face down;
   as it turns both are given back over the first half of the turn (`press * (1 - 2 * turn)`), so at the edge the unpressed face takes over with no jump
   (`card_turn_press_test.dart`, a frame a millisecond, held and let go).
-  While a press blends, a deckled edge (a shadow moving under a finger) is a moved copy of one already cut, never torn again (`DeckleBorder.whileMoving`);
-  at rest and all the way down every edge is cut where it lies, as before.
+  While a press blends, a deckled edge (a shadow moving under a finger) is a moved copy of one cut once for its size, not torn every frame (`DeckleBorder.whileMoving`);
+  at rest and all the way down every edge is cut where it lies and nothing more is made for it, as before (`deckle_moving_test.dart`).
   Tests: `press_parts_test.dart` (the first frame, a quick tap, the lift, reduce motion and no rebuild, by the pixels drawn, for every part).
   Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws);
   a tap down and up before a frame is drawn keeps its lift until that frame is done (a post-frame callback, never a timer), so it still shows one pressed frame.
