@@ -907,8 +907,10 @@ The rules and what is still to choose: `docs/design/feel.md`, section 6.
 ## The field recorder's strip (`perf/`; only with `?perf=1` on the web address)
 
 Where a tap's time goes on a real phone, measured by the app itself (the recorder is `lib/core/perf/`; how the owner uses it: `docs/dev/owner-feedback.md`, 24 November).
-On the live app (a build with a commit) the same recorder also runs quietly, with no strip: one small summary per game goes to the server
-(`core/perf/field_summary.dart`, `field_beacon.dart`; read with `just field-report`; `docs/dev/deploy-vercel.md`, "Seeing the live app").
+On the live app (a build with a commit) the same recorder also runs quietly, with no strip: a small summary at each game's end, and one of the play before a hidden tab, goes to the server
+(`core/perf/field_summary.dart`, `field_beacon.dart`; the owner reads them with `just field-report`; `docs/dev/deploy-vercel.md`, "Seeing the live app").
+A recorder that is on is reached only through `GuardedRecorder` (`core/perf/perf.dart`): nothing it throws reaches the app;
+`--dart-define=FIELD_QUIET=true` runs the tests with the quiet recorder on (`test/helpers/quiet_field.dart`).
 Off (a local run, the tests, unless the tab asked) the app is exactly as it is:
 `perfStripAround` returns the app itself, and every hook (`Perf.recorder`) is the constant `PerfOff`, which holds nothing and returns nothing.
 The quiet mode draws nothing either: `perfStripAround` wraps only for `?perf=1`.

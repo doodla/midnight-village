@@ -146,7 +146,7 @@ phone-frames *args:
 phone-frames-live *args:
     python3 tool/phone_frames/live_rtt.py {{args}}
 
-# What real phones measured in real games (the live app's summaries, one per game): per kind of tap the median and 90th percentile of each leg by device, slowest screens, cold starts. Usage: just field-report [--games N] [--json] [--api origin]
+# What real phones measured in real play (the live app's summaries: one at each game's end, one of the play before a hidden tab): per kind of tap the median and 90th percentile of each leg by device, slowest screens, cold starts. The owner's only: needs FIELD_REPORT_KEY (the server's same key). Usage: FIELD_REPORT_KEY=... just field-report [--last N] [--json] [--api origin]
 field-report *args:
     python3 tool/field_report.py {{args}}
 

@@ -9,7 +9,9 @@
 // registers the whole site's worker; a made-up picture is a 404 and
 // `/commit.txt` is the commit built; and an app left open on the old build
 // reloads itself for the new one when it is resumed (once, never in a loop,
-// even when the shell it reloads into is still the old one).
+// even when the shell it reloads into is still the old one); and Vercel's two
+// scripts (recorded copies, vercel/) send a table link's route pattern, never
+// its code, in their bodies or their Referer.
 //
 // usage: node tool/web_smoke/smoke.cjs <release build/web>
 // Needs the `playwright` package (NODE_PATH, or installed beside this file)
