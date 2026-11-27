@@ -761,7 +761,9 @@ a design round follows.
 ## Press and Ambient (`feel/`: the motion layer)
 
 One press and one loop for the whole kit, so a tap answers the frame the finger lands and nothing idles unseen (`docs/design/feel.md`, principles 1, 3 and 6).
-The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no part presses through `Pressable` yet (each tappable primitive keeps its own `_touch`, a later piece).
+The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`.
+Pressed through `Pressable`: `PrimaryButton`, `SecondaryButton`, `PaperScrap`, `IconAction`, `TextAction` and the card turned in place on 04 (`HoldToReveal` with `inPlace`);
+the other tappable primitives (the night board's cards, rows, slips, chips, steppers) keep their own `_touch` until a later piece.
 
 - **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
   The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
@@ -771,7 +773,15 @@ The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no p
   It never joins the gesture arena: the `GestureDetector`, `InkWell` or `HoldToReveal` inside fires exactly when it would without it
   (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through;
   it runs when the part is built, never per frame, so only a paint layer listens.
-  `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest).
+  `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest; `PressSink.dip` is the kit's 2 px).
+  `PressDecoration` (`feel/press_paint.dart`) is its paper: the resting decoration blended toward the pressed one by the press, by paint alone (the shadow that tightens);
+  a change that is not a finger's (busy, a rise, a pick) eases over its `duration` as an `AnimatedContainer` does.
+  `PaperPiece(press:)` and `TiltedPaper(press:, pressed:)` take a finger's press so; `pressed:` stays for a press that is not a finger's (a busy button).
+  The plaque sinks into its backing, an outline fills with a hairline (a main one also dips), a scrap sinks into its shadow, a quiet word or a glyph dims;
+  a locked or waiting button presses and returns. On 04 the cover gets the hold's press through `HoldPress.pressOf`: the hero sinks toward its slab's shadow
+  (`FaceDownCard.heroPressKeep`, half) and `PaperFlip(press:)` shrinks it 2%, both from the frame the finger lands, and they stay down while held.
+  A deckled edge drawn somewhere new (a shadow that moves under a finger) is moved, never torn again (`DeckleBorder`'s cache by size).
+  Tests: `press_parts_test.dart` (the first frame, a quick tap, the lift, reduce motion and no rebuild, by the pixels drawn, for every part).
   Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws).
   A locked part keeps `enabled` and still answers;
   only a part that must not move turns it off.

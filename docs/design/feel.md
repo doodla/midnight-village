@@ -132,7 +132,8 @@ their scatter tilts).
 | `breathe` | easeInOutSine | `Ambient`'s default curve: a breath, slow at both ends |
 | `restLeast`, `restMost` | 8 s, 16 s | How long something that idles rests, still, between bursts: a length in this range taken from its own id, the same on every phone |
 
-Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`); the parts move onto it in a later piece.
+Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`).
+The main and secondary buttons, the scraps, the icon and text actions and your card on 04 do (press piece 1); the rest move onto it in a later piece.
 Everything that loops goes through `Ambient` (`feel/ambient.dart`), and a screen at rest is idle most of the time:
 an effect is a small layer over a still picture, never a reason to draw the screen again.
 - **Burst and rest**: it plays one round (or a few), then truly rests at its still look (no frame at all) for `restLeast` to `restMost`, then plays again.
@@ -259,7 +260,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Finger lands on the card | The card dips 2% from the next frame (`PaperFlip.dip`, `press`), before the 120 ms that make it a hold; a tap gives it back | `press` | No dip | exists (pass 3) |
+| Finger lands on the card | The frame after the finger lands the card is pressed (`Pressable`, `holds: true`, by paint alone): it shrinks 2% (`PaperFlip.dip`) and sinks toward its shadow, which tightens to half (`FaceDownCard.heroPressKeep`), and stays down while held; before the 120 ms that make it a hold; a tap gives it back | `press` down, `quick` on `land` back | The shadow tightens, nothing moves | exists (press piece 1) |
 | Hold | After 120 ms the card turns over in place like a piece of cut paper (`PaperFlip`): from its back (the game's back) it lifts 8 px and grows 3% as it goes through its edge, its shadow falls further from it, and it lands face up a few degrees past flat and settles; the face is never mirrored; it is built offstage from the moment the turn is asked for and shown only once past the edge. Measured: the turn is 160 ms; edge on at about 34 ms, the face 87% wide at about 68 ms, where the old fade was already 88% opaque at 45 ms, so the face reads about 50 ms later than the fade did. The settle peaks at 1.6% past flat, not 3%. The trade is taken because the turn reads as paper, and release hides the face within one frame. In a first game the ring fills over the 0.8 s it takes to count. One light tap as the face lands (section 3) | 120 ms, then `quick` (the frames read better than `press`'s five frames; decided in pass 3) | Cut, and the tap | exists (pass 3) |
 | Release | The card turns back through its edge to its back at once, never slower than `press`; let go mid-turn it goes back from where it is, taken again it goes on from there | `press` | Cut | exists (pass 3) |
 | A reveal counts (0.8 s seen) | "Ready" locked becomes amber; the ring stops for good | `press` | Cut | exists |
@@ -370,13 +371,13 @@ nothing is held back.
 
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
-| Press, amber button (the plaque) | The paper shadow collapses to 20% and the plaque sinks by its drop; back on release | `press` | Cut | exists |
-| Press, outlined button | A hairline fill while down. It does not sink yet; make it sink like the amber one, which already does (#28's pass 8 is to bring every other pressable to that feel) | `press` | Fill only | pass 8 |
-| Press, quiet word | Dims to 40% while down | `press` | Same | exists |
-| Press, any other tappable (chips, pace tiles, deck cards, panels, quiet words) | Today nothing until the tap ends (quiet words only dim). Dip 2 px the frame it lands | `press` | Colour only | pass 8 |
+| Press, amber button (the plaque) | The paper shadow collapses to 20% and the plaque sinks by its drop, the frame after the finger lands (`Pressable`, by paint: `PressSink`, `PressDecoration`); back on release with a small settle | `press` down, `quick` on `land` back | The shadow collapses, nothing moves | exists |
+| Press, outlined button | A hairline fill while down, from the frame after the finger lands (`Pressable`); an outlined main button also dips 2 px (`PressSink.dip`); dressed up, the scrap sinks into its shadow | `press` | Fill only | exists (press piece 1) |
+| Press, quiet word | Dims to 40% while down, from the frame after the finger lands (`TextAction`, a plain `PaperScrap`; a glyph, `IconAction`, to 60%) | `press` | Same | exists |
+| Press, any other tappable (chips, pace tiles, deck cards, panels) | Today nothing until the tap ends. Dip 2 px the frame it lands (`Pressable`; the scraps already do: press piece 1) | `press` | Colour only | pass 8 |
 | Tap target size | Chips and the quiet "Leave" word are 44 px; they become 48 px wherever the layout holds at 320 wide. One that cannot fit stays 44 and is named in the pass (decided 22 Nov 2026) | none | Same | pass 8 |
 | Release, or slide off | It comes back; sliding off cancels with no commit and no other sign; a scroll that starts on it cancels too | `press` | Same | exists |
-| A disabled tap ("Pick a name", "Need 3 players") | Today nothing. The button dips and returns, no colour change, no shake, no vibration; its words say what is missing | `press` | Colour only | pass 8 |
+| A disabled tap ("Pick a name", "Need 3 players") | The button presses and returns as any does (a locked or waiting main or secondary button), no shake, no vibration; its words say what is missing | `press` | Colour only | exists (press piece 1) |
 | Request in flight | A tap that leads to another screen (Start, Join, Deal, Leave, Play again, Edit deck): the button sinks into its shadow and a small lantern burns in its own padding (the words never move), in the frame of the tap, a second tap sends nothing, and it stays busy until the screen it leads to is up (never live again in the gap after the answer). A tap whose result the phone shows at once (Choose, Ready, a vote, a deck or timer change) shows its done state at once (the outbox and the settings queue). Both send through `playerRequest` | none | Same | exists |
 | An error | One quiet line of at most 6 words above the control that asked (no box), calm: no shake, no red, no vibration; "Not sent." with "Try again" where nothing the player did was wrong (it sends the same request again), the server's own reason ("That table is playing now.") with no button where it was refused; the screen keeps its picks. The failure belongs to the control: it goes with the screen, never shows up later on another. Today it cuts in | `settle`, 8 px | Cut | no pass |
 | Empty | The ground and the one thing to do, never a message: a nearly empty table keeps the code loudest | none | Same | exists |
@@ -390,7 +391,7 @@ nothing is held back.
 | A role sheet (03b) | Hold a portrait: the sheet rises over the scrim, closes with "Close" or a tap outside. It is Flutter's own sheet motion, not a token | framework | Framework | exists |
 | Any other change of screen | A crossfade, input live on the new screen from frame one | `settle` | Cut | exists |
 | Progress pips advance | The pip fills, a small settle. Today a cut | `quick` | Cut | no pass |
-| Reduce motion: button press | The press sinks and returns over 90 ms although reduce motion is on. It should cut | the helper | Cut | pass 8 |
+| Reduce motion: button press | A cut: the pressed shadow or fill on the frame the finger lands, gone on the lift; nothing moves (`Pressable`, `PressSink`) | the helper | Cut | exists (press piece 1) |
 | Reduce motion: quiet word and chip | The quiet word's dim and a chip's lift and outline still tween. They should cut | the helper | Cut | pass 8 |
 | Reduce motion: vote row | The row's lift, press, dim, paper colour and seal cut to the end state (`Motion.within`) | the helper | Cut | exists (pass 4a) |
 | Reduce motion: night card lift | A card's dip, lift, glow and dim cut to their end state | the helper | Cut | exists |
