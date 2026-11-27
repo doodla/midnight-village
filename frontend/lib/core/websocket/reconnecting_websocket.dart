@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' show min;
 
 import 'package:web_socket_channel/web_socket_channel.dart' as wsc;
@@ -80,6 +81,80 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
   WebSocketChannelInterface? _currentChannel;
   StreamSubscription<dynamic>? _channelSubscription;
 
+  // ---------------------------------------------------------------------------
+  // The beat: "connected" is believed only while frames keep coming.
+  // ---------------------------------------------------------------------------
+
+  /// Whether this server sends beats (`{"type": "beat", "every": s}`, every
+  /// socket, every `every` seconds), and how often. Learned from the first
+  /// beat any socket hears; until then (an older server) "connected" is
+  /// believed as it is.
+  static Duration? _beatEvery;
+
+  /// Forgets what was learned of the server's beat (tests).
+  static void forgetTheBeat() => _beatEvery = null;
+
+  /// Fires when this connection has heard nothing for about two beats and a
+  /// half: it is dead though it looks open (a phone that slept, a network that
+  /// changed under it), so it is closed and opened again, and opening again
+  /// reads everything the screen depends on.
+  Timer? _silence;
+
+  /// Fires when a beat is overdue: [verify] then opens the socket again.
+  Timer? _overdueTimer;
+  bool _overdue = false;
+
+  /// Drops the connection of the current attempt (closes it; the usual
+  /// "disconnected", then the reconnect).
+  void Function()? _dropCurrent;
+
+  /// A frame came on the current connection: the clocks start again.
+  void _heard() {
+    _silence?.cancel();
+    _overdueTimer?.cancel();
+    _overdue = false;
+    final every = _beatEvery;
+    if (every == null) return;
+    _silence = Timer(every * 2.5, () {
+      logger.w('WebSocket silent past two beats: opening it again');
+      _dropCurrent?.call();
+    });
+    _overdueTimer = Timer(every * 1.2, () => _overdue = true);
+  }
+
+  /// Whether [event] is the server's beat (it is not passed on): it also
+  /// teaches how often beats come.
+  static bool _isBeat(dynamic event) {
+    if (event is! String || event.length > 80 || !event.contains('"beat"')) {
+      return false;
+    }
+    try {
+      final frame = jsonDecode(event);
+      if (frame is! Map || frame['type'] != 'beat') return false;
+      final every = frame['every'];
+      if (every is num && every > 0) {
+        _beatEvery = Duration(milliseconds: (every * 1000).round());
+      }
+      return true;
+    } on FormatException {
+      return false;
+    }
+  }
+
+  /// The app came back to the foreground: a socket that missed a beat while
+  /// the phone was away may be dead though it looks open, so it is opened
+  /// again now (opening reads everything again). One that is down is tried at
+  /// once. Nothing is done for a socket that is hearing its beats.
+  void verify() {
+    if (_disposed) return;
+    if (_reconnectTimer?.isActive ?? false) {
+      _reconnectTimer?.cancel();
+      unawaited(_doConnect(isReconnect: true));
+    } else if (_overdue) {
+      _dropCurrent?.call();
+    }
+  }
+
   final _messageController = StreamController<dynamic>.broadcast(sync: true);
   final _stateController = StreamController<WebSocketConnectionState>.broadcast(
     sync: true,
@@ -143,6 +218,8 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
     if (!_firstOpen.isCompleted) _firstOpen.complete();
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _silence?.cancel();
+    _overdueTimer?.cancel();
     for (final timer in _openTimers) {
       timer.cancel();
     }
@@ -203,6 +280,8 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
       (event) {
         if (!_disposed && attempt == _attempt) {
           Perf.recorder.socketMessage(_url, event);
+          _heard();
+          if (_isBeat(event)) return _heard(); // it may have taught the pace
           _messageController.add(event);
         }
       },
@@ -250,10 +329,20 @@ class ReconnectingWebSocket implements WebSocketChannelInterface {
     if (over || _disposed || attempt != _attempt) return;
     _currentBackoff = _initialBackoff; // an open connection resets the backoff
     if (!_firstOpen.isCompleted) _firstOpen.complete();
+    _dropCurrent = () {
+      if (over || _disposed || attempt != _attempt) return;
+      unawaited(channel.close());
+      lost();
+    };
+    _heard(); // its first beat is due within two and a half
     _emitState(WebSocketConnectionState.connected);
   }
 
   void _onChannelClosed() {
+    _silence?.cancel();
+    _overdueTimer?.cancel();
+    _overdue = false;
+    _dropCurrent = null;
     _emitState(WebSocketConnectionState.disconnected);
     _scheduleReconnect();
   }

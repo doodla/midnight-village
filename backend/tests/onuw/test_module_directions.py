@@ -69,7 +69,8 @@ def test_the_parts_exist_and_the_scan_sees_imports() -> None:
     assert "game_presence" in imported_modules(ONUW / "services.py")
     assert imported_modules(ONUW / "recovery.py") & set(LAYERS)
     views = set()
-    for name in ("views", "views_play", "views_read"):
+    # the views, and the lazy repair they share with the socket's beat (repair.py)
+    for name in ("views", "views_play", "views_read", "repair"):
         views |= imported_modules(ONUW / f"{name}.py")
     assert set(BESIDE) <= views
 

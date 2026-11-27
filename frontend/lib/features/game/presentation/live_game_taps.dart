@@ -20,7 +20,17 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
   abstract int _sentFetches;
   abstract int _ids;
   abstract int? _acked;
-  abstract StageProgress? _heldProgress;
+
+  /// A count heard while this phone's own ready or lock was out
+  /// (`_countOnItsWay`): its answer settles it ([_settleHeard]).
+  StageProgress? _heldProgress;
+
+  /// How many `/me/` this phone has applied (read or told): a tap's answer
+  /// counts for the held count only if none was applied since it left.
+  int _viewsApplied = 0;
+
+  /// For each tap out: how many `/me/` had been applied when it left.
+  final _sentWith = <int, int>{};
 
   /// This phone's own play again is on its way: its answer seats the phone
   /// with the table's lobby ([playAgain]), so the `play_again` event that
@@ -69,6 +79,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
   }
 
   Future<StageAnswer> _send(OutboxItem item) async {
+    _sentWith[item.id] = _viewsApplied;
     final reply = await playerRequest(
       (door) => _service.send(door, gameId, item.request),
     );
@@ -76,6 +87,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
     final box = _game.outbox;
     if (box.current(item.lane)?.id != item.id) {
       // Its stage or turn ended while it was out: the answer changes nothing.
+      _sentWith.remove(item.id);
       _next(item.lane);
       return reply.answer;
     }
@@ -132,6 +144,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
       _acked = math.max(_acked ?? 0, seen);
       _failedAcks = 0;
     }
+    _sentWith.remove(item.id);
     _next(item.lane);
     return reply.answer;
   }
@@ -144,7 +157,11 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
   StageProgress? _stored(OutboxItem item, Map<String, dynamic>? body) {
     final server = _game.server;
     final raw = body?['progress'];
-    if (raw is! Map || server.stage != item.key) return null;
+    // Only if no /me/ was applied since the tap left: one that was (a read, a
+    // view) may hold a newer count than this answer; the tap then stays as it
+    // was shown, confirming, and the next count settles it.
+    final unchanged = _sentWith.remove(item.id) == _viewsApplied;
+    if (raw is! Map || server.stage != item.key || !unchanged) return null;
     final progress = StageProgress.fromJson(raw.cast<String, dynamic>());
     final stored = switch (item.request) {
       ReadyRequest(:final ready) when body!['ready'] == ready =>

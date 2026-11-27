@@ -49,6 +49,14 @@ def heartbeat_seconds() -> float:
     )
 
 
+def beat_frame() -> dict[str, Any]:
+    """What every socket sends its phone at each heartbeat (the first one a beat
+    after it opens): the same bytes for every socket, player and role. A phone counts its
+    socket as up only while frames keep coming (within about two beats);
+    ``every`` says how often they come, so the phone holds no number of ours."""
+    return {"type": "beat", "every": heartbeat_seconds()}
+
+
 def stale_seconds() -> float:
     return float(
         getattr(settings, "ONUW_PRESENCE_STALE_SECONDS", DEFAULT_STALE_SECONDS)

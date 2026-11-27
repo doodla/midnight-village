@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.core import presence
 from apps.onuw.consumers import GameConsumer
 
 from .recorder import Recording, Table, client_event
@@ -211,6 +212,22 @@ def stream_table(run: Recording) -> StreamTable:
             ),
         },
         t.stream,
+    )
+    # The beat: what every game and lobby socket sends its phone at each
+    # heartbeat (``presence.beat_frame``), the same bytes for every socket; not
+    # sent through a group (``group`` says so).
+    t.recorder.add(
+        "ws/game/beat",
+        {
+            "kind": "ws",
+            "socket": "game",
+            "type": "beat",
+            "group": "socket",
+            "recipients": list(SIX),
+            "description": "The heartbeat's frame: the phone counts its socket as up "
+            "only while frames keep coming (within about two beats).",
+        },
+        presence.beat_frame(),
     )
     # The stream is closed: a read now is no phone's. Every seat's /me/ at the
     # results (each card's own night data), so each view the stream holds is one

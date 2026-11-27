@@ -47,8 +47,17 @@ def test_every_socket_sample_says_who_received_it() -> None:
     samples = _socket_samples()
     assert samples
     for sample in samples:
-        assert sample["group"] in ("player", "broadcast"), sample["name"]
+        assert sample["group"] in ("player", "broadcast", "socket"), sample["name"]
         assert sample["recipients"], sample["name"]
+
+
+def test_what_a_socket_sends_its_own_phone_is_the_same_for_every_socket() -> None:
+    """The one frame a consumer sends its socket directly (``group: socket``) is
+    the beat: its type and how often beats come, nothing about anyone."""
+    direct = [s for s in _socket_samples() if s["group"] == "socket"]
+    assert [s["type"] for s in direct] == ["beat"]
+    for sample in direct:
+        assert set(_payload(sample)) == {"type", "every"}
 
 
 def test_no_socket_sample_is_a_per_player_night_event() -> None:

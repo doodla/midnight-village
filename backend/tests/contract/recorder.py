@@ -31,7 +31,6 @@ group is a sample diff (and ``test_contract_privacy.py`` refuses it).
 
 from __future__ import annotations
 
-import copy
 import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -46,6 +45,7 @@ from django.test import override_settings
 from asgiref.sync import async_to_sync
 from channels.consumer import get_handler_name
 from channels.layers import BaseChannelLayer, get_channel_layer
+from channels_redis.serializers import registry
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -54,6 +54,7 @@ from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
 from apps.onuw import game_presence, services, turns
 from apps.onuw.consumers import GameConsumer
+from apps.onuw.groups import game_group, player_group
 from apps.onuw.models import Game, PlayerRole
 from apps.onuw.protocol import stage_token
 
@@ -62,6 +63,8 @@ from .pinned import FORCED_SEED, GAME_IDS, LOBBY_CODES
 START = datetime(2024, 3, 7, 20, 50, tzinfo=UTC)
 # The type a phone hears for a channel message whose handler renames it.
 PHONE_TYPE = {"own.view": "me"}
+# What the live layer packs every message with (`apps/core/channel_layer.py`).
+LIVE_SERIALIZER = registry.get_serializer("msgpack", random_prefix_length=12, expiry=60)
 
 
 class RecordingLayer(BaseChannelLayer):
@@ -77,7 +80,11 @@ class RecordingLayer(BaseChannelLayer):
         self.batches = 0
 
     async def group_send(self, group: str, message: dict[str, Any]) -> None:
-        self.sent.append((group, copy.deepcopy(message)))
+        # Through the live server's own serializer (channels_redis's msgpack),
+        # packed and unpacked: a message Redis could not carry fails here.
+        self.sent.append(
+            (group, LIVE_SERIALIZER.deserialize(LIVE_SERIALIZER.serialize(message)))
+        )
 
     async def group_send_many(self, messages: list[tuple[str, dict[str, Any]]]) -> None:
         self.batches += 1
@@ -392,8 +399,7 @@ class Table:
     def _groups(self, name: str, socket: str) -> set[str]:
         if socket == "lobby":
             return {f"lobby_{self.code}"}
-        game = f"game_{self.game_id}"
-        return {game, f"{game}_player_{self.pid(name)}"}
+        return {game_group(self.game_id), player_group(self.game_id, self.pid(name))}
 
     def events(
         self, name: str, socket: str, kind: str

@@ -221,8 +221,8 @@ def send_wave_prompts(game: Game, wave: int) -> None:
     length is measured from here) and its deadline, then, once the transaction
     commits: schedules the window's one timer (night_wave_seconds, or exactly
     night_doppelganger_window_seconds for window 1) and sends the ONE group event
-    ``night.window`` (``announce_window``): every phone reads its own prompt
-    from ``GET /me/``. A timer of 0 seconds means no timer and no deadline.
+    ``night.window`` (``announce_window``), each phone's own view with its prompt
+    just before it. A timer of 0 seconds means no timer and no deadline.
     """
     seconds = _fixed_window_seconds(game, wave) or basics.get_timer_seconds(
         game, "night_wave_seconds", basics.DEFAULT_NIGHT_WAVE_SECONDS

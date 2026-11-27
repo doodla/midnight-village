@@ -98,7 +98,9 @@ _cancel_after_commit = effects.cancel_after_commit
 # Every person's own view of a game, each on their own group (``own_view``),
 # plugged in when the app is ready (``apps.py``): it stands on the serializers,
 # which this bottom layer cannot import.
-own_views: Callable[[Any], list[tuple[str, dict[str, Any]]]] | None = None
+own_views: (
+    Callable[[Any, effects.Messages], tuple[effects.Messages, effects.Messages]] | None
+) = None
 
 
 def _send_stage_after_commit(
@@ -111,11 +113,11 @@ def _send_stage_after_commit(
     window, the talk, the vote, the results."""
     game_id = game.id
 
-    def build() -> list[tuple[str, dict[str, Any]]]:
+    def build(table: effects.Messages) -> tuple[effects.Messages, effects.Messages]:
         if own_views is None:
             logger.error("No own-view builder is plugged in: game %s", game_id)
-            return []
-        return own_views(game_id)
+            return [], table
+        return own_views(game_id, table)
 
     effects.send_built_after_commit(build, messages, what="own views")
 

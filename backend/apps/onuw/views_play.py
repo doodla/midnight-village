@@ -319,14 +319,16 @@ class VoteView(APIView):
             )
 
         if lock:
-            # The stored lock and the count the table was sent (a resend of a
-            # stored lock, which sends nothing, answers its status alone).
-            stored = (
-                {"target_player_id": target_player_id, "locked": True, **told}
-                if told
-                else {}
+            # The stored lock and the count the table was sent (a resend of the
+            # stored lock sends nothing and answers the same, the count read again).
+            return Response(
+                {
+                    "status": "submitted",
+                    "target_player_id": target_player_id,
+                    "locked": True,
+                    **told,
+                }
             )
-            return Response({"status": "submitted", **stored})
         # The stored pick, echoed: a lost or reordered request shows what stuck.
         return Response({"status": "picked", "target_player_id": target_player_id})
 

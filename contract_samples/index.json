@@ -2010,6 +2010,22 @@
       "description": "The host sets the deck."
     },
     {
+      "name": "ws/game/beat",
+      "kind": "ws",
+      "socket": "game",
+      "type": "beat",
+      "group": "socket",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The heartbeat's frame: the phone counts its socket as up only while frames keep coming (within about two beats)."
+    },
+    {
       "name": "ws/game/game_results",
       "kind": "ws",
       "socket": "game",

@@ -147,10 +147,6 @@ def test_the_socket_forwards_a_view_only_to_the_player_it_names() -> None:
     # Addressed to the wrong socket (a bug upstream): it reaches nobody.
     assert _sent_by_consumer(8, view) == []
     assert _sent_by_consumer(8, {"type": "own.view"}) == []
-    with_results = {**view, "results": {"winning_teams": ["village"]}}
-    assert _sent_by_consumer(7, with_results)[0]["results"] == {
-        "winning_teams": ["village"]
-    }
 
 
 def test_a_view_that_cannot_be_built_still_lets_the_table_hear(
@@ -175,3 +171,57 @@ def test_a_view_that_cannot_be_built_still_lets_the_table_hear(
         "vote.reveal",
         "game.results",
     ]
+
+
+def test_the_results_go_once_on_the_tables_game_results(game: StreamTable) -> None:
+    """At the end the results are public and the same for everyone: they ride
+    once on the table's ``game.results`` (the end board needs no read), never
+    inside the private views."""
+    group = f"game_{game.game_id}"
+    ends = [
+        m for to, m in game.layer.sent if to == group and m["type"] == "game.results"
+    ]
+    assert len(ends) == 1
+    results = ends[0]["data"]["results"]
+    assert {"players", "winning_teams", "night_timeline"} <= set(results)
+    assert len(results["players"]) == len(SIX)
+    views = [m for to, m in game.layer.sent if m["type"] == "own.view"]
+    assert views and not [v for v in views if "results" in v]
+
+
+def test_a_view_goes_out_only_when_a_stage_opens(game: StreamTable) -> None:
+    """The phone drops a view of the stage it already holds (a stage is its
+    phase and window). So the server never sends a second view within a stage:
+    for each player the views' places strictly rise. Fails the day a view is
+    pushed within a stage (a moved deadline, a re-announce), which would then
+    need a sequence number per game."""
+    for name in SIX:
+        own = f"game_{game.game_id}_player_{game.pid(name)}"
+        places = [
+            place(m["me"]["phase"], m["me"]["current_wave"])
+            for to, m in game.layer.sent
+            if to == own
+        ]
+        assert places == sorted(set(places)), f"{name}: {places}"
+
+
+def test_a_view_that_cannot_be_packed_still_lets_the_table_hear(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """A view the live layer cannot carry (here an int-keyed dict, which
+    msgpack refuses to unpack) fails the batch: the table's events go out alone,
+    as they were, and the phones read when they hear them."""
+    from apps.core import effects
+
+    table = [("game_x", {"type": "phase.change", "phase": "voting"})]
+
+    def unpackable(sent: list) -> tuple[list, list]:
+        return [("game_x_player_1", {"type": "own.view", "me": {1: "x"}})], sent
+
+    with recording(django_capture_on_commit_callbacks) as run:
+        with (
+            patch("apps.core.effects.get_channel_layer", return_value=run.layer),
+            django_capture_on_commit_callbacks(execute=True),
+        ):
+            effects.send_built_after_commit(unpackable, table)
+        assert run.layer.sent == table

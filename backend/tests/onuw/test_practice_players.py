@@ -832,13 +832,14 @@ def test_nothing_a_person_gets_names_a_practice_players_card(table):
             continue
         check(event, f"event {event.get('type')} to {group}")
     # The practice players' night was played, and told to nobody before the end
-    # (the results, which show every card and the night's log to everyone, are
-    # the only message that holds it).
+    # (the results on game.results, which show every card and the night's log to
+    # everyone, and the views at the results are the only messages that hold it).
     assert t.log_of(b2)[0]["action_type"] == "swap_with_player"
     before_end = [
         e
         for _, e in t.recorder.events
-        if not (e.get("type") == "own.view" and e["me"]["phase"] == "results")
+        if e.get("type") != "game.results"
+        and not (e.get("type") == "own.view" and e["me"]["phase"] == "results")
     ]
     assert not [e for e in before_end if "night_action" in json.dumps(e)]
 

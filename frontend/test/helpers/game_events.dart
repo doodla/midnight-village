@@ -90,15 +90,15 @@ abstract final class GameEvents {
   });
 
   /// This phone's own view as a stage opens (`me`, to this player alone,
-  /// before the table's event): [me] is a recorded `/me/` (`recordedMe`), and
-  /// at the results [results] a recorded `GET .../results/`.
-  static String ownView(
-    Map<String, dynamic> me, {
-    Map<String, dynamic>? results,
-  }) => _event(
+  /// before the table's event): [me] is a recorded `/me/` (`recordedMe`).
+  static String ownView(Map<String, dynamic> me) => _event(
     me['phase'] == 'results' ? 'ws/game/me_results' : 'ws/game/me_talk',
-    {'me': me, if (results != null) 'results': results},
+    {'me': me},
   );
+
+  /// The heartbeat's frame every socket sends its phone ([every] seconds).
+  static String beat({num every = 15.0}) =>
+      _event('ws/game/beat', {'every': every});
 
   /// The host took the table back to the lobby for another game.
   static String playAgain({required String lobbyCode}) =>

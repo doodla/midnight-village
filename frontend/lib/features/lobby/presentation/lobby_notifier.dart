@@ -122,6 +122,7 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
   /// lands (`core/healing/`): the screen never stays on what it had.
   Timer? _healTimer;
   int _healAttempt = 0;
+  @override
   WebSocketChannelInterface? _webSocket;
 
   /// True while a lobby fetch (the first load or a refetch) is in flight.

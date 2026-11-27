@@ -8,6 +8,7 @@ mixin _LobbySeat on _$LobbyNotifier {
   // What this half uses of the other, defined in [LobbyNotifier].
   LobbyState? get _current;
   Future<void> refreshLobby();
+  WebSocketChannelInterface? get _webSocket;
 
   /// The table status `/me/table/` was last asked again for, from a lobby
   /// that said the table had moved on ([_askWhereIfMoved]): once per change.
@@ -42,7 +43,11 @@ mixin _LobbySeat on _$LobbyNotifier {
   /// Coming back to the app: the lobby is read again (and `/me/table/`,
   /// which listens to the resume itself).
   void _readOnResume() => ref.listen(appResumesProvider, (_, next) {
-    if (next.hasValue) unawaited(refreshLobby());
+    if (!next.hasValue) return;
+    // A socket that missed its beat while the phone was away is opened again.
+    final ws = _webSocket;
+    if (ws is ReconnectingWebSocket) ws.verify();
+    unawaited(refreshLobby());
   });
 
   /// A start this phone's table already names (a second word of the same

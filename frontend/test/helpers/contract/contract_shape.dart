@@ -306,28 +306,16 @@ void checkSocketEvent(dynamic event) {
     ]);
   }
   if (type == 'me' && decoded is Map) {
-    // A player's own view: its body IS a `GET /me/` (checked as one, in its
-    // own situation), and at the results it carries `GET .../results/`.
+    // A player's own view: its body IS a `GET /me/`, checked as one, in its
+    // own situation. Nothing rides with it (the results come on the table's
+    // `game_results`).
     final keys = decoded.keys.toSet();
-    final known = {
-      'type',
-      'me',
-      if (decoded['me']?['phase'] == 'results') 'results',
-    };
-    if (!known.containsAll(keys) || !keys.contains('me')) {
+    if (keys.length != 2 || !keys.containsAll(const {'type', 'me'})) {
       throw OffContractPayload('socket event me', [
-        'its keys are type, me and, at the results, results: got $keys',
+        'its keys are type and me: got $keys',
       ]);
     }
     checkHttpBody('GET', '/onuw/games/{game_id}/me/', 200, decoded['me']);
-    if (keys.contains('results')) {
-      checkHttpBody(
-        'GET',
-        '/onuw/games/{game_id}/results/',
-        200,
-        decoded['results'],
-      );
-    }
     return;
   }
   final problems = _check(

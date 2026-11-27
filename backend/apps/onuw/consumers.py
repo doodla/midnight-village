@@ -8,7 +8,7 @@ from channels.db import database_sync_to_async
 
 from apps.core.consumers import TolerantJsonWebsocketConsumer
 
-from . import presence
+from . import groups, presence
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,8 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
             return
 
         self.user_id = user.id
-        self.game_group = f"game_{self.game_id}"
-        self.player_group = f"game_{self.game_id}_player_{self.user_id}"
+        self.game_group = groups.game_group(self.game_id)
+        self.player_group = groups.player_group(self.game_id, self.user_id)
 
         if self.channel_layer is None:
             await self.close(code=4000)
@@ -98,8 +98,8 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
     # ── Event handlers ──────────────────────────────────────────────────────
 
     async def night_window(self, event):
-        """Broadcast: a night window opened. The same event for every phone; each
-        reads its own prompt from ``GET /me/``."""
+        """Broadcast: a night window opened. The same event for every phone; its
+        prompt came just before, in its own view (``own_view``)."""
         await self.send_json(
             {
                 "type": "night_window",
@@ -179,10 +179,7 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
         if not isinstance(view, dict) or view.get("player_id") != self.user_id:
             logger.error("An own view reached a socket it is not for: dropped")
             return
-        frame = {"type": "me", "me": view}
-        if "results" in event:
-            frame["results"] = event["results"]
-        await self.send_json(frame)
+        await self.send_json({"type": "me", "me": view})
 
     async def game_results(self, event):
         """Broadcast: game results after vote resolution."""
@@ -214,7 +211,13 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
             _host_presence(self.game_id, self.user_id, False)
 
     async def _beat(self):
-        """One heartbeat: refresh this socket's row (its own short DB use)."""
+        """One heartbeat: the beat frame to the phone (the same for every
+        socket), this socket's row refreshed (its own short DB use) and, from
+        the game's oldest fresh socket, the game's lazy repair (``repair.py``: a
+        lost timer or practice move must not wait for a phone to read)."""
+        from . import repair
+
+        await self.send_json(presence.beat_frame())
         # Not thread-sensitive: a pool thread does the beat and releases its
         # database connection, so nothing stays open between beats and the beats
         # never queue behind (or close the connection of) other consumers' work.
@@ -225,6 +228,9 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
             await database_sync_to_async(_host_presence)(
                 self.game_id, self.user_id, True
             )
+        await database_sync_to_async(repair.repair_on_beat, thread_sensitive=False)(
+            self.game_id, self.channel_name
+        )
 
     def _refresh_presence(self):
         from . import game_presence

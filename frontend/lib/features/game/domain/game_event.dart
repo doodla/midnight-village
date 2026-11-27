@@ -42,16 +42,11 @@ sealed class GameEvent {
       'host_changed' => HostEvent(HostChange.fromEvent(event)),
       'me' => OwnViewEvent(
         GameMe.fromJson((event['me'] as Map).cast<String, dynamic>()),
-        results: switch (event['results']) {
-          final Map<dynamic, dynamic> results => GameOutcome.fromJson(
-            results.cast<String, dynamic>(),
-          ),
-          _ => null,
-        },
       ),
       // A window opened, the phase moved, the votes are out, the game is
       // over: what this phone sees next is in `/me/`, never in the event,
-      // which names only the stage it opens.
+      // which names only the stage it opens; the end also brings the results
+      // (`data.results`, public then and the same for everyone).
       'night_window' => RefetchEvent(
         type as String,
         place: GameMe.placeOf(GamePhase.night, event['window'] as int),
@@ -60,9 +55,19 @@ sealed class GameEvent {
         type as String,
         place: GameMe.placeOf(GamePhase.fromServer(event['phase']), 0),
       ),
-      'vote_reveal' || 'game_results' => RefetchEvent(
+      'vote_reveal' => RefetchEvent(
         type as String,
         place: GameMe.placeOf(GamePhase.results, 0),
+      ),
+      'game_results' => RefetchEvent(
+        type as String,
+        place: GameMe.placeOf(GamePhase.results, 0),
+        results: switch ((event['data'] as Map?)?['results']) {
+          final Map<dynamic, dynamic> results => GameOutcome.fromJson(
+            results.cast<String, dynamic>(),
+          ),
+          _ => null,
+        },
       ),
       'play_again' => const TableMovedEvent(),
       final other => IgnoredEvent(other is String ? other : null),
@@ -81,22 +86,29 @@ sealed class GameEvent {
 /// A stage opened that `/me/` shows: fetch it, unless the `/me/` held is
 /// already at that stage or past it ([GameMe.place]: the server sends each
 /// player's own view of the stage just before this event).
+
+/// A stage opened that `/me/` shows: fetch it, unless the `/me/` held is
+/// already at that stage or past it ([GameMe.place]: the server sends each
+/// player's own view of the stage just before this event).
 final class RefetchEvent extends GameEvent {
-  const RefetchEvent(this.type, {required this.place});
+  const RefetchEvent(this.type, {required this.place, this.results});
 
   final String type;
 
   /// The place of the stage it opens ([GameMe.placeOf]).
   final int place;
+
+  /// `game_results` only: the results (`GET .../results/`'s body), when the
+  /// server sends them with it; null from an older server.
+  final GameOutcome? results;
 }
 
 /// This phone's own `/me/` as a stage opens (`me`, sent to this player's own
-/// group only), and at the results the results ([results]).
+/// group only).
 final class OwnViewEvent extends GameEvent {
-  const OwnViewEvent(this.me, {this.results});
+  const OwnViewEvent(this.me);
 
   final GameMe me;
-  final GameOutcome? results;
 }
 
 /// The table went back to waiting (`play_again`): where this phone is now

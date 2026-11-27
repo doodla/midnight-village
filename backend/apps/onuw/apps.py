@@ -24,7 +24,7 @@ class OnuwConfig(AppConfig):
         basics.practice_driver = lambda game_id: practice.drive(game_id)
         # Each player's own view as a stage opens: built on the serializers, so
         # plugged in the same way (looked up when called, as above).
-        basics.own_views = lambda game_id: own_view.own_view_messages(game_id)
+        basics.own_views = lambda game_id, table: own_view.stage_batch(game_id, table)
         online.register_online_source(presence.online_sockets)
         # The module that defines this game's timer jobs and registers its
         # presence scope: the timers import it before any job runs.

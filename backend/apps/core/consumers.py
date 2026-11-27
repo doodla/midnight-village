@@ -65,12 +65,12 @@ class LobbyConsumer(TolerantJsonWebsocketConsumer):
         )
 
         await self.accept()
+        from apps.core import presence
 
         # Presence, for host handover only (never broadcast). Counted after
         # accept; a rejected connection is never counted.
         await self._count_connection(True)
         self._presence_counted = True
-        from apps.core import presence
 
         self._heartbeat_task = asyncio.ensure_future(
             presence.heartbeat_loop(self._beat)
@@ -168,7 +168,12 @@ class LobbyConsumer(TolerantJsonWebsocketConsumer):
             )
 
     async def _beat(self):
-        """One heartbeat: refresh this socket's row (its own short DB use)."""
+        """One heartbeat: the beat frame to the phone (``presence.beat_frame``,
+        the same for every socket) and this socket's row refreshed (its own short
+        DB use)."""
+        from apps.core import presence
+
+        await self.send_json(presence.beat_frame())
         # Not thread-sensitive: a pool thread does the beat and releases its
         # database connection (nothing stays open between beats).
         await database_sync_to_async(self._refresh_presence, thread_sensitive=False)()
