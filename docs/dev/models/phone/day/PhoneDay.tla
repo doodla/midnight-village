@@ -142,7 +142,10 @@ TableApply ==
   \* _compareTable: the table is ahead of /me/: fetch /me/ once
   /\ IF tv.game = 1 /\ tv.phase > snap.st THEN Refresh ELSE UNCHANGED <<fq, again>>
   /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fv, oq, outcome, ev, tev, taps, faults>>
-TableFail == tq # "none" /\ faults < MaxFaults /\ faults' = faults + 1 /\ tq' = "none" /\ tv' = NoTab
+\* a failed /me/table/ read; with FIX_ASKLESS it is read again (myTable's retryForever, the
+\* app's own, whatever the socket: with no poll standing in for it, the model says so)
+TableFail == tq # "none" /\ faults < MaxFaults /\ faults' = faults + 1 /\ tv' = NoTab
+             /\ tq' = (IF FIX_ASKLESS THEN "sent" ELSE "none")
              /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fq, fv, again, tab, oq, outcome, ev, tev, taps>>
 OutcomeOk == oq = "sent" /\ sv = 2 /\ oq' = "none" /\ outcome' = "loaded"
              /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fq, fv, again, tq, tv, tab, ev, tev, taps, faults>>

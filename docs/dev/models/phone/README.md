@@ -63,6 +63,18 @@ Run one: `java -cp tla2tools.jar tlc2.TLC -config day_asked.cfg PhoneDay.tla` in
 `day/runday.sh` runs every `day_*` run and fails when one ends otherwise than recorded here
 (`TLA2TOOLS=/path/to/tla2tools.jar day/runday.sh`).
 
+**Told, not asked (branch `ask-less`, 27 November 2026).** `FIX_ASKLESS` in `day/` models the
+phone of that branch: a stage change carries this phone's own view (`me`, before the
+table's event; the results with it at the end), applied when its stage is later, and the
+event then reads nothing; a taken ready or lock's answer (the stored value and the count)
+is put on the held `/me/`; an event is lost only with its socket, which comes back and reads
+`/me/` and `/me/table/`; the slow table poll runs only while the socket is down; a failed
+`/me/table/` read is read again (`retryForever`: the poll had stood in for it before).
+`day_askless` (every fix, `OutcomeLoads` and `ScreenConverges`: 5,083,702 distinct states) and `day_askless_order`
+(`TapOrder` with `asked`) hold; every earlier run sets it FALSE. Its first run broke
+`ScreenConverges` only because the model had no retry of a failed table read: the code has
+one, so the model now says so (the finding was the model's, not the app's).
+
 **A result at the choose (branch `night-result-now`, 25 November 2026).** `ANSWER_CARRIES`
 models the phone of that branch: a taken choose's answer carries the caller's results and its
 prompt's `chooses_left` (the server's count right after the request), and the phone fetches
