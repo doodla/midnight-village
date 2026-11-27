@@ -255,7 +255,8 @@ def _everyone(t: Table, names: list[str], path: str, body: dict[str, Any]) -> No
 
 
 def _reads(t: Table, names: list[str]) -> None:
-    """What every phone does when the stage moves: read its ``/me/`` (and one
+    """What a phone does when the stage moves and it holds no view of it (an older
+    app, a lost message: the app of today is told its view): read its ``/me/`` (and one
     reads ``/me/table/``, as the 15 s table poll and a stage change do)."""
     for name in names:
         t.call("GET", name, ME)

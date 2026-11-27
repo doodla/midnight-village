@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/faces/face_content.dart';
 import 'package:midnight_village/design_system/models/role.dart';
@@ -739,6 +740,34 @@ void main() {
           GamePhase.voting,
         );
         expect(setup.screen!.screen, AppScreen.vote, reason: '/me/ is ahead');
+      },
+    );
+
+    test(
+      'a read of the seat out when /me/ moves past the table is asked '
+      'again, never dropped by a seat from /me/ (seat model, seat_drop)',
+      () async {
+        final setup = await phone('me_voting_picked');
+        setup.answerResults();
+        final reads = setup.http.hold(method: 'GET', path: '/me/table/');
+        final tables = setup.tableFetches;
+        // The app comes back: where it sits is asked (it may have moved on:
+        // play again while it slept), and /me/ too.
+        setup.answerMe(recordedMe('me_results'));
+        setup.resume();
+        await setup.settle();
+        expect(setup.game.server.phase, GamePhase.results);
+        // /me/ is past the table, but a read is out: asked again, not seeded.
+        expect(setup.tableFetches, tables + 2);
+        expect(setup.container.read(myTableProvider).isLoading, isTrue);
+        setup.http.stopHolding(method: 'GET', path: '/me/table/');
+        reads.releaseAll();
+        await setup.settle();
+        expect(
+          setup.container.read(myTableProvider).value?.status,
+          TableStatus.finished,
+          reason: 'what the server said',
+        );
       },
     );
 

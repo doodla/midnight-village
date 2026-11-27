@@ -74,11 +74,17 @@ There is one game flow: the screens read one model and one table.
   any failed `/me/` (the first, or the one after a taken choose) is fetched again;
   the results (`GameOutcome`) until they load (`outcomeFailing` while a try has failed);
   `myTableProvider` with `retryForever` (Riverpod's default gives up after about 40 s) and, at a waiting table or a finished game, a slow poll
-  (`HealTiming.tablePoll`) for a lost deal or play-again event.
+  (`HealTiming.tablePoll`) for a lost deal or play-again event, only while the socket that would hear it is down
+  (`SocketHealth`, `core/websocket/socket_health.dart`: a socket that is up hears it, one that comes back reads).
   Riverpod's own retry is off on the notifier (`noRetry`):
   it retries itself, and a rebuild would drop the taps in flight.
-  Events (`GameEvent`) only ask for `/me/` (and `/me/table/`) again or update a value `/me/` holds in the same absolute form
-  (progress, host via `player_id`, presence).
+  A phone is told, not asked (contract, sections 1, 4, 8): as a stage opens the socket brings this player's own `/me/` first (`me`, `OwnViewEvent`,
+  with the results at the end), applied when its stage is later than the one held (`GameMe.place`: phase, then window; only rises in a game), and the
+  table's event (`RefetchEvent`, which names the stage it opens) reads `/me/` only when the phone is still behind it (an older server, a lost view);
+  a read that lands older than a view held changes nothing (`_accept`). A stage change asks nothing of `/me/table/`: the seat moves with `/me/`
+  (`MyTable.inGameAt`, finished at the results, so `play_again` still seats the phone with no read).
+  Events otherwise update a value `/me/` holds in the same absolute form (progress, host via `player_id`, presence).
+  What each phone asks in a whole game is counted by `requests_per_game_test.dart` against `request_budget.json` (main's numbers kept as `before`).
   The game's socket opening (its first "connected": nothing said before it listened was heard) or coming back, and app resume (`appResumesProvider`), fetch
   both; after a stage's deadline, by the server's clock
   (the last answer's `Date` plus the time since; the phone's clock only when no `Date` is readable, and then only to time a fetch), one fetch, then one every
@@ -100,6 +106,9 @@ There is one game flow: the screens read one model and one table.
   (`StageReply.learned`): the item holds them (`OutboxItem.learned`) and `Outbox.on` shows them, on "You"'s held face first, until a later `/me/`
   lists them; `/me/` is read only when the answer's `chooses_left` is above 0, so the Doppelganger's follow-up turn arms her board, or when an older
   server answered its status alone);
+  a taken ready or lock whose answer carries what was stored and the count the table was sent (`progress`) puts both on the held `/me/`
+  (`GameMe.withStored`; nothing is read after the tapper's own tap), and a count heard while that tap was out is held (`_heldProgress`) and read again
+  only when it differs from the answer's (it was someone else's);
   an echo (`ready`, `target_player_id`) that differs fetches;
   `stale` (409) keeps it shown until the refetch lands;
   `refused` drops it; `notSent` keeps it with "Try again" (`retry(lane)`, `LiveGame.unsent`), which fetches `/me/` first and resends the original only if it did

@@ -141,7 +141,12 @@ stored or sent. An applied request with `asked` stores its entry even when the v
 `choose`, the results ack and the stage-ending requests never read it.
 
 **Events:** a window opens with ONE group event `night.window {window, deadline}` (client `night_window`);
-there is NO per-player event in the night at all, and no event when a window closes (the next `night_window` or `phase_change` follows in the same commit).
+nothing per player is ever on the game's group, and no event says a window closed (the next `night_window` or `phase_change` follows in the same commit).
+**Each player's own view** (`own_view.py`): every stage opening after the deal (each window, the talk, the vote, the results) sends,
+first in the same batch as its group events (`basics._send_stage_after_commit`, which `apps.py` plugs `own_view` into), each person's own
+`GET /me/` body on their own group (`own.view`, client `me`; at the results with `results.results_body`), built after commit from the committed
+rows in a fixed number of queries (`views_for`: the count and the engine state once for all). A view is addressed from its own `player_id`
+and the consumer forwards it only to that player's socket; `GET /me/` and the view are one builder (`own_view.me_body`).
 The Doppelganger's look is not sent either:
 it is in her `/me/`.
 
@@ -232,8 +237,9 @@ answers `{"night_results_seen": <stored>}`.
 `POST .../vote/` takes `{"target_player_id": <JSON integer>, "lock": <bool>, "stage": ...}`
 (`lock` is required; anything else is 400 `bad_request`: no coercion).
 A vote is *picked* (`PlayerRole.vote_target`, `has_acted` false, changeable, NO socket event at all) and then *locked*
-(`has_acted`, final; any pick or lock after it is 409 `vote_locked`, except the SAME lock again (a resend whose answer was lost): `{"status": "submitted"}`, nothing stored or sent).
-Answers: locked `{"status": "submitted"}`, picked `{"status": "picked", "target_player_id": N}` (the stored target).
+(`has_acted`, final; any pick or lock after it is 409 `vote_locked`, except the SAME lock again (a resend whose answer was lost): the same answer, nothing stored or sent).
+Answers: locked `{"status": "submitted", "target_player_id": N, "locked": true, "progress": {...}}` (the stored lock and the count the table was sent: `submit_vote(told=)`),
+picked `{"status": "picked", "target_player_id": N}` (the stored target).
 The body names the `stage` (see "Stages").
 Errors carry `code`
 (`wrong_stage`, `wrong_phase`, `invalid_target`, `bad_request`, `vote_locked`; `detail` is one string, the first message, as every refusal's is).
@@ -257,7 +263,7 @@ The debug oracle has `vote_locked` per player next to `votes`, and `ready` per p
 
 `POST .../ready/ {"ready": <bool>, "stage": ...}`
 (`ReadyView`, `voting.set_ready`; strict bool else 400 `bad_request`; 403 not a player; 409 `wrong_stage` outside the talk and the look stage, or for a stage that is over)
-toggles `PlayerRole.phase_ready` (reset by `transition_to_discussion`) and answers `{"status": "ok", "ready": <stored>}`.
+toggles `PlayerRole.phase_ready` (reset by `transition_to_discussion`) and answers `{"status": "ok", "ready": <stored>, "progress": {...}}` (the count the table was sent: `set_ready(told=)`).
 One transaction (Game lock, PlayerRole lock, phase re-checked):
 every tap recounts `needed` (players not gone past grace) and sends `progress {stage: "talk", done, needed}`;
 when `done == needed >= 1` it calls `end_discussion`, the host button's own function, so a tap racing the host or the talk's deadline ends the talk once
@@ -383,7 +389,7 @@ the step and the seat (`practice_rng`) and logged at INFO.
 
 ## Night timeline (results)
 
-`GET .../results/` (results phase only, members only, as before) has `night_timeline`:
+`GET .../results/` (results phase only, members only, as before; its body is `results.results_body`, which each player's own view at the end also carries) has `night_timeline`:
 `{seats, cards, dealt, steps, final, center_moved}` built by the PURE `engine/timeline.py` (`build_night_timeline`) FORWARDS from the dealt cards
 (`PlayerRole.original_role` by seat, `Game.dealt_center_cards`) and `Game.night_actions_log` (`ActionLogEntry.to_dict` is the one log format).
 Cards have stable ids (`k0..k<n-1>` by seat, then the three centre cards) and a server-set `werewolf` flag

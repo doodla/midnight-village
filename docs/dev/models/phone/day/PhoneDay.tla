@@ -10,9 +10,15 @@ EXTENDS Naturals, FiniteSets, TLC
 
 CONSTANTS MaxFaults, MaxTaps, FIX_HEAL,
           HOST_MOVES_ON, \* the host eventually plays again and deals (else the table may stay at the results)
-          FIX_ASKED  \* a ready or a vote carries the time of its tap (`asked`) and the server answers
+          FIX_ASKED, \* a ready or a vote carries the time of its tap (`asked`) and the server answers
                     \* 409 stale_request to one older than the newest it applied for that lane (#16,
                     \* the server's half; the phone does not send it yet, so FALSE is today's phone)
+          FIX_ASKLESS \* branch ask-less: a stage change carries this phone's own view (`me`, sent
+                    \* before the table's event, the results with it at the end): applied when its
+                    \* stage is later, nothing read; the event reads /me/ only when the phone is
+                    \* behind it. A taken ready or lock's answer is put on the held /me/. An event
+                    \* is lost only with the socket (a drop), which comes back and reads /me/ and
+                    \* /me/table/; the slow table poll runs only while it is down.
 
 Lanes == {"ready", "vote"}
 NoTab == [status |-> "none", game |-> 0, phase |-> 0]
@@ -25,10 +31,11 @@ VARIABLES
   fq, fv, again,                                       \* /me/ fetch loop of game 1
   tq, tv, tab,                                         \* /me/table/: in flight, read value, held value
   oq, outcome,                                         \* GET results/
-  ev, tev, taps, faults
+  ev, tev, taps, faults,
+  evView, sock                                         \* FIX_ASKLESS: the view with ev; the socket
 
 vars == <<sv, sReady, sVote, sLocked, sLast, badOrder, table, reqs, reps, snap, cur, que, conts,
-          fq, fv, again, tq, tv, tab, oq, outcome, ev, tev, taps, faults>>
+          fq, fv, again, tq, tv, tab, oq, outcome, ev, tev, taps, faults, evView, sock>>
 srvVars == <<sv, sReady, sVote, sLocked, sLast, badOrder, table>>
 phoneVars == <<snap, cur, que, conts, fq, fv, again, tq, tv, tab, oq, outcome>>
 
@@ -192,6 +199,44 @@ Timeout ==
 \* (a timed-out request still in reqs keeps live = TRUE here; its answer
 \* matches no item in flight and changes nothing, as in _send)
 
+(* ---------------- FIX_ASKLESS (branch ask-less) ---------------- *)
+\* the server's stage change carries this phone's own view (the state just after it)
+SAdvanceA == SAdvance /\ evView' = MeView' /\ UNCHANGED sock
+\* the view first, then the table's event: applied when of a later stage (the
+\* afterFetch of a push: taps of an ended stage go, confirming ones stay); the
+\* results come with it; the event itself then reads nothing (the view is as new)
+AfterView(c, v) == IF c.req # NoReq /\ c.req.st # v.st THEN [req |-> NoReq, leg |-> "none"] ELSE c
+EvDeliverA ==
+  /\ ev /\ sock = "up" /\ ev' = FALSE
+  /\ IF evView.st > snap.st
+     THEN /\ snap' = evView
+          /\ cur' = [l \in Lanes |-> AfterView(cur[l], evView)]
+          /\ que' = [l \in Lanes |-> IF que[l] # NoReq /\ que[l].st # evView.st THEN NoReq ELSE que[l]]
+          /\ outcome' = IF evView.st = 2 THEN "loaded" ELSE outcome
+     ELSE UNCHANGED <<snap, cur, que, outcome>>
+  /\ UNCHANGED <<srvVars, reqs, reps, conts, fq, fv, again, tq, tv, tab, oq, tev, taps, faults, evView, sock>>
+TevDeliverA == sock = "up" /\ TevDeliver /\ UNCHANGED <<evView, sock>>
+\* an event is lost only with its socket: down until it comes back
+EvDropA == EvDrop /\ sock' = "down" /\ UNCHANGED evView
+\* back: everything is read again (_healEverything: /me/table/ and /me/)
+Reconnect ==
+  /\ sock = "down" /\ sock' = "up" /\ ev' = FALSE /\ tev' = FALSE /\ InvalidateTable /\ Refresh
+  /\ UNCHANGED <<srvVars, reqs, reps, snap, cur, que, conts, fv, tv, tab, oq, outcome, taps, faults, evView>>
+\* the slow table poll heals a socket that is down, never a healthy one
+PollTableA == sock = "down" /\ PollTable /\ UNCHANGED <<evView, sock>>
+\* a taken ready or lock's answer says what was stored: put on the held /me/
+Fold(l, tap, ans) ==
+  LET c == cur[l].req IN
+  IF ans = "taken" /\ c # NoReq /\ c.tap = tap /\ cur[l].leg = "flight" /\ c.st = snap.st
+  THEN CASE l = "ready" -> [snap EXCEPT !.ready = (c.val = "on")]
+         [] c.lock -> [snap EXCEPT !.vote = c.val, !.locked = TRUE]
+         [] OTHER -> snap
+  ELSE snap
+ReplyA ==
+  \E r \in reps : /\ reps' = reps \ {r} /\ Answer(r.lane, r.tap, r.ans)
+                  /\ snap' = Fold(r.lane, r.tap, r.ans)
+                  /\ UNCHANGED <<srvVars, conts, fv, tq, tv, tab, oq, outcome, ev, tev, taps, faults, evView, sock>>
+
 Done == table.game = 2 /\ tab # NoTab /\ tab.game = 2 /\ reqs = {} /\ reps = {} /\ fq = "none" /\ tq = "none"
         /\ oq = "none" /\ ~ev /\ ~tev /\ UNCHANGED vars
 
@@ -204,21 +249,37 @@ Init ==
   /\ conts = {} /\ fq = "none" /\ fv = MeView /\ again = FALSE
   /\ tq = "none" /\ tv = NoTab /\ tab = table
   /\ oq = "none" /\ outcome = "none" /\ ev = FALSE /\ tev = FALSE /\ taps = 0 /\ faults = 0
+  /\ evView = MeView /\ sock = "up"
 
 SProcessStep == \E r \in reqs : SProcess(r)
 SPlayAgainF == SPlayAgain
-Next ==
-  \/ SAdvance \/ SPlayAgain \/ SDeal \/ SProcessStep
-  \/ FetchServe \/ FetchApply \/ FetchFail \/ Heal \/ PollTable
-  \/ EvDeliver \/ TevDeliver \/ EvDrop
+\* the actions both phones share (they leave the ask-less variables alone)
+Shared ==
+  \/ SPlayAgain \/ SDeal \/ SProcessStep
+  \/ FetchServe \/ FetchApply \/ FetchFail \/ Heal
   \/ TableServe \/ TableApply \/ TableFail \/ OutcomeOk \/ OutcomeFail
-  \/ TapReady \/ TapVoteStep \/ Reply \/ Timeout \/ Done
+  \/ TapReady \/ TapVoteStep \/ Timeout \/ Done
+Next ==
+  \/ Shared /\ UNCHANGED <<evView, sock>>
+  \/ ~FIX_ASKLESS /\ (SAdvance \/ PollTable \/ EvDeliver \/ TevDeliver \/ EvDrop \/ Reply)
+                  /\ UNCHANGED <<evView, sock>>
+  \/ FIX_ASKLESS /\ (SAdvanceA \/ PollTableA \/ EvDeliverA \/ TevDeliverA \/ EvDropA
+                     \/ Reconnect \/ ReplyA)
+\* an action that leaves the ask-less variables alone, and the phone's own
+\* version of the three that differ
+S(A) == A /\ UNCHANGED <<evView, sock>>
+AdvanceF == IF FIX_ASKLESS THEN SAdvanceA ELSE S(SAdvance)
+PollF == IF FIX_ASKLESS THEN PollTableA ELSE S(PollTable)
+ReplyF == IF FIX_ASKLESS THEN ReplyA ELSE S(Reply)
 
-\* the server's own timers and the host move the game on; phone internals are fair
+\* the server's own timers and the host move the game on; phone internals are fair;
+\* with FIX_ASKLESS a socket that is up delivers, and one that is down comes back
 Spec == Init /\ [][Next]_vars
-        /\ WF_vars(SAdvance) /\ (HOST_MOVES_ON => WF_vars(SPlayAgain) /\ WF_vars(SDeal)) /\ WF_vars(SProcessStep)
-        /\ WF_vars(FetchServe) /\ WF_vars(FetchApply) /\ WF_vars(Heal) /\ WF_vars(PollTable)
-        /\ WF_vars(TableServe) /\ WF_vars(TableApply) /\ WF_vars(OutcomeOk) /\ WF_vars(Reply)
+        /\ WF_vars(AdvanceF) /\ (HOST_MOVES_ON => WF_vars(S(SPlayAgain)) /\ WF_vars(S(SDeal)))
+        /\ WF_vars(S(SProcessStep))
+        /\ WF_vars(S(FetchServe)) /\ WF_vars(S(FetchApply)) /\ WF_vars(S(Heal)) /\ WF_vars(PollF)
+        /\ WF_vars(S(TableServe)) /\ WF_vars(S(TableApply)) /\ WF_vars(S(OutcomeOk)) /\ WF_vars(ReplyF)
+        /\ (FIX_ASKLESS => WF_vars(EvDeliverA) /\ WF_vars(TevDeliverA) /\ WF_vars(Reconnect))
 
 (* ---------------- rules ---------------- *)
 \* the server stores this phone's taps of a lane in tap order (a lock never overtakes its pick)

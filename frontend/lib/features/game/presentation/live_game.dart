@@ -392,7 +392,10 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
   /// ahead, `/me/` is read again (once per mismatch). When `/me/` is ahead (a
   /// stage changed: the server said so), the table is where the game is now,
   /// and nothing is asked ([MyTable.inGameAt]: a game at its results is a
-  /// finished table); a table read still out decides instead, when it lands.
+  /// finished table). Unless a read of the seat is out: it was asked because
+  /// the seat may have moved on further (the app back, the socket back), so
+  /// it is asked again now rather than dropped by a seat put from `/me/`
+  /// (`docs/dev/models/phone/seat/`, run `seat_drop`).
   void _compareTable(MyTable? table, {GameMe? me}) {
     final own = me ?? state.value?.server;
     if (table == null || own == null || table.gameId != gameId) return;
@@ -405,8 +408,8 @@ class LiveGameNotifier extends _$LiveGameNotifier with _LiveGameTaps {
     } else if (own.phase.index > phase.index && _tableAskedAt != at) {
       final viewer = _viewer;
       if (!_named || viewer == null) return;
-      if (ref.read(myTableProvider).isLoading) return;
       _tableAskedAt = at;
+      if (ref.read(myTableProvider).isLoading) return askWhere(ref);
       seatFromServer(ref, viewer, table.inGameAt(own.phase));
     }
   }
