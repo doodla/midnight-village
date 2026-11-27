@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:ui' show FramePhase, FrameTiming;
 
 import 'package:dio/dio.dart';
@@ -8,6 +9,8 @@ import 'package:flutter/widgets.dart';
 
 import 'perf.dart';
 import 'perf_records.dart';
+
+part 'field_marks.dart';
 
 /// Names what a finger went down on: a kind of control (`main_button`,
 /// `player_row`), `perf` for the recorder's own strip, or null when nothing
@@ -82,7 +85,7 @@ class FieldRecorder implements PerfRecorder {
   TapRecord? _lastTap;
   SocketRecord? _lastSocket;
   double _lastActivity = -busyFor;
-  final _recentActivity = <double>[];
+  final _recentActivity = ListQueue<double>();
   var _installed = false;
 
   @override
@@ -90,16 +93,26 @@ class FieldRecorder implements PerfRecorder {
 
   String get currentScreen => _screen;
 
+  /// Whether nothing happened for [busyFor]: no touch, socket message,
+  /// screen change or answer (the beacon builds a summary only then).
+  bool get atRest => now() - _lastActivity >= busyFor;
+
+  // What the bindings call: guarded, so nothing the recorder throws reaches
+  // the pointer, the frames or the app (`quietly`).
+  void _onPointer(PointerEvent e) => quietly(() => _pointer(e));
+  void _onTimings(List<FrameTiming> t) => quietly(() => _timings(t));
+
   /// Starts listening: the pointer (all of it, after the app's own
   /// handlers), the frames' timings, the first frame.
   void install() {
     if (_installed) return;
     _installed = true;
-    GestureBinding.instance.pointerRouter.addGlobalRoute(_pointer);
-    SchedulerBinding.instance.addTimingsCallback(_timings);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
+    SchedulerBinding.instance.addTimingsCallback(_onTimings);
     unawaited(
       WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
         (_) => firstFrameAt ??= now(),
+        onError: (_) {},
       ),
     );
   }
@@ -107,8 +120,8 @@ class FieldRecorder implements PerfRecorder {
   void uninstall() {
     if (!_installed) return;
     _installed = false;
-    GestureBinding.instance.pointerRouter.removeGlobalRoute(_pointer);
-    SchedulerBinding.instance.removeTimingsCallback(_timings);
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
+    SchedulerBinding.instance.removeTimingsCallback(_onTimings);
   }
 
   /// Forgets everything recorded (the sheet's "Clear").
@@ -194,14 +207,18 @@ class FieldRecorder implements PerfRecorder {
   /// own callbacks, before the engine finishes it), and the first timer
   /// after it (the stand-in until its timing arrives).
   void _frameAfter(void Function(double mark, double at) then) {
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      final mark = now();
-      _refine();
-      Timer.run(() {
-        then(mark, now());
+    SchedulerBinding.instance.addPostFrameCallback(
+      (_) => quietly(() {
+        final mark = now();
         _refine();
-      });
-    });
+        Timer.run(
+          () => quietly(() {
+            then(mark, now());
+            _refine();
+          }),
+        );
+      }),
+    );
   }
 
   /// Finishes [tap] once every frame it waits for is known: by its own
@@ -385,7 +402,7 @@ class FieldRecorder implements PerfRecorder {
 
   /// Recent frames (build start, raster finish, total ms): a tap's worst
   /// frame, and each leg's frame by its own timing.
-  final _recent = <(double, double, double)>[];
+  final _recent = ListQueue<(double, double, double)>();
 
   void _timings(List<FrameTiming> timings) {
     _timed = true;
@@ -406,7 +423,8 @@ class FieldRecorder implements PerfRecorder {
             total,
             rest: rest,
           );
-      _keep(_recent, (start, end, total), 600);
+      _recent.addLast((start, end, total));
+      if (_recent.length > 600) _recent.removeFirst();
       // A tap that finished before its last frames' timings came in.
       for (final tap in taps.reversed.take(4)) {
         final end = tap.shownAt ?? tap.screenAt;
@@ -422,10 +440,14 @@ class FieldRecorder implements PerfRecorder {
   /// the first frame the engine finished after it.
   double? _frameOf(double? mark) {
     if (mark == null) return null;
-    for (final (_, end, _) in _recent) {
-      if (end >= mark) return end;
+    // From the newest back: a mark is recent, so this stops in a few steps.
+    double? found;
+    for (var i = _recent.length - 1; i >= 0; i--) {
+      final end = _recent.elementAt(i).$2;
+      if (end < mark) break;
+      found = end;
     }
-    return null;
+    return found;
   }
 
   /// Puts each recent leg's frame on its own timing, and finishes the taps
@@ -433,6 +455,7 @@ class FieldRecorder implements PerfRecorder {
   void _refine() {
     if (!_timed) return;
     for (final tap in _lastTaps) {
+      if (tap.done) continue;
       tap
         ..downFrameAt = _frameOf(tap.downFrameMark) ?? tap.downFrameAt
         ..upFrameAt = _frameOf(tap.upFrameMark) ?? tap.upFrameAt
@@ -453,8 +476,10 @@ class FieldRecorder implements PerfRecorder {
 
   double _worstBetween(double from, double to) {
     var worst = 0.0;
-    for (final (start, _, total) in _recent) {
-      if (start >= from && start <= to && total > worst) worst = total;
+    for (var i = _recent.length - 1; i >= 0; i--) {
+      final (start, _, total) = _recent.elementAt(i);
+      if (start < from) break;
+      if (start <= to && total > worst) worst = total;
     }
     return worst;
   }
@@ -473,7 +498,8 @@ class FieldRecorder implements PerfRecorder {
   void _activity(double at) {
     _closeRest(at);
     _lastActivity = at;
-    _keep(_recentActivity, at, 64);
+    _recentActivity.addLast(at);
+    if (_recentActivity.length > 64) _recentActivity.removeFirst();
   }
 
   /// Adds the time the shown screen was at rest up to [at].
@@ -499,84 +525,4 @@ class FieldRecorder implements PerfRecorder {
     list.add(item);
     if (list.length > most) list.removeAt(0);
   }
-}
-
-class _HttpMark implements HttpMark {
-  _HttpMark(this._recorder, this._record);
-
-  final FieldRecorder _recorder;
-  final HttpRecord _record;
-
-  void _name(RequestOptions options) {
-    if (_record.method.isNotEmpty) return;
-    final url = options.uri.toString();
-    _record
-      ..method = options.method.toUpperCase()
-      ..path = cleanPath(url)
-      ..url = url;
-  }
-
-  @override
-  void left(RequestOptions? options) {
-    _record.leftAt ??= _recorder.now();
-    if (options != null) _name(options);
-  }
-
-  @override
-  void arrived(int status, Map<String, List<String>> headers) {
-    _record
-      ..arrivedAt = _recorder.now()
-      ..status = status;
-    final timing = serverTiming(headers['server-timing']?.join(','));
-    _record
-      ..serverConnect = timing.connect
-      ..serverTotal = timing.total;
-  }
-
-  @override
-  Future<T> watch<T>(Future<T> sent) => sent.then(
-    (answer) {
-      _done(answer is Response ? answer : null, null);
-      return answer;
-    },
-    onError: (Object error, StackTrace stack) {
-      _done(null, error is DioException ? error : null);
-      Error.throwWithStackTrace(error, stack);
-    },
-  );
-
-  void _done(Response<Object?>? answer, DioException? failure) {
-    _record.doneAt = _recorder.now();
-    final options = answer?.requestOptions ?? failure?.requestOptions;
-    if (options != null) _name(options);
-    _record.status ??= answer?.statusCode ?? failure?.response?.statusCode;
-    if (_record.serverTotal == null && answer != null) {
-      final timing = serverTiming(answer.headers.value('server-timing'));
-      _record
-        ..serverConnect = timing.connect
-        ..serverTotal = timing.total;
-    }
-    final url = _record.url;
-    if (url != null) {
-      final net = _recorder.resourceTiming?.call(
-        url,
-        (_record.leftAt ?? _record.queuedAt) - 1,
-      );
-      _record
-        ..netStart = net?.start
-        ..netEnd = net?.end
-        ..url = null;
-    }
-    _recorder._answered(_record);
-  }
-}
-
-class _RequestMark implements RequestMark {
-  _RequestMark(this._recorder, this._tap);
-
-  final FieldRecorder _recorder;
-  final TapRecord _tap;
-
-  @override
-  void applied() => _recorder._applied(_tap);
 }

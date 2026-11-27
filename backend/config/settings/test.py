@@ -86,5 +86,6 @@ REST_FRAMEWORK = {
         "sign_up": "1000/minute",
         "online_stats": "1000/minute",
         "field_summary": "1000/minute",
+        "field_report": "1000/minute",
     },
 }

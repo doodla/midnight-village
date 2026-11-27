@@ -6,10 +6,10 @@ from django.utils import timezone
 
 
 class FieldSummary(models.Model):
-    """One phone's numbers for one game (or the stretch of play before its tab was
-    hidden). Only times, counts, kinds of screen and control, request paths without
-    ids, and what the phone says about itself: ``summary.clean`` keeps nothing else.
-    No user, no table, no game: a row cannot be traced to a person."""
+    """One phone's numbers for one game, or for the play before its tab was hidden.
+    Only times, counts, labels from the closed lists (``vocabulary.py``), the kind of
+    phone and browser, and the hour it came in: ``summary.clean`` keeps nothing else.
+    No user, no table, no game."""
 
     received_at = models.DateTimeField(
         db_default=Now(), default=timezone.now, db_index=True
@@ -19,7 +19,7 @@ class FieldSummary(models.Model):
     body = models.JSONField()
 
     class Meta:
-        ordering = ["-received_at", "-id"]
+        ordering = ["-id"]
 
     def __str__(self) -> str:
-        return f"{self.received_at:%Y-%m-%d %H:%M} {self.device} {self.commit[:7]}"
+        return f"{self.received_at:%Y-%m-%d %H}h {self.device} {self.commit[:7]}"

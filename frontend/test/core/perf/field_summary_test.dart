@@ -2,21 +2,20 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show FrameTiming;
 
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:midnight_village/core/perf/field_beacon.dart';
 import 'package:midnight_village/core/perf/field_recorder.dart';
 import 'package:midnight_village/core/perf/field_summary.dart';
 import 'package:midnight_village/core/perf/insights_route.dart';
 import 'package:midnight_village/core/perf/perf.dart';
+import 'package:midnight_village/core/perf/perf_records.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/perf/control_kind.dart';
-import 'package:midnight_village/design_system/perf/perf_strip.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/teach/learned_store.dart';
 
 import '../../helpers/finger.dart';
 import '../../helpers/shell_setup.dart';
+import 'perf_kit.dart';
 
 /// The test's clock, as the page's: ms on the fake clock.
 double _now(WidgetTester tester) =>
@@ -45,7 +44,10 @@ FieldRecorder _quiet(WidgetTester tester) {
 }
 
 /// 08 at the talk, then "Ready to vote" pressed as a finger does.
-Future<ShellSetup> _talkAndReady(WidgetTester tester) async {
+Future<ShellSetup> _talkAndReady(
+  WidgetTester tester, {
+  FieldRecorder? recorder,
+}) async {
   final s = await ShellSetup.pump(
     tester,
     recordedMe('me_discussion_choose_seer'),
@@ -57,6 +59,9 @@ Future<ShellSetup> _talkAndReady(WidgetTester tester) async {
   await s.settle(tester);
   await pressAtLikeAFinger(tester, const Offset(4, 400));
   await tester.pumpAndSettle();
+  // The setting-up touch carries no time stamp of its own; only the
+  // measured tap below does.
+  recorder?.clear();
   s.answerPost('/ready/', 'game/ready_talk');
   final at = tester.getCenter(find.byType(PrimaryButton).last);
   final finger = await tester.createGesture();
@@ -72,51 +77,28 @@ Future<ShellSetup> _talkAndReady(WidgetTester tester) async {
   return s;
 }
 
-/// What the server keeps (`backend/apps/observe/summary.py`), read from it:
-/// the app and the server agree on the names, or a leg would be dropped.
-Set<String> _serverNames(String tuple) {
-  final source = File('../backend/apps/observe/summary.py').readAsStringSync();
-  final found = RegExp('$tuple = \\(([^)]*)\\)').firstMatch(source)!;
-  return {
-    for (final m in RegExp(r'"([a-z_]+)"').allMatches(found.group(1)!))
-      m.group(1)!,
-  };
-}
+/// The app's own summary, recorded for the server's test
+/// (`backend/tests/observe/test_summary_clean.py` cleans it and asserts
+/// nothing is dropped): `UPDATE_CONTRACT_SAMPLES=1` writes it; otherwise
+/// its shape (every key and label, not the times) must match.
+final _sample = File('../contract_samples/app/field_summary.json');
 
-/// A recorder with requests made on a clock the test moves: each request's
-/// round trip and the server's own `Server-Timing`.
-Future<FieldRecorder> _requests(
-  List<({double gap, double round, double total, double connect})> asked, {
-  String Function(int i) path = _me,
-}) async {
-  var t = 0.0;
-  final recorder = FieldRecorder(now: () => t, controlAt: (_, _) => null);
-  for (final (i, q) in asked.indexed) {
-    t += q.gap;
-    final mark = recorder.httpQueued()!;
-    mark.left(RequestOptions(path: path(i)));
-    t += q.round;
-    mark.arrived(200, {
-      'server-timing': ['connect;dur=${q.connect}, total;dur=${q.total}'],
-    });
-    await mark.watch(Future.value(null));
-  }
-  return recorder;
-}
-
-String _me(int i) => 'https://api.example/api/onuw/games/7/me/';
-
-/// A poll, then a read made as its answer came (an `event`, not a poll).
-const _pollThenEvent = [
-  (gap: 0.0, round: 100.0, total: 50.0, connect: 10.0),
-  (gap: 0.0, round: 100.0, total: 50.0, connect: 10.0),
-];
+Object? _shape(Object? value) => switch (value) {
+  final Map<String, Object?> m => {
+    for (final e in m.entries) e.key: _shape(e.value),
+  },
+  List() => 'list',
+  num() => 'number',
+  String() => 'text',
+  _ => value,
+};
 
 void main() {
-  testWidgets('a game\'s summary holds a tap\'s legs by kind, its frames and '
-      'its request, and no player name, role or card', (tester) async {
+  testWidgets('a summary holds a tap\'s legs by kind, its frames and its '
+      'request, and no player name, role, card or id; the server keeps all '
+      'of it', (tester) async {
     final recorder = _quiet(tester);
-    final s = await _talkAndReady(tester);
+    final s = await _talkAndReady(tester, recorder: recorder);
     recorder.takeTimings([
       FrameTiming(
         vsyncStart: 0,
@@ -136,26 +118,22 @@ void main() {
     final ready = taps.entries.singleWhere(
       (e) => e.key.startsWith('talk tap main_button POST'),
     );
-    expect(ready.key, endsWith('/ready/'));
+    // The tests' client has no base address; the live app's is `<origin>/api`.
+    expect(ready.key, 'talk tap main_button POST /onuw/games/·/ready/');
     final legs = ready.value! as Map<String, Object?>;
     expect(legs['n'], 1);
-    expect(legs.keys.toSet().difference({'n'}), {
-      'heard',
-      'screen',
-      'left',
-      'answer',
-      'applied',
-      'shown',
-      'total',
-    });
     expect(
       legs.keys.toSet().difference({'n'}),
-      _serverNames('TAP_LEGS'),
+      quotedWords(serverFile('apps/observe/summary.py'), 'TAP_LEGS'),
       reason: 'the server keeps exactly these legs',
     );
     final frames = summary['frames']! as Map<String, Object?>;
     expect(frames.values.whereType<Map<String, Object?>>().first['over_50'], 1);
-    expect((summary['env']! as Map)['renderer'], 'canvaskit');
+    expect(summary['env'], {
+      'agent': 'Mozilla/5.0 (Linux; Android 10; K) Chrome/131.0.0.0 Mobile',
+      'pixel_ratio': 2.625,
+      'renderer': 'canvaskit',
+    });
 
     final me = s.me;
     final secrets = [
@@ -175,24 +153,34 @@ void main() {
     }
     expect(text.length, lessThan(mostSummaryChars));
 
+    // As the live app sends it: its requests go to `<origin>/api/...`.
+    final live = jsonDecode(
+      text.replaceAllMapped(
+        RegExp(r'(GET|POST|PUT|PATCH|DELETE) /(?!api/)'),
+        (m) => '${m[1]} /api/',
+      ),
+    );
+    final pretty = '${const JsonEncoder.withIndent('  ').convert(live)}\n';
+    if (Platform.environment['UPDATE_CONTRACT_SAMPLES'] != null) {
+      _sample
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync(pretty);
+    }
+    expect(
+      _shape(jsonDecode(_sample.readAsStringSync())),
+      _shape(live),
+      reason:
+          'contract_samples/app/field_summary.json is the app\'s summary: '
+          're-record it with UPDATE_CONTRACT_SAMPLES=1 and run the server\'s '
+          'tests/observe',
+    );
+
     await s.settle(tester);
     await s.close(tester);
   });
 
-  test('the names of every part agree with what the server keeps', () {
-    expect(_serverNames('CHANGE_LEGS'), {'first', 'content'});
-    expect(_serverNames('REQUEST_LEGS'), {
-      'round',
-      'server',
-      'connect',
-      'outside',
-    });
-    expect(_serverNames('ENDS'), {FieldBeacon.endOfGame, 'hidden'});
-    expect(_serverNames('COLD_KINDS'), {'boot', 'db_wake'});
-  });
-
-  test('a leg keeps at most 24 values, the smallest and the largest among '
-      'them, so the server can merge games into percentiles', () {
+  test('a leg keeps at most 16 values, the smallest and the largest among '
+      'them, so the server can merge summaries into percentiles', () {
     final values = [for (var i = 1; i <= 100; i++) i.toDouble()];
     final kept = spreadOf(values.reversed, mostValues);
     expect(kept, hasLength(mostValues));
@@ -201,44 +189,41 @@ void main() {
     expect(spreadOf([3, null, 1], mostValues), [1, 3]);
   });
 
-  test(
-    'a request far slower outside the server than the game\'s others is a '
-    'cold start (boot); one whose database connection is, a database '
-    'waking (db_wake); each says how long the phone had asked nothing',
-    () async {
-      final recorder = await _requests([
-        (gap: 0, round: 120, total: 50, connect: 12),
-        (gap: 2000, round: 110, total: 50, connect: 10),
-        (gap: 2000, round: 130, total: 50, connect: 14),
-        (gap: 400000, round: 2100, total: 100, connect: 11),
-        (gap: 3000, round: 900, total: 700, connect: 640),
-        (gap: 2000, round: 125, total: 50, connect: 12),
-      ]);
+  test('a request far slower outside the server than the others is a cold '
+      'start (boot); one whose database connection is, a database waking '
+      '(db_wake); each says how long the phone had asked nothing', () async {
+    final recorder = await recorderWithRequests([
+      (gap: 0, round: 120, total: 50, connect: 12),
+      (gap: 2000, round: 110, total: 50, connect: 10),
+      (gap: 2000, round: 130, total: 50, connect: 14),
+      (gap: 400000, round: 2100, total: 100, connect: 11),
+      (gap: 3000, round: 900, total: 700, connect: 640),
+      (gap: 2000, round: 125, total: 50, connect: 12),
+    ]);
 
-      final cold = coldStarts(recorder.requests);
+    final cold = coldStarts(recorder.requests);
 
-      expect(cold, [
-        {
-          'kind': 'boot',
-          'path': 'GET /api/onuw/games/·/me/',
-          'round': 2100.0,
-          'server': 100.0,
-          'connect': 11.0,
-          'outside': 2000.0,
-          'gap_s': 400.0,
-        },
-        {
-          'kind': 'db_wake',
-          'path': 'GET /api/onuw/games/·/me/',
-          'round': 900.0,
-          'server': 700.0,
-          'connect': 640.0,
-          'outside': 200.0,
-          'gap_s': 5.0,
-        },
-      ]);
-    },
-  );
+    expect(cold, [
+      {
+        'kind': 'boot',
+        'path': 'GET /api/onuw/games/·/me/',
+        'round': 2100.0,
+        'server': 100.0,
+        'connect': 11.0,
+        'outside': 2000.0,
+        'gap_s': 400.0,
+      },
+      {
+        'kind': 'db_wake',
+        'path': 'GET /api/onuw/games/·/me/',
+        'round': 900.0,
+        'server': 700.0,
+        'connect': 640.0,
+        'outside': 200.0,
+        'gap_s': 5.0,
+      },
+    ]);
+  });
 
   test('nothing tapped or asked for is no summary', () {
     final recorder = FieldRecorder(now: () => 0, controlAt: (_, _) => null)
@@ -247,11 +232,11 @@ void main() {
   });
 
   test('a long evening still fits in one summary', () async {
-    final word = [for (var c = 97; c < 123; c++) String.fromCharCode(c)];
-    final recorder = await _requests([
+    final words = apiWords.toList();
+    final recorder = await recorderWithRequests([
       for (var i = 0; i < 1400; i++)
         (gap: 500, round: 100.0 + i % 50, total: 50, connect: 10),
-    ], path: (i) => 'https://api.example/api/onuw/${word[i % 24]}/');
+    ], path: (i) => 'https://api.example/api/${words[i % words.length]}/');
     for (var i = 0; i < 60; i++) {
       recorder.screen('screen_${String.fromCharCode(97 + i % 26)}');
     }
@@ -264,111 +249,19 @@ void main() {
     expect(text.length, lessThanOrEqualTo(mostSummaryChars));
   });
 
-  group('the beacon', () {
-    testWidgets('sends once when the end board is shown, in an idle task, '
-        'then forgets what it sent', (tester) async {
-      final sent = <String>[];
-      final recorder = await tester.runAsync(
-        () => _requests([(gap: 0, round: 100, total: 50, connect: 10)]),
+  group('a path keeps only the server\'s own route words', () {
+    test('ids, codes and the query go, whatever they look like', () {
+      expect(
+        cleanPath('https://x.example/api/onuw/games/123/vote/?t=abc'),
+        '/api/onuw/games/·/vote/',
       );
-      final beacon = FieldBeacon(
-        recorder: recorder!,
-        commit: 'faf62a1',
-        send: (s) {
-          sent.add(s);
-          return true;
-        },
+      expect(cleanPath('/api/lobbies/QWERTY/join/'), '/api/lobbies/·/join/');
+      expect(
+        cleanPath('/api/lobbies/qwerty/join/'),
+        '/api/lobbies/·/join/',
+        reason: 'a lowercase code is no route word either',
       );
-      beacon.screenShown('vote');
-      await tester.pump(const Duration(milliseconds: 1));
-      expect(sent, isEmpty, reason: 'only the end board sends');
-
-      beacon.screenShown(FieldBeacon.endBoard);
-      expect(sent, isEmpty, reason: 'never in the frame that shows it');
-      await tester.pump(const Duration(milliseconds: 1));
-      expect(sent, hasLength(1));
-      expect(jsonDecode(sent.single), containsPair('end', 'end_board'));
-      expect(recorder.requests, isEmpty, reason: 'what was sent is forgotten');
-
-      beacon.hidden();
-      expect(sent, hasLength(1), reason: 'nothing new: nothing sent');
-    });
-
-    test('reads what the phone says about itself once, with the first '
-        'summary, never before', () async {
-      var reads = 0;
-      final sent = <String>[];
-      final recorder = await _requests(_pollThenEvent);
-      final beacon = FieldBeacon(
-        recorder: recorder,
-        commit: 'faf62a1',
-        send: (s) {
-          sent.add(s);
-          return true;
-        },
-        environment: () {
-          reads++;
-          return {'renderer': 'canvaskit'};
-        },
-      );
-      beacon.hidden();
-      expect(reads, 1);
-      expect(beacon.flush('hidden'), isFalse, reason: 'nothing new');
-      expect(reads, 1, reason: 'nothing to send: nothing read');
-      expect((jsonDecode(sent.single) as Map)['env'], {
-        'renderer': 'canvaskit',
-      });
-    });
-
-    test('the recorder tells it every new screen, once', () {
-      final shown = <String>[];
-      final recorder = FieldRecorder(now: () => 0, controlAt: (_, _) => null)
-        ..screenChanged = shown.add;
-      recorder.screen('vote');
-      recorder.screen('vote');
-      recorder.screen(FieldBeacon.endBoard);
-      expect(shown, ['vote', FieldBeacon.endBoard]);
-    });
-
-    test('a tab hidden while nothing but polls went out sends nothing: they '
-        'go with the next summary', () async {
-      final sent = <String>[];
-      final recorder = await _requests([
-        (gap: 0, round: 100, total: 50, connect: 10),
-        (gap: 5000, round: 100, total: 50, connect: 10),
-      ]);
-      expect(recorder.requests.every((q) => q.isPoll), isTrue);
-      FieldBeacon(
-        recorder: recorder,
-        commit: 'faf62a1',
-        send: (s) {
-          sent.add(s);
-          return true;
-        },
-      ).hidden();
-      expect(sent, isEmpty);
-      expect(recorder.requests, hasLength(2), reason: 'kept for the next');
-    });
-
-    test('sends what was recorded when the tab is hidden', () async {
-      final sent = <String>[];
-      final recorder = await _requests(_pollThenEvent);
-      final beacon = FieldBeacon(
-        recorder: recorder,
-        commit: 'faf62a1',
-        send: (s) {
-          sent.add(s);
-          return true;
-        },
-      );
-
-      beacon.hidden();
-
-      expect(jsonDecode(sent.single), containsPair('end', 'hidden'));
-    });
-
-    test('a test build (no commit) runs no quiet recorder at all', () {
-      expect(quietField, isFalse);
+      expect(cleanPath('/api/ana-bell/'), '/api/·/');
     });
   });
 

@@ -1,9 +1,11 @@
-"""The phones' numbers over the last games, merged: what ``just field-report`` prints and
-the owner's status page is built from (``GET /api/observe/report/``).
+"""The phones' numbers over the last summaries, merged: what ``just field-report`` prints
+(``GET /api/observe/report/``, the owner's only). A summary is a game's end
+(``end_board``) or the play before a tab was hidden: the report counts both and says
+how many were a game's end.
 
-Every summary holds, per kind of tap and per leg, up to 24 of that game's values spread
-over its range (``field_summary.dart``); merging them across games gives the median
-and the 90th percentile of each leg without keeping every tap.
+Every summary holds, per kind of tap and per leg, up to 16 of its values spread over
+their range (``field_summary.dart``); merging them gives the median and the 90th
+percentile of each leg without keeping every tap.
 """
 
 from __future__ import annotations
@@ -53,7 +55,7 @@ def build(rows: Iterable[Any]) -> dict[str, Any]:
     frames: dict[str, dict[str, float]] = {}
     changes: dict[str, dict[str, Any]] = {}
     requests: dict[str, dict[str, Any]] = {}
-    cold_counts = {"boot": 0, "db_wake": 0, "games_with_any": 0}
+    cold_counts = {"boot": 0, "db_wake": 0, "summaries_with_any": 0}
     cold_latest: list[dict[str, Any]] = []
 
     def merge(
@@ -81,7 +83,7 @@ def build(rows: Iterable[Any]) -> dict[str, Any]:
         for path, entry in body.get("requests", {}).items():
             merge(requests.setdefault(path, {}), entry, REQUEST_LEGS)
         seen = body.get("cold", [])
-        cold_counts["games_with_any"] += 1 if seen else 0
+        cold_counts["summaries_with_any"] += 1 if seen else 0
         for one in seen:
             cold_counts[one["kind"]] += 1
             if len(cold_latest) < MOST_LATEST_COLD:
@@ -118,7 +120,8 @@ def build(rows: Iterable[Any]) -> dict[str, Any]:
     ]
     request_rows.sort(key=lambda r: (-r["n"], r["path"]))
     return {
-        "games": len(rows),
+        "summaries": len(rows),
+        "at_game_end": sum(1 for row in rows if row.body.get("end") == "end_board"),
         "first": wire_time(rows[-1].received_at) if rows else None,
         "last": wire_time(rows[0].received_at) if rows else None,
         "commits": dict(sorted(commits.items(), key=lambda kv: -kv[1])),

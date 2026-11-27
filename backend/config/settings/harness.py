@@ -31,4 +31,5 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "sign_up": "1000000/minute",
     "online_stats": "1000000/minute",
     "field_summary": "1000000/minute",
+    "field_report": "1000000/minute",
 }

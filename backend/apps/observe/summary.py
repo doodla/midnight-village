@@ -1,45 +1,44 @@
 """A phone's speed summary, cut to what may be kept.
 
-The app sends one (``frontend/lib/core/perf/field_summary.dart``) at the end of a game
-or when its tab is hidden. It already holds only times, counts, kinds of screen and
-control, request paths without ids and what the phone says about itself; this module
-checks that again and keeps nothing else, so a mistake on the phone, or a caller
-making things up, cannot put a name, a role, a code or an id in the table:
+The app sends one (``frontend/lib/core/perf/field_summary.dart``) at the end of a game,
+and one of the play before its tab was hidden. This keeps only:
 
-* only the keys named here, at the depth named here; anything else is dropped;
-* every label (a kind of tap, a screen, a path) is short and made of the few
-  characters the app's own labels use, else that entry is dropped;
-* every number is finite, 0 or more and at most an hour, else it is dropped;
-* lists and maps are capped, so a summary stays a few KB.
+* the keys named here, at the depth named here; anything else is dropped;
+* labels made only of the closed lists' words (``vocabulary.py``): a label with any
+  other word (a join code, a name, an id, anything made up) is dropped with its entry;
+* numbers that are finite, 0 or more and at most an hour;
+* at most ``MOST_ENTRIES`` labels per part and ``MOST_VALUES`` values per leg;
+* of what the phone says about itself, the kind of phone and browser (``device``,
+  derived from the browser's name for itself, which is then dropped) and a few coarse
+  numbers. No graphics chip, no screen size, no full browser name: nothing that could
+  tell one phone from the next.
 
-``clean`` returns None when what came is not a summary at all.
+``clean`` returns ``(summary, device)``, or None when what came is not a summary.
 """
 
 from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from typing import Any
 
+from . import vocabulary
+
 VERSION = 1
-MOST_ENTRIES = 24
-MOST_VALUES = 24
-MOST_COLD = 10
+MOST_ENTRIES = 16
+MOST_VALUES = 16
+MOST_COLD = 8
 MOST_MS = 3_600_000.0
 
-# A tap kind is "talk tap main_button POST /api/onuw/games/·/ready/"; a screen
-# change "talk > vote (socket phase_change)".
-_LABEL = re.compile(r"^[A-Za-z0-9_ ./·>()\-]{1,120}$")
-_WORD = re.compile(r"^[a-z_]{1,24}$")
 _COMMIT = re.compile(r"^[0-9a-f]{7,40}$")
-_SIZE = re.compile(r"^\d{1,5}x\d{1,5}$")
-_PRINTABLE = re.compile(r"^[ -~]{1,240}$")
 
 TAP_LEGS = ("heard", "screen", "left", "answer", "applied", "shown", "total")
 CHANGE_LEGS = ("first", "content")
 REQUEST_LEGS = ("round", "server", "connect", "outside")
 ENDS = ("end_board", "hidden")
 COLD_KINDS = ("boot", "db_wake")
+RENDERERS = ("canvaskit", "skwasm")
 ENV_NUMBERS = (
     "pixel_ratio",
     "cores",
@@ -66,24 +65,16 @@ def _count(value: Any) -> int | None:
 def _values(value: Any) -> list[float]:
     if not isinstance(value, list):
         return []
-    kept = [n for n in (_number(v) for v in value[:MOST_VALUES]) if n is not None]
-    return kept
+    return [n for n in (_number(v) for v in value[:MOST_VALUES]) if n is not None]
 
 
-def _text(value: Any, pattern: re.Pattern[str], most: int) -> str | None:
-    if not isinstance(value, str):
-        return None
-    value = value[:most]
-    return value if pattern.match(value) else None
-
-
-def _map(raw: Any, entry: Any) -> dict[str, Any]:
-    """A map of label to ``entry(value)``, labels checked, at most MOST_ENTRIES."""
+def _map(raw: Any, allowed: Callable[[str], bool], entry: Any) -> dict[str, Any]:
+    """A map of label to ``entry(value)``, each label in the closed vocabulary."""
     if not isinstance(raw, dict):
         return {}
     out: dict[str, Any] = {}
     for label, value in list(raw.items())[:MOST_ENTRIES]:
-        if not isinstance(label, str) or not _LABEL.match(label):
+        if not isinstance(label, str) or not allowed(label):
             continue
         kept = entry(value)
         if kept:
@@ -131,8 +122,8 @@ def _cold(raw: Any) -> list[dict[str, Any]]:
     for value in raw[:MOST_COLD]:
         if not isinstance(value, dict) or value.get("kind") not in COLD_KINDS:
             continue
-        path = _text(value.get("path"), _LABEL, 120)
-        if path is None:
+        path = value.get("path")
+        if not isinstance(path, str) or not vocabulary.request(path):
             continue
         kept: dict[str, Any] = {"kind": value["kind"], "path": path}
         for name in ("round", "server", "connect", "outside", "gap_s"):
@@ -143,41 +134,37 @@ def _cold(raw: Any) -> list[dict[str, Any]]:
     return out
 
 
-def _env(raw: Any) -> dict[str, Any]:
-    if not isinstance(raw, dict):
-        return {}
+def _env(raw: dict[str, Any]) -> dict[str, Any]:
     env: dict[str, Any] = {}
     for name in ENV_NUMBERS:
         number = _number(raw.get(name))
         if number is not None:
             env[name] = number
-    for name, pattern, most in (
-        ("agent", _PRINTABLE, 240),
-        ("gpu", _PRINTABLE, 120),
-        ("screen", _SIZE, 11),
-        ("window", _SIZE, 11),
-        ("renderer", _WORD, 24),
-    ):
-        text = _text(raw.get(name), pattern, most)
-        if text is not None:
-            env[name] = text
+    if raw.get("renderer") in RENDERERS:
+        env["renderer"] = raw["renderer"]
     return env
 
 
-def clean(raw: Any) -> dict[str, Any] | None:
-    """What may be kept of ``raw``, or None when it is not a summary."""
+def clean(raw: Any) -> tuple[dict[str, Any], str] | None:
+    """What may be kept of ``raw`` and the kind of phone, or None."""
     if not isinstance(raw, dict) or raw.get("v") != VERSION:
         return None
+    env = raw.get("env") if isinstance(raw.get("env"), dict) else {}
     socket = raw.get("socket") if isinstance(raw.get("socket"), dict) else {}
+    commit = raw.get("commit")
     summary = {
         "v": VERSION,
-        "commit": _text(raw.get("commit"), _COMMIT, 40) or "",
+        "commit": commit
+        if isinstance(commit, str) and _COMMIT.match(commit[:40])
+        else "",
         "end": raw.get("end") if raw.get("end") in ENDS else "hidden",
-        "env": _env(raw.get("env")),
-        "taps": _map(raw.get("taps"), _legs(TAP_LEGS)),
-        "frames": _map(raw.get("frames"), _frames),
-        "screens": _map(raw.get("screens"), _legs(CHANGE_LEGS)),
-        "requests": _map(raw.get("requests"), _legs(REQUEST_LEGS)),
+        "env": _env(env),
+        "taps": _map(raw.get("taps"), vocabulary.tap_kind, _legs(TAP_LEGS)),
+        "frames": _map(raw.get("frames"), vocabulary.screen, _frames),
+        "screens": _map(
+            raw.get("screens"), vocabulary.screen_change, _legs(CHANGE_LEGS)
+        ),
+        "requests": _map(raw.get("requests"), vocabulary.request, _legs(REQUEST_LEGS)),
         "cold": _cold(raw.get("cold")),
         "socket": {
             name: _count(socket.get(name)) or 0
@@ -186,7 +173,8 @@ def clean(raw: Any) -> dict[str, Any] | None:
     }
     if not summary["taps"] and not summary["requests"]:
         return None
-    return summary
+    agent = env.get("agent")
+    return summary, device(agent if isinstance(agent, str) else "")
 
 
 def device(agent: str) -> str:

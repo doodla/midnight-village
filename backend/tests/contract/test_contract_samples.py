@@ -42,9 +42,12 @@ def _text(payload: Any) -> str:
 
 
 def _committed() -> dict[str, str]:
+    """The server's samples. ``app/`` holds what the APP sends (recorded by the app's
+    own tests, e.g. ``field_summary_test.dart``), not the server's: not compared here."""
     return {
         path.relative_to(SAMPLES_DIR).as_posix(): path.read_text(encoding="utf-8")
         for path in checkout_files(SAMPLES_DIR, suffixes=(".json",))
+        if path.relative_to(SAMPLES_DIR).parts[0] != "app"
     }
 
 

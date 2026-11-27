@@ -1,4 +1,4 @@
-"""The report over the last games: percentiles per leg, slowest screens, cold starts."""
+"""The report over the last summaries: percentiles per leg, slowest screens, cold starts."""
 
 from __future__ import annotations
 
@@ -69,13 +69,13 @@ def test_cold_starts_are_counted_with_the_latest_ones_listed() -> None:
 
     assert got["cold"]["db_wake"] == 2
     assert got["cold"]["boot"] == 0
-    assert got["cold"]["games_with_any"] == 2
+    assert got["cold"]["summaries_with_any"] == 2
     assert got["cold"]["latest"][0]["gap_s"] == 412.0
 
 
-def test_no_games_is_an_empty_report() -> None:
+def test_no_summaries_is_an_empty_report() -> None:
     got = report.build([])
 
-    assert got["games"] == 0
+    assert got["summaries"] == 0
     assert got["taps"] == []
     assert got["first"] is None

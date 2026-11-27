@@ -1,7 +1,7 @@
 /// The route Vercel's Speed Insights and Web Analytics are told for a web
 /// address: the app's route pattern, never what fills it. A table's link is
-/// `<origin>/join/<code>`: it is reported as `/join/[code]`, so a code never
-/// leaves the phone, and every page of one kind is counted together.
+/// `<origin>/join/<code>`: it is reported as `/join/[code]`, so no code is in
+/// what the scripts send, and every page of one kind is counted together.
 /// Anything the app does not route is `/[other]` (a typed address could hold
 /// anything).
 String insightsRoute(String path) {

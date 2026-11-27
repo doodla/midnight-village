@@ -7,6 +7,7 @@ import 'package:midnight_village/design_system/primitives/art_picture.dart';
 import 'helpers/contract/contract_shape.dart';
 import 'helpers/finger.dart';
 import 'helpers/mock_http_client.dart';
+import 'helpers/quiet_field.dart';
 import 'helpers/test_fonts.dart';
 
 /// Global test configuration — loaded automatically by the Flutter test runner.
@@ -40,6 +41,11 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   };
 
   installFingerRule();
+
+  // `--dart-define=FIELD_QUIET=true`: every test with the live app's quiet
+  // field recorder and its beacon on (what every live phone runs), to show
+  // it changes nothing a test can see (`quietFieldInTests`).
+  quietFieldInTests();
 
   goldenFileComparator = LocalFileComparator(
     Uri.file('${Directory.current.path}/test/design_system/placeholder.dart'),

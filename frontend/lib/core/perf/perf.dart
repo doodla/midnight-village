@@ -12,9 +12,22 @@ import 'package:dio/dio.dart';
 /// [Perf.recorder]; while it is off (always, unless switched on) that is
 /// [PerfOff]: a constant with no state, whose hooks take only what the caller
 /// already holds and return null, so a tap costs nothing more.
+///
+/// A recorder can never change what the app does: one that is on is reached
+/// only through [GuardedRecorder], which catches anything it throws, in its
+/// hooks and in the marks they hand back (a request's answer is passed on
+/// as it came, whatever the recorder did with it).
 abstract final class Perf {
-  /// The recorder in use: off unless `?perf=1` switched it on at start.
-  static PerfRecorder recorder = const PerfOff();
+  static PerfRecorder _recorder = const PerfOff();
+
+  /// The recorder in use: off unless switched on at start
+  /// (`startPerfField`).
+  static PerfRecorder get recorder => _recorder;
+
+  static set recorder(PerfRecorder recorder) => _recorder = switch (recorder) {
+    PerfOff() || GuardedRecorder() => recorder,
+    _ => GuardedRecorder(recorder),
+  };
 }
 
 /// What the app tells the recorder. Nothing here may carry a player's name,
@@ -88,4 +101,87 @@ final class PerfOff implements PerfRecorder {
 
   @override
   void waitingGone() {}
+}
+
+/// Runs [hook]; if it throws, nothing happens (the recorder measures, it
+/// never decides).
+T? quietly<T>(T Function() hook) {
+  try {
+    return hook();
+  } catch (_) {
+    return null;
+  }
+}
+
+/// A recorder that is on, reached so that nothing it throws reaches the
+/// app: every hook, and every mark a hook hands back.
+final class GuardedRecorder implements PerfRecorder {
+  GuardedRecorder(this.inner);
+
+  final PerfRecorder inner;
+
+  @override
+  bool get on => quietly(() => inner.on) ?? false;
+
+  @override
+  HttpMark? httpQueued() => switch (quietly(inner.httpQueued)) {
+    final HttpMark mark => _GuardedHttpMark(mark),
+    null => null,
+  };
+
+  @override
+  RequestMark? playerRequestStarted() =>
+      switch (quietly(inner.playerRequestStarted)) {
+        final RequestMark mark => _GuardedRequestMark(mark),
+        null => null,
+      };
+
+  @override
+  void socketMessage(String url, Object? message) =>
+      quietly(() => inner.socketMessage(url, message));
+
+  @override
+  void socketState(String url, Enum state) =>
+      quietly(() => inner.socketState(url, state));
+
+  @override
+  void screen(Object place) => quietly(() => inner.screen(place));
+
+  @override
+  void waitingShown() => quietly(inner.waitingShown);
+
+  @override
+  void waitingGone() => quietly(inner.waitingGone);
+}
+
+final class _GuardedHttpMark implements HttpMark {
+  _GuardedHttpMark(this.inner);
+
+  final HttpMark inner;
+
+  @override
+  void left(RequestOptions? options) => quietly(() => inner.left(options));
+
+  @override
+  void arrived(int status, Map<String, List<String>> headers) =>
+      quietly(() => inner.arrived(status, headers));
+
+  /// The app gets [sent] itself, its own answer or failure. The recorder
+  /// watches it beside the app (its listener comes first, so it still sees
+  /// the answer before the app uses it), and whatever that watching throws,
+  /// now or when the answer comes, is dropped.
+  @override
+  Future<T> watch<T>(Future<T> sent) {
+    quietly(() => inner.watch(sent).then<void>((_) {}, onError: (_) {}));
+    return sent;
+  }
+}
+
+final class _GuardedRequestMark implements RequestMark {
+  _GuardedRequestMark(this.inner);
+
+  final RequestMark inner;
+
+  @override
+  void applied() => quietly(inner.applied);
 }

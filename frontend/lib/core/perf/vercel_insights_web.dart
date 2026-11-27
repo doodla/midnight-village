@@ -24,9 +24,13 @@ web.HTMLScriptElement? _speed;
 /// What they report is the route, never the address: each script is told
 /// the route pattern (`data-route`, `data-path`: Speed Insights then reports
 /// that path and drops the query) and both rewrite the address in
-/// `beforeSend` (`insightsUrl`), so a table's code (`/join/<code>`) never
-/// leaves the phone. The route follows the app's navigation
-/// (`currententrychange`, and `popstate` where there is no Navigation API).
+/// `beforeSend` (`insightsUrl`), so a table's code (`/join/<code>`) is in
+/// nothing they send. Their requests' own `Referer` is cut to the origin by
+/// the page's referrer policy (`web/index.html`, `strict-origin`). Vercel's
+/// host still serves (and logs) `/join/<code>` itself when a phone opens a
+/// table's link, like any page. The route follows the app's navigation:
+/// `currententrychange` where there is a Navigation API, else the app's own
+/// `history.pushState` and `replaceState` (wrapped here) and `popstate`.
 void startVercelInsights() {
   if (!BuildId.isReal(BuildId.mine) || _speed != null) return;
   try {
@@ -54,11 +58,16 @@ void startVercelInsights() {
     _route();
     void follow(web.Event _) => _route();
     final navigation = window.getProperty<JSObject?>('navigation'.toJS);
-    navigation?.callMethod<JSAny?>(
-      'addEventListener'.toJS,
-      'currententrychange'.toJS,
-      follow.toJS,
-    );
+    if (navigation != null) {
+      navigation.callMethod<JSAny?>(
+        'addEventListener'.toJS,
+        'currententrychange'.toJS,
+        follow.toJS,
+      );
+    } else {
+      _followHistory('pushState');
+      _followHistory('replaceState');
+    }
     web.window.addEventListener('popstate', follow.toJS);
     web.document.body?.append(_speed!);
     web.document.body?.append(_script(webAnalyticsScript));
@@ -68,6 +77,25 @@ void startVercelInsights() {
 web.HTMLScriptElement _script(String src) => web.HTMLScriptElement()
   ..src = src
   ..defer = true;
+
+/// Wraps `history.<name>` so the route is told after each change of the
+/// address (no event says so where there is no Navigation API). The
+/// original runs first and its answer is passed on.
+void _followHistory(String name) {
+  final history = web.window.history as JSObject;
+  final original = history.getProperty<JSFunction?>(name.toJS);
+  if (original == null) return;
+  history.setProperty(
+    name.toJS,
+    ((JSAny? state, JSAny? title, JSAny? url) {
+      final result = original.callAsFunction(history, state, title, url);
+      try {
+        _route();
+      } catch (_) {}
+      return result;
+    }).toJS,
+  );
+}
 
 /// Tells Speed Insights the route shown now.
 void _route() {

@@ -12,8 +12,9 @@ double perfNow() => web.window.performance.now();
 Map<String, String> pageQuery() => Uri.base.queryParameters;
 
 /// What the phone and the browser say about themselves, once. Nothing about
-/// the player: no storage, no address, no account.
-Map<String, Object?> perfEnvironment() {
+/// the player: no storage, no address, no account. [gpu]: also name the
+/// graphics chip (it opens a WebGL context: only for `?perf=1`'s report).
+Map<String, Object?> perfEnvironment({bool gpu = true}) {
   final env = <String, Object?>{};
   void read(String name, Object? Function() what) {
     try {
@@ -37,7 +38,7 @@ Map<String, Object?> perfEnvironment() {
   );
   read('window', () => '${web.window.innerWidth}x${web.window.innerHeight}');
   read('renderer', () => kIsWasm ? 'skwasm' : 'canvaskit');
-  read('gpu', _gpu);
+  if (gpu) read('gpu', _gpu);
   read('main_bundle_ms', () => _loaded(RegExp(r'main\.dart\.(js|wasm)$')));
   read('engine_ms', () => _loaded(RegExp(r'(canvaskit|skwasm)\.wasm$')));
   read('page_ready_ms', () {
@@ -62,15 +63,30 @@ void perfPrepare() {
 /// [after]: when it went out and when the whole answer was in.
 ({double start, double end})? perfResourceTiming(String url, double after) {
   try {
-    for (final entry
-        in web.window.performance.getEntriesByName(url, 'resource').toDart) {
-      final timing = entry as web.PerformanceResourceTiming;
-      if (timing.startTime >= after && timing.responseEnd > 0) {
-        return (start: timing.startTime, end: timing.responseEnd);
+    // From the newest back, as far as `after`: a polled address has many
+    // records, and this one is among the last.
+    final entries = web.window.performance
+        .getEntriesByName(url, 'resource')
+        .toDart;
+    ({double start, double end})? found;
+    for (var i = entries.length - 1; i >= 0; i--) {
+      final timing = entries[i] as web.PerformanceResourceTiming;
+      if (timing.startTime < after) break;
+      if (timing.responseEnd > 0) {
+        found = (start: timing.startTime, end: timing.responseEnd);
       }
     }
+    return found;
   } catch (_) {}
   return null;
+}
+
+/// Forgets the browser's records of finished requests (the quiet mode, at
+/// each summary it sends: the record does not grow over an evening).
+void perfClearResourceTimings() {
+  try {
+    web.window.performance.clearResourceTimings();
+  } catch (_) {}
 }
 
 /// The graphics chip's name, as WebGL says it (Chrome gives it plainly).

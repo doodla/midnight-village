@@ -3,9 +3,10 @@ Rules every migration file follows (see "Deploy-safe changes" in backend/CLAUDE.
 
 * A migration never imports application code: the code changes, the migration must
   keep meaning what it meant when it was written.
-* From ``FIRST_LOCKED_NUMBER`` on, a migration starts by setting a lock timeout, so
-  an ALTER that cannot get its lock fails the deploy at once instead of blocking
-  the live site behind it.
+* Every migration starts by setting a lock timeout, so an ALTER that cannot get its
+  lock fails the deploy at once instead of blocking the live site behind it. Only the
+  ones written before the rule are exempt, by name (``BEFORE_THE_RULE``, frozen): a
+  new app's first migration is held to it like any other.
 """
 
 import ast
@@ -26,7 +27,37 @@ MIGRATIONS = [
     and p.name != "__init__.py"
     and re.match(r"\d{4}_", p.name)
 ]
-FIRST_LOCKED_NUMBER = 10
+# Written before the rule; never add to this list.
+BEFORE_THE_RULE = frozenset(
+    {
+        "core/0001_initial",
+        "core/0002_lobby",
+        "core/0003_lobbymember",
+        "core/0004_alter_lobbymember_options_user_display_name_and_more",
+        "core/0005_alter_lobbymember_unique_together_and_more",
+        "core/0006_host_handover",
+        "core/0007_remove_lobbymember_connections",
+        "core/0008_lobbysocket",
+        "core/0009_scheduledtimer",
+        "onuw/0001_initial",
+        "onuw/0002_add_phase_deadline",
+        "onuw/0003_night_windows",
+        "onuw/0004_play_again_and_presence",
+        "onuw/0005_scheduled_timer",
+        "onuw/0006_socket_presence",
+        "onuw/0007_timer_publication",
+        "onuw/0008_lobby_sockets_to_core",
+        "onuw/0009_core_owns_timers",
+    }
+)
+
+
+def _name(path: Path) -> str:
+    return f"{path.parent.parent.name}/{path.stem}"
+
+
+def test_the_exempt_list_names_only_migrations_that_exist() -> None:
+    assert BEFORE_THE_RULE <= {_name(p) for p in MIGRATIONS}
 
 
 def imported_modules(tree: ast.AST) -> list[str]:
@@ -70,7 +101,7 @@ def test_a_migration_imports_no_application_code(path: Path) -> None:
 
 @pytest.mark.parametrize(
     "path",
-    [p for p in MIGRATIONS if int(p.name[:4]) >= FIRST_LOCKED_NUMBER],
+    [p for p in MIGRATIONS if _name(p) not in BEFORE_THE_RULE],
     ids=lambda p: f"{p.parent.parent.name}/{p.stem}",
 )
 def test_a_new_migration_starts_with_a_lock_timeout(path: Path) -> None:

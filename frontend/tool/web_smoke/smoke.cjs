@@ -78,8 +78,32 @@ const types = {
   '.json': 'application/json', '.wasm': 'application/wasm', '.webp': 'image/webp',
   '.png': 'image/png', '.ttf': 'font/ttf', '.otf': 'font/otf', '.txt': 'text/plain',
 };
+// Vercel's own paths (/_vercel/...), answered as Vercel does before any route:
+// its two scripts (recorded copies, tool/web_smoke/vercel/), and their intake,
+// whose bodies are kept here to be read (step 7).
+const vercelScripts = {
+  '/_vercel/speed-insights/script.js': path.join(__dirname, 'vercel', 'speed-insights.js'),
+  '/_vercel/insights/script.js': path.join(__dirname, 'vercel', 'insights.js'),
+};
+const vercelSent = [];
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
+  if (url.startsWith('/_vercel/')) {
+    if (vercelScripts[url]) {
+      res.writeHead(200, { 'Content-Type': 'text/javascript' });
+      return res.end(fs.readFileSync(vercelScripts[url]));
+    }
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      if (req.method === 'POST') {
+        vercelSent.push({ path: url, body, referer: req.headers.referer || '' });
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{}');
+    });
+    return undefined;
+  }
   const dir = path.join(root, current);
   const isFile = (p) => {
     const file = path.join(dir, p === '/' ? 'index.html' : p);
@@ -293,6 +317,49 @@ async function liveBuild(page, want, ms = 30000) {
     check(scope === url, `that visit registers the site's service worker (scope ${scope})`);
     check(linked.errors.length === 0, `no page errors on that visit ${linked.errors.join(' | ')}`);
     await fresh.close();
+
+    // 7. What Vercel's two scripts send for a table's link: the route pattern,
+    // never the code. Both scripts send nothing to a browser that says it is
+    // driven (navigator.webdriver, "Headless" in its name), so this phone says
+    // neither. The tab is then hidden: Speed Insights sends its numbers then.
+    const phone = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/131.0.0.0 Mobile Safari/537.36',
+    });
+    await phone.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false });
+    });
+    const code = 'K7QX9P';
+    const tabled = await open(phone, `${url}join/${code}`, 'a table link with Vercel\'s scripts');
+    const sentTo = (p) => vercelSent.filter((s) => s.path.startsWith(p));
+    for (let i = 0; i < 60 && sentTo('/_vercel/insights/').length === 0; i++) {
+      await tabled.page.waitForTimeout(500);
+    }
+    await tabled.page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    for (let i = 0; i < 40 && sentTo('/_vercel/speed-insights/').length === 0; i++) {
+      await tabled.page.waitForTimeout(500);
+    }
+    const views = sentTo('/_vercel/insights/');
+    const vitals = sentTo('/_vercel/speed-insights/');
+    check(views.length > 0, `Web Analytics sends a page view (${views.length})`);
+    check(vitals.length > 0, `Speed Insights sends its numbers when the tab is hidden (${vitals.length})`);
+    const all = [...views, ...vitals];
+    check(
+      all.every((s) => !s.body.includes(code) && !s.referer.includes(code)),
+      'no request of theirs holds the table\'s code, in its body or its Referer',
+    );
+    check(
+      views.some((s) => s.body.includes('/join/[code]')) && vitals.some((s) => s.body.includes('/join/[code]')),
+      'each reports the route pattern /join/[code]',
+    );
+    if (process.env.WEB_SMOKE_DEBUG) console.log(JSON.stringify(all));
+    await phone.close();
   } finally {
     await browser.close();
     server.close();

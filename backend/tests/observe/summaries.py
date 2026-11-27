@@ -27,10 +27,7 @@ def summary(seed: int = 7, **over: Any) -> dict[str, Any]:
         "env": {
             "agent": AGENT,
             "pixel_ratio": 2.625,
-            "screen": "412x915",
-            "window": "412x839",
             "renderer": "canvaskit",
-            "gpu": "ANGLE (Qualcomm, Adreno (TM) 618, OpenGL ES 3.2)",
             "cores": 8,
             "memory_gb": 4,
             "first_frame_ms": 2310,

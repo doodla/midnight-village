@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""What real phones measured in real games: `just field-report`.
+"""What real phones measured in real play: `just field-report`.
 
-The live app's quiet recorder sends one summary per game (or when a tab is hidden)
-to the server (`frontend/lib/core/perf/field_summary.dart`, kept by
-`backend/apps/observe/`). This reads the server's merged report of the last games,
-`GET /api/observe/report/?games=N` (no account: it holds only times and counts), and
-prints it:
+The live app's quiet recorder sends a summary at the end of each game, and one of the
+play before its tab is hidden (`frontend/lib/core/perf/field_summary.dart`, kept by
+`backend/apps/observe/`). This reads the server's merged report of the last summaries,
+`GET /api/observe/report/?last=N`, which is the owner's only: it is sent the key in
+this machine's `FIELD_REPORT_KEY` environment variable (the server must have the same
+one; without one there, the report answers 404 to everyone). It prints:
 
 * per kind of tap and device, each leg's median and 90th percentile, in ms
   (screen: finger to the first frame; left: finger to the request leaving; answer:
@@ -15,12 +16,12 @@ prints it:
 * the slowest screen changes;
 * each request's round trip, the server's own time and the time outside it;
 * cold starts seen in play (`boot`: a request far slower outside the server than the
-  game's others, an instance starting; `db_wake`: its database connection was,
+  summary's others, an instance starting; `db_wake`: its database connection was,
   Neon waking), with how long the phone had asked nothing before.
 
-usage: tool/field_report.py [--games N] [--api ORIGIN] [--json]
+usage: FIELD_REPORT_KEY=... tool/field_report.py [--last N] [--api ORIGIN] [--json]
 
-`--json` prints the report as the server sent it (what a status page is built from).
+`--json` prints the report as the server sent it.
 Only the standard library.
 """
 
@@ -28,17 +29,27 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import urllib.error
 import urllib.request
 from typing import Any
 
 LIVE_API = "https://midnight-village-anthelion.vercel.app"
 LEGS = ("screen", "left", "answer", "applied", "shown", "total")
+KEY_HEADER = "X-Field-Report-Key"
+CLOSED = (
+    "field-report: the report is closed. Set FIELD_REPORT_KEY here to the key the "
+    "server has (its own FIELD_REPORT_KEY environment variable); while the server has "
+    "none, the report is closed to everyone and the summaries are still kept."
+)
 
 
-def fetch(api: str, games: int) -> dict[str, Any]:
-    url = f"{api.rstrip('/')}/api/observe/report/?games={games}"
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+def fetch(api: str, last: int, key: str) -> dict[str, Any]:
+    url = f"{api.rstrip('/')}/api/observe/report/?last={last}"
+    request = urllib.request.Request(
+        url, headers={"Accept": "application/json", KEY_HEADER: key}
+    )
     with urllib.request.urlopen(request, timeout=30) as answer:  # noqa: S310
         return json.load(answer)
 
@@ -59,12 +70,13 @@ def _counts(counts: dict[str, int]) -> str:
 
 def text(report: dict[str, Any]) -> str:
     out: list[str] = []
-    games = report.get("games", 0)
-    if not games:
-        return "Field report: no games yet (the live app sends one per game)."
+    rows = report.get("summaries", 0)
+    if not rows:
+        return "Field report: no summaries yet (the live app sends one per game)."
     out.append(
-        f"Field report: {games} games, {report['first'][:16]} to "
-        f"{report['last'][:16]} (UTC)"
+        f"Field report: {rows} summaries ({report['at_game_end']} at a game's end, the "
+        f"rest the play before a tab was hidden), {report['first'][:13]}h to "
+        f"{report['last'][:13]}h (UTC)"
     )
     out.append(f"  builds: {_counts(report['commits'])}")
     out.append(f"  phones: {_counts(report['devices'])}")
@@ -106,7 +118,7 @@ def text(report: dict[str, Any]) -> str:
     out.append("")
     out.append(
         f"Cold starts seen: {cold['boot']} server starting, {cold['db_wake']} "
-        f"database waking, in {cold['games_with_any']} of {games} games"
+        f"database waking, in {cold['summaries_with_any']} of {rows} summaries"
     )
     for one in cold["latest"]:
         gap = one.get("gap_s")
@@ -114,7 +126,7 @@ def text(report: dict[str, Any]) -> str:
             "" if gap is None else f", {round(gap)} s after the phone's last request"
         )
         out.append(
-            f"  {one['received_at'][:16]} {one['device']} {one['kind']}: "
+            f"  {one['received_at'][:13]}h {one['device']} {one['kind']}: "
             f"{one['path']}, round trip {_ms(one.get('round'))} ms, server "
             f"{_ms(one.get('server'))} ms, connect {_ms(one.get('connect'))} ms{quiet}"
         )
@@ -123,12 +135,24 @@ def text(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--games", type=int, default=30, help="the last N games (30)")
+    parser.add_argument(
+        "--last", type=int, default=30, help="the last N summaries (30, at most 60)"
+    )
     parser.add_argument("--api", default=LIVE_API, help="the server's origin")
     parser.add_argument("--json", action="store_true", help="the report as JSON")
     args = parser.parse_args(argv)
+    key = os.environ.get("FIELD_REPORT_KEY", "")
+    if not key:
+        print(CLOSED, file=sys.stderr)
+        return 2
     try:
-        report = fetch(args.api, args.games)
+        report = fetch(args.api, args.last, key)
+    except urllib.error.HTTPError as error:
+        print(
+            CLOSED if error.code == 404 else f"field-report: answered {error.code}",
+            file=sys.stderr,
+        )
+        return 2
     except OSError as error:
         print(f"field-report: could not read {args.api}: {error}", file=sys.stderr)
         return 2

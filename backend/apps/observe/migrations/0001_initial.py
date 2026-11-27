@@ -48,7 +48,7 @@ class Migration(migrations.Migration):
                 ("body", models.JSONField()),
             ],
             options={
-                "ordering": ["-received_at", "-id"],
+                "ordering": ["-id"],
             },
         ),
     ]

@@ -3,23 +3,25 @@ import 'dart:convert';
 import 'field_recorder.dart';
 import 'perf_records.dart';
 
-/// The quiet recorder's summary of one game (or of the play before the tab
-/// was hidden): what `field_beacon.dart` sends to the server
-/// (`POST /api/observe/summary/`, `backend/apps/observe/summary.py` keeps
-/// only this shape). Kinds of tap, screens, paths without ids, times and
-/// counts, and what the phone says about itself: never a name, a role, a
-/// card, a vote, a code or an id.
+/// The quiet recorder's summary of a game's end (or of the play before the
+/// tab was hidden): what `field_beacon.dart` sends to the server
+/// (`POST /api/observe/summary/`; `backend/apps/observe/summary.py` keeps
+/// only this shape, and only the words of its closed lists). Kinds of tap,
+/// screens, paths without ids, times and counts, and a few coarse facts of
+/// the phone (the browser's name for itself, from which the server keeps
+/// only "android chrome" and the like): never a name, a role, a card, a
+/// vote, a code or an id.
 ///
-/// Per kind of tap and per leg it holds up to [mostValues] of the game's
-/// values, spread over their range (the smallest, the largest and evenly
-/// between), so the server can merge games into a median and a 90th
-/// percentile without every tap.
+/// Per kind of tap and per leg it holds up to [mostValues] of its values,
+/// spread over their range (the smallest, the largest and evenly between),
+/// so the server can merge summaries into a median and a 90th percentile
+/// without every tap.
 const fieldSummaryVersion = 1;
-const mostEntries = 24;
-const mostValues = 24;
+const mostEntries = 16;
+const mostValues = 16;
 
-/// What a summary may weigh, as sent (the server refuses over 16 KB).
-const mostSummaryChars = 12000;
+/// What a summary may weigh, as sent (the server refuses over 8 KB).
+const mostSummaryChars = 7000;
 
 /// A request counts as a cold start when the time outside the server's own
 /// count (the round trip less `Server-Timing`'s `total`: the network, the
@@ -85,10 +87,7 @@ Map<String, Object?>? fieldSummary(
       for (final key in const [
         'agent',
         'pixel_ratio',
-        'screen',
-        'window',
         'renderer',
-        'gpu',
         'cores',
         'memory_gb',
         'main_bundle_ms',

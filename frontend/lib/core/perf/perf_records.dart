@@ -290,16 +290,60 @@ double? _gap(double? from, double? to) =>
 
 double? _r(double? ms) => ms == null ? null : (ms * 10).round() / 10;
 
-/// A path with every id, code and query removed: only the words of the API
-/// stay (`/api/v2/games/·/vote/`).
+/// A path with every id, code and query removed: only the fixed words of the
+/// server's own routes stay (`/api/onuw/games/·/vote/`), anything else is
+/// `·`, whatever it looks like.
 String cleanPath(String pathOrUrl) {
   final path = Uri.tryParse(pathOrUrl)?.path ?? '';
-  final word = RegExp(r'^([a-z][a-z_-]*|v\d)$');
   return path
       .split('/')
-      .map((s) => s.isEmpty || word.hasMatch(s) ? s : '·')
+      .map((s) => s.isEmpty || apiWords.contains(s) ? s : '·')
       .join('/');
 }
+
+/// Every fixed word of the server's routes (`backend/config/urls.py` and
+/// `backend/apps/*/urls.py`; `field_summary_test.dart` reads them and fails
+/// when the two differ, so a new route's word is added here at once).
+const apiWords = {
+  'action',
+  'advance-wave',
+  'api',
+  'auth',
+  'current-game',
+  'debug-fire-timer',
+  'debug-state',
+  'end-discussion',
+  'games',
+  'guest',
+  'health',
+  'internal',
+  'join',
+  'leave',
+  'lobbies',
+  'logout',
+  'me',
+  'night-results',
+  'observe',
+  'online',
+  'onuw',
+  'play-again',
+  'players',
+  'practice',
+  'ready',
+  'recent-games',
+  'refresh',
+  'report',
+  'results',
+  'reveal-votes',
+  'seen',
+  'start',
+  'stats',
+  'summary',
+  'sweep-timers',
+  'table',
+  'token',
+  'vote',
+};
 
 /// The `Server-Timing` header's `connect` and `total`, in ms.
 ({double? connect, double? total}) serverTiming(String? header) {

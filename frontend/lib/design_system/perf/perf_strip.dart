@@ -24,34 +24,78 @@ import 'control_kind.dart';
 /// - with its strip when this tab asked for it (`?perf=1`, remembered for
 ///   the tab; `?perf=0` switches it off): kept on the phone, copied by hand;
 /// - else quietly on a build with a commit (the live app): no strip, and a
-///   summary per game goes to the server (`FieldBeacon`). A build with no
-///   commit (a local run, the tests) stays off and sends nothing.
+///   summary at each game's end (and of the play before a hidden tab) goes
+///   to the server (`FieldBeacon`). A build with no commit (a local run, the
+///   tests) stays off and sends nothing.
+///
+/// Nothing here can stop the app: anything that throws leaves the recorder
+/// off.
 void startPerfField() {
   if (!kIsWeb) return;
-  final strip = perfSwitchedOn(pageQuery(), openTabStorage());
-  if (!strip && !quietField) return;
-  perfPrepare();
+  try {
+    final strip = perfSwitchedOn(pageQuery(), openTabStorage());
+    if (!strip && !quietField) return;
+    perfPrepare();
+    if (!strip) {
+      final url = '${Env.apiUrl}/observe/summary/';
+      final (beacon, _) = startQuietField(
+        now: perfNow,
+        send: (summary) => sendBeacon(url, summary),
+        environment: () => perfEnvironment(gpu: false),
+        resourceTiming: perfResourceTiming,
+        sent: perfClearResourceTimings,
+      );
+      whenHidden(beacon.hidden);
+      return;
+    }
+    final recorder = FieldRecorder(
+      now: perfNow,
+      controlAt: controlAt,
+      environment: perfEnvironment(),
+      resourceTiming: perfResourceTiming,
+    )..install();
+    Perf.recorder = recorder;
+    _strip = recorder;
+  } catch (_) {
+    _strip = null;
+    Perf.recorder = const PerfOff();
+  }
+}
+
+/// The quiet recorder and its beacon, switched on: the live app's, and a
+/// test run's with `--dart-define=FIELD_QUIET=true` (`test/flutter_test_config.dart`,
+/// `test_e2e/flutter_test_config.dart`: every screen and the harness with it
+/// on). Returns the beacon and what switches both off.
+(FieldBeacon, void Function()) startQuietField({
+  required double Function() now,
+  required bool Function(String summary) send,
+  Map<String, Object?> Function()? environment,
+  ({double start, double end})? Function(String url, double after)?
+  resourceTiming,
+  void Function()? sent,
+}) {
   final recorder = FieldRecorder(
-    now: perfNow,
+    now: now,
     controlAt: controlAt,
-    // The quiet mode reads it later, with its first summary (`FieldBeacon`).
-    environment: strip ? perfEnvironment() : const {},
-    resourceTiming: perfResourceTiming,
+    resourceTiming: resourceTiming,
   )..install();
   Perf.recorder = recorder;
-  if (strip) {
-    _strip = recorder;
-    return;
-  }
-  final url = '${Env.apiUrl}/observe/summary/';
   final beacon = FieldBeacon(
     recorder: recorder,
     commit: BuildId.mine,
-    send: (summary) => sendBeacon(url, summary),
-    environment: perfEnvironment,
+    send: send,
+    environment: environment,
+    sent: sent,
   );
   recorder.screenChanged = beacon.screenShown;
-  whenHidden(beacon.hidden);
+  return (
+    beacon,
+    () {
+      beacon.screenShown('');
+      recorder.uninstall();
+      Perf.recorder = const PerfOff();
+    },
+  );
 }
 
 /// The quiet mode: on for a build with a commit; `--dart-define=FIELD_QUIET=true`

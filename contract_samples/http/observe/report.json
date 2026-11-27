@@ -1,7 +1,8 @@
 {
-  "games": 1,
-  "first": "2024-03-07T23:27:38Z",
-  "last": "2024-03-07T23:27:38Z",
+  "summaries": 1,
+  "at_game_end": 1,
+  "first": "2024-03-07T23:00:00Z",
+  "last": "2024-03-07T23:00:00Z",
   "commits": {
     "faf62a1": 1
   },
@@ -159,10 +160,10 @@
   "cold": {
     "boot": 0,
     "db_wake": 1,
-    "games_with_any": 1,
+    "summaries_with_any": 1,
     "latest": [
       {
-        "received_at": "2024-03-07T23:27:38Z",
+        "received_at": "2024-03-07T23:00:00Z",
         "device": "android chrome",
         "kind": "db_wake",
         "path": "GET /api/onuw/games/·/me/",
