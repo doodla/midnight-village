@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/feel/press_paint.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/models/role.dart';
 import 'package:midnight_village/design_system/primitives/band.dart';
@@ -36,12 +37,13 @@ Future<void> _pump(WidgetTester tester, Widget child, {GroundKind? ground}) {
   );
 }
 
+/// The button's paper at rest (a finger presses it by paint: `PressDecoration`).
 BoxDecoration _decoration(WidgetTester tester, Finder of) =>
     tester
-            .widget<AnimatedContainer>(
-              find.descendant(of: of, matching: find.byType(AnimatedContainer)),
+            .widget<PressDecoration>(
+              find.descendant(of: of, matching: find.byType(PressDecoration)),
             )
-            .decoration!
+            .rest
         as BoxDecoration;
 
 void main() {

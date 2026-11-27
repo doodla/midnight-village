@@ -109,6 +109,12 @@ class DeckleBorder extends ShapeBorder {
   static final _cut = <(int, double, double, bool, bool, bool, Rect), Path>{};
   static const _cutMost = 512;
 
+  /// The same edges by their size alone, at the origin: a piece drawn
+  /// somewhere new (a shadow tightening under a finger moves its rect each
+  /// frame) moves a path already cut ([Path.shift]) instead of tearing it.
+  static final _shapes =
+      <(int, double, double, bool, bool, bool, Size), Path>{};
+
   /// How many paths were torn (not found in the cache) since the app began:
   /// `paint_cache_test.dart` reads it.
   @visibleForTesting
@@ -118,8 +124,18 @@ class DeckleBorder extends ShapeBorder {
     final key = (seed, depth, step, torn, round, blob, rect);
     final found = _cut.remove(key);
     if (found != null) return _cut[key] = found;
-    tornCount++;
-    final path = _path(rect);
+    final shapeKey = (seed, depth, step, torn, round, blob, rect.size);
+    final shape = _shapes.remove(shapeKey);
+    final Path path;
+    if (shape != null) {
+      path = shape.shift(rect.topLeft);
+      _shapes[shapeKey] = shape;
+    } else {
+      tornCount++;
+      path = _path(rect);
+      if (_shapes.length >= _cutMost) _shapes.remove(_shapes.keys.first);
+      _shapes[shapeKey] = path.shift(-rect.topLeft);
+    }
     if (_cut.length >= _cutMost) _cut.remove(_cut.keys.first);
     return _cut[key] = path;
   }

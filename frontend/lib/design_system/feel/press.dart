@@ -293,22 +293,35 @@ class RenderPressSink extends RenderProxyBox {
     super.dispose();
   }
 
+  /// Where the child is drawn now: null at rest (and with reduce motion).
+  Matrix4? get _transform {
+    final press = _still ? 0.0 : _press.value;
+    if (press == 0 || (_by == Offset.zero && _shrink == 0)) return null;
+    final centre = size.center(Offset.zero);
+    final scale = 1 - _shrink * press;
+    final moved = centre + _by * press;
+    return Matrix4.translationValues(moved.dx, moved.dy, 0)
+      ..multiply(Matrix4.diagonal3Values(scale, scale, 1))
+      ..multiply(Matrix4.translationValues(-centre.dx, -centre.dy, 0));
+  }
+
+  /// The child is placed where it is drawn (an overlay that follows it, a
+  /// test that reads where it is); it is still hit where it rests.
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    if (_transform case final moved?) transform.multiply(moved);
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final child = this.child;
     if (child == null) return;
-    final press = _still ? 0.0 : _press.value;
-    if (press == 0 || (_by == Offset.zero && _shrink == 0)) {
+    final transform = _transform;
+    if (transform == null) {
       _layer.layer = null;
       context.paintChild(child, offset);
       return;
     }
-    final centre = size.center(Offset.zero);
-    final scale = 1 - _shrink * press;
-    final moved = centre + _by * press;
-    final transform = Matrix4.translationValues(moved.dx, moved.dy, 0)
-      ..multiply(Matrix4.diagonal3Values(scale, scale, 1))
-      ..multiply(Matrix4.translationValues(-centre.dx, -centre.dy, 0));
     _layer.layer = context.pushTransform(
       needsCompositing,
       offset,
