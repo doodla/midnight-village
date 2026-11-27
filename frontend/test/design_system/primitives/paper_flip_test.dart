@@ -30,21 +30,29 @@ class _Flip extends StatefulWidget {
   State<_Flip> createState() => _FlipState();
 }
 
-class _FlipState extends State<_Flip> {
+class _FlipState extends State<_Flip> with SingleTickerProviderStateMixin {
   var turned = false;
-  var pressed = false;
   var faces = 0;
 
-  void change({bool? turned, bool? pressed}) => setState(() {
-    this.turned = turned ?? this.turned;
-    this.pressed = pressed ?? this.pressed;
-  });
+  /// A finger's press, as `Pressable` hands it on: set by the test.
+  late final press = AnimationController(vsync: this);
+
+  @override
+  void dispose() {
+    press.dispose();
+    super.dispose();
+  }
+
+  void change({bool? turned, bool? pressed}) {
+    if (pressed != null) press.value = pressed ? 1 : 0;
+    setState(() => this.turned = turned ?? this.turned);
+  }
 
   @override
   Widget build(BuildContext context) => Center(
     child: PaperFlip(
       turned: turned,
-      pressed: pressed,
+      press: press,
       onLanded: widget.landed,
       back: const SizedBox(
         key: _back,
@@ -258,9 +266,19 @@ void main() {
       await tester.pump(Motion.press);
       final dipped = tester.getRect(find.byKey(_back));
       expect(dipped.width, closeTo(rest.width * (1 - PaperFlip.dip), 0.5));
-      await _set(tester, pressed: false, turned: true);
+      // Still held: the dip is given back as the turn goes, all of it by the
+      // edge, and the face lands where the back rested.
+      await _set(tester, turned: true);
+      final flat = tester.getRect(find.byKey(_back)).height;
+      expect(flat, closeTo(rest.height * (1 - PaperFlip.dip), 0.5));
+      while (!tester.any(find.byKey(_faceKey))) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
       await tester.pumpAndSettle();
       expect(tester.getRect(find.byKey(_faceKey)), rest);
+      await _set(tester, pressed: false, turned: false);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byKey(_back)), rest);
     });
   });
 

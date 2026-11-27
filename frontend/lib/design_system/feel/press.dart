@@ -266,6 +266,22 @@ class RenderPressLayer extends RenderProxyBox {
   }
 }
 
+/// The press of the part a piece is drawn in, for a piece deep inside it
+/// that draws its own share of it (04's hero sinking toward its shadow,
+/// under `PaperFlip`). Hand it to paint only, as a [PressBuilder]'s.
+class PressScope extends InheritedWidget {
+  const PressScope({super.key, required this.press, required super.child});
+
+  final Animation<double> press;
+
+  /// The press round [context]; null outside one.
+  static Animation<double>? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PressScope>()?.press;
+
+  @override
+  bool updateShouldNotify(PressScope old) => old.press != press;
+}
+
 /// A part's ink dimmed by a press, by paint alone: [child] is drawn at full
 /// ink at rest and at [to] all the way down. Only while the press dims it is
 /// there an opacity layer; at rest there is none and no repaint boundary

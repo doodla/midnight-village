@@ -20,31 +20,18 @@ import 'paper_light.dart';
 enum _Shown { held, activated, opened }
 
 /// Whether the [HoldToReveal] round this cover is being held now: the
-/// hold cue's ring fills while it is ([HoldCue]). [press] is the finger's
-/// press on a card turned in place (04), from the frame it lands: the cover
-/// sinks its paper with it (`PressSink`, `PressDecoration`).
+/// hold cue's ring fills while it is ([HoldCue]).
 class HoldPress extends InheritedWidget {
-  const HoldPress({
-    super.key,
-    required this.held,
-    this.press,
-    required super.child,
-  });
+  const HoldPress({super.key, required this.held, required super.child});
 
   final bool held;
-  final Animation<double>? press;
 
   /// False outside a [HoldToReveal].
   static bool of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<HoldPress>()?.held ?? false;
 
-  /// The finger's press on the cover; null outside a card turned in place.
-  static Animation<double>? pressOf(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<HoldPress>()?.press;
-
   @override
-  bool updateShouldNotify(HoldPress old) =>
-      old.held != held || old.press != press;
+  bool updateShouldNotify(HoldPress old) => old.held != held;
 }
 
 /// A secret behind press-and-hold (first-time play spec, section 2): [cover]
@@ -418,7 +405,6 @@ class _HoldToRevealState extends State<HoldToReveal>
       // Hidden information: the cover sets the size, shown or not.
       child: HoldPress(
         held: _shown == _Shown.held,
-        press: widget.inPlace ? press : null,
         child: widget.inPlace ? _turned(context, press) : widget.cover,
       ),
     ),

@@ -778,8 +778,10 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   a change that is not a finger's (busy, a rise, a pick) eases over its `duration` as an `AnimatedContainer` does.
   `PaperPiece(press:)` and `TiltedPaper(press:, pressed:)` take a finger's press so; `pressed:` stays for a press that is not a finger's (a busy button).
   The plaque sinks into its backing, an outline fills with a hairline (a main one also dips), a scrap sinks into its shadow, a quiet word or a glyph dims;
-  a locked or waiting button presses and returns. On 04 the cover gets the hold's press through `HoldPress.pressOf`: the hero sinks toward its slab's shadow
-  (`FaceDownCard.heroPressKeep`, half) and `PaperFlip(press:)` shrinks it 2%, both from the frame the finger lands, and they stay down while held.
+  a locked or waiting button presses and returns. On 04 `PaperFlip(press:)` shrinks the back 2% and hands its back the press (`PressScope`):
+  the hero sinks toward its slab's shadow (`FaceDownCard.heroPressKeep`, half), both from the frame the finger lands, held down while the card lies face down;
+  as it turns both are given back over the first half of the turn (`press * (1 - 2 * turn)`), so at the edge the unpressed face takes over with no jump
+  (`card_turn_press_test.dart`, a frame a millisecond, held and let go).
   While a press blends, a deckled edge (a shadow moving under a finger) is a moved copy of one already cut, never torn again (`DeckleBorder.whileMoving`);
   at rest and all the way down every edge is cut where it lies, as before.
   Tests: `press_parts_test.dart` (the first frame, a quick tap, the lift, reduce motion and no rebuild, by the pixels drawn, for every part).
