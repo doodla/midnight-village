@@ -138,7 +138,13 @@ own report; on GitHub an annotation each, and the database keeps its own log qui
 list is the job's last lines; `guardrails/tests/test_failed_tests.py`). `just handover <file>`
 (`tool/handover.py`, `frontend/tool/handover_sheet.py`) is the one way to hand over: it
 refuses work that is not committed, pushed and mergeable with main; runs the fast check's
-plan at both widths plus the harness, each result and each finished set of pictures kept per commit
+plan at both widths plus the harness, and, when the app's code or assets changed, the golden
+tests and every test that scans all of `lib/` (found by what they do, not listed:
+`tool/lib_scans.py`, a test that lists a directory tree or carries `Guard file`); reads GitHub's
+required checks from the workflows and the ruleset (`tool/github_checks.py`) and says for each
+whether it ran here, passed, failed, ran only in part or did not run, so the first line is
+"READY (N of M of GitHub's checks run here)" and never "GitHub will pass"
+(`guardrails/tests/test_github_checks.py`); each result and each finished set of pictures kept per commit
 the moment it is done, so a run killed part way carries on when run again; draws every reached state beside main at 412x915 and 360x640 and puts the changed ones
 on contact sheets; and writes the hand-over file in one fixed shape
 (`guardrails/tests/test_handover.py`, `test_brief.py`). Every recipe of `frontend/` and
@@ -146,6 +152,17 @@ on contact sheets; and writes the hand-over file in one fixed shape
 `tool/root_recipes.py` (in `just check`) fails only for a recipe the change itself adds
 without its root line, and `--fix` writes the lines
 (`guardrails/tests/test_recipes_everywhere.py`).
+
+**The heavy queue.** `tool/heavy.py` (`just heavy <command...>`, `just heavy --status`) is a counting queue
+for every heavy command: 3 at once (by the machine's memory and the measured peak of each kind of job, in
+`docs/dev/running-the-work.md`, "Waiting, and the heavy queue"), the rest in order, saying where they stand at once and
+every 30 seconds. A slot is a file lock no child inherits, released on any exit; the command runs in a session of its own, is
+stopped with its heavy parent, and what it leaves running is stopped; each run's time and peak memory go to its history.
+The recipes that run tests, builds, screens, the harness, phone-frames and phone-timing call it themselves, and
+`just piece-check` and `just handover` queue their heavy steps (`heavy.wrap`); inside a heavy command it runs at once
+(`HEAVY_SLOT`), on GitHub (`CI`) it does nothing. `guardrails/tests/test_heavy.py` holds the queue (the count, the order, no
+inherited slot, `kill -9`, nesting), that every heavy command in a justfile goes through it, and that every script that
+boots the backend stops its whole process group on any exit (`phone-timing` did not until now).
 
 **A rule holds per change.** A check that reads the whole tree can be passed by two pull
 requests separately and fail once both are merged, for a builder who did neither. So a rule
@@ -214,6 +231,7 @@ The Bash guard does nothing when its script is missing (the git hooks are the ga
 | PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus`, `sonnet` or `haiku` (on trial) with an effort, and forks. |
 | PreToolUse Bash | `hooks/git_guard.py` | Stops the mistakes and shortcuts that would skip the commit gate. Its reading of shell text (here-documents, `$(...)`, line ends, the words of each simple command) is `hooks/shell_text.py`, which knows nothing of git. It is not a wall (the wall is GitHub): it reads one Bash command as text, so a script file, a `just` recipe or another program that calls git is not read. Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify` (and its shortened spellings), `commit -n`, hooksPath changes (by `git config` or `-c`), an alias or include set from the command, `git config --edit`, `git commit-tree`, `GIT_*=` variables that redirect git, HUSKY/SKIP/`GATE_*` switches on a git call, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those). It reads the command as the shell would: only a `git` in command position counts, so a message, a search pattern, a comment or a here-document that merely contains those words goes on (`SKIP=slow pytest` too); and it looks inside `bash -c`, `eval`, `trap`, `$(...)`, backticks, `$'...'`, a here-document fed to a shell, a function body, wrappers such as `env`, `xargs` and `find -exec`, and the clone's git aliases. A shell fed by a pipe in a command that names a committing git call is blocked, since it cannot be read. Tests: `guardrails/tests/test_git_guard.py` (almost 190 commands in both directions, every line of the recipes, workflows and hook scripts that names git, a fuzz for crashes, and counts of the work big input costs, with no clock). |
 | SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; starts Postgres when it is installed and down; silent, one line if it cannot set the gate, never fails the session. A fresh container's tools come from `tool/bootstrap_container.sh` (`docs/dev/environment.md`), not from this hook. |
+| PreToolUse Bash | `hooks/poll_guard.py` | Refuses a command whose whole purpose is a sleep loop on another job: an `until`, `while` or `for` with a `sleep` in it that looks at a process (`pgrep`, `ps`, `kill -0`), a log or marker file (`tail`, `grep`, `cat`, `test -f`), the queue (`heavy`, `flock`) or GitHub (`gh`). The message says what to do: start the job once with `run_in_background`, end the turn, and you are woken when it exits. Left alone: a loop that waits for a service just started (`curl`, `wget`, `nc`), a loop without a sleep, a sleep alone, and words that only mention it (a commit message, a search, a here-document), read as the shell reads them (`shell_text.py`; `bash -c '...'` is read inside). It is a reminder, not a wall, and fails open. Tests, both ways: `guardrails/tests/test_poll_guard.py`. |
 | PostToolUse Edit, Write | `hooks/post-edit-format.sh` | Formats the edited `.py` (the ruff in `uv.lock`: `uv run --group lint`, never one from PATH) or `.dart` file. |
 | Stop | `hooks/verify-done.sh` | With uncommitted `.py`/`.dart` work, runs the fast checks it touches (as the commit gate does), unless they already passed on the same inputs. No test suite. |
 

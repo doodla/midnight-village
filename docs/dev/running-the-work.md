@@ -56,11 +56,48 @@ the end-to-end harness.
 - Add, rename or remove a check: change the job and `docs/dev/main-ruleset.json` in the same
   commit (a test fails until they match), then the owner imports the file again.
 
-One heavy piece at a time on a machine: every worker of a session shares it. Two sessions run
+Heavy work shares the machine, so it goes through one queue (next section). Two sessions run
 the work (23 November 2026): the coordinating one (design and the app) and the codebase health
 one (checks, hooks, setup, docs, the server queue); each has its own machine and its own
 branch, and they talk through the remote `send_message` tool. No other cloud sessions.
 Step back often and look at the whole game, not the last report.
+
+## Waiting, and the heavy queue
+
+**The waiting rule.** A command that may take more than two minutes (a test suite, a build,
+`just screens`, `just phone-frames`, `just handover`): start it once with `run_in_background`,
+end your turn, you are woken about two seconds after it exits. Never poll with a sleep loop
+(`until ...; do sleep`, `while ...; sleep` around `pgrep` or a log). One helper spent 47 of 97
+steps that way. A hook refuses such a command and says this (`.claude/hooks/poll_guard.py`); `just brief`
+prints the rule too.
+
+**The queue.** Every heavy command goes through `tool/heavy.py` (`just heavy <command...>`), and the
+heavy recipes use it themselves (tests, builds, screens, the harness, phone-frames and
+phone-timing, `just piece-check` and `just handover` for each heavy step), so nobody has to remember it.
+It lets 3 jobs run at once; the rest wait in order and say where they stand at once and every 30 seconds.
+
+- `just heavy --status`: who holds a slot, since when, who waits, and the last runs with their peak memory.
+- A command inside a heavy command runs at once (a recipe calling a recipe); on GitHub nothing queues.
+- A command never holds a slot after it ends: the lock is not inherited by any child, it is released on any exit
+  (`kill -9` too, which also kills the command), and what the command left running is stopped, and said.
+- `HEAVY_SLOTS=n` overrides the count; the state is in `/tmp/midnight-village-heavy`, shared by every checkout.
+
+**Why 3** (measured 27 Nov 2026 on this machine: 15 GB, 4 cores; peak memory is the sum over every
+process of the job, shared pages counted once; Postgres is not in it, it is small):
+
+| Job | Time alone | Peak memory |
+|---|---|---|
+| backend `just test` (all cores) | 4 min 48 s | 0.8 GB |
+| frontend `just test` (the whole suite) | 8 min 27 s | 2.1 GB |
+| `flutter build web --release` | 49 s | 2.5 GB |
+| `just screens 390 strict` | 1 min 30 s | 3.2 GB |
+| `just phone-frames` (build, backend, Chrome, 3 bots) | 11 min 48 s | 2.6 GB |
+
+The worst is 3.2 GB; with a job counted at 4 GB and 3 GB left for the system and Postgres,
+(15.7 - 3) / 4 gives 3. The count follows the memory the machine has (`tool/heavy.py`), never below 1.
+Five Flutter builds at once restarted the machine; three use under 10 GB. The cores are the other limit:
+Flutter tests use all four, so three at once each take longer than alone.
+Re-measure when the machine changes: `just heavy --status` shows each run's time and peak.
 
 ## Who does what
 
