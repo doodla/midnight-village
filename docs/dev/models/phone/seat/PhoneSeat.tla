@@ -37,6 +37,10 @@ CONSTANTS
                \* table is asked again instead (the read may know more)
   SEED_OVER_READ, \* the first try of ask-less: the seat from /me/ is put even
                \* over a read out (dropping it): breaks Converges (seat_drop)
+  ZOMBIE,      \* the socket can die open (a phone that slept, a network changed
+               \* under it): the phone counts it up, the server reaches nobody
+  FIX_BEAT,    \* the server's beat: a socket silent for 2.5 beats is dropped
+               \* by the phone (then Back, as any drop)
   MaxDrops, MaxResumes, MaxFails
 
 NoTable == 50
@@ -67,10 +71,12 @@ VARIABLES
   lwhy,     \* why it was read: "mount" (02 opens) or "again"
   lmem,     \* the phone's own player list has it at the table
   mq,       \* the game's /me/ read: None, Sent, Forbidden, or the served version
-  drops, resumes, fails
+  drops, resumes, fails,
+  dead      \* ZOMBIE: the socket shown up is dead (until the phone notices, or
+            \* a new screen opens its own)
 
 vars == <<srv, member, left, up, opening, chan, tab, reads, judge, lq, lwhy, lmem,
-          mq, drops, resumes, fails>>
+          mq, drops, resumes, fails, dead>>
 Truth == IF member THEN srv ELSE NoTable
 
 (* ---------------- the phone's moves ---------------- *)
@@ -101,7 +107,7 @@ Seed(v) == /\ reads' = Older /\ judge' = FALSE /\ Show(v)
 
 (* ---------------- server ---------------- *)
 \* an event reaches the phone only on a socket that is up and listened to
-Emit(src, v) == IF up /\ Src(tab) = src THEN chan' = Append(chan, [src |-> src, v |-> v])
+Emit(src, v) == IF up /\ ~dead /\ Src(tab) = src THEN chan' = Append(chan, [src |-> src, v |-> v])
                 ELSE UNCHANGED chan
 Ph == <<member, left, up, opening, tab, reads, judge, lq, lwhy, lmem, mq, drops, resumes, fails>>
 Deal == /\ Kind(srv) = "waiting" /\ srv' = srv + 1 /\ Emit("lobby", srv + 1) /\ UNCHANGED Ph
@@ -206,7 +212,7 @@ GameHeals == /\ Kind(tab) = "game" /\ reads = {} /\ mq = None
                             drops, resumes, fails>>
 
 (* ---------------- the socket and the app ---------------- *)
-Drop == /\ up /\ drops < MaxDrops /\ drops' = drops + 1
+Drop == /\ up /\ ~dead /\ drops < MaxDrops /\ drops' = drops + 1
         /\ up' = FALSE /\ chan' = <<>>
         /\ UNCHANGED <<srv, member, left, opening, tab, reads, judge, lq, lwhy, lmem, mq,
                        resumes, fails>>
@@ -243,20 +249,35 @@ Sleep == /\ chan # <<>> /\ resumes < MaxResumes /\ chan' = <<>> /\ Woken
 Init == /\ srv = 0 /\ member = TRUE /\ left = FALSE /\ up = TRUE /\ opening = FALSE
         /\ chan = <<>> /\ tab = 0 /\ reads = {} /\ judge = FALSE /\ lq = LNone
         /\ lwhy = "mount" /\ lmem = TRUE /\ mq = None /\ drops = 0 /\ resumes = 0
-        /\ fails = 0
+        /\ fails = 0 /\ dead = FALSE
 
-Next == \/ Deal \/ End \/ PlayAgain \/ Leave
-        \/ Deliver \/ ServeTable \/ ApplyTable \/ ServeLobby \/ LobbyFails \/ ApplyLobby
-        \/ ServeMe \/ ApplyMe \/ GameHeals
-        \/ Drop \/ Back \/ Resume \/ Sleep
+\* ZOMBIE: the socket dies open; what was on its way is lost, nothing comes after
+Zombie == /\ ZOMBIE /\ up /\ ~dead /\ drops < MaxDrops /\ drops' = drops + 1
+          /\ dead' = TRUE /\ chan' = <<>>
+          /\ UNCHANGED <<srv, member, left, up, opening, tab, reads, judge, lq, lwhy, lmem, mq,
+                         resumes, fails>>
+\* FIX_BEAT: no frame for 2.5 beats: the phone drops it, so Back reads as for any drop
+Beat == /\ FIX_BEAT /\ dead /\ dead' = FALSE /\ up' = FALSE
+        /\ UNCHANGED <<srv, member, left, opening, chan, tab, reads, judge, lq, lwhy, lmem, mq,
+                       drops, resumes, fails>>
+\* every other move: a dead socket stays dead while it is the one shown up (a
+\* new screen opening its own socket replaces it)
+M(A) == A /\ dead' = (dead /\ up')
+
+Next == \/ M(Deal \/ End \/ PlayAgain \/ Leave
+             \/ Deliver \/ ServeTable \/ ApplyTable \/ ServeLobby \/ LobbyFails \/ ApplyLobby
+             \/ ServeMe \/ ApplyMe \/ GameHeals
+             \/ Drop \/ Back \/ Resume \/ Sleep)
+        \/ Zombie \/ Beat
 
 \* the host moves on; the phone's own steps and a socket coming up are fair;
-\* a resume, a leave and a failure are never promised
+\* a resume, a leave and a failure are never promised; the beat is (FIX_BEAT)
 Spec == Init /\ [][Next]_vars
-        /\ WF_vars(Deal) /\ WF_vars(End) /\ WF_vars(PlayAgain)
-        /\ WF_vars(Deliver) /\ WF_vars(ServeTable) /\ WF_vars(ApplyTable)
-        /\ WF_vars(ServeLobby) /\ WF_vars(ApplyLobby) /\ WF_vars(Back)
-        /\ WF_vars(ServeMe) /\ WF_vars(ApplyMe) /\ WF_vars(GameHeals)
+        /\ WF_vars(M(Deal)) /\ WF_vars(M(End)) /\ WF_vars(M(PlayAgain))
+        /\ WF_vars(M(Deliver)) /\ WF_vars(M(ServeTable)) /\ WF_vars(M(ApplyTable))
+        /\ WF_vars(M(ServeLobby)) /\ WF_vars(M(ApplyLobby)) /\ WF_vars(M(Back))
+        /\ WF_vars(M(ServeMe)) /\ WF_vars(M(ApplyMe)) /\ WF_vars(M(GameHeals))
+        /\ WF_vars(Beat)
 
 (* ---------------- rules ---------------- *)
 \* the screen never goes back to a table older than one it showed

@@ -12,6 +12,8 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -65,6 +67,21 @@ def test_only_the_games_oldest_fresh_socket_runs_the_repair(make_night) -> None:
     second = _socket(night.game, night.users["wolf"], "socket-b")
     assert repair.runs_the_repair(night.game.id, first)
     assert not repair.runs_the_repair(night.game.id, second)
+
+
+def test_what_a_beat_costs_the_database(make_night) -> None:
+    """Every socket's beat asks one question (is it the game's oldest?); only the
+    one that is runs the repair, a handful more, whatever the table's size. (The
+    frame itself costs nothing; the socket's own presence refresh is separate.)"""
+    night = make_night(ROLES, night_wave_seconds=30)
+    night.start()
+    sockets = [_socket(night.game, u, f"socket-{n}") for n, u in night.users.items()]
+    with CaptureQueriesContext(connection) as other:
+        repair.repair_on_beat(night.game.id, sockets[-1])
+    with CaptureQueriesContext(connection) as oldest:
+        repair.repair_on_beat(night.game.id, sockets[0])
+    assert len(other) == 1
+    assert len(oldest) <= 7, [q["sql"] for q in oldest.captured_queries]
 
 
 def test_an_untimed_window_whose_deferred_close_was_lost_closes_on_the_beat(

@@ -70,7 +70,9 @@ def runs_the_repair(game_id: Any, channel_name: str) -> bool:
 
 def repair_on_beat(game_id: Any, channel_name: str) -> None:
     """A heartbeat of socket ``channel_name``: the repair, if this socket is the
-    one that runs it and the game is still being played. Never raises."""
+    one that runs it and the game is still being played. Never raises. The
+    database connection is left to the caller: the beat's presence refresh runs
+    next on it and closes it, so a beat opens one connection, as before."""
     try:
         if not runs_the_repair(game_id, channel_name):
             return
@@ -81,5 +83,3 @@ def repair_on_beat(game_id: Any, channel_name: str) -> None:
         lazy_repair(game, list(game.player_roles.select_related("user").all()))
     except Exception:
         logger.exception("The beat's repair failed for game %s", game_id)
-    finally:
-        timers.release_connections()

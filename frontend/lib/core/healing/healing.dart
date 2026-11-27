@@ -38,7 +38,9 @@ class HealTiming {
 
   /// At a waiting table (02) or a finished game (10, 11), where only an
   /// event would say the table moved on (a deal, play again), `/me/table/`
-  /// is fetched this often in case that event was lost.
+  /// is fetched this often while the socket that would bring it is down. A
+  /// socket that looks open but has died counts as down once its beats stop
+  /// (`ReconnectingWebSocket`), and coming back reads everything.
   final Duration tablePoll;
 
   /// The backoff before retry number [attempt] (0: the first).

@@ -215,22 +215,25 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
         socket), this socket's row refreshed (its own short DB use) and, from
         the game's oldest fresh socket, the game's lazy repair (``repair.py``: a
         lost timer or practice move must not wait for a phone to read)."""
-        from . import repair
-
         await self.send_json(presence.beat_frame())
         # Not thread-sensitive: a pool thread does the beat and releases its
         # database connection, so nothing stays open between beats and the beats
         # never queue behind (or close the connection of) other consumers' work.
         came_back = await database_sync_to_async(
-            self._refresh_presence, thread_sensitive=False
+            self._beat_work, thread_sensitive=False
         )()
         if came_back:
             await database_sync_to_async(_host_presence)(
                 self.game_id, self.user_id, True
             )
-        await database_sync_to_async(repair.repair_on_beat, thread_sensitive=False)(
-            self.game_id, self.channel_name
-        )
+
+    def _beat_work(self):
+        """The beat's database work on one connection: the repair (which leaves
+        the connection open), then this socket's row (which closes it)."""
+        from . import repair
+
+        repair.repair_on_beat(self.game_id, self.channel_name)
+        return self._refresh_presence()
 
     def _refresh_presence(self):
         from . import game_presence

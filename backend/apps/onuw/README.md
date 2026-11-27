@@ -23,6 +23,8 @@ imports only the ones before it (`tests/onuw/test_module_directions.py`).
 | `services.py` | the top: the timer jobs (registered from it by name), the game's presence check and the lobby's current game |
 | `night_results.py` | what a player is shown of the night afterwards |
 | `recovery.py` | rebuilding timers that were lost |
+| `repair.py` | the lazy repair (a lost practice move, lost timers, the sweep), run by `GET /me/` and by the socket's heartbeat |
+| `own_view.py`, `groups.py` | each player's own view as a stage opens; the socket group names (the table's, a player's own) |
 | `choose_night.py` | the night's requests: storing a choice, the prompt |
 | `views.py` | HTTP: dealing a game, a player's own page (`GET /me/`), the timer sweep |
 | `views_play.py` | HTTP: what a player sends during a game (night choice, vote, ready, ...) |
@@ -144,9 +146,13 @@ stored or sent. An applied request with `asked` stores its entry even when the v
 nothing per player is ever on the game's group, and no event says a window closed (the next `night_window` or `phase_change` follows in the same commit).
 **Each player's own view** (`own_view.py`): every stage opening after the deal (each window, the talk, the vote, the results) sends,
 first in the same batch as its group events (`basics._send_stage_after_commit`, which `apps.py` plugs `own_view` into), each person's own
-`GET /me/` body on their own group (`own.view`, client `me`; at the results with `results.results_body`), built after commit from the committed
-rows in a fixed number of queries (`views_for`: the count and the engine state once for all). A view is addressed from its own `player_id`
-and the consumer forwards it only to that player's socket; `GET /me/` and the view are one builder (`own_view.me_body`).
+`GET /me/` body on their own group (`own.view`, client `me`; the group named by `groups.player_group`, the one the consumer joins), built after
+commit from the committed rows in one read-only snapshot and a fixed number of queries (`views_for`: the count and the engine state once for all).
+At the results the table's `game_results` carries `results.results_body` once (`data.results`); the views carry none. A view is addressed from
+its own `player_id` and the consumer forwards it only to that player's socket; `GET /me/` and the view are one builder (`own_view.me_body`).
+A view that cannot be built or packed never takes the table's events down: `effects.send_built_after_commit` then sends the group events alone
+(tried once more), and the phones read `/me/` on them. Views go out only as a stage opens, never within one
+(`test_own_view.py`, `test_a_view_goes_out_only_when_a_stage_opens`).
 The Doppelganger's look is not sent either:
 it is in her `/me/`.
 
@@ -199,7 +205,9 @@ the phase or window timer
 (a deadline that is overdue or less than `RECOVERY_RECONNECT_ALLOWANCE_SECONDS` = 15 s away is first moved to now + 15 s and persisted, so phones can reconnect before the vote is revealed or the night closes; the same happens in the lazy path only when the timer is genuinely missing; the extension depends only on the clock, so the fixed Doppelganger window's length still says nothing about her),
 the night's deferred "everyone acted, minimum length not passed" close (due at the minimum, not the deadline), and dropped players' grace timers.
 The Doppelganger window only ever gets its fixed deadline.
-`GameMeView` calls `ensure_timers` on every fetch, so a game also repairs lazily.
+The game also repairs lazily (`repair.lazy_repair`: a practice seat's lost move, `ensure_timers`, then `timers.sweep` of the game's keys): on every
+`GET /me/`, and on the socket's heartbeat (`repair.repair_on_beat`, every 15 s, run only by the game's oldest fresh socket, so once per game per beat;
+never raises), so an untimed stage whose timer was lost moves on with nobody reading. The same heartbeat sends each socket its `beat` frame (contract, section 8).
 Safe in several workers: every callback locks the Game row and checks the phase, and the night callbacks check the window number (`_auto_advance_wave`), so a
 stale window-1 timer cannot close window 2.
 A minimum-length (deferred) close re-checks readiness under the lock when it fires (a player treated as gone may have come back);

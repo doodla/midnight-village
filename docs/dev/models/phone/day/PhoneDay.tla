@@ -13,12 +13,16 @@ CONSTANTS MaxFaults, MaxTaps, FIX_HEAL,
           FIX_ASKED, \* a ready or a vote carries the time of its tap (`asked`) and the server answers
                     \* 409 stale_request to one older than the newest it applied for that lane (#16,
                     \* the server's half; the phone does not send it yet, so FALSE is today's phone)
-          FIX_ASKLESS \* branch ask-less: a stage change carries this phone's own view (`me`, sent
+          FIX_ASKLESS, \* branch ask-less: a stage change carries this phone's own view (`me`, sent
                     \* before the table's event, the results with it at the end): applied when its
                     \* stage is later, nothing read; the event reads /me/ only when the phone is
                     \* behind it. A taken ready or lock's answer is put on the held /me/. An event
                     \* is lost only with the socket (a drop), which comes back and reads /me/ and
                     \* /me/table/; the slow table poll runs only while it is down.
+          ZOMBIE, \* the socket can die without closing (a phone that slept, a network changed
+                  \* under it): it looks up, delivers nothing, and the poll stays off
+          FIX_BEAT \* the server's beat: every socket hears a frame each heartbeat; one silent
+                   \* for 2.5 beats is dropped by the phone (and opened again, as any drop)
 
 Lanes == {"ready", "vote"}
 NoTab == [status |-> "none", game |-> 0, phase |-> 0]
@@ -207,7 +211,8 @@ Timeout ==
 SAdvanceA == SAdvance /\ evView' = MeView' /\ UNCHANGED sock
 \* the view first, then the table's event: applied when of a later stage (the
 \* afterFetch of a push: taps of an ended stage go, confirming ones stay); the
-\* results come with it; the event itself then reads nothing (the view is as new)
+\* results come in the same batch (on game_results); the event itself then reads
+\* nothing (the view is as new)
 AfterView(c, v) == IF c.req # NoReq /\ c.req.st # v.st THEN [req |-> NoReq, leg |-> "none"] ELSE c
 EvDeliverA ==
   /\ ev /\ sock = "up" /\ ev' = FALSE
@@ -220,7 +225,13 @@ EvDeliverA ==
   /\ UNCHANGED <<srvVars, reqs, reps, conts, fq, fv, again, tq, tv, tab, oq, tev, taps, faults, evView, sock>>
 TevDeliverA == sock = "up" /\ TevDeliver /\ UNCHANGED <<evView, sock>>
 \* an event is lost only with its socket: down until it comes back
-EvDropA == EvDrop /\ sock' = "down" /\ UNCHANGED evView
+EvDropA == sock # "dead" /\ EvDrop /\ sock' = "down" /\ UNCHANGED evView
+\* ZOMBIE: the socket dies open ("dead"): the phone still counts it up, so nothing reads
+Zombie == ZOMBIE /\ sock = "up" /\ faults < MaxFaults /\ faults' = faults + 1 /\ sock' = "dead"
+          /\ UNCHANGED <<srvVars, reqs, reps, phoneVars, ev, tev, taps, evView>>
+\* FIX_BEAT: no frame for 2.5 beats, so the phone drops it (then Reconnect, as for any drop)
+Beat == FIX_BEAT /\ sock = "dead" /\ sock' = "down"
+        /\ UNCHANGED <<srvVars, reqs, reps, phoneVars, ev, tev, taps, faults, evView>>
 \* back: everything is read again (_healEverything: /me/table/ and /me/)
 Reconnect ==
   /\ sock = "down" /\ sock' = "up" /\ ev' = FALSE /\ tev' = FALSE /\ InvalidateTable /\ Refresh
@@ -267,7 +278,7 @@ Next ==
   \/ ~FIX_ASKLESS /\ (SAdvance \/ PollTable \/ EvDeliver \/ TevDeliver \/ EvDrop \/ Reply)
                   /\ UNCHANGED <<evView, sock>>
   \/ FIX_ASKLESS /\ (SAdvanceA \/ PollTableA \/ EvDeliverA \/ TevDeliverA \/ EvDropA
-                     \/ Reconnect \/ ReplyA)
+                     \/ Reconnect \/ ReplyA \/ Zombie \/ Beat)
 \* an action that leaves the ask-less variables alone, and the phone's own
 \* version of the three that differ
 S(A) == A /\ UNCHANGED <<evView, sock>>
@@ -276,13 +287,15 @@ PollF == IF FIX_ASKLESS THEN PollTableA ELSE S(PollTable)
 ReplyF == IF FIX_ASKLESS THEN ReplyA ELSE S(Reply)
 
 \* the server's own timers and the host move the game on; phone internals are fair;
-\* with FIX_ASKLESS a socket that is up delivers, and one that is down comes back
+\* with FIX_ASKLESS a socket that is up delivers, and one that is down comes back;
+\* with FIX_BEAT a dead one is noticed (without it, nothing brings a dead one back)
 Spec == Init /\ [][Next]_vars
         /\ WF_vars(AdvanceF) /\ (HOST_MOVES_ON => WF_vars(S(SPlayAgain)) /\ WF_vars(S(SDeal)))
         /\ WF_vars(S(SProcessStep))
         /\ WF_vars(S(FetchServe)) /\ WF_vars(S(FetchApply)) /\ WF_vars(S(Heal)) /\ WF_vars(PollF)
         /\ WF_vars(S(TableServe)) /\ WF_vars(S(TableApply)) /\ WF_vars(S(OutcomeOk)) /\ WF_vars(ReplyF)
         /\ (FIX_ASKLESS => WF_vars(EvDeliverA) /\ WF_vars(TevDeliverA) /\ WF_vars(Reconnect))
+        /\ (FIX_BEAT => WF_vars(Beat))
 
 (* ---------------- rules ---------------- *)
 \* the server stores this phone's taps of a lane in tap order (a lock never overtakes its pick)

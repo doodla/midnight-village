@@ -327,8 +327,9 @@ server before 27 November 2026 has no `progress`: the phone then reads `/me/` as
   host sends `POST .../reveal-votes/ {"stage"}`. At any reveal every stored pick counts,
   locked or not (an unlocked Hunter pick triggers the Hunter chain); no pick is a non-voter.
   The table hears `vote_reveal {votes}` and `game_results`; each person's own view of the
-  results comes just before them, with the results body (`GET .../results/`), so nothing is
-  asked for the end board.
+  results comes just before them, and `game_results` carries the results body (`data.results`,
+  `GET .../results/`: public at the end, sent once for the table), so nothing is asked for
+  the end board.
 
 ## 7. Results and history
 
@@ -353,8 +354,8 @@ with `connected`.
 ## 8. Socket events
 
 Game socket (`/ws/game/<id>/`): `night_window`, `progress`, `phase_change`, `vote_reveal`,
-`game_results`, `player_presence {player_id, connected}`, `host_changed`, `play_again`, and
-`me`.
+`game_results`, `player_presence {player_id, connected}`, `host_changed`, `play_again`,
+`me` and `beat`.
 Lobby socket (`/ws/lobby/<code>/`): `player_joined`, `player_left`, `lobby_update`, `game_started`, `host_changed`.
 `host_changed` is `{host_id, host_name, original_host_id, reason, rev}` on both sockets:
 `rev` is the table's number after the change (section 2; an event from a server instance
@@ -362,16 +363,29 @@ older than `rev` has no key). Every consumer drops an event type it does
 not know, so an older instance never closes a socket over a newer event. Every event the
 table hears is a count, a window number, public identity or the end of the game.
 
-**`me`: a player's own view.** `{"type": "me", "me": <GET /me/ body>}`, and at the results
-also `"results": <GET .../results/ body>`, sent when a stage opens (each night window, the
-talk, the vote, the results), first in the same batch as the table's event, to each person
-of the game (not to practice players). It goes ONLY to that player's own group
+**`me`: a player's own view.** `{"type": "me", "me": <GET /me/ body>}`, sent when a stage
+opens (each night window, the talk, the vote, the results), first in the same batch as the
+table's event, to each person of the game (not to practice players); never within a stage
+(`test_a_view_goes_out_only_when_a_stage_opens`). The views are built from one read-only
+snapshot. A view that cannot be built or packed is left out and the table's events still go
+(the send is tried once more); the phone then reads `/me/` on the event as an older server's
+would. At the end the results ride on `game_results` (`data.results`), not in the views. It goes ONLY to that player's own group
 (`game_<id>_player_<user id>`), the group named from the view's own `player_id`, and the game
 socket forwards it only to a socket signed in as that `player_id`; nothing of one player's is
 ever on the game's group (`tests/onuw/test_own_view.py`, `test_contract_privacy.py`). The
 phone applies it when its stage is later than the `/me/` it holds (section 4), and then the
 table's event asks nothing; a phone that holds no such view when the event comes (a server
 before 27 November 2026, a lost message) reads `/me/` as before. An older app drops the type.
+
+**`beat`: the heartbeat.** `{"type": "beat", "every": <seconds>}` (15), sent by every game
+and lobby socket to its own phone at each heartbeat (the first one a beat after it opens),
+not through a group: the same bytes for every socket, nothing about anyone
+(`test_contract_privacy.py`). A phone that has heard one counts a socket as up only while
+frames keep coming: silent for 2.5 beats it is closed and opened again (which reads what the
+screen depends on), and a socket a beat overdue when the app comes back is opened again at
+once. An older app drops the type; on an older server no beat comes and the phone believes
+its socket as before. The same heartbeat runs the game's lazy repair (section 4: practice
+moves, lost timers), from the game's oldest open socket, once per beat.
 `player_joined` and `player_left` carry only their type; the `lobby_update` sent with each
 carries the whole table, so the app reads nothing on them.
 
