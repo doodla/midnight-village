@@ -288,6 +288,34 @@ void main() {
       expect(sent, hasLength(1), reason: 'nothing new: nothing sent');
     });
 
+    test('reads what the phone says about itself once, with the first '
+        'summary, never before', () async {
+      var reads = 0;
+      final sent = <String>[];
+      final recorder = await _requests([
+        (gap: 0, round: 100, total: 50, connect: 10),
+      ]);
+      final beacon = FieldBeacon(
+        recorder: recorder,
+        commit: 'faf62a1',
+        send: (s) {
+          sent.add(s);
+          return true;
+        },
+        environment: () {
+          reads++;
+          return {'renderer': 'canvaskit'};
+        },
+      );
+      beacon.hidden();
+      expect(reads, 1);
+      expect(beacon.flush('hidden'), isFalse, reason: 'nothing new');
+      expect(reads, 1, reason: 'nothing to send: nothing read');
+      expect((jsonDecode(sent.single) as Map)['env'], {
+        'renderer': 'canvaskit',
+      });
+    });
+
     test('the recorder tells it every new screen, once', () {
       final shown = <String>[];
       final recorder = FieldRecorder(now: () => 0, controlAt: (_, _) => null)

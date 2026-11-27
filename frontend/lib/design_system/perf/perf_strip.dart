@@ -34,7 +34,8 @@ void startPerfField() {
   final recorder = FieldRecorder(
     now: perfNow,
     controlAt: controlAt,
-    environment: perfEnvironment(),
+    // The quiet mode reads it later, with its first summary (`FieldBeacon`).
+    environment: strip ? perfEnvironment() : const {},
     resourceTiming: perfResourceTiming,
   )..install();
   Perf.recorder = recorder;
@@ -47,6 +48,7 @@ void startPerfField() {
     recorder: recorder,
     commit: BuildId.mine,
     send: (summary) => sendBeacon(url, summary),
+    environment: perfEnvironment,
   );
   recorder.screenChanged = beacon.screenShown;
   whenHidden(beacon.hidden);

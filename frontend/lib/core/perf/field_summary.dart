@@ -29,10 +29,13 @@ const coldBootOver = 700.0;
 const coldConnectOver = 250.0;
 
 /// The summary as JSON, or null when nothing was tapped or asked for.
+/// [environment] stands in for the recorder's own (the quiet mode reads it
+/// only when a first summary is made, never at the app's start).
 String? fieldSummaryJson(
   FieldRecorder r, {
   required String commit,
   required String end,
+  Map<String, Object?>? environment,
 }) {
   r.settleRest();
   for (final (values, entries) in [
@@ -46,6 +49,7 @@ String? fieldSummaryJson(
       end: end,
       values: values,
       entries: entries,
+      environment: environment,
     );
     if (summary == null) return null;
     final text = jsonEncode(summary);
@@ -60,6 +64,7 @@ Map<String, Object?>? fieldSummary(
   required String end,
   int values = mostValues,
   int entries = mostEntries,
+  Map<String, Object?>? environment,
 }) {
   final done = r.taps.where((t) => t.done).toList();
   final asked = r.requests.where((q) => q.doneAt != null).toList();
@@ -71,7 +76,7 @@ Map<String, Object?>? fieldSummary(
       if (spreadOf(of, values) case final v when v.isNotEmpty) name: v,
   };
 
-  final env = r.environment;
+  final env = environment ?? r.environment;
   return {
     'v': fieldSummaryVersion,
     'commit': commit,

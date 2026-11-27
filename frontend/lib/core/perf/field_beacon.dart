@@ -17,6 +17,7 @@ class FieldBeacon {
     required this.recorder,
     required this.commit,
     required this.send,
+    this.environment,
   });
 
   final FieldRecorder recorder;
@@ -26,6 +27,12 @@ class FieldBeacon {
 
   /// Hands one summary (JSON) to the browser; false if it would not take it.
   final bool Function(String summary) send;
+
+  /// What the phone says about itself (`perfEnvironment`): read once, when
+  /// the first summary is made, never at the app's start (naming the
+  /// graphics chip opens a WebGL context). Null: the recorder's own.
+  final Map<String, Object?> Function()? environment;
+  Map<String, Object?>? _environment;
 
   /// The end board's name for the recorder (`AppScreen.end`).
   static const endBoard = 'end';
@@ -51,7 +58,14 @@ class FieldBeacon {
   /// Sends what was recorded since the last send, and forgets it. Returns
   /// whether anything was sent.
   bool flush(String end) {
-    final summary = fieldSummaryJson(recorder, commit: commit, end: end);
+    if (recorder.taps.isEmpty && recorder.requests.isEmpty) return false;
+    _environment ??= environment?.call();
+    final summary = fieldSummaryJson(
+      recorder,
+      commit: commit,
+      end: end,
+      environment: _environment,
+    );
     if (summary == null) return false;
     recorder.clear();
     return send(summary);
