@@ -1,5 +1,9 @@
 """Options for the top of the talk screen (08): today, A, B and C, at 5 and 10 players.
 
+A: one banner (the night's and your card's) over the night sky. B: the board's roof at the top and the clock on a
+paper sign hung from its eave; at 6 players or fewer the deck is drawn larger. C: a strip of night sky with the
+roofline and the moon, the clock on the same sign hung from the lantern's bracket.
+
 Each picture is cut from the app's own renders of main (25 Nov 2026; `just screens`) and its art,
 then scaled to a 412 pt phone (824 px). Run from anywhere:
 
@@ -10,11 +14,10 @@ The renders used: 08-talk-put-away (5 players, My night put away), 08-talk-10-lo
 """
 
 import argparse
-import random
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 import paper as P
 
@@ -26,8 +29,15 @@ BLOCKS = {
     5: [(352, 797), (962, 1126), (1258, 1442)],
     10: [(248, 797), (822, 1226), (1258, 1442)],
 }
-NAME_ROWS = {5: [1003, 1084], 10: [865, 945, 1025, 1106, 1185]}
-READY = {5: [1, 3], 10: [1, 4, 8]}  # C shows some tags turned; the button counts them
+CORD = (176, 156, 120, 255)
+# B at 5 players: the deck's piles (x0, y0, x1, y1 in 08-talk-put-away), drawn larger in two columns.
+PILES = [
+    (52, 355, 238, 535),
+    (256, 355, 443, 536),
+    (472, 355, 714, 554),
+    (167, 573, 389, 792),
+    (435, 574, 626, 792),
+]
 
 
 def load(screens, name):
@@ -66,9 +76,9 @@ def night_sky(h):
     glow = Image.new("RGBA", (W, h), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     for i, r in enumerate(range(170, 70, -10)):
-        gd.ellipse((655 - r, 205 - r, 655 + r, 205 + r), fill=(220, 226, 255, 5 + i))
+        gd.ellipse((700 - r, 170 - r, 700 + r, 170 + r), fill=(220, 226, 255, 5 + i))
     sky.alpha_composite(glow)
-    sky.alpha_composite(moon, (580, 132))
+    sky.alpha_composite(moon, (628, 98))
     roofs = P.art("layers/dawn_gallows/roofs_mid.webp")
     roofs = roofs.resize((W, int(roofs.height * W / roofs.width)), Image.LANCZOS)
     rgb = ImageEnhance.Brightness(roofs.convert("RGB")).enhance(0.85)
@@ -98,14 +108,62 @@ def banner(paper, nb, w, h, title):
 def option_a(t, n, nb, paper):
     sky_h = 220
     top = night_sky(sky_h)
-    b = banner(paper, nb, 742, 112, "The village wakes")
-    P.stamp(top, b, (16, 44), drop=6, lean=-0.6)
+    b = banner(paper, nb, 676, 112, "The village wakes")
+    P.stamp(top, b, (12, 36), drop=6, lean=-0.6)
     plank = t.crop((0, 200, W, 237))
     foot = t.crop((0, 1455, W, H))
     return stack([top, plank, body(t, n, H - sky_h - 37 - foot.height), foot])
 
 
 # ---------------------------------------------------------------- B: the board's own sign
+def pile(t, box, scale):
+    """One pile of the deck lifted off the felt with its shadow, drawn `scale` times larger."""
+    x0, y0, x1, y1 = box
+    m = 16
+    crop = t.crop((x0 - m, y0 - m, x1 + m, y1 + m))
+    dev = np.abs(
+        np.asarray(crop.convert("RGB")).astype(int) - np.array([38, 43, 92])
+    ).sum(axis=2)
+    keep = dev > 40
+    keep[:, :8] = keep[:, -8:] = (
+        False  # the crop's own edge (the frame can reach into it)
+    )
+    keep[:8], keep[-8:] = False, False
+    alpha = Image.fromarray((keep * 255).astype("uint8"))
+    alpha = alpha.filter(ImageFilter.MaxFilter(11)).filter(ImageFilter.GaussianBlur(4))
+    crop.putalpha(alpha)
+    return crop.resize(
+        (round(crop.width * scale), round(crop.height * scale)), Image.LANCZOS
+    ), m
+
+
+def large_deck_body(t, height, g0, scale=1.15):
+    """At 6 players or fewer: the piles larger, in two columns, and the three groups spaced evenly."""
+    tiles = Image.new("RGBA", (W, height))
+    for y in range(0, height, CLEAN.height):
+        tiles.paste(CLEAN, (0, y))
+    rows = [PILES[0:2], PILES[2:4], PILES[4:5]]
+    row_h = [round(max(b[3] - b[1] for b in r) * scale) for r in rows]
+    deck_h = sum(row_h) + 2 * 22
+    names = t.crop((0, 962, W, 1126))
+    note = t.crop((0, 1258, W, 1442))
+    free = height - g0 - 13 - deck_h - names.height - note.height
+    gap = free / 2.8
+    y = g0 + round(gap * 0.4)
+    for r, h in zip(rows, row_h):
+        sprites = [pile(t, b, scale) for b in r]
+        widths = [s.width - 2 * m * scale for s, m in sprites]
+        x = (W - sum(widths) - 44 * (len(r) - 1)) / 2
+        for (s, m), w in zip(sprites, widths):
+            tiles.alpha_composite(s, (round(x - m * scale), round(y - m * scale)))
+            x += w + 44
+        y += h + 22
+    y += round(gap) - 22
+    tiles.paste(names, (0, y))
+    tiles.paste(note, (0, y + names.height + round(gap)))
+    return tiles
+
+
 def lantern(height):
     lan = P.art("end/lantern.webp").transpose(Image.FLIP_LEFT_RIGHT)
     return lan.resize((int(lan.width * height / lan.height), height), Image.LANCZOS)
@@ -130,13 +188,17 @@ def option_b(t, n, nb, paper):
     top.paste(t.crop((0, 141, W, 237)), (0, 40))
     foot = t.crop((0, 1455, W, H))
     sign_top, sign_bottom = 112, 230
-    board = body(t, n, H - 136 - foot.height, g0_min=sign_bottom + 16 - 136)
+    g0 = sign_bottom + 16 - 136
+    if n <= 6:
+        board = large_deck_body(t, H - 136 - foot.height, g0)
+    else:
+        board = body(t, n, H - 136 - foot.height, g0_min=g0)
     page = stack([top, board, foot])
     d = ImageDraw.Draw(page)
     s = sign(paper, nb)
     sx = (W - s.width) // 2
     for nx in (sx + 26, sx + s.width - 16):  # cords from the eave to the sign's pins
-        d.line([(nx, 92), (nx, sign_top + 14)], fill=(150, 132, 104, 255), width=3)
+        d.line([(nx, 92), (nx, sign_top + 14)], fill=CORD, width=5)
         d.ellipse((nx - 5, 88, nx + 5, 98), fill=(40, 40, 52, 255))
     P.stamp(page, s, (sx, sign_top), drop=6, lean=-0.6)
     lan = lantern(181)
@@ -144,7 +206,7 @@ def option_b(t, n, nb, paper):
     return page
 
 
-# ---------------------------------------------------------------- C: the table's faces
+# ---------------------------------------------------------------- the clock off today's sky (B)
 def clear_clock(img):
     """Take today's big clock off the sky (filled down each column, so the gallows post stays)."""
     a = np.asarray(img).astype(float)
@@ -170,113 +232,58 @@ def clear_clock(img):
     return Image.fromarray(a.astype("uint8"))
 
 
-def sigils(t, n):
-    """Where each name tag's sigil disc is, in reading (seat) order: 37 px in from the tag's left edge."""
-    a = np.asarray(t.convert("RGB")).astype(int)
-    lum = a.mean(axis=2)
-    out = []
-    for y in NAME_ROWS[n]:
-        x = 40
-        while x < 700:
-            felt = ((a[y, x - 16 : x - 2, 2] - a[y, x - 16 : x - 2, 0]) > 40).any()
-            if (
-                felt
-                and (lum[y, x - 8 : x - 2] < 110).all()
-                and (lum[y, x : x + 12] > 170).all()
-            ):
-                left = x + 12 + int(np.argmax(lum[y, x + 12 : x + 40] < 110))
-                cx = left + 23
-                if (lum[y, cx - 20 : cx + 20] < 110).mean() > 0.25:
-                    out.append((cx, y, 46))
-                    x += 100
-                    continue
-            x += 1
-    return out
-
-
-def sigil_crops(t, n):
-    """Each name tag's own sigil disc, cut from the render (so a tag is the same token as its name)."""
-    a = np.asarray(t.convert("RGB")).astype(float)
-    lum = a.mean(axis=2)
-    yy, xx = np.mgrid[-32:33, -32:33]
-    r = np.hypot(xx, yy)
-    crops = []
-    for cx, cy, _ in sigils(t, n):
-        best = None
-        for dy in range(-10, 11):
-            for dx in range(-8, 9):
-                win = lum[cy + dy - 32 : cy + dy + 33, cx + dx - 32 : cx + dx + 33]
-                score = (
-                    win[(r > 25) & (r < 28)].mean() - win[(r > 18) & (r < 21.5)].mean()
-                )
-                if best is None or score > best[0]:
-                    best = (score, cx + dx, cy + dy)
-        _, x, y = best
-        crops.append(t.convert("RGB").crop((x - 23, y - 23, x + 23, y + 23)))
-    return crops
-
-
-def tag(sigil, d, turned, paper, seed):
-    tok = sigil.resize((d, d), Image.LANCZOS)
-    m = Image.new("L", (d, d), 0)
-    ImageDraw.Draw(m).ellipse((1, 1, d - 2, d - 2), fill=255)
-    if turned:  # the tag turned over: bone paper, the sigil in ink
-        face = paper.fill(d, d, seed).convert("RGB")
-        lum = np.asarray(tok).mean(axis=2)
-        sil = Image.fromarray(((lum > 150) * 255).astype("uint8"))
-        inner = Image.new("L", (d, d), 0)
-        ImageDraw.Draw(inner).ellipse(
-            (d * 0.12, d * 0.12, d * 0.88, d * 0.88), fill=255
+# ---------------------------------------------------------------- C: the square's sky
+def bracket(page, x0, x1, y):
+    """The lantern's iron bracket carried out along the eave: a bar, a brace and a curl."""
+    d = ImageDraw.Draw(page)
+    iron, shade = (34, 38, 40, 255), (7, 9, 26, 150)
+    for off, col in (((-3, 4), shade), ((0, 0), iron)):
+        ox, oy = off
+        d.line([(x0 + ox, y + oy), (x1 + ox, y + oy)], fill=col, width=7)
+        d.line(
+            [(x1 - 4 + ox, y + 52 + oy), (x1 - 120 + ox, y + 2 + oy)], fill=col, width=5
         )
-        sil = Image.fromarray(np.minimum(np.asarray(sil), np.asarray(inner)))
-        face.paste(Image.new("RGB", (d, d), P.INK), (0, 0), sil)
-        ImageDraw.Draw(face).ellipse((2, 2, d - 3, d - 3), outline=P.INK, width=2)
-        tok = face
-    out = Image.new("RGBA", (d, d + 14), (0, 0, 0, 0))
-    out.paste(tok, (0, 14), m)
-    dr = ImageDraw.Draw(out)
-    dr.line([(d // 2, 0), (d // 2, 18)], fill=(170, 152, 120, 255), width=2)
-    dr.ellipse((d // 2 - 3, 16, d // 2 + 3, 22), fill=(20, 22, 40, 255))
-    return out
+        d.arc(
+            (x0 - 14 + ox, y - 2 + oy, x0 + 10 + ox, y + 22 + oy),
+            90,
+            360,
+            fill=col,
+            width=5,
+        )
 
 
-def recount(page, ready, n):
-    """The button's count, as it reads with `ready` players ready."""
-    a = np.asarray(page.convert("RGB")).astype(int)
-    y0, y1 = 1597, 1625
-    ink = a[y0:y1, 70:560].mean(axis=2) < 110
-    xs = np.where(ink.any(axis=0))[0] + 70
-    lx, rx = xs.min(), xs.max()
-    patch = page.crop((lx - 150 - 6, y0, rx - 150 + 6, y1))
-    page.paste(patch, (lx - 6, y0))
+def option_c(t, n, nb, paper):
+    sky = Image.new("RGBA", (W, 141))
+    plate = P.art("layers/night_village/village_plate.webp").crop((0, 0, 768, 300))
+    sky.paste(plate.resize((W, int(300 * W / 768)), Image.LANCZOS).crop((0, 0, W, 141)))
+    glow = Image.new("RGBA", (W, 141), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for i, r in enumerate(range(130, 50, -10)):
+        gd.ellipse((170 - r, 84 - r, 170 + r, 84 + r), fill=(220, 226, 255, 5 + i))
+    sky.alpha_composite(glow)
+    moon = P.art("layers/night_village/moon.webp").crop((37, 75, 262, 296))
+    sky.alpha_composite(moon.resize((92, 90), Image.LANCZOS), (124, 40))
+    roofs = P.art("layers/dawn_gallows/roofs_mid.webp")
+    roofs = roofs.resize((W, int(roofs.height * W / roofs.width)), Image.LANCZOS)
+    rgb = ImageEnhance.Brightness(roofs.convert("RGB")).enhance(0.85)
+    rgb = Image.blend(rgb, Image.new("RGB", rgb.size, (20, 24, 58)), 0.22).convert(
+        "RGBA"
+    )
+    rgb.putalpha(roofs.getchannel("A"))
+    sky.alpha_composite(rgb, (0, 141 - 232))
+    roof = t.crop((0, 141, W, 237))
+    roof.paste(
+        t.crop((520, 141, 625, 200)), (630, 0)
+    )  # the slate under today's lantern
+    page = stack([sky, roof, t.crop((0, 237, W, H))])
+    bracket(page, 372, 742, 30)
+    s = sign(paper, nb)
+    sx, sy = 392, 50
     d = ImageDraw.Draw(page)
-    f = P.font("figtree-semi", 25)
-    text = f"{ready} of {n} ready"
-    tw, _, tb = P.text_size(d, text, f)
-    cx = (lx + rx) // 2
-    d.text((cx - tw // 2 - tb[0], 1600 - tb[1]), text, font=f, fill=(48, 42, 46))
-
-
-def option_c(t, n, paper):
-    page = clear_clock(t).convert("RGBA")
-    d = ImageDraw.Draw(page)
-    P.clock(d, 132, 76, 44, P.BONE_TEXT)
-    cord = P.sag(150, 40, 632, 34, 16)
-    d.line(cord, fill=(170, 152, 120, 255), width=3)
-    for nx, ny in (cord[0], cord[-1]):  # the cord's two nails
-        d.ellipse((nx - 5, ny - 5, nx + 5, ny + 5), fill=(40, 40, 52, 255))
-    toks = sigil_crops(t, n)
-    size = 58 if n <= 6 else 42
-    x0, x1 = 176, 606
-    step = (x1 - x0) / max(1, n - 1)
-    rnd = random.Random(n)
-    for i, p in enumerate(toks):
-        x = x0 + step * i
-        y = np.interp(x, [q[0] for q in cord], [q[1] for q in cord])
-        piece = tag(p, size, i in READY[n], paper, i)
-        sw, (ax, ay) = P.swing(piece, rnd.uniform(-5, 5), (size // 2, 0))
-        P.stamp(page, sw, (int(x - ax), int(y - ay)), drop=4, lean=-0.6)
-    recount(page, len(READY[n]), n)
+    for nx in (sx + 26, sx + s.width - 16):  # cords from the bracket to the sign's pins
+        d.line([(nx, 33), (nx, sy + 14)], fill=CORD, width=5)
+    P.stamp(page, s, (sx, sy), drop=6, lean=-0.6)
+    page.alpha_composite(lantern(181), (639, -1))
     return page
 
 
@@ -317,12 +324,12 @@ def main():
         made[f"today-{n}"] = save(talk[n], f"today-{n}")
         made[f"a-{n}"] = save(option_a(talk[n], n, nb, paper), f"a-{n}")
         made[f"b-{n}"] = save(option_b(talk[n], n, nb, paper), f"b-{n}")
-        made[f"c-{n}"] = save(option_c(talk[n], n, paper), f"c-{n}")
+        made[f"c-{n}"] = save(option_c(talk[n], n, nb, paper), f"c-{n}")
     labels = {
         "today": "Today",
-        "a": "A  One banner",
+        "a": "A  One banner (+ words)",
         "b": "B  The board's sign",
-        "c": "C  The table's faces",
+        "c": "C  The square's sky",
     }
     sheet(
         [
