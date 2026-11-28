@@ -123,12 +123,14 @@ class _PressableState extends State<Pressable>
   // A pointer handler can outlive the part: the finger that pressed it is
   // still routed to its listener after a rebuild took it away.
   void _down(PointerDownEvent event) {
-    if (!mounted || !widget.enabled || _pointer != null) return;
+    if (!mounted || !widget.enabled) return;
     if (event.buttons & kPrimaryButton == 0) return;
     // Each listener hears its own transformed copy of the one down.
     final down = event.original ?? event;
     if (identical(down, _taken)) return;
+    // Taken before a second finger is ignored: the part round stays up.
     _taken = down;
+    if (_pointer != null) return;
     _pointer = event.pointer;
     _from = event.position;
     if (_reduced) {

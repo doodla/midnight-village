@@ -324,6 +324,22 @@ void main() {
     await finger.up();
     await tester.pumpAndSettle();
 
+    // A second finger on the inner part while it is down: it is still the
+    // inner part's, so the part round it stays up.
+    finger = await tester.startGesture(middle);
+    await tester.pump();
+    final second = await tester.startGesture(middle, pointer: 9);
+    await tester.pump();
+    expect(
+      outer.value,
+      0,
+      reason:
+          'a second finger on a pressed part does not press the one round it',
+    );
+    await second.up();
+    await finger.up();
+    await tester.pumpAndSettle();
+
     await tester.pumpWidget(nested(innerOn: false));
     finger = await tester.startGesture(middle);
     await tester.pump();
