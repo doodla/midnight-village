@@ -364,11 +364,9 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 within="GameConsumer.receive_json",
             ),
         ),
-        tests=(
-            "backend/tests/onuw/test_game_consumer.py",
-            "backend/tests/onuw/test_unknown_event_tolerance.py",
-        ),
-        survives="nothing sends an action to the game socket (2b)",
+        # every routed socket is sent a frame named after each HTTP action
+        tests=("backend/tests/core/test_no_writes_from_received_frames.py",),
+        expect="wrote",
     ),
     Break(
         name="B8a_sleep_in_a_tap",

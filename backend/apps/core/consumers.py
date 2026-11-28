@@ -10,6 +10,7 @@ from channels.consumer import get_handler_name
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
+from . import frames
 from .serializers import without_usernames
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,9 @@ class TolerantJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
     as Channels does, so a misspelled type in new code still fails the suite. Only
     the consumer's own events are affected: its connect, receive and disconnect
     handlers still dispatch as usual.
+
+    A frame the phone sent (``websocket.receive``) is handled inside
+    ``frames.received``: any database write it makes is refused (principle 7).
     """
 
     async def dispatch(self, message):
@@ -32,6 +36,10 @@ class TolerantJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
             if getattr(settings, "ONUW_STRICT_SOCKET_EVENTS", False):
                 raise ValueError(f"No handler for message type {message['type']}")
             logger.warning("Ignoring event with no handler: %s", message.get("type"))
+            return
+        if message["type"] == "websocket.receive":
+            with frames.received(type(self).__name__):
+                await super().dispatch(message)
             return
         await super().dispatch(message)
 
