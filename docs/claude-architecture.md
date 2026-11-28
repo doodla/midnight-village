@@ -78,6 +78,11 @@ The branches Vercel deploys from (`live-server`, `live-app`) are moved by `tool/
 only when what a side ships changed, only once main's required checks passed on the merged
 commit, the server before the app, only forward, and never below the rollback floor `FLOOR`
 (`guardrails/tests/test_promote_live.py`: a deliberate break per promise, with no network).
+GitHub holds the same on its side: rulesets in `docs/dev/rulesets/` (no deleting or rewinding;
+only the release job's deploy key, kept in the environment `live` that only main may use, moves a
+live branch), rehearsed first on `live-rehearsal` by `live-rehearsal.yml` and
+`tool/rehearse_live_rule.py`. `guardrails/tests/test_release_workflows.py` holds the files to each
+other (the rehearsal is the real rule on a scratch branch; only those two workflows read the key).
 
 A second workflow is not part of the wall: `deployed-check.yml` ("Deployed Check") runs after
 every merge to main and proves the live server and app work together

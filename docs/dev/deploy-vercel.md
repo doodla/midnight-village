@@ -50,7 +50,9 @@ and what fixes it; nothing moves. If the gate itself is broken, "Run workflow" o
   production, on each project. Vercel's monorepo docs say builds canceled by an Ignored Build
   Step still count, which is why this uses `git.deploymentEnabled`, not `ignoreCommand`.
 * **Going live** is a merge to `main` that changes what a side ships: one deployment for
-  that side. Nobody pushes to `live-server` or `live-app` by hand.
+  that side. Nobody pushes to `live-server` or `live-app` by hand: the Bash guard refuses it
+  (`.claude/hooks/push_rules.py`), and GitHub's rulesets on the two branches
+  (`docs/dev/rulesets/`) let only the release job's key move them, forward only.
 * **A one-off preview** of a branch: run `vercel deploy` from a checkout linked to the project
   (the CLI creates the deployment itself). It still counts toward the cap, and the backend
   needs the new address in `ALLOWED_HOSTS`, so only when a preview is really wanted.

@@ -16,8 +16,9 @@
 #
 # This is NOT a check of the merge wall: it can only run after the merge (the
 # deployment it tests does not exist before), so it never runs on a pull request
-# and is not in docs/dev/main-ruleset.json. It reads public addresses and holds no
-# secret. guardrails/tests/test_workflows.py holds it to that.
+# and is not in docs/dev/main-ruleset.json. It reads public addresses; its one secret
+# is the key it pushes the live branches with (in the environment `live`, which only
+# main may use). guardrails/tests/test_workflows.py holds it to that.
 
 name: Deployed Check
 
@@ -54,6 +55,9 @@ jobs:
     timeout-minutes: 90
     # Only main is promoted.
     if: github.ref == 'refs/heads/main'
+    # The release job's key (LIVE_DEPLOY_KEY) lives in this environment, which only main
+    # may use: the one actor the live branches' rule lets through (docs/dev/rulesets/).
+    environment: live
     permissions:
       contents: write  # tool/promote_live.py pushes live-server and live-app, nothing else
       checks: read  # ... once main's required checks have passed on the merged commit
@@ -63,6 +67,8 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           fetch-depth: 0  # the comparison with what each live branch holds, and the floor
+          # pushes with the key once the owner has made it; until then with the job's token
+          ssh-key: ${{ secrets.LIVE_DEPLOY_KEY }}
 
       - name: Move the live branches when what they serve changed, once main is green
         id: live

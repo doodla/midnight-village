@@ -17,8 +17,8 @@ pull request, never a required check, `contents: write` on its one job only, a p
 
 AFTER_MERGE (deployed-check.yml) is not part of the wall either: it tests the deployment a
 merge makes, so it can only run after it. Its rules (WorkflowAfterMerge): every push to main
-with no paths filter, never on a pull request, never a required check, no write permission,
-no secret, and it runs tool/deployed_check.py against the same two addresses the Android
+with no paths filter, never on a pull request, never a required check, no write but the push
+of the live branches, no secret but the key it pushes them with, and it runs tool/deployed_check.py against the same two addresses the Android
 build uses.
 
 No YAML library: the workflows are plain enough to read by indentation.
@@ -39,8 +39,12 @@ ALL_WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 AFTER_MERGE = ["deployed-check.yml"]
 # Watches main's own runs and keeps the one "main is red" issue: not a check on anything.
 WATCHING = ["main-red.yml"]
+# The release's own: the rule's rehearsal and the watch on live (test_release_workflows.py).
+RELEASE = ["live-rehearsal.yml", "live-watch.yml"]
 WORKFLOWS = [
-    w for w in ALL_WORKFLOWS if w.name not in PUBLISHING + AFTER_MERGE + WATCHING
+    w
+    for w in ALL_WORKFLOWS
+    if w.name not in PUBLISHING + AFTER_MERGE + WATCHING + RELEASE
 ]
 JUSTFILES = ["justfile", "backend/justfile", "frontend/justfile"]
 
@@ -375,7 +379,9 @@ class WorkflowAfterMerge(unittest.TestCase):
         self.assertRegex(self.code, r"(?m)^permissions:\s*\n  contents: read\s*$")
         # the job may push (the two live branches); nothing else is granted
         self.assertEqual(re.findall(r"(?m)^\s+(\S+): write\b", self.code), ["contents"])
-        self.assertNotIn("secrets.", self.code)
+        # its one secret: the key the live branches' rule lets through (docs/dev/rulesets/)
+        self.assertEqual(re.findall(r"secrets\.(\w+)", self.code), ["LIVE_DEPLOY_KEY"])
+        self.assertRegex(self.code, r"(?m)^    environment: live\s*$")
         self.assertNotRegex(self.code, r"\bgit push\b")  # only the script pushes
         script = (ROOT / "tool" / "promote_live.py").read_text()
         pushes = re.findall(r'"push",\s*"origin",\s*f?"([^"]+)"', script)
@@ -466,7 +472,8 @@ def write_token_problems(name, text):
                 problems.append(
                     f"{name} job {job}: say the version beside the pin: `{line.strip()}  # vX.Y.Z`."
                 )
-        pushes = re.search(r"\bgit push\b|tool/promote_live\.py", body)
+        # a job that pushes keeps what it pushes with: the token, or a key given to the checkout
+        pushes = re.search(r"\bgit push\b|tool/promote_live\.py|ssh-key:", body)
         if (
             "actions/checkout@" in body
             and not pushes
