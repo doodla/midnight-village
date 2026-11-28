@@ -5,8 +5,8 @@
 # headless Chrome phone and three bots, and stops what it started.
 # The backend's port is TAP_HOLD_PORT, else 18777 while free (so the cached build is
 # reused), else any free one (a new build).
-# TAP_HOLD_BREAK=1: the recorded break. The build under test takes a hold at the first
-# frame after its timer, slow page or not (finger_hold.dart, `_waitOnSlowPage`), and the
+# TAP_HOLD_BREAK=1: the recorded break. The build under test takes a hold in its timer
+# itself, as Flutter's own recognizer does (finger_hold.dart, `_inTheTimer`), and the
 # check must fail.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -44,7 +44,7 @@ set +m
 
 defines=(--dart-define=ENV=prod "--dart-define=API_ORIGIN=http://127.0.0.1:$api_port" --dart-define=BUILD_COMMIT=)
 if [ "${TAP_HOLD_BREAK:-}" = 1 ]; then
-  echo "[tap-hold] TAP_HOLD_BREAK=1: the build waits for no lift on a slow page"
+  echo "[tap-hold] TAP_HOLD_BREAK=1: the recorded break, a hold taken in its timer itself"
   defines+=(--dart-define=tap_hold_break=true)
 fi
 echo "[tap-hold] the release web app (built once per change: web_build_cached.sh)"

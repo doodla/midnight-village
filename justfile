@@ -155,7 +155,7 @@ test-contract:
 phone-frames *args:
     tool/heavy.py -- tool/phone_frames/run.sh {{args}}
 
-# On the real game in Chrome at CPU 1x, 4x and 8x: quick touches tap and held ones hold, on every part with a hold (tool/tap_hold/parts.py); own backend. Usage: just tap-hold [part words,...] [--speeds 1,4,8] [--touches n]; TAP_HOLD_BREAK=1 builds the recorded break
+# On the real game in Chrome, CPU 1x and 4x, idle and busy: quick touches tap, held ones hold, on every part with a hold (tool/tap_hold/parts.py); own backend. Usage: just tap-hold [part,...] [--touches n]; TAP_HOLD_BREAK=1 builds the break
 tap-hold *args:
     tool/heavy.py -- tool/tap_hold/run.sh {{args}}
 
