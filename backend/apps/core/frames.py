@@ -18,6 +18,7 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import re
+import traceback
 from collections.abc import Iterator
 
 _RECEIVING: contextvars.ContextVar[str | None] = contextvars.ContextVar(
@@ -69,11 +70,20 @@ def refuse_writes_from_frames(execute, sql, params, many, context):
     consumer = _RECEIVING.get()
     if consumer is not None and is_write(str(sql)):
         raise WriteFromAFrameError(
-            f"{consumer} wrote to the database while handling a frame a phone sent"
-            f" ({str(sql)[:80]}...). A player's action goes over HTTP (CLAUDE.md"
+            f"{_writer()}: {consumer} wrote to the database while handling a frame a"
+            f" phone sent ({str(sql)[:80]}...). A player's action goes over HTTP (CLAUDE.md"
             " principle 7); a socket only sends events. Fix: move it to a view."
         )
     return execute(sql, params, many, context)
+
+
+def _writer() -> str:
+    """file:line of the project's innermost code that made the write."""
+    for frame in reversed(traceback.extract_stack()):
+        name = frame.filename
+        if "/apps/" in name and not name.endswith("frames.py"):
+            return f"apps/{name.rsplit('/apps/', 1)[-1]}:{frame.lineno}"
+    return "(no app frame)"
 
 
 def install(connection, **_kwargs) -> None:
