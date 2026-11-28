@@ -178,6 +178,11 @@ gate_check_commit() {
     echo "$out" | tail -20 >&2
     failed=1
   fi
+  if [ -x tool/context_budget.py ] && ! out=$(tool/context_budget.py 2>&1); then
+    echo "BLOCKED: what an agent must read grew past its limit." >&2
+    echo "$out" | tail -20 >&2
+    failed=1
+  fi
 
   local -a to_run=()
   local -A key_fast=()

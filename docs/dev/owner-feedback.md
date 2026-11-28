@@ -238,7 +238,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   being reworked by the coordinating session); sounds: none for now; "The text sizes on the
   main screen feel a bit too big" (first screen and table; options going to the board).
 - Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
-  directly, 22 November). What it can be trusted with: `docs/dev/haiku-trial.md`.
+  directly, 22 November).
 - 22 Nov, same-address API trial (#66): it BROKE the live web app for about 30 minutes (23:15 to
   23:49 UTC) and was reverted (#68). Cause: Vercel's rewrite `/api/:path*` does not match a path
   ending in a slash, and every API path does, so calls got `index.html`. No local check can see

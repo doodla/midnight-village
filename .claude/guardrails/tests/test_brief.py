@@ -55,7 +55,14 @@ class FromTheSources(unittest.TestCase):
     def setUp(self):
         self.tool = load()
         self.sections = self.tool.spec_sections(SPEC)
-        self.states = ["08-talk", "09-vote", "09-vote-locked", "12-end-village", "06-night-board", "c-buttons"]
+        self.states = [
+            "08-talk",
+            "09-vote",
+            "09-vote-locked",
+            "12-end-village",
+            "06-night-board",
+            "c-buttons",
+        ]
 
     def test_a_screens_section_is_its_block_word_for_word_and_no_more(self):
         line, block = self.sections["09"]
@@ -98,7 +105,13 @@ class FromTheSources(unittest.TestCase):
     def test_a_state_says_what_its_fixture_did(self):
         widgets = {
             "06-night-board": ["NightBoard", "FaceDownCard"],
-            "06-night-board-follow-up": ["NightBoard", "FaceDownCard", "HeldFace", "RoleHead", "_Words"],
+            "06-night-board-follow-up": [
+                "NightBoard",
+                "FaceDownCard",
+                "HeldFace",
+                "RoleHead",
+                "_Words",
+            ],
             "06-night-board-x1.6": ["NightBoard", "FaceDownCard"],
             "03b-role-sheet": ["SheetScaffold"],
         }
@@ -130,14 +143,16 @@ class FromTheSources(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
-            self.tool.ROOT = Path(tmp)
-            doc = Path(tmp) / "spec.md"
-            doc.write_text(
+            docs = self.tool.DOCS
+            before = docs.root
+            docs.root = Path(tmp)
+            self.addCleanup(setattr, docs, "root", before)
+            (Path(tmp) / "spec.md").write_text(
                 "## 2. Cues\n\n**The held-face frame** is the same on every face:\n"
                 "- Always the same fixed size.\n- Drawn above the touch point, never under the thumb.\n\n"
                 "Nothing about it here.\n"
             )
-            ((where, text),) = self.tool.part_rules("HeldFace", [doc])
+            ((where, text),) = self.tool.part_rules("HeldFace", ["spec.md"])
         self.assertEqual(where, "spec.md:3")
         self.assertIn("Drawn above the touch point, never under the thumb.", text)
 
@@ -169,7 +184,9 @@ class Quoted(unittest.TestCase):
         self.assertIn("the seal is late", said[0][2])
 
     def test_a_long_block_is_cut_around_the_line_and_says_so(self):
-        lines = ["- The board (06) opens the list."] + [f"  Sentence {n}." for n in range(1, 12)]
+        lines = ["- The board (06) opens the list."] + [
+            f"  Sentence {n}." for n in range(1, 12)
+        ]
         lines[6] = "  On 09 the slip lifts."
         text, last = self.tool.quoted(lines, 6)
         self.assertTrue(text.startswith("[...] Sentence 5."), text)
@@ -178,7 +195,13 @@ class Quoted(unittest.TestCase):
         self.assertEqual(last, 8)
 
     def test_a_list_item_stops_at_the_next_item_and_a_paragraph_at_a_blank_line(self):
-        lines = ["- one about 09.", "  its rule.", "- another item.", "", "A paragraph."]
+        lines = [
+            "- one about 09.",
+            "  its rule.",
+            "- another item.",
+            "",
+            "A paragraph.",
+        ]
         self.assertEqual(self.tool.quoted(lines, 0)[0], "- one about 09. its rule.")
         self.assertEqual(self.tool.quoted(lines, 4)[0], "A paragraph.")
 

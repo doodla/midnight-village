@@ -9,11 +9,16 @@ matches nothing, or a rule that is no longer where the row says, fails
 
 A rule is (document, kind, start):
 - "bullet": the `- **start...` bullet of the document, whole.
+- "paragraph": the paragraph that starts `**start...`, whole.
 - "section": the `## start...` section, whole (keep to short ones).
 - "see": the heading only, with its line, for a section too long to print.
 """
 
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from brief_docs import DOCS, capped
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 600
@@ -25,6 +30,7 @@ KIT = "frontend/lib/design_system/README.md"
 SERVER = "backend/CLAUDE.md"
 MODELS = "docs/dev/models/README.md"
 LOBBY_MODEL = "docs/dev/models/phone/lobby/README.md"
+ARCH = "docs/claude-architecture.md"
 
 AREAS: dict[str, dict] = {
     "lobby-queue": {
@@ -150,6 +156,32 @@ AREAS: dict[str, dict] = {
             (MODELS, "section", "Models"),
         ],
     },
+    "tool": {
+        "what": "The tools, hooks and guardrails: `tool/`, `.claude/hooks/`, "
+        "`.claude/guardrails/` (the checks every agent runs into).",
+        "files": [
+            "tool/*.py",
+            "tool/*.sh",
+            ".claude/hooks/*.py",
+            ".claude/hooks/*.sh",
+            ".claude/hooks/lib/*.sh",
+            ".claude/hooks/git/*",
+            ".claude/guardrails/*.py",
+        ],
+        "tests": [
+            ".claude/guardrails/tests/test_*.py",
+            ".claude/hooks/test_gate_routing.sh",
+        ],
+        "model": None,
+        "rules": [
+            (ARCH, "paragraph", "A rule holds per change."),
+            (ARCH, "paragraph", "File sizes."),
+            (ARCH, "paragraph", "Guards."),
+            (ARCH, "paragraph", "As GitHub's backend job runs it."),
+            (ARCH, "see", "The commit gate"),
+            (ARCH, "see", "Claude Code hooks"),
+        ],
+    },
     "server": {
         "what": "The Django server: the lobby in `apps.core`, the game in "
         "`apps.onuw`, its payloads and migrations. It is LIVE.",
@@ -196,12 +228,20 @@ def files_of(globs: list[str]) -> list[str]:
 
 def rule_text(document: str, kind: str, start: str) -> tuple[int, str] | None:
     """(line, text) of the rule in the document, or None when it is not there."""
-    lines = (ROOT / document).read_text().splitlines()
+    lines = DOCS.text(document).splitlines()
     if kind == "bullet":
         for i, line in enumerate(lines):
             if line.startswith(f"- **{start}"):
                 end = i + 1
                 while end < len(lines) and lines[end].startswith("  "):
+                    end += 1
+                return i + 1, "\n".join(lines[i:end])
+        return None
+    if kind == "paragraph":
+        for i, line in enumerate(lines):
+            if line.startswith(f"**{start}"):
+                end = i + 1
+                while end < len(lines) and lines[end].strip():
                     end += 1
                 return i + 1, "\n".join(lines[i:end])
         return None
@@ -236,6 +276,7 @@ def size(path: str) -> str:
     )
     return f"{lines:4d} lines  {path}{flag}"
 
+
 MANY = 40
 
 
@@ -247,13 +288,33 @@ def listed(paths: list[str], line) -> str:
     for path in paths:
         folder = path.rsplit("/", 1)[0]
         folders[folder] = folders.get(folder, 0) + 1
-    out = [f"  {count:3d} files  {folder}/" for folder, count in sorted(folders.items())]
-    flagged = [line(p) for p in paths if line(p).endswith(("never grow", "near the limit"))]
+    out = [
+        f"  {count:3d} files  {folder}/" for folder, count in sorted(folders.items())
+    ]
+    flagged = [
+        line(p) for p in paths if line(p).endswith(("never grow", "near the limit"))
+    ]
     return "\n".join(out + [f"  {f}" for f in flagged])
 
 
-def brief(name: str, others_in) -> str:
-    """The brief of area `name`. `others_in` is tool/brief.py's (who else is in files)."""
+# What each list an area's brief makes from code may cost, in tokens (counted by
+# tool/context_budget.py, which measures without listing files).
+CODE_CAPS = {"files": 700, "model": 150, "tests": 500, "others": 200}
+
+
+def brief(name: str, others_in, code: bool = True) -> str:
+    """The brief of area `name`. `others_in` is tool/brief.py's (who else is in
+    files). Without `code`, only what is quoted from documents (the budget's measure)."""
+    out = doc_part(name)
+    if code:
+        out += code_part(name, others_in)
+    out.append("\n## Commands\n\n" + COMMANDS)
+    out.append("## Waiting\n\n" + WAITING + "\n")
+    return "\n".join(out)
+
+
+def doc_part(name: str) -> list[str]:
+    """The part of an area's brief quoted from documents: its rules."""
     area = AREAS[name]
     out = [
         f"# Brief: {name}\n",
@@ -273,9 +334,16 @@ def brief(name: str, others_in) -> str:
             out.append(f"Read: {document}:{line}  {text}\n")
         else:
             out.append(f"({document}:{line})\n\n{text}\n")
+    return out
+
+
+def code_part(name: str, others_in) -> list[str]:
+    """The part made from the tree: files, the model slice, tests, who else.
+    Each list is capped (CODE_CAPS)."""
+    area = AREAS[name]
     files = files_of(area["files"])
-    out.append(f"## Files ({len(files)})\n")
-    out.append(listed(files, size) + "\n")
+    out = [f"## Files ({len(files)})\n"]
+    out += capped(listed(files, size).splitlines(), CODE_CAPS["files"]) + [""]
     if area["model"]:
         model = ROOT / area["model"]
         slices = sorted(
@@ -291,16 +359,13 @@ def brief(name: str, others_in) -> str:
             "Ordering or concurrency logic here is model-checked: change the model with the code"
             " (docs/dev/models/README.md says when and how).\n"
         )
-        out.append("\n".join(f"  {p}" for p in slices) + "\n")
+        out += capped([f"  {p}" for p in slices], CODE_CAPS["model"]) + [""]
     tests = files_of(area["tests"])
     out.append(f"## Tests ({len(tests)})\n")
-    out.append((listed(tests, lambda p: p) or "  (none of its own)") + "\n")
+    listing = listed(tests, lambda p: p) or "  (none of its own)"
+    out += capped(listing.splitlines(), CODE_CAPS["tests"]) + [""]
     out.append("## Who else is in these files (branches on the remote, not merged)\n")
     others = others_in(set(files))
-    if not others:
-        out.append("Nobody.\n")
-    for branch, theirs in others.items():
-        out.append(f"  {branch}: " + ", ".join(theirs))
-    out.append("\n## Commands\n\n" + COMMANDS)
-    out.append("## Waiting\n\n" + WAITING + "\n")
-    return "\n".join(out)
+    lines = [f"  {branch}: " + ", ".join(theirs) for branch, theirs in others.items()]
+    out += capped(lines or ["Nobody."], CODE_CAPS["others"])
+    return out

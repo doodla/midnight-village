@@ -109,7 +109,9 @@ A hook refuses any worker that is not on an allowed model with an effort set
 - Haiku is allowed on trial at the owner's request (22 Nov 2026: "Haiku will go a long way and
   it's faster"), for now only for work whose result is checked by something else (a test, a
   check script, or a reviewer).
-- What haiku can be trusted with: `docs/dev/haiku-trial.md`.
+- What haiku proved it can be trusted with (trial of 22 Nov 2026): lookups, running checks,
+  fact-checks, bookkeeping from given facts, exact edits; a small fix only with a reviewer after
+  it; not yet design, anything players see, the server or the game's rules.
 - Opus for design-heavy or tricky work and for reviews. Sonnet for well-specified work and
   lookups.
 - Effort: `low` for lookups, `medium` for routine edits, `high` for design and review.

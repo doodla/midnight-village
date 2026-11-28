@@ -183,7 +183,8 @@ typecheck:
 
 # Run all backend quality checks, check the instruction files' paths and recipes,
 # that no source file has grown past what can be read whole (tool/check_file_sizes.py),
-# and that no line of the notes is so long that two branches clash on it (tool/doc_lines.py)
+# that no line of the notes is so long that two branches clash on it (tool/doc_lines.py),
+# and that what each agent must read stays within its limit (tool/context_budget.py)
 check:
     {{backend_just}} check
     {{backend_just}} lint-tools
@@ -192,6 +193,7 @@ check:
     tool/check_file_sizes.py
     tool/doc_lines.py
     tool/root_recipes.py
+    tool/context_budget.py
 
 # Fix all auto-fixable issues
 fix:

@@ -153,6 +153,15 @@ on contact sheets; and writes the hand-over file in one fixed shape
 without its root line, and `--fix` writes the lines
 (`guardrails/tests/test_recipes_everywhere.py`).
 
+**What an agent must read.** `tool/context_budget.py` (in `just check` and the commit gate)
+measures, in tokens, each CLAUDE.md, each brief, each role's read-first path (the CLAUDE.md
+files it works under, its agent definition, every document those or its brief say to read, and
+the brief) and the whole instruction surface, and holds each to a limit as the file sizes are
+held: under it on main, it may not pass it; over it on main, it may not grow. The limits are
+constants at the top of the tool; `--report` prints every measure beside main's. A brief is
+measured from its documents alone, its code lists counted at their caps (`CODE_CAPS`), so no
+Flutter is needed (`guardrails/tests/test_context_budget.py`).
+
 **The heavy queue.** `tool/heavy.py` (`just heavy <command...>`, `just heavy --status`) is a counting queue
 for every heavy command: 3 at once (by the machine's memory and the measured peak of each kind of job, in
 `docs/dev/running-the-work.md`, "Waiting, and the heavy queue"), the rest in order, saying where they stand at once and
@@ -265,13 +274,8 @@ Every agent lists its tools: one defined with all tools starts at about 78k toke
 (`frontend/tool/contact_sheet.py`). The rules for using them: `docs/dev/running-the-work.md`,
 "Lean helpers"; the numbers: `docs/dev/agent-ledger.md`.
 
-The developer agents' briefs carry no old-look or protocol-1 rule any more: both are deleted.
-
 ## Skills (`.claude/skills/`)
 
 Seven third-party `flutter-*` skills (Flutter's generic guides on animation, layout,
 concurrency, HTTP and JSON, accessibility, testing, theming). Nothing here depends on them, and
-where one disagrees with `frontend/CLAUDE.md` the CLAUDE.md wins. Five were removed on 23
-November 2026: state and architecture (they prescribe `provider` and `ChangeNotifier`; the app
-is Riverpod), navigation (`Navigator.push`; the app is go_router), databases (SQLite; the app
-has none) and macOS setup. The second copy of all twelve, in a root `.agents` folder, is gone too.
+where one disagrees with `frontend/CLAUDE.md` the CLAUDE.md wins.
