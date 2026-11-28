@@ -1,7 +1,7 @@
-# The game: the data layer and screens 04 to 10 (`features/game`)
+# The game: the data layer and screens 04 to 10 (`frontend/lib/features/game`)
 
 There is one game flow: the screens read one model and one table.
-- **`/me/`**: `GameMe` (`features/game/domain/game_me.dart`), strict, with this phone's own `player_id` (never taken from the login);
+- **`/me/`**: `GameMe` (`frontend/lib/features/game/domain/game_me.dart`), strict, with this phone's own `player_id` (never taken from the login);
   it carries `stageStartedAt` (`stage_started_at`: when the timed stage began, null whenever the deadline is) and, in the vote, `voteTargets`
   (`vote_targets`: the ids this phone may vote for, in seat order), which no screen reads yet.
   Its night is the design system's parsers run once on the same body (`ChoosePrompt.fromMe`, `NightSeat.seatsOf`, `NightReport.fromMe`):
@@ -13,21 +13,21 @@ There is one game flow: the screens read one model and one table.
   Play again or Leave answered 404 is the table closing (01, "This table has closed."), as a fetch answered 404 is.
   Lobby: `LobbyPlayer.token`, `LobbyPlayer.connected`, `LobbyState.table` (`TableSettings`: auto deck, chip, look, lengths), `LobbyState.deckPreview` and
   `LobbyState.deal` (`DealReadiness`: the server's own "can be dealt now"; every table sends both);
-  `MyTable`, `OnlineStats`, `RecentGame` (`lobby/domain/where_am_i.dart`).
-- **Layering**: `features/game/domain` imports the night models from `design_system/night` and `design_system/faces`
+  `MyTable`, `OnlineStats`, `RecentGame` (`frontend/lib/features/lobby/domain/where_am_i.dart`).
+- **Layering**: `frontend/lib/features/game/domain` imports the night models from `frontend/lib/design_system/night` and `frontend/lib/design_system/faces`
   (they are the parsers, so the domain does not copy them);
   nothing in `design_system` imports a feature.
-- **Screen**: `screenFor(TableView, me:, local:)` (`game/domain/screen_table.dart`) is the one server-state -> screen table
+- **Screen**: `screenFor(TableView, me:, local:)` (`frontend/lib/features/game/domain/screen_table.dart`) is the one server-state -> screen table
   (01 to 10; 05 is the board's place while `/me/` loads; a table naming no game of this player's is 02).
-  `tableScreenProvider` (`game/presentation/table_screen.dart`) applies it:
+  `tableScreenProvider` (`frontend/lib/features/game/presentation/table_screen.dart`) applies it:
   the game id comes from `/me/table/` (a new deal replaces the game), values held during a refetch are used (never loading or error while something is shown), a
   game that is gone is 01. Opening the app, it reads the seat this device last had
-  (`LastSeat`, `features/lobby/presentation/last_seat.dart`, written from every `/me/table/` answer, read before the first frame by `restoreLocalSteps`) beside
+  (`LastSeat`, `frontend/lib/features/lobby/presentation/last_seat.dart`, written from every `/me/table/` answer, read before the first frame by `restoreLocalSteps`) beside
   `/me/table/`: that game's `/me/` (or that waiting table's lobby) goes out at the same moment and is kept while `/me/table/` names the same seat, let go when
   it names another; a deal starts the dealt game's `/me/` from the deal's answer or `game_started` the same way (`AtTableScreen`).
   The seat is kept per account (`<user>:<seat>`) and cleared with it.
   An answer or an event that says where this player sits is `/me/table/`'s next value, not asked again
-  (`SeatSeed`, `seatFromServer` in `lobby/presentation/where_am_i_provider.dart`; `MyTable.seatedAt`, `MyTable.backToWaiting`):
+  (`SeatSeed`, `seatFromServer` in `frontend/lib/features/lobby/presentation/where_am_i_provider.dart`; `MyTable.seatedAt`, `MyTable.backToWaiting`):
   a table started or joined, a deal and `game_started` (the night of the new game), play again and `play_again` at the end board
   (the lobby, waiting, this game still its newest, as `/me/table/` says it; `LiveGameNotifier._seatBackAtTable`: only from the end board of this game, and not while this phone's own play again is out, whose answer seats it with the lobby).
   Every place that asks `/me/table/` again because the table may have moved on goes through one helper, `askWhere`
@@ -43,9 +43,9 @@ There is one game flow: the screens read one model and one table.
   table state it was taken in and void in any other, so a deal, play again or new game ends them;
   "See who won" is also kept on the device (`mv.won.v1.<game>`, read before the first frame by `restoreLocalSteps`), so a restart at the results lands on 10 or
   11 as this phone left it. `screen_table_test.dart` maps every recorded `/me/` to the screen stated for it
-  (`meScreens` in `test/helpers/contract/sample_sets.dart` is derived from each sample's own phase and stage, so a new sample needs no line; one whose stage names no screen fails there),
+  (`meScreens` in `frontend/test/helpers/contract/sample_sets.dart` is derived from each sample's own phase and stage, so a new sample needs no line; one whose stage names no screen fails there),
   every where-am-I answer and lobby body, and checks every screen is reached.
-- **Back**: one policy for the whole app (`core/router/back_policy.dart`), at the one page
+- **Back**: one policy for the whole app (`frontend/lib/core/router/back_policy.dart`), at the one page
   (`HomeGate`; the dev-only `/debug` page has its own, whose Back goes home):
   Android's back button and gesture (predictive back is opted in, `enableOnBackInvokedCallback`) and the browser's Back all arrive as the same `popRoute`.
   A sheet or dialog open on top closes first
@@ -65,12 +65,12 @@ There is one game flow: the screens read one model and one table.
   (where there is no page before the app, a fresh tab, that exit takes the app's history down and Back stops working for good):
   the page never pops and the app steps two entries back (`leave_web.dart`), which does nothing in a fresh tab and leaves Back armed.
   A screen leaving under a change of screen answers nothing (`BackMute`, set by `SceneSwitcher`).
-  `test/features/back_test.dart` presses Back on every screen the table can name (a new screen fails it until its rule is stated and pressed), on the waits and
-  in flight; `test/core/router/back_policy_test.dart` holds the policy itself.
+  `frontend/test/features/back_test.dart` presses Back on every screen the table can name (a new screen fails it until its rule is stated and pressed), on the waits and
+  in flight; `frontend/test/core/router/back_policy_test.dart` holds the policy itself.
 - **State in**: `LiveGameNotifier` (`liveGameProvider(gameId)`).
   `/me/` fetches go one at a time (a request meanwhile runs once after), so a reply never overtakes a newer one.
   One rule for every fetch a screen depends on:
-  it is retried with backoff until it succeeds, or polled until its reason ends (`core/healing/healing.dart`, `HealTiming`):
+  it is retried with backoff until it succeeds, or polled until its reason ends (`frontend/lib/core/healing/healing.dart`, `HealTiming`):
   any failed `/me/` (the first, or the one after a taken choose) is fetched again;
   the results (`GameOutcome`) until they load (`outcomeFailing` while a try has failed);
   `myTableProvider` with `retryForever` (Riverpod's default gives up after about 40 s) and, at a waiting table or a finished game, a slow poll
@@ -88,9 +88,9 @@ There is one game flow: the screens read one model and one table.
   the poll's unchanged `/me/`, a retry that fails again or a presence already known tells nobody and draws no frame (`live_game_still_test.dart`).
   A later good fetch clears `tableClosed`;
   a 404 also sets 01's banner ("This table has closed.", `JoinFlow.tableClosed`), where the phone lands.
-  The game sockets (`gameWebSocketProvider` and its stream and state, `game/presentation/game_socket.dart`) are autoDispose:
+  The game sockets (`gameWebSocketProvider` and its stream and state, `frontend/lib/features/game/presentation/game_socket.dart`) are autoDispose:
   a game no longer shown closes its socket.
-- **Taps out**: one `Outbox` (`game/presentation/outbox.dart`), lanes choose, vote (pick and lock, in order), ready and ack:
+- **Taps out**: one `Outbox` (`frontend/lib/features/game/presentation/outbox.dart`), lanes choose, vote (pick and lock, in order), ready and ack:
   at most one request per lane in flight, later taps coalescing to the latest (queued), each item keyed to its stage (a choose: stage and turn) and holding its
   ORIGINAL request; an item of a stage or turn that ended is dropped, unsent ones included.
   What the screens show of this phone's taps is derived from it (`Outbox.on`), on the tap.
@@ -109,8 +109,8 @@ There is one game flow: the screens read one model and one table.
   A choose is never sent twice for a turn.
   A tap the phone does not send is a `TapOutcome` of its own (`Declined`, `Queued`, `Landed`), never a made-up server answer;
   `TapOutcome.forBoard` gives the night board its `ChooseAnswer`.
-- **A newer build**: `mayReloadNow` (`game/domain/reload_rule.dart`) is the one place that says when the open app may reload itself for a newer build
-  (`core/update/new_build.dart`, `new_build_provider.dart`; `docs/dev/deploy-vercel.md`):
+- **A newer build**: `mayReloadNow` (`frontend/lib/features/game/domain/reload_rule.dart`) is the one place that says when the open app may reload itself for a newer build
+  (`frontend/lib/core/update/new_build.dart`, `new_build_provider.dart`; `docs/dev/deploy-vercel.md`):
   never with a `playerRequest` out, an outbox tap queued, in flight or unsent (`Outbox.hasTapsOnTheWay`), a host's change on its way, a name or code typed on 01
   (`JoinDraft`, also kept across a reload in the tab's `sessionStorage`, `TabStorage`), text in the focused field or the camera scanner open;
   at once only on 01; on every other screen (02, 03, "You're at another table.", and a running game: 04, the night board, 08, 09, 10) NEVER because a screen
@@ -121,9 +121,9 @@ There is one game flow: the screens read one model and one table.
   (`renewWorker`, 10 s bound; nothing is unregistered or deleted; a failure leaves the app running and the next look tries again).
   The loop guard (the build reloaded for) is per tab.
   `HomeGate` reports what is shown (`NewBuild.seen`).
-- **The end board** (`game/presentation/end/`):
+- **The end board** (`frontend/lib/features/game/presentation/end`):
   the results phase's one screen (`AppScreen.end`).
-  `EndScreen` (`game/presentation/shell/end_screen.dart`) wires it:
+  `EndScreen` (`frontend/lib/features/game/presentation/shell/end_screen.dart`) wires it:
   the wait until the results load (`EndWaiting`), host Play again / Edit deck and guest Leave as one `Pending` each
   (busy on the control tapped, `PaperScrap.busy`, the mark in the scrap's own end room, its words readable; the failure and "Try again" on one line over the foot),
   "What happened"'s cue as the learned `Cue.endStep`, and the reveal latched by `EndRevealLatch` (`endRevealLatchProvider`):
@@ -132,11 +132,11 @@ There is one game flow: the screens read one model and one table.
   `EndBoardView` draws the settled board from the plan `planEndBoard` makes
   (planned once per room, text size, payload, viewer and host, the banner fitted once per payload and viewer).
   With `reveal: true` it plays the reveal once (`docs/specs/frontend/end-board.md`, section 8):
-  `revealOf(plan)` (`game/domain/end_reveal.dart`) is the timeline, named beats with start and length from the `Motion` tokens
+  `revealOf(plan)` (`frontend/lib/features/game/domain/end_reveal.dart`) is the timeline, named beats with start and length from the `Motion` tokens
   (hold; for each death in turn its lift and turn, stamp with a knock, drop and ribbon, the banner unrolling from its furl with the first; or, nobody hanged, the winners rising; the rows' turns, the Hunter's pick, grow, pool, tags);
   one `AnimationController` is its clock (`EndRevealDriver`, in `EndRevealScope`), and every moving piece is a `RevealPaint` that listens to it and paints its
   child again moved, faded or clipped (its `applyPaintTransform` tells hit tests and the reading floor's guard where and how large it really is), so a frame
-  builds and lays out nothing and the still paper is never painted again (`end_reveal_test.dart` counts it).
+  builds and lays out nothing and the still paper is never painted again (end_reveal_test.dart counts it).
   Cards never change places: face down in their own slots from frame one, every back one portrait size, the board already where it opens;
   each dead card lifted big by a twin over the board (its art filling it) and handed back to the slot.
   Nothing is drawn smaller than it is (a back grows into its face edge on; a test runs the reading floor on every frame).
@@ -146,7 +146,7 @@ There is one game flow: the screens read one model and one table.
   without `reveal` (opened late) nothing moves or vibrates.
   With no driver every piece is drawn exactly as the static board is (a test compares the pixels).
   - **What happened** replays the night on the board itself, calm, one thing at a time.
-    `endStoryOf(outcome)` (`game/domain/end_story.dart`, pure) turns the results' `night_timeline` into the board's steps:
+    `endStoryOf(outcome)` (`frontend/lib/features/game/domain/end_story.dart`, pure) turns the results' `night_timeline` into the board's steps:
     the faces as dealt, then one step per timeline step that did something (a `skip` is left out; roles in the middle and Villagers never have one), each with
     its kind (team, copy, look, take, swap), who acted, its threads
     (from who looked to what they saw, from who took to where they took it, between the two swapped, along a team; the Minion to each Werewolf), red only for
@@ -158,10 +158,10 @@ There is one game flow: the screens read one model and one table.
     `end_story_test.dart` checks it on every recorded results body:
     at the deal and after every step, every seat's and middle card's face is the card the recording's `positions_after` puts there
     (red against the recording's own role words).
-    The lines come from one function, `StoryCopy.line` (`design_system/copy/end_copy.dart`, a part of `copy.dart`; every form in `story_copy_test.dart`):
+    The lines come from one function, `StoryCopy.line` (`frontend/lib/design_system/copy/end_copy.dart`, a part of `copy.dart`; every form in `story_copy_test.dart`):
     the role first, then who, then what came of it ("Seer Ana sees Cleo: Werewolf.", "Doppelganger Ana copies Ben: now a Seer."), never a bare
     "Left"/"Right"/"Middle". `planEndBoard` makes each card, and the foot each middle card, as wide as every role it shows through the night, so nothing moves
-    when the faces change. `EndNight` (`presentation/end/end_night.dart`, in `EndNightScope`) is the step shown (0 is the deal) and the clock of its motion:
+    when the faces change. `EndNight` (`frontend/lib/features/game/presentation/end/end_night.dart`, in `EndNightScope`) is the step shown (0 is the deal) and the clock of its motion:
     the scrap opens it at the deal (the reveal settles first) and becomes "The result";
     a tap on the board or a swipe left plays the next step or finishes the one playing, a swipe right shows the one before, a tap after the last is back at the
     result; nothing advances by itself and nothing vibrates;
@@ -178,8 +178,8 @@ There is one game flow: the screens read one model and one table.
     side by side, else two fanned, else none, and then the cards stay in the foot raised and the thread runs down to them over the lip
     (`NightFootLinks`, `end_night_foot.dart`; the foot and the board agree through `EndNight.laidOut`, the plan the board was last laid out with), and a card no
     clean link can reach is lifted beside the other end;
-    `test/helpers/end_links.dart` is the links' rule, in the night sweep and the `12-end-night-*` pages' sweep plan.
-    On a board that scrolls, `nightViewOf` (`domain/end_night_view.dart`, pure) centres the step's cards (the deal: the top, with "you"), and where they cannot
+    `frontend/test/helpers/end_links.dart` is the links' rule, in the night sweep and the `12-end-night-*` pages' sweep plan.
+    On a board that scrolls, `nightViewOf` (`frontend/lib/features/game/domain/end_night_view.dart`, pure) centres the step's cards (the deal: the top, with "you"), and where they cannot
     be in the window together lifts the others to the window's edge for the step (clear of the other players' names where it can);
     everything the night lays out is read from the plan as it is now, so when the plan is made again (a turned phone, split screen, a new text size) at any
     step, even mid-motion, the board is brought where that plan has the step
@@ -189,7 +189,7 @@ There is one game flow: the screens read one model and one table.
     The first time, "Go on" on the board's lower edge until the first tap (`stepTaught`, `onStepTaught`; `Cue.endStep`).
     `end_night_test.dart`: the deal in place, the lines in the banner, the tap, the swipe, the way back, no vibration, the still paper not painted during a
     step, a refetch of the same results changes nothing (`GameOutcome` is equal by its body), Play again and Edit deck take a real touch at night, the cue, the
-    moon. Pages: `test_screens/end_night_pages.dart` (`12-end-night-*`);
+    moon. Pages: `frontend/test_screens/end_night_pages.dart` (`12-end-night-*`);
     film: `just end-night-frames`.
 - **Known and accepted**: a request whose answer was lost but which the server processes later can land after a newer tap of the same lane;
   closing that needs a per-phone sequence number on the server.
@@ -201,27 +201,29 @@ There is one game flow: the screens read one model and one table.
   `myTableProvider`.
 
 **The shell.** `TableShell` hosts every screen, at home (`/`, through `HomeGate`) and on a game's link (`/game/<id>`), and only `tableScreenProvider` decides
-which one shows: 01 to 03 are `features/lobby` (its README);
+which one shows: 01 to 03 are `frontend/lib/features/lobby` (its README);
 a game screen is built only from a `/me/` of its own phase (09 only from a voting `/me/`, and so on):
 while the table names a later phase than the `/me/` held, the screen shows its ground with nothing on it until its own `/me/` lands, never the earlier phase's
 values; `stageCountdown` gives a screen the countdown of its stage from the server's deadline (none when the stage has none), which the screen hands to its clock
-and never reads (`Countdown`: only the clock's `ClockTick` turns it into seconds, so a second going by redraws the clock alone, `design_system/README.md`), and every stage with one shows it
-(04's look stage too: the candle and number on its headline's banner; `test/helpers/stage_clock.dart` holds every screen state to it); with `stage_started_at` the
+and never reads
+(`Countdown`: only the clock's `ClockTick` turns it into seconds, so a second going by redraws the clock alone, `frontend/lib/design_system/README.md`), and
+every stage with one shows it
+(04's look stage too: the candle and number on its headline's banner; `frontend/test/helpers/stage_clock.dart` holds every screen state to it); with `stage_started_at` the
 countdown also says how much of the stage is left (`StageShare.left`) for the candle's wax and the vote's bar (the same on every phone and after a restart);
 null while the server does not send `stage_started_at`, and then nothing of a share is drawn.
-A change of screen is a crossfade (`Motion.settle`) except two, which are the scenes the whole table shares (`SceneSwitcher`, `design_system/README.md`):
+A change of screen is a crossfade (`Motion.settle`) except two, which are the scenes the whole table shares (`SceneSwitcher`, `frontend/lib/design_system/README.md`):
 the dusk (`table` or `deck` to `yourCard` or `nightBoard`) and the dawn (`yourCard` or `nightBoard` to `talk`), chosen by `_sceneBetween` from the two
 `AppScreen`s; the dusk lowers the card's screen over the table's from above on a paper edge, the dawn sinks the night off the talk, whose own header rises into
 its window; nothing waits, and reduce motion cuts.
 While the game's `/me/` loads the destination shows its own frame with the one waiting body in it
-(`lib/features/game/presentation/shell/waits.dart`: `CardWait`, `TalkWait`, `VoteWait`, `GameWait`; `Waiting` from `design_system/primitives/waiting_sign.dart`)
+(`frontend/lib/features/game/presentation/shell/waits.dart`: `CardWait`, `TalkWait`, `VoteWait`, `GameWait`; `Waiting` from `frontend/lib/design_system/primitives/waiting_sign.dart`)
 so a scene never lands on an empty ground and a wait is never a bare one;
 a failing first `/me/` says "One moment" with "Try again" in that frame (`LiveGameNotifier.refresh`).
 The results being read are one wait under one key (the `/me/` and the results answer into the same wait, so its sign does not blink).
 Over a screen that is shown, "One moment" appears (settling in over `Motion.settle`) whenever the fetches that keep it true fail, socket down or not;
 the seat and the screen stay. Vote to count stays a crossfade.
 
-**08 Talk and 09 Vote** (`game/presentation/shell/talk_screen.dart`, `game/presentation/shell/vote_screen.dart`).
+**08 Talk and 09 Vote** (`frontend/lib/features/game/presentation/shell/talk_screen.dart`, `frontend/lib/features/game/presentation/shell/vote_screen.dart`).
 Each is a wired screen (`TalkScreen`, `VoteScreen`: `/me/` with the outbox on it, the countdown, the notifier's taps) over a view that takes plain data and
 callbacks (`TalkView`, `VoteView`; the component sheet's 08 and 09 pages and so the cold-read pack draw these views).
 08 is the square
@@ -267,9 +269,9 @@ Both count this phone's own ready or lock at once (`GameMe.withReady`, `withVote
 a `progress` event that arrives while that tap is unconfirmed fetches `/me/` instead of being applied, so the count and the flag always come from one answer.
 Both show "Not sent." with "Try again" only for their own lane's unsent tap.
 
-**Who is who at the end.** `EndSeat` / `endSeatsOf` (`lib/features/game/domain/outcome_view.dart`) read each player's dealt and final card, a Doppelganger's
+**Who is who at the end.** `EndSeat` / `endSeatsOf` (`frontend/lib/features/game/domain/outcome_view.dart`) read each player's dealt and final card, a Doppelganger's
 copied role (the timeline's `copy` step), team, outcome, vote and death from the results body alone:
 nothing applies a rule, a death with no reason fails loudly.
-The end board's plan is made from them (`test/features/game/domain/outcome_view_test.dart`).
+The end board's plan is made from them (`frontend/test/features/game/domain/outcome_view_test.dart`).
 
 Ordering in this layer was model-checked: `docs/dev/models/phone/`.

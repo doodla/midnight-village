@@ -82,7 +82,7 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
     (the table's own value as the deal clamps it, else the game's default; the shortest
     window cut to the window as the night cuts it), each inside its own range.
   - `length_ranges`: `{key: [least, most]}` seconds a PATCH of each length takes now, from
-    the same rule table the check uses (`engine/validation.py`): 0 to the key's most; this
+    the same rule table the check uses (`backend/apps/onuw/engine/validation.py`): 0 to the key's most; this
     server's floors for a night window (1 s) and the shortest window (5 s) unless it allows
     untimed nights; the shortest window never longer than the window; and (again unless
     untimed games are allowed) no stage waits for good: with `disconnect_grace_seconds` 0 the window, the talk and the vote each need a
@@ -126,7 +126,7 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
 - `PATCH /lobbies/<code>/` (host, waiting tables): `{"settings": {...}}` is MERGED into the
   stored settings (a key given again is replaced whole). `deck` is `auto` or `custom`;
   `deck_chip` is `simple`, `classic` or `chaos`; with `auto` the deal builds the deck
-  (`engine/decks.py`, the table in `recommended-setups.md`, "Automatic Decks"). `seats` is
+  (`backend/apps/onuw/engine/decks.py`, the table in `recommended-setups.md`, "Automatic Decks"). `seats` is
   the number of players the game is for: a whole number from 3 to 10, or null (an open table,
   which deals to whoever is there: every table before this key, and a new table until the
   host picks a number). It may change any time before the deal within `seats_range` (`400`
@@ -185,7 +185,7 @@ The caller's own view, the same keys in every phase:
 | Key | |
 |---|---|
 | `game_id`, `lobby_code`, `phase`, `current_wave` | `phase` is `night`, `discussion`, `voting` or `results`; `current_wave` 0 (the look), 1 or 2 at night |
-| `deadline`, `stage_started_at` | when the open timed stage ends and began (ISO 8601 in UTC ending in `Z`, as every time the server sends: `apps/core/wire.py`); both null when the stage is untimed. A restart's reconnect allowance moves `deadline`, never `stage_started_at` |
+| `deadline`, `stage_started_at` | when the open timed stage ends and began (ISO 8601 in UTC ending in `Z`, as every time the server sends: `backend/apps/core/wire.py`); both null when the stage is untimed. A restart's reconnect allowance moves `deadline`, never `stage_started_at` |
 | `stage` | the token every stage-scoped request sends back (`look.<g>`, `w1.<g>`, `w2.<g>`, `talk.<g>`, `vote.<g>`, ...) |
 | `player_id`, `is_host`, `host_id` | the caller's own id; who hosts now |
 | `your_role` | `{"original_role"}`; at the results also `current_role` and `night_action_data` |
@@ -268,7 +268,7 @@ canonical (`"Werewolf"`); a `peek_center` result carries `center_indices` (in th
 Werewolf who looked at no centre card). The Doppelganger's look is listed as soon as it
 resolves. **A result settled at the choose is listed from the choose on** (in its answer
 and every `/me/` after it), not at the close: one that no step resolving before it in the
-window can change (`engine/night.py`, `settled_at_choose`, decided from the roles, never
+window can change (`backend/apps/onuw/engine/night.py`, `settled_at_choose`, decided from the roles, never
 from who holds what). That is the Seer (she resolves first in window 2; nothing moves cards
 before her), the Robber (only the Seer is before her), the Troublemaker and the Drunk
 (their results name only their own picks; the Drunk's server swap is seeded, so it is
@@ -316,7 +316,7 @@ the host sends `POST .../end-discussion/ {"stage"}` or the deadline passes.
 `elimination_reason`, `outcome`, `vote_target_id`), `winning_teams`, `reason`,
 `eliminated_players`, `center_cards`, `night_actions_log` and `night_timeline`:
 
-- `night_timeline` replays the night over the dealt cards (`engine/timeline.py`, pure):
+- `night_timeline` replays the night over the dealt cards (`backend/apps/onuw/engine/timeline.py`, pure):
   `seats`, `cards` (one per physical card, `card_id` `k0..`, `role`, `werewolf`), `dealt`,
   `steps[]` (`step`, `window`, `order_group`, `role`, `actors`, `doppelganger_actors`,
   `action`, `made_by_server`, `looked_at`, `team`, `copied_role`, `moves`,
@@ -351,7 +351,7 @@ as sending it once did (`backend/tests/onuw/test_resend.py`):
 | `ready` (look, talk) | sets the same value: same answer | `409 wrong_stage` |
 | `vote` pick | stores the same pick; after its own lock `409 vote_locked` | n/a |
 | `vote` lock | the same 200, nothing stored or sent | `409 wrong_stage` |
-| `night-results/seen` | `GREATEST`: same answer | no stage |
+| night-results/seen | `GREATEST`: same answer | no stage |
 | `advance-wave`, `end-discussion`, `reveal-votes` | end their stage | `409 wrong_stage` |
 | lobby `start` | n/a | `400` "Lobby is not in waiting state." |
 | lobby `play-again` | `200`, the same lobby body (a read: the same `rev`) | `409` once the next game is dealt |
@@ -391,7 +391,7 @@ the stage ends.
 | lobby `practice` | the newest `asked` of this player's practice requests | `409 stale_request` |
 | `vote` (pick or lock) | this player's newest applied vote in this stage | `409 stale_request`; checked after every other refusal, so a locked vote still answers `vote_locked` and its same lock again `200` |
 | `ready` | this player's newest applied ready in this stage (the look and the talk are compared apart) | `409 stale_request`; checked after every other refusal |
-| `choose`, `night-results/seen`, stage-ending requests | not read (already safe: `chosen`, `GREATEST`, `stage`) | n/a |
+| `choose`, night-results/seen, stage-ending requests | not read (already safe: `chosen`, `GREATEST`, `stage`) | n/a |
 
 The app sends a phone's requests one at a time and retries only the latest; `asked` covers a
 request whose answer was lost that still arrives after the next one was applied.
@@ -406,7 +406,7 @@ request whose answer was lost that still arrives after the next one was applied.
   the `GET /me/` her phone sends after her look (its answer's `chooses_left` is 1).
 - A choose's answer carries the caller's own results, so its size varies with what they
   learned, as a `/me/` already does; its `Server-Timing` does not (the same work for every
-  caller: `tests/perf/test_header_hides_play.py`).
+  caller: `backend/tests/perf/test_header_hides_play.py`).
 - Human tells (thinking time) are out of the server's reach; phones keep sound and haptics
   identical.
 - At a table with practice players, the request that opens a stage (the last "ready", the

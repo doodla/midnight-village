@@ -255,7 +255,7 @@ rm -f "$R/.claude/settings.json"
 (cd "$R" && git remote remove origin)
 
 # ---- the link check reads what is staged when asked (the pre-commit hook) ----
-cp "$REPO/tool/check_instruction_links.sh" "$R/tool/links_real.sh"
+cp "$REPO/tool/check_instruction_links.sh" "$R/tool/links_real.sh"; cp "$REPO/tool/check_instruction_links.py" "$R/tool/check_instruction_links.py"
 printf 'see `docs/z.md`\n' > "$R/CLAUDE.md"; (cd "$R" && git add CLAUDE.md)
 printf 'see `docs/no_such.md`\n' > "$R/CLAUDE.md"
 "$R/tool/links_real.sh" --staged CLAUDE.md >/dev/null 2>&1 || fail "staged link check read the working tree"

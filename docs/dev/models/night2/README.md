@@ -2,7 +2,7 @@
 
 > These models predate the protocol-1 cleanup (20 November 2026):
 > they speak of "protocol 2", the contract's "Third amendment" (now `docs/specs/onuw/api-contract-v2.md`, sections 5 and 9), `ProtocolTwoGameNotifier`
-> (now `LiveGameNotifier`), the server module night2 (now `apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names);
+> (now `LiveGameNotifier`), the server module night2 (now `backend/apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names);
 > the one flow they model is the only one left.
 
 A model of a protocol-2 game from the deal (look stage) to the results, written from the
@@ -54,7 +54,7 @@ ops for a stage the game has passed as equal (they can only fire as no-ops).
 
 ## What it does not model
 
-- Roles other than these three, the picks' meaning (`engine/choose.py`), card movements and
+- Roles other than these three, the picks' meaning (`backend/apps/onuw/engine/choose.py`), card movements and
   the win: it counts how many times each action is applied and where it came from.
 - Resends of anything but her look (the tests in `backend/tests/onuw/test_resend.py` cover
   every request type, including a seeded whole game with every request sent twice).
@@ -96,4 +96,4 @@ the real code (now `TestTheDoppelgangersResentLook` in
 The fix is general, not a Doppelganger case: every `choose` carries `chosen`, the count of
 the prompt it answers; under the Game lock a lower count than the stored one is a resend
 (the same `200`, nothing stored). The other protocol-2 requests were checked for the same
-class of bug: `docs/specs/onuw/api-contract-v2.md`, "Third amendment".
+class of bug: `docs/specs/onuw/api-contract-v2.md`, "9. Sending a request twice".

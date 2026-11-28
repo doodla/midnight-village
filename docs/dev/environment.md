@@ -60,7 +60,7 @@ worktree of the clone; the same script runs at the start of every Claude session
 
 ## The web integration test in the cloud container
 
-`just test-integration-ci` (in `frontend/`) drives `integration_test/auth_flow_test.dart` in headless Chrome through `flutter drive`, which needs a
+`just test-integration-ci` (in `frontend/`) drives `frontend/integration_test/auth_flow_test.dart` in headless Chrome through `flutter drive`, which needs a
 chromedriver of Chrome's own version listening on port 4444. CI installs both
 (`.github/workflows/flutter-tests.yml`). In the cloud container (20 November 2026) Chrome
 is Chrome for Testing 153.0.8010.12 (`/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`,

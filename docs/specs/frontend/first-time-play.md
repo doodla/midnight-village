@@ -544,7 +544,7 @@ she looks last.
   the night's candle and number (`WorldTimer.candleCompact`, the server's `deadline`), quiet, on the headline's banner after `CardCopy.headline`, where 06's
   clock stands; it never covers the card or the button.
   No words of its own. A table that sets no look length has no look stage
-  (24 November 2026, owner: "there's no timer in some stages, even though there's one under the hood": a stage the server times is a stage the phone counts down; `test/helpers/stage_clock.dart`).
+  (24 November 2026, owner: "there's no timer in some stages, even though there's one under the hood": a stage the server times is a stage the phone counts down; `frontend/test/helpers/stage_clock.dart`).
 - **States:** see the look stage table; a phone still unrevealed when the night opens goes to 06 with the others.
 - **Pass:** "Hold the card."
 
@@ -619,7 +619,7 @@ she looks last.
 - **Opening (playtest, 21 November 2026: "never saw my result"):** a phone whose night told it something
   (a result other than `NightCopy.slept` or `SawCopy.didNothing`, or the Doppelganger's copy) that the server has not had acknowledged opens the talk with My
   night UP, once, on the board (the square, above):
-  every word on screen. The ack (`night-results/seen`) goes as it shows;
+  every word on screen. The ack (night-results/seen) goes as it shows;
   the first touch anywhere (only that: it presses nothing), `RoleSheetCopy.close` for a screen reader, or Back puts it away
   (changed 23 November 2026: it used to be a sheet over the screen).
   A phone that slept opens nothing; a restart after the ack opens nothing.
@@ -631,7 +631,7 @@ she looks last.
   the ack goes the first time it shows. The count of who is ready sits on the `TalkCopy.readyToVote` button, under its words.
   A screen reader, a switch or the keyboard activates the note instead:
   it shows until activated again, and is put away by a change of screen, another route over it or the app leaving the foreground.
-  Nothing about it vibrates. The one rule for where extra information appears (a role's sheet) is in `lib/design_system/README.md`, "Where information a player
+  Nothing about it vibrates. The one rule for where extra information appears (a role's sheet) is in `frontend/lib/design_system/README.md`, "Where information a player
   asks for appears".
 - **Deck:** in columns, sized to the room under My night (two at the acting size, then the caption size, then three; then the names alone):
   every chip whole and on screen at 320 wide, text x1 and x1.3, never under a fade.

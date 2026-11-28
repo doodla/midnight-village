@@ -24,7 +24,7 @@ The phones' own speed, kept so the owner can read it without copying anything
   `FIELD_REPORT_KEY=... just field-report` prints it (`tool/field_report.py`).
 - `FieldSummary` (migration 0001): `received_at` (the hour), `commit`, `device`, `body`.
 
-Samples: `contract_samples/http/observe/` (`tests/contract/observe_scenarios.py`), and the app's
+Samples: `contract_samples/http/observe/` (`backend/tests/contract/observe_scenarios.py`), and the app's
 own summary in `contract_samples/app/field_summary.json` (written by the app's test; the server's
-test keeps all of it). Tests: `tests/observe/`, and `tests/core/test_open_routes.py` for every
+test keeps all of it). Tests: `backend/tests/observe`, and `backend/tests/core/test_open_routes.py` for every
 route open without an account.

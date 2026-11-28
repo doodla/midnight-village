@@ -7,7 +7,7 @@ hand) and one name drawn at 18, 21, 24 or 26 depending on the screen. Two candid
 rendered (Compact and Tight). The owner chose on 23 November 2026: **"Tight sizes, but keep the
 serif names."** The other scale, the old values and the render switch are deleted.
 
-## The scale (one home: the skin's roles in `lib/design_system/skin/skins/shadow_paper.dart`)
+## The scale (one home: the skin's roles in `frontend/lib/design_system/skin/skins/shadow_paper.dart`)
 
 G = Gloock (display serif), F = Figtree (text face). Size / weight / line height. The "was" column
 is the shipped value before the choice (a mock's number is never copied: a role is converted at its cap).
@@ -42,8 +42,8 @@ are not buttons). The room the smaller type freed is **not** used yet: a design 
 ## The rules that changed with it
 
 - Reading floor: body and names 14 (was 16), labels 12 (was 14): `ReadingFloor.act` and
-  `.caption` in `layout/space.dart`, `frontend/CLAUDE.md`, `first-time-play.md` copy rule 7, and the
-  gallery's check (`test_screens/reading_floor.dart`, `just screens strict`). Nothing else was weakened:
+  `.caption` in `frontend/lib/design_system/layout/space.dart`, `frontend/CLAUDE.md`, `first-time-play.md` copy rule 7, and the
+  gallery's check (`frontend/test_screens/reading_floor.dart`, `just screens strict`). Nothing else was weakened:
   contrast (7:1), full ink for true words, no uppercase micro-labels, one amber fill and every name whole
   stay.
 - The night board's title is the role's 24 at any width and text size (never under 0.8 of it, on two
@@ -56,15 +56,15 @@ Six sizes set by hand: Join's 42 (x2), the name field's 20, the lobby name's 18 
 lead word, the progress count) and `body` (the night's story line on the results). Left on purpose, each
 named in `type_guard_test.dart`: the fits (a role made smaller to fit its room: `FitLine`/`FitWords`, the
 board's one name size, the table's two-up name size, the hold cue word, the timer's unit "s"). Debug only
-(`features/debug/`, not a player's screen; exempt): five styles in `debug_toolbar_screen.dart`.
+(`frontend/lib/features/debug`, not a player's screen; exempt): five styles in `debug_toolbar_screen.dart`.
 
 ## The guard
 
-- `test/design_system/skin/skin_contract_test.dart`: every role has a cap (names at most 16, questions 24,
+- `frontend/test/design_system/skin/skin_contract_test.dart`: every role has a cap (names at most 16, questions 24,
   headings 20, body 15, buttons 15, labels 12, hero lines 36, timers and your role as they were) and a
   mock's bigger number is converted at the cap, never copied.
-- `test/design_system/skin/type_guard_test.dart`: a `fontSize:`, `fontWeight:`, `fontFamily:`,
-  `fontStyle:` or `TextStyle(` anywhere in `lib/` outside `design_system/skin/` and `features/debug/`
+- `frontend/test/design_system/skin/type_guard_test.dart`: a `fontSize:`, `fontWeight:`, `fontFamily:`,
+  `fontStyle:` or `TextStyle(` anywhere in `frontend/lib` outside `frontend/lib/design_system/skin` and `frontend/lib/features/debug`
   fails, except the named fits (and a stale allowance fails too).
 - Not built: a gallery ceiling that flags a name drawn larger than 16 in `just screens` (the roles
   and the source scan make a bigger name impossible without failing a test first).
