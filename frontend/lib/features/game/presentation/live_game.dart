@@ -95,7 +95,9 @@ class LiveGameNotifier extends _$LiveGameNotifier
   // reads the phone's clock, not a dead ref.
   late final _serverClock = ServerClock(
     () => ref.mounted ? ref.read(clockProvider)() : DateTime.now(),
+    () => _stopwatch(),
   );
+  late final _stopwatch = ref.read(phoneStopwatchProvider);
 
   /// The stage and deadline whose deadline has passed (polling).
   String? _passedKey;
@@ -142,6 +144,7 @@ class LiveGameNotifier extends _$LiveGameNotifier
     );
     ref.listen(appResumesProvider, (_, next) {
       if (!next.hasValue) return;
+      _serverClock.cameBack();
       // A socket that missed its beat while the phone was away is opened
       // again at once, and its "connected" reads everything; else everything
       // is read now. One read of each kind either way.
