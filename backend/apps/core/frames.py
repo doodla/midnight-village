@@ -87,6 +87,8 @@ def _writer() -> str:
 
 
 def install(connection, **_kwargs) -> None:
-    """Put the refusal on ``connection`` (the ``connection_created`` receiver)."""
+    """Put the refusal on ``connection`` (the ``connection_created`` receiver), first:
+    ``execute_wrapper()`` removes the last wrapper when its block ends, so a connection
+    that opens inside one must not have the refusal last."""
     if refuse_writes_from_frames not in connection.execute_wrappers:
-        connection.execute_wrappers.append(refuse_writes_from_frames)
+        connection.execute_wrappers.insert(0, refuse_writes_from_frames)

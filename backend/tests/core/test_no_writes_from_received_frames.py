@@ -12,10 +12,13 @@ URL conf), answers with an error and leaves every row as it was.
 from __future__ import annotations
 
 import re
+import threading
 from collections.abc import Iterator
 
 from django.apps import apps
-from django.db import transaction
+from django.db import connection, transaction
+from django.http import HttpResponse
+from django.test import RequestFactory, override_settings
 from django.urls import URLPattern, URLResolver, get_resolver
 
 import pytest
@@ -26,6 +29,7 @@ from channels.testing import WebsocketCommunicator
 from apps.core import frames
 from apps.core.consumers import TolerantJsonWebsocketConsumer
 from apps.core.models import User
+from apps.core.server_timing import ServerTimingMiddleware
 from config.asgi import application
 from tests.onuw.test_game_consumer import _create_game_with_players
 from tests.sockets import heard
@@ -113,6 +117,34 @@ def test_a_write_while_a_frame_is_handled_is_refused_and_a_read_is_not():
             User.objects.create_user(username="during", password="x")
     User.objects.filter(username="before").update(first_name="after")
     assert User.objects.get(username="before").first_name == "after"
+
+
+@pytest.mark.django_db(transaction=True)
+@override_settings(SERVER_TIMING_DETAIL=True)
+def test_the_refusal_outlives_a_timed_request_on_a_threads_first_connection():
+    seen: dict[str, object] = {}
+
+    def view(request):
+        User.objects.exists()
+        return HttpResponse("ok")
+
+    def run() -> None:
+        try:
+            ServerTimingMiddleware(view)(RequestFactory().get("/"))
+            seen["after"] = [w.__name__ for w in connection.execute_wrappers]
+            try:
+                with frames.received("X"):
+                    User.objects.create_user(username="on-a-thread", password="x")
+                seen["write"] = "allowed"
+            except frames.WriteFromAFrameError:
+                seen["write"] = "refused"
+        finally:
+            connection.close()
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join()
+    assert seen == {"after": ["refuse_writes_from_frames"], "write": "refused"}
 
 
 @pytest.mark.parametrize(
