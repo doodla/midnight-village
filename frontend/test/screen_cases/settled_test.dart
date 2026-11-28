@@ -6,26 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/screen_sweep.dart';
 import '../helpers/settled_parts.dart';
+import 'settled_not_yet.dart';
 import 'sweep_run.dart';
 
 /// `--dart-define=SWEEP_ALL=true` prints every state's problems, one line
 /// each, and fails none.
 const _all = bool.fromEnvironment('SWEEP_ALL');
-
-/// The states that do not hold yet, by the screen their id starts with, each
-/// with what it finds (28 November 2026, 44 of 235 states): a to-do that
-/// only shrinks. Every other state holds today.
-const settledNotYet = {
-  '04-your-card':
-      'a touch on the card presses the card and the hold round it at once, '
-      'and Ready\'s words move under a press of the card (press-gaps)',
-  '06-night-board':
-      'a touch on a player\'s paper presses it and the board round it at '
-      'once (press-gaps)',
-  '12-end':
-      'the board opens scrolled and jumps to its top on its second frame, '
-      'and the reveal grows the names by layout in its first frames',
-};
 
 void main() {
   for (final entry in sweptEntries()) {

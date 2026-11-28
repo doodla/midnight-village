@@ -153,6 +153,7 @@ so an unchanged answer that redraws anything shows at once), it asks for frames 
 once (a "slow" line, a deadline passing) is news; a frame while a face is held up in the overlay (a finger on the glass) is not at rest. Every clock on it is
 made to tick once with nothing else running (`ClockTick.debugTickAll`): the tick rebuilds and paints inside the clock alone (the owner, 24 November 2026:
 "it felt like I was watching a ppt"). `restNotYet` in `still_screen.dart` lists the states it does not hold yet, each with what it finds; it only shrinks.
+`settled_test.dart`'s to-do, `settled_not_yet.dart`, only shrinks.
 `frontend/test/screen_cases/not_yet_swept.dart` lists the states that fail today, each with its fault in one line (`--dart-define=SWEEP_ALL=true` prints them);
 it only shrinks. A test presses with `pressLikeAFinger` (`frontend/test/helpers/finger.dart`):
 down, six frames of 16 ms, up. A plain `tester.tap` on anything that takes a tap fails the test
