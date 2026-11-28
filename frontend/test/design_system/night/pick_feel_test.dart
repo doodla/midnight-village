@@ -2,6 +2,7 @@ import '../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/feel/press_paint.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/face_down_card.dart';
@@ -302,13 +303,25 @@ void main() {
       ),
     );
 
+    /// Its paper at rest (a finger presses it by paint: `PressDecoration`).
+    BoxDecoration paper(WidgetTester tester) =>
+        tester
+                .widget<PressDecoration>(
+                  find.descendant(
+                    of: find.byType(PrimaryButton),
+                    matching: find.byType(PressDecoration),
+                  ),
+                )
+                .rest
+            as BoxDecoration;
+
     testWidgets('waits as a slot on purpose: the spec’s outline with no fill, '
         'clearly drawn, a dark lip inside its top edge, its words in full '
         'ink', (tester) async {
       await _veteran(Viewer.seer).pump(tester);
       expect(choose(tester).phase, ButtonPhase.locked);
       expect(choose(tester).slot, isTrue);
-      final decoration = shell(tester).decoration! as BoxDecoration;
+      final decoration = paper(tester);
       expect(decoration.color, isNull, reason: 'disabled: outlined, no fill');
       final border = decoration.border! as Border;
       expect(border.top.color, _night.outline, reason: 'the outline is seen');
@@ -330,7 +343,7 @@ void main() {
       expect(choose(tester).phase, ButtonPhase.ready);
       expect(choose(tester).rises, isTrue);
       expect(shell(tester).duration, Motion.quick);
-      expect((shell(tester).decoration! as BoxDecoration).color, _night.accent);
+      expect(paper(tester).color, _night.accent);
       expect(
         shell(tester).transform!.getTranslation().x,
         greaterThan(0),
@@ -353,7 +366,7 @@ void main() {
       await tester.pumpAndSettle();
       final t = shell(tester).transform;
       expect(t == null || t.getTranslation().x == 0, isTrue);
-      final shadows = (shell(tester).decoration! as BoxDecoration).boxShadow!;
+      final shadows = paper(tester).boxShadow!;
       expect(shadows.single.offset, const Offset(5, 5));
     });
 
@@ -374,7 +387,7 @@ void main() {
       final inside = frame.at(button.left + 10, button.center.dy + 8);
       expect(inside & 0xFFFFFF, _night.ground.toARGB32() & 0xFFFFFF);
       await tester.pumpAndSettle();
-      expect((shell(tester).decoration! as BoxDecoration).color, isNull);
+      expect(paper(tester).color, isNull);
     });
 
     testWidgets('reduce motion: the amber is there at once, no rise', (
@@ -394,7 +407,7 @@ void main() {
       await tester.pump();
       final t = shell(tester).transform;
       expect(t == null || t.getTranslation().x == 0, isTrue);
-      expect((shell(tester).decoration! as BoxDecoration).color, _night.accent);
+      expect(paper(tester).color, _night.accent);
     });
 
     testWidgets('the target stays 48 or more in every state', (tester) async {

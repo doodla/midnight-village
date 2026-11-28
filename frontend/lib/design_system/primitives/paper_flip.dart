@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../feel/press.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
@@ -22,9 +23,13 @@ import '../skin/skin.dart';
 ///   [turnBack]; a turn let go of half way goes back from where it is, in
 ///   proportion to what is left of it; taken again, goes on from there.
 ///   Under reduce motion it is a cut to the end state.
-/// - [pressed] (a finger on the card, before it is a hold) dips the back a
-///   little ([dip]) and gives it back as the turn begins. No dip under
-///   reduce motion.
+/// - [press], a finger's own press (`Pressable`), shrinks the back a little
+///   ([dip]) from the frame the finger lands, by paint alone, and gives it
+///   back over the first half of the turn, so it is gone by the edge, where
+///   the face (drawn unpressed) takes over: no jump in size or place, held
+///   or let go. What the back draws of the press itself (04's hero sinking
+///   toward its shadow) reads it through [PressScope], eased the same way.
+///   No dip under reduce motion.
 /// - [onLanded] is told each time the face lands (the end of the turn to it,
 ///   a cut included): the card's one vibration goes here.
 ///
@@ -37,12 +42,12 @@ class PaperFlip extends StatefulWidget {
     required this.turned,
     required this.back,
     required this.face,
-    this.pressed = false,
+    this.press,
     this.onLanded,
   });
 
   final bool turned;
-  final bool pressed;
+  final Animation<double>? press;
   final Widget back;
 
   /// The face, at the back's size. Called from the moment the card is
@@ -95,11 +100,12 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     value: widget.turned ? 1 : 0,
   );
 
-  /// A finger's dip: 0 up, 1 pressed down.
-  late final AnimationController _press = AnimationController(
-    vsync: this,
-    duration: Motion.press,
-  );
+  /// The finger's press as the back draws it: given back over the first
+  /// half of the turn.
+  late _TurnedPress? _press = _pressFor(widget.press);
+
+  _TurnedPress? _pressFor(Animation<double>? press) =>
+      press == null ? null : _TurnedPress(press, _turn);
 
   Widget? _face;
   var _still = false;
@@ -121,13 +127,12 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
   void didUpdateWidget(PaperFlip old) {
     super.didUpdateWidget(old);
     if (widget.turned != old.turned) _go(widget.turned);
-    if (widget.pressed != old.pressed) _dip(widget.pressed);
+    if (widget.press != old.press) _press = _pressFor(widget.press);
   }
 
   @override
   void dispose() {
     _turn.dispose();
-    _press.dispose();
     super.dispose();
   }
 
@@ -161,15 +166,6 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     }
   }
 
-  void _dip(bool pressed) {
-    if (_still) return;
-    if (pressed) {
-      _press.forward();
-    } else {
-      _press.reverse();
-    }
-  }
-
   void _landed(AnimationStatus status) {
     if (status == AnimationStatus.completed && widget.turned) {
       widget.onLanded?.call();
@@ -190,7 +186,17 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     _face = widget.turned || PaperFlip.isFaceUp(_turn.value)
         ? RepaintBoundary(child: widget.face(context))
         : null;
-    final back = RepaintBoundary(child: widget.back);
+    final press = _press;
+    // A finger's own press dips the back by paint alone (nothing rebuilt).
+    final Widget back = press == null
+        ? RepaintBoundary(child: widget.back)
+        : PressSink(
+            press: press,
+            shrink: PaperFlip.dip,
+            child: RepaintBoundary(
+              child: PressScope(press: press, child: widget.back),
+            ),
+          );
     final face = _face;
     final skin = context.skin;
     final elevation = context.ground.elevation.heroSlab;
@@ -198,7 +204,7 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
     final radius = BorderRadius.circular(skin.shape.radius);
     return LayoutBuilder(
       builder: (context, _) => AnimatedBuilder(
-        animation: Listenable.merge([_turn, _press]),
+        animation: _turn,
         builder: (context, _) {
           final value = _turn.value;
           final angle = value * math.pi;
@@ -206,8 +212,7 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
           // 0 flat, 1 edge on: the lift, the growth and the fall of the
           // shadow all follow it.
           final edgeOn = math.sin(angle.clamp(0.0, math.pi));
-          final dip = _press.value * (1 - (value * 2).clamp(0.0, 1.0));
-          final scale = 1 + PaperFlip.grow * edgeOn - PaperFlip.dip * dip;
+          final scale = 1 + PaperFlip.grow * edgeOn;
           Matrix4 matrix(double dy, double scale, double turn) =>
               Matrix4.translationValues(0, dy, 0)
                 ..setEntry(3, 2, PaperFlip.perspective)
@@ -270,5 +275,51 @@ class _PaperFlipState extends State<PaperFlip> with TickerProviderStateMixin {
         },
       ),
     );
+  }
+}
+
+/// A finger's [press] on the back, given back over the first half of the
+/// [turn] (`press * (1 - 2 * turn)`, nothing past the edge). It tells its
+/// listeners only when its value changes: held face up it is still, so the
+/// back's paper is not painted again on every frame of the turn.
+class _TurnedPress extends Animation<double>
+    with
+        AnimationLazyListenerMixin,
+        AnimationLocalListenersMixin,
+        AnimationLocalStatusListenersMixin {
+  _TurnedPress(this.press, this.turn);
+
+  final Animation<double> press;
+  final Animation<double> turn;
+  double? _told;
+
+  @override
+  double get value => press.value * (1 - (turn.value * 2).clamp(0.0, 1.0));
+
+  @override
+  AnimationStatus get status => press.status;
+
+  void _moved() {
+    final now = value;
+    if (now == _told) return;
+    _told = now;
+    notifyListeners();
+  }
+
+  @override
+  void didStartListening() {
+    _told = value;
+    press
+      ..addListener(_moved)
+      ..addStatusListener(notifyStatusListeners);
+    turn.addListener(_moved);
+  }
+
+  @override
+  void didStopListening() {
+    press
+      ..removeListener(_moved)
+      ..removeStatusListener(notifyStatusListeners);
+    turn.removeListener(_moved);
   }
 }

@@ -14,6 +14,11 @@
   <!-- The night ground (Shadow paper), under the browser's bars too. -->
   <meta name="theme-color" content="#14172F">
   <meta name="color-scheme" content="dark">
+  <!--
+    Every request the page makes names only its origin as its Referer, never
+    the address (a table's link is /join/<code>): lib/core/perf/vercel_insights_web.dart.
+  -->
+  <meta name="referrer" content="strict-origin">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../models/role.dart';
 import '../skin/card_back_scope.dart';
@@ -24,6 +26,7 @@ import 'hold_to_reveal.dart' show HoldPress;
 import 'player_token.dart';
 import 'text_backing.dart';
 
+part 'face_down_card_press.dart';
 part 'face_down_card_words.dart';
 
 /// [FaceDownCard]'s sizes in the mocks. A card is at most this wide and
@@ -181,6 +184,11 @@ class FaceDownCard extends StatefulWidget {
   /// How far the text size grows a face-up card's role name.
   static const roleNameScale = 1.6;
 
+  /// The share of its slab's shadow the hero keeps under a finger (04): it
+  /// sinks the rest of the way toward it. Half: a card under a thumb, not a
+  /// button pushed home.
+  static const heroPressKeep = 0.5;
+
   /// The hold ring's share of a card back's width.
   static const holdShare = 0.8;
 
@@ -193,6 +201,8 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
   var _down = false;
 
   void _touch(bool down) {
+    // Only a card that takes a tap dips (a hold's cover presses by paint).
+    if (widget.onTap == null) return;
     if (_down != down && mounted) setState(() => _down = down);
   }
 
@@ -484,18 +494,19 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
     if (context.dress.isPaper) {
       // A deckled paper card like the face's, the back laid on it in paper
       // layers.
-      return DecoratedBox(
-        decoration: deckledPaper(
+      return _heroPaper(
+        context,
+        (elevation) => deckledPaper(
           context,
           fill: ground.paper,
           id: #heroBack,
-          elevation: ground.elevation.heroSlab,
+          elevation: elevation,
           depth: skin.parts.pinnedDepth,
           step: skin.parts.pinnedStep,
           edgeLine: false,
           side: BorderSide.none,
         ),
-        child: Padding(
+        Padding(
           padding: EdgeInsets.all(Space.smPlus * scale),
           child: _wholeBack(
             context,
@@ -515,14 +526,15 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
         ),
       );
     }
-    return DecoratedBox(
-      decoration: cutPaper(
+    return _heroPaper(
+      context,
+      (elevation) => cutPaper(
         context,
         fill: ground.paper,
         radius: BorderRadius.circular(skin.shape.radius),
-        elevation: ground.elevation.heroSlab,
+        elevation: elevation,
       ),
-      child: Padding(
+      Padding(
         padding: EdgeInsets.all(Space.smPlus * scale),
         child: _wholeBack(
           context,

@@ -1,0 +1,60 @@
+{
+  "v": 1,
+  "commit": "faf62a1",
+  "end": "hidden",
+  "env": {
+    "agent": "Mozilla/5.0 (Linux; Android 10; K) Chrome/131.0.0.0 Mobile",
+    "pixel_ratio": 2.625,
+    "renderer": "canvaskit"
+  },
+  "taps": {
+    "talk tap main_button POST /api/onuw/games/·/ready/": {
+      "n": 1,
+      "heard": [
+        0.0
+      ],
+      "screen": [
+        16.0
+      ],
+      "left": [
+        0.0
+      ],
+      "answer": [
+        0.0
+      ],
+      "applied": [
+        0.0
+      ],
+      "shown": [
+        16.0
+      ],
+      "total": [
+        16.0
+      ]
+    }
+  },
+  "frames": {
+    "talk": {
+      "frames": 1,
+      "over_50": 1,
+      "over_100": 0,
+      "worst": 70.0,
+      "median": 70.0
+    }
+  },
+  "screens": {},
+  "requests": {
+    "POST /api/onuw/games/·/ready/": {
+      "n": 1,
+      "round": [
+        0.0
+      ]
+    }
+  },
+  "cold": [],
+  "socket": {
+    "events": 0,
+    "opened": 0,
+    "dropped": 0
+  }
+}

@@ -2010,6 +2010,38 @@
       "description": "The host sets the deck."
     },
     {
+      "name": "http/observe/report",
+      "kind": "http",
+      "method": "GET",
+      "path": "/observe/report/?last=5",
+      "status": 200,
+      "description": "The owner's report of the last summaries merged: per kind of tap and device, each leg's median and 90th percentile; slowest screens; cold starts."
+    },
+    {
+      "name": "http/observe/report_closed",
+      "kind": "http",
+      "method": "GET",
+      "path": "/observe/report/?last=5",
+      "status": 404,
+      "description": "The report asked for without the owner's key (or while none is set): as if there were no such page."
+    },
+    {
+      "name": "http/observe/summary_kept",
+      "kind": "http",
+      "method": "POST",
+      "path": "/observe/summary/",
+      "status": 204,
+      "description": "A phone's summary of one game, sent as it ends (no account): kept, nothing answered."
+    },
+    {
+      "name": "http/observe/summary_refused",
+      "kind": "http",
+      "method": "POST",
+      "path": "/observe/summary/",
+      "status": 400,
+      "description": "Something that is not a summary: nothing kept."
+    },
+    {
       "name": "ws/game/beat",
       "kind": "ws",
       "socket": "game",

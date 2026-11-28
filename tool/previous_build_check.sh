@@ -38,6 +38,13 @@ git -C "$root" worktree add -q --detach "$work/previous" "$previous"
 for app in "$root"/backend/apps/*/; do
   name="$(basename "$app")"
   [ -d "$app/migrations" ] || continue
+  # An app this change adds: the previous build does not install it, so it
+  # never reads or writes its tables (the live build's own `migrate` makes
+  # them). Nothing of it to put in the previous build.
+  if [ ! -d "$work/previous/backend/apps/$name" ]; then
+    echo "previous-build check: apps/$name is new in this change; the previous build does not install it."
+    continue
+  fi
   rm -rf "$work/previous/backend/apps/$name/migrations"
   cp -r "$app/migrations" "$work/previous/backend/apps/$name/migrations"
 done

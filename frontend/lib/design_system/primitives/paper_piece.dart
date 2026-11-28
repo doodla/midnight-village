@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../feel/press.dart';
 import '../layout/space.dart';
 import '../skin/dress_style.dart';
 import '../skin/elevation.dart';
@@ -23,6 +24,12 @@ import 'tilted_paper.dart';
 /// done with) becomes the one locked paper (dark indigo, barely lifted, the
 /// quietest form of a button: [lockedPaper]) and its words say why, the
 /// ground's own text. Only the colour and the lift move.
+///
+/// Given a [press] (`Pressable`'s, the finger's), the piece sinks into its
+/// shadow from the frame the finger lands, by paint alone (`PressSink`, and
+/// its paper [PressDecoration]), to the look [pressed] has; a locked or
+/// disabled piece sinks too (a touch that is ignored still answers).
+/// [pressed] stays for a press that is not a finger's (a busy button).
 class PaperPiece extends StatelessWidget {
   const PaperPiece({
     super.key,
@@ -35,6 +42,7 @@ class PaperPiece extends StatelessWidget {
     this.locked = false,
     this.duration = Motion.press,
     this.fill,
+    this.press,
   });
 
   final PaperPart part;
@@ -43,6 +51,7 @@ class PaperPiece extends StatelessWidget {
   final Object id;
   final Widget child;
   final bool pressed;
+  final Animation<double>? press;
   final bool lifted;
   final bool enabled;
 
@@ -144,72 +153,83 @@ class PaperPiece extends StatelessWidget {
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final look = DressStyle.paper(part);
+    final style = DressStyle.paper(part);
     final forced = PaperStateOverride.maybeOf(context);
     final pressed = this.pressed || (forced?.pressed ?? false);
     final lifted = this.lifted || (forced?.focused ?? false);
     final keep = skin.shape.pressKeep;
-    final rest = _elevation(context, look.raise);
+    final rest = _elevation(context, style.raise);
     final raised = lifted ? ground.elevation.selected : rest;
     final flat = locked || !enabled;
     // A locked piece lies flat and casts less (see [flattened]), whatever
     // part it is: one locked form.
     final low = _elevation(context, PaperRaise.card);
-    final shown = flat
-        ? flattened(context, pressed && enabled ? low.pressed(keep) : low)
-        : pressed && enabled
-        ? rest.pressed(keep)
-        : raised;
-    final sink = pressed && enabled
-        ? rest.travel(keep)
-        : lifted
-        ? const Offset(0, -Space.xxs)
-        : Offset.zero;
+    (Elevation, Offset) look(bool sunk) => (
+      flat
+          ? flattened(context, sunk ? low.pressed(keep) : low)
+          : sunk
+          ? rest.pressed(keep)
+          : raised,
+      sunk
+          ? rest.travel(keep)
+          : lifted
+          ? const Offset(0, -Space.xxs)
+          : Offset.zero,
+    );
+    final (shown, sink) = look(pressed && enabled);
+    final finger = press;
     final base = fill ?? fillOf(context, part);
     // A locked piece is the one quiet form; a disc that cannot be used (a
     // stepper's end of the range, always on a panel) is sunk into it, the
     // well's own paper.
-    final paint = locked || (!enabled && !look.round)
+    final paint = locked || (!enabled && !style.round)
         ? lockedPaper(context)
         : !enabled
         ? fillOf(context, PaperPart.well)
         : base;
     final parts = skin.parts;
-    final (depth, step) = switch (look.edge) {
+    final (depth, step) = switch (style.edge) {
       PaperEdge.standard => (parts.deckleDepth, parts.deckleStep),
       PaperEdge.plaque => (parts.plaqueDepth, parts.plaqueStep),
       PaperEdge.pinned => (parts.pinnedDepth, parts.pinnedStep),
     };
-    final decoration = deckledPaper(
+    Decoration paper(Elevation elevation) => deckledPaper(
       context,
       fill: paint,
       id: (id, part),
-      elevation: shown,
-      depth: look.blob
+      elevation: elevation,
+      depth: style.blob
           ? parts.waxDepth
-          : look.round
+          : style.round
           ? parts.discDepth
           : depth,
-      step: look.blob
+      step: style.blob
           ? parts.waxStep
-          : look.round
+          : style.round
           ? parts.discStep
           : step,
-      round: look.round,
-      blob: look.blob,
+      round: style.round,
+      blob: style.blob,
       edgeLine: false,
       side: BorderSide.none,
     );
+    final down = finger == null ? null : look(true);
+    Widget body = TiltedPaper(
+      angle: style.tilted ? skin.tilt.angle(Tilt.seededRow(id)) : 0,
+      duration: duration,
+      decoration: paper(shown),
+      press: finger,
+      pressed: down == null ? null : paper(down.$1),
+      child: child,
+    );
+    if (finger != null && down != null) {
+      body = PressSink(press: finger, by: down.$2 - sink, child: body);
+    }
     return AnimatedContainer(
       duration: duration,
       curve: Motion.curve,
       transform: Matrix4.translationValues(sink.dx, sink.dy, 0),
-      child: TiltedPaper(
-        angle: look.tilted ? skin.tilt.angle(Tilt.seededRow(id)) : 0,
-        duration: duration,
-        decoration: decoration,
-        child: child,
-      ),
+      child: body,
     );
   }
 }

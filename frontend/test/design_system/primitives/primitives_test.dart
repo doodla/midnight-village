@@ -1,6 +1,7 @@
 import '../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/feel/press_paint.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
 import 'package:midnight_village/design_system/primitives/player_row.dart';
 import 'package:midnight_village/design_system/primitives/paper_lantern.dart';
@@ -91,9 +92,8 @@ void main() {
       final skin = skinsUnderTest.values.first;
       Future<BoxDecoration> drawn(Widget button, GroundKind ground) async {
         await pumpSkinned(tester, button, ground: ground);
-        return tester
-                .widget<AnimatedContainer>(find.byType(AnimatedContainer))
-                .decoration!
+        // The paper at rest (`PressDecoration`: a finger presses it by paint).
+        return tester.widget<PressDecoration>(find.byType(PressDecoration)).rest
             as BoxDecoration;
       }
 
@@ -150,9 +150,7 @@ void main() {
         expect(check.dx, lessThan(word.dx), reason: button.phase.name);
       }
       final toggle =
-          tester
-                  .widget<AnimatedContainer>(find.byType(AnimatedContainer))
-                  .decoration!
+          tester.widget<PressDecoration>(find.byType(PressDecoration)).rest
               as BoxDecoration;
       expect(toggle.border, isNotNull, reason: 'the toggle is a button');
     });

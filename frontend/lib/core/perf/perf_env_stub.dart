@@ -7,9 +7,11 @@ double perfNow() => _clock.elapsedMicroseconds / 1000;
 /// No web address off the web.
 Map<String, String> pageQuery() => const {};
 
-Map<String, Object?> perfEnvironment() => const {};
+Map<String, Object?> perfEnvironment({bool gpu = true}) => const {};
 
 void perfPrepare() {}
 
 ({double start, double end})? perfResourceTiming(String url, double after) =>
     null;
+
+void perfClearResourceTimings() {}

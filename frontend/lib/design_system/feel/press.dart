@@ -2,13 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 
 /// Draws a part's own answer to a finger: [press] runs from 0 (at rest) to 1
-/// (all the way down). Hand it to a paint-only layer ([PressSink], a
-/// `FadeTransition`, a `CustomPainter`'s `repaint:`), never to a rebuild of
+/// (all the way down). Hand it to a paint-only layer ([PressSink],
+/// [PressFade], a `CustomPainter`'s `repaint:`), never to a rebuild of
 /// [child]: the builder runs when the part is built, not on every frame.
 typedef PressBuilder =
     Widget Function(
@@ -33,13 +34,17 @@ typedef PressBuilder =
 /// [Motion.land], so the paper springs a little past rest (under a tenth: the
 /// value dips just under 0) and settles. With reduce motion it is a cut: 1
 /// on the frame the finger lands, 0 on the lift, nothing in between, and the
-/// part shows the state with no travel ([PressSink] moves nothing then).
+/// part shows the state with no travel ([PressSink] moves nothing then). A
+/// tap down and up before a frame is drawn still gets its one pressed frame:
+/// the lift is kept until that frame is done (a frame, never a time).
 ///
 /// A part that cannot act yet (a locked button) keeps [enabled]: its press
 /// still answers and its words say what is missing. Only a part that must
 /// not move at all (a dimmed vote row) turns [enabled] off.
 ///
-/// It is its own [RepaintBoundary]: a press repaints the pressed part only.
+/// While it is pressed or settling it is its own repaint boundary
+/// ([PressLayer]): a press repaints the pressed part only. At rest it is
+/// none, so the part is drawn exactly as it would be without it.
 class Pressable extends StatefulWidget {
   const Pressable({
     super.key,
@@ -81,6 +86,12 @@ class _PressableState extends State<Pressable>
   int? _pointer;
   Offset _from = Offset.zero;
 
+  /// Reduce motion: which down the next frame draws, and whether the lift
+  /// came before it (it is kept until that frame is done).
+  var _downs = 0;
+  var _drawn = true;
+  var _liftKept = false;
+
   // Read when they change, never in a pointer handler.
   var _reduced = false;
   DeviceGestureSettings? _gestures;
@@ -104,13 +115,19 @@ class _PressableState extends State<Pressable>
     return math.min(1, frame / Motion.press.inMicroseconds);
   }
 
+  // A pointer handler can outlive the part: the finger that pressed it is
+  // still routed to its listener after a rebuild took it away.
   void _down(PointerDownEvent event) {
-    if (!widget.enabled || _pointer != null) return;
+    if (!mounted || !widget.enabled || _pointer != null) return;
     if (event.buttons & kPrimaryButton == 0) return;
     _pointer = event.pointer;
     _from = event.position;
     if (_reduced) {
       _press.value = 1;
+      _drawn = false;
+      _liftKept = false;
+      final down = ++_downs;
+      SchedulerBinding.instance.addPostFrameCallback((_) => _frameDone(down));
       return;
     }
     final from = _press.value;
@@ -141,11 +158,27 @@ class _PressableState extends State<Pressable>
 
   void _release() {
     _pointer = null;
+    if (!mounted) return;
     if (_reduced) {
-      _press.value = 0;
+      // Down and up before a frame: the frame still draws it down.
+      if (_drawn) {
+        _press.value = 0;
+      } else {
+        _liftKept = true;
+      }
       return;
     }
     _press.animateTo(0, duration: Motion.quick, curve: Motion.land);
+  }
+
+  /// The frame after a reduce-motion down is drawn: a lift kept for it goes
+  /// to rest now (the next frame draws it).
+  void _frameDone(int down) {
+    if (down != _downs) return;
+    _drawn = true;
+    if (!_liftKept || !mounted) return;
+    _liftKept = false;
+    if (_pointer == null) _press.value = 0;
   }
 
   @override
@@ -161,7 +194,8 @@ class _PressableState extends State<Pressable>
   }
 
   @override
-  Widget build(BuildContext context) => RepaintBoundary(
+  Widget build(BuildContext context) => PressLayer(
+    press: _press,
     child: Listener(
       onPointerDown: _down,
       onPointerMove: _move,
@@ -170,6 +204,200 @@ class _PressableState extends State<Pressable>
       child: widget.builder(context, _press.view, widget.child),
     ),
   );
+}
+
+/// A repaint boundary only while [press] is away from rest: the frames of a
+/// press repaint this part alone, and at rest it draws as if it were not
+/// there (a layer of its own would move the antialiasing of its edges).
+class PressLayer extends SingleChildRenderObjectWidget {
+  const PressLayer({super.key, required this.press, super.child});
+
+  final Animation<double> press;
+
+  @override
+  RenderPressLayer createRenderObject(BuildContext context) =>
+      RenderPressLayer(press);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    RenderPressLayer renderObject,
+  ) => renderObject.press = press;
+}
+
+/// [PressLayer]'s render object.
+class RenderPressLayer extends RenderProxyBox {
+  RenderPressLayer(this._press);
+
+  Animation<double> _press;
+  set press(Animation<double> value) {
+    if (value == _press) return;
+    if (attached) _press.removeListener(_moved);
+    _press = value;
+    if (attached) _press.addListener(_moved);
+    _moved();
+  }
+
+  var _layered = false;
+
+  void _moved() {
+    final layered = _press.value != 0;
+    if (layered == _layered) return;
+    _layered = layered;
+    // Its layer comes or goes: the parent draws it again, once.
+    markNeedsCompositingBitsUpdate();
+    markNeedsPaint();
+  }
+
+  @override
+  bool get isRepaintBoundary => _layered;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _press.addListener(_moved);
+    _moved();
+  }
+
+  @override
+  void detach() {
+    _press.removeListener(_moved);
+    super.detach();
+  }
+}
+
+/// The press of the part a piece is drawn in, for a piece deep inside it
+/// that draws its own share of it (04's hero sinking toward its shadow,
+/// under `PaperFlip`). Hand it to paint only, as a [PressBuilder]'s.
+class PressScope extends InheritedWidget {
+  const PressScope({super.key, required this.press, required super.child});
+
+  final Animation<double> press;
+
+  /// The press round [context]; null outside one.
+  static Animation<double>? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PressScope>()?.press;
+
+  @override
+  bool updateShouldNotify(PressScope old) => old.press != press;
+}
+
+/// A part's ink dimmed by a press, by paint alone: [child] is drawn at full
+/// ink at rest and at [to] all the way down. Only while the press dims it is
+/// there an opacity layer; at rest there is none and no repaint boundary
+/// either (a `FadeTransition` is one whenever it is visible), so the part
+/// draws exactly as it would without it. It dims under reduce motion too (a
+/// tint is not a travel).
+class PressFade extends SingleChildRenderObjectWidget {
+  const PressFade({
+    super.key,
+    required this.press,
+    required this.to,
+    super.child,
+  });
+
+  final Animation<double> press;
+
+  /// The opacity all the way down.
+  final double to;
+
+  @override
+  RenderPressFade createRenderObject(BuildContext context) =>
+      RenderPressFade(press: press, to: to);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderPressFade renderObject) {
+    renderObject
+      ..press = press
+      ..to = to;
+  }
+}
+
+/// [PressFade]'s render object: it repaints when the press moves, and needs
+/// a layer of its own only while the press dims it.
+class RenderPressFade extends RenderProxyBox {
+  RenderPressFade({required Animation<double> press, required double to})
+    : _press = press,
+      _to = to;
+
+  Animation<double> _press;
+  set press(Animation<double> value) {
+    if (value == _press) return;
+    if (attached) _press.removeListener(_moved);
+    _press = value;
+    if (attached) _press.addListener(_moved);
+    _moved();
+  }
+
+  double _to;
+  set to(double value) {
+    if (value == _to) return;
+    _to = value;
+    _moved();
+  }
+
+  /// The alpha drawn now: 255 at rest (and in the settle just past it).
+  int get _alpha {
+    final opacity = 1 + (_to - 1) * _press.value;
+    return Color.getAlphaFromOpacity(opacity.clamp(0.0, 1.0));
+  }
+
+  var _dimmed = false;
+
+  /// Whether it draws its child dimmed by the press now (a test reads it).
+  @visibleForTesting
+  bool get drawsPressed => _alpha != 255;
+
+  void _moved() {
+    final dimmed = _alpha != 255;
+    if (dimmed != _dimmed) {
+      _dimmed = dimmed;
+      markNeedsCompositingBitsUpdate();
+    }
+    markNeedsPaint();
+  }
+
+  @override
+  bool get alwaysNeedsCompositing => child != null && _dimmed;
+
+  final _layer = LayerHandle<OpacityLayer>();
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _press.addListener(_moved);
+    _dimmed = _alpha != 255;
+  }
+
+  @override
+  void detach() {
+    _press.removeListener(_moved);
+    super.detach();
+  }
+
+  @override
+  void dispose() {
+    _layer.layer = null;
+    super.dispose();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    final alpha = _alpha;
+    if (alpha == 255 || !_dimmed) {
+      _layer.layer = null;
+      context.paintChild(child, offset);
+      return;
+    }
+    _layer.layer = context.pushOpacity(
+      offset,
+      alpha,
+      (context, offset) => context.paintChild(child, offset),
+      oldLayer: _layer.layer,
+    );
+  }
 }
 
 /// The rest of [curve] after its first [head] of time (where it stood at
@@ -190,7 +418,7 @@ class _Rest extends Curve {
 /// by [by] (into its shadow) and shrinks by [shrink] of its size, both times
 /// the press. Nothing below it is rebuilt or laid out again, and its hit
 /// area and layout stay where they rest. With reduce motion nothing moves:
-/// pair it with a colour change (a tint, a `FadeTransition`) the part draws
+/// pair it with a colour change (a tint, a [PressFade]) the part draws
 /// itself.
 class PressSink extends SingleChildRenderObjectWidget {
   const PressSink({
@@ -204,6 +432,10 @@ class PressSink extends SingleChildRenderObjectWidget {
   final Animation<double> press;
   final Offset by;
   final double shrink;
+
+  /// The kit's small dip, for a part with no shadow to sink into (an
+  /// outlined button, a glyph): down by a hairline (`feel.md`, "Dip 2 px").
+  static const dip = Offset(0, Space.hairline);
 
   bool _still(BuildContext context) =>
       MediaQuery.maybeDisableAnimationsOf(context) ?? false;
@@ -289,22 +521,39 @@ class RenderPressSink extends RenderProxyBox {
     super.dispose();
   }
 
+  /// Where the child is drawn now: null at rest (and with reduce motion).
+  Matrix4? get _transform {
+    final press = _still ? 0.0 : _press.value;
+    if (press == 0 || (_by == Offset.zero && _shrink == 0)) return null;
+    final centre = size.center(Offset.zero);
+    final scale = 1 - _shrink * press;
+    final moved = centre + _by * press;
+    return Matrix4.translationValues(moved.dx, moved.dy, 0)
+      ..multiply(Matrix4.diagonal3Values(scale, scale, 1))
+      ..multiply(Matrix4.translationValues(-centre.dx, -centre.dy, 0));
+  }
+
+  /// Whether it draws its child moved by the press now (a test reads it).
+  @visibleForTesting
+  bool get drawsPressed => _transform != null;
+
+  /// The child is placed where it is drawn (an overlay that follows it, a
+  /// test that reads where it is); it is still hit where it rests.
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    if (_transform case final moved?) transform.multiply(moved);
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final child = this.child;
     if (child == null) return;
-    final press = _still ? 0.0 : _press.value;
-    if (press == 0 || (_by == Offset.zero && _shrink == 0)) {
+    final transform = _transform;
+    if (transform == null) {
       _layer.layer = null;
       context.paintChild(child, offset);
       return;
     }
-    final centre = size.center(Offset.zero);
-    final scale = 1 - _shrink * press;
-    final moved = centre + _by * press;
-    final transform = Matrix4.translationValues(moved.dx, moved.dy, 0)
-      ..multiply(Matrix4.diagonal3Values(scale, scale, 1))
-      ..multiply(Matrix4.translationValues(-centre.dx, -centre.dy, 0));
     _layer.layer = context.pushTransform(
       needsCompositing,
       offset,

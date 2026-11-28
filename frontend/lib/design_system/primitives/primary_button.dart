@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
@@ -241,8 +243,6 @@ class PrimaryButton extends StatefulWidget {
 }
 
 class _PrimaryButtonState extends State<PrimaryButton> {
-  var _pressed = false;
-
   /// Keyboard focus (web): the paper lifts, no outline.
   var _focused = false;
 
@@ -334,8 +334,12 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         ? ground.elevation.primary.scaled(widget.size.shadow)
         : Elevation.none;
     // Busy, it stays pressed into its shadow while it works; a rise (the
-    // waiting slot's cut-in) presses it for the frame it appears.
-    final down = (_pressed && _acts) || widget.busy || _rising;
+    // waiting slot's cut-in) presses it for the frame it appears. A finger
+    // presses it from the frame it lands (`Pressable`), whatever its phase
+    // but done: the plaque sinks into its backing, an outline dips.
+    final down = widget.busy || _rising;
+    final travel = rest.travel(keep);
+    final sunk = down ? travel : Offset.zero;
     // Dressed up every phase but done is a piece of paper (`PaperPiece`): the
     // amber plaque when ready; when it waits or is locked (a slot too) the
     // quietest piece (dark indigo, barely lifted: one locked form), its label saying why; a
@@ -364,7 +368,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           };
     final style = widget.size.label(skin.typography);
     final edge = ground.accentEdge;
-    final decoration = filled
+    Decoration decorated(bool down) => filled
         ? cutPaper(
             context,
             fill: ground.accent,
@@ -378,6 +382,8 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         : widget.phase == ButtonPhase.done
         ? const BoxDecoration()
         : BoxDecoration(
+            // An outline pressed fills with a hairline (as a secondary does).
+            color: down ? ground.hairline : null,
             borderRadius: radius,
             border: Border.all(color: ground.outline, width: skin.shape.stroke),
           );
@@ -392,107 +398,120 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       // left out with its words): a screen reader can press it.
       onTap: _onTap,
       excludeSemantics: true,
-      child: AnimatedContainer(
-        // A button that has done its thing is cut in, not blended from the
-        // amber it was (a muddy middle for a few frames).
-        key: ValueKey((_rises, widget.phase == ButtonPhase.done)),
-        duration: Motion.within(context, _duration),
-        curve: Motion.curve,
-        constraints: BoxConstraints(
-          minHeight: widget.size.primaryHeight,
-          minWidth: widget.size.minWidth,
-        ),
-        // A piece of paper sinks itself ([PaperPiece]).
-        transform: onPaper
-            ? null
-            : Matrix4.translationValues(
-                down ? rest.travel(keep).dx : 0,
-                down ? rest.travel(keep).dy : 0,
-                0,
-              ),
-        decoration: onPaper ? null : decoration,
-        foregroundDecoration:
-            widget.phase == ButtonPhase.locked && widget.slot && !onPaper
-            // The slot's cut edge: a hard dark lip along its top, the paper
-            // above it casting into the recess.
-            ? BoxDecoration(
+      child: Pressable(
+        enabled: widget.phase != ButtonPhase.done,
+        builder: (context, press, _) {
+          final duration = Motion.within(context, _duration);
+          final body = _paper(
+            part: onPaper ? part : null,
+            pressed: down,
+            press: press,
+            locked: dim,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: _onTap,
+                focusColor: onPaper ? Colors.transparent : null,
+                hoverColor: onPaper ? Colors.transparent : null,
+                onFocusChange: (value) => setState(() => _focused = value),
+                highlightColor: Colors.transparent,
+                splashColor: Colors.transparent,
                 borderRadius: radius,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [
-                    0,
-                    PrimaryButton.slotLip,
-                    PrimaryButton.slotLip,
-                    1,
-                  ],
-                  colors: [
-                    ground.shadow,
-                    ground.shadow,
-                    Colors.transparent,
-                    Colors.transparent,
-                  ],
-                ),
-              )
-            : null,
-        child: _paper(
-          part: onPaper ? part : null,
-          pressed: down,
-          locked: dim,
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              onTap: _onTap,
-              focusColor: onPaper ? Colors.transparent : null,
-              hoverColor: onPaper ? Colors.transparent : null,
-              onFocusChange: (value) => setState(() => _focused = value),
-              onHighlightChanged: (value) => setState(() {
-                _pressed = value;
-                if (value && !_rising) _duration = Motion.press;
-              }),
-              highlightColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              borderRadius: radius,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Space.xl,
-                      vertical: Space.sm,
-                    ),
-                    child: Center(
-                      heightFactor: 1,
-                      widthFactor: 1,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: Space.md,
-                        children: [
-                          if (widget.icon case final icon?)
-                            Icon(icon, color: ink, size: style.fontSize),
-                          Flexible(
-                            child: _withDetail(
-                              _label(style.copyWith(color: ink)),
-                              ink,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.xl,
+                        vertical: Space.sm,
+                      ),
+                      child: Center(
+                        heightFactor: 1,
+                        widthFactor: 1,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: Space.md,
+                          children: [
+                            if (widget.icon case final icon?)
+                              Icon(icon, color: ink, size: style.fontSize),
+                            Flexible(
+                              child: _withDetail(
+                                _label(style.copyWith(color: ink)),
+                                ink,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  // Busy: the mark turns in the button's own end padding, so
-                  // the label keeps its place and its line (it never wraps
-                  // for the mark).
-                  if (widget.busy)
-                    PositionedDirectional(
-                      end: Space.sm,
-                      child: BusyMark(size: Space.xl, color: ink),
-                    ),
-                ],
+                    // Busy: the mark turns in the button's own end padding, so
+                    // the label keeps its place and its line (it never wraps
+                    // for the mark).
+                    if (widget.busy)
+                      PositionedDirectional(
+                        end: Space.sm,
+                        child: BusyMark(size: Space.xl, color: ink),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+          return AnimatedContainer(
+            // A button that has done its thing is cut in, not blended from
+            // the amber it was (a muddy middle for a few frames).
+            key: ValueKey((_rises, widget.phase == ButtonPhase.done)),
+            duration: duration,
+            curve: Motion.curve,
+            constraints: BoxConstraints(
+              minHeight: widget.size.primaryHeight,
+              minWidth: widget.size.minWidth,
+            ),
+            // A piece of paper sinks itself ([PaperPiece]).
+            transform: onPaper
+                ? null
+                : Matrix4.translationValues(sunk.dx, sunk.dy, 0),
+            foregroundDecoration:
+                widget.phase == ButtonPhase.locked && widget.slot && !onPaper
+                // The slot's cut edge: a hard dark lip along its top, the
+                // paper above it casting into the recess.
+                ? BoxDecoration(
+                    borderRadius: radius,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [
+                        0,
+                        PrimaryButton.slotLip,
+                        PrimaryButton.slotLip,
+                        1,
+                      ],
+                      colors: [
+                        ground.shadow,
+                        ground.shadow,
+                        Colors.transparent,
+                        Colors.transparent,
+                      ],
+                    ),
+                  )
+                : null,
+            // Plain, the cut paper and its shadow pressed by paint: the
+            // plaque into its shadow, an outline by a dip.
+            child: onPaper
+                ? body
+                : PressSink(
+                    press: press,
+                    by: (filled ? travel : PressSink.dip) - sunk,
+                    child: PressDecoration(
+                      press: press,
+                      rest: decorated(down),
+                      down: decorated(true),
+                      duration: duration,
+                      child: body,
+                    ),
+                  ),
+          );
+        },
       ),
     );
   }
@@ -521,6 +540,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
   Widget _paper({
     required PaperPart? part,
     required bool pressed,
+    required Animation<double> press,
     required bool locked,
     required Widget child,
   }) => part == null
@@ -529,6 +549,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
           part: part,
           id: widget.label,
           pressed: pressed,
+          press: press,
           lifted: _focused && !pressed,
           locked: locked,
           enabled: widget.phase != ButtonPhase.waiting,

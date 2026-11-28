@@ -61,12 +61,13 @@ cost 98 deployments; with this they would have cost 35.
 | `DATABASE_URL` | required, `postgres://user:pass@host:port/db` (pooled) |
 | `REDIS_URL` | required (`rediss://...`) |
 | `ALLOWED_HOSTS` | comma-separated. The settings add `VERCEL_URL` (the per-build address) and `VERCEL_PROJECT_PRODUCTION_URL` (one production domain) themselves; every OTHER address people use must be listed here, or Django answers "Bad Request (400)". Currently set on the project: `midnight-village-anthelion.vercel.app`, `midnight-village-api.vercel.app`, `midnight-village-git-main-anthelion.vercel.app` and the app's own host `midnight-village-app-anthelion.vercel.app` (it must stay: the socket origin check uses this list); a dead working-branch alias, `midnight-village-git-ccr-2435dc07-33z3jn-anthelion.vercel.app`, is still set and is to be removed. A custom domain needs adding, and the change only applies to the next build. |
-| `CORS_ALLOWED_ORIGINS` | comma-separated origins of the app (answers to them expose the `Date` header: `CORS_EXPOSE_HEADERS` in the base settings, not an env var) |
+| `CORS_ALLOWED_ORIGINS` | comma-separated origins of the app (answers to them expose the `Date` and `Server-Timing` headers: `CORS_EXPOSE_HEADERS` in the base settings, not an env var) |
 | `CSRF_TRUSTED_ORIGINS` | comma-separated (admin only) |
 | `DB_CONN_MAX_AGE` | optional, default `0` (do not hold connections between requests) |
 | `DB_SSLMODE` | optional, default `require` |
 | `ONUW_TIMER_QUEUE_TOPIC` | optional, default `onuw-timers` |
 | `CRON_SECRET` | shared secret of the timer sweep endpoint (`Authorization: Bearer ...`); unset = the endpoint refuses everything |
+| `FIELD_REPORT_KEY` | optional: the owner's key to the phones' speed report (`GET /api/observe/report/`, header `X-Field-Report-Key`, sent by `just field-report` from the same variable on the owner's machine); unset = the report answers 404 to everyone (the summaries are still kept). Not set today |
 
 No secrets live in the repo. `DEBUG` is forced off, so the debug harness endpoints
 (forced assignment, oracle, fire-timer) answer 403.
@@ -180,8 +181,10 @@ reconnects, which is a normal disconnect + connect to the presence rows.
 
 ## Request limits
 
-Two requests are limited, both open to anyone without signing in: making a guest
-(`sign_up`, 60 a minute) and the players-online number (`online_stats`, 600 a minute).
+Four kinds of request are limited, all open to anyone without signing in: making a guest
+(`sign_up`, 60 a minute), the players-online number (`online_stats`, 600 a minute), the
+phones' speed summaries (`field_summary`, 600 an hour) and the owner's report of them
+(`field_report`, 60 an hour, on its own allowance: "Seeing the live app" below).
 Nothing a table does in a game is limited. They are there to stop one runaway script
 filling the database with guests, not to police players: friends at a table share one
 address, so the allowance is several tables all retrying at once
@@ -475,6 +478,62 @@ every stage on by request), and a night action.
 every pull request, so a change to the guest, table, join or leave answers that would break
 the check fails before the merge. `backend/tests/core/test_deployed_sockets.py` does the same
 for the socket step, against a local server that serves sockets.
+
+## Seeing the live app (observability)
+
+Nobody copies a report by hand: the live app measures itself, and the numbers land where the owner can look.
+What Vercel offers was read from its docs on 27 November 2026 (both projects are on Hobby).
+
+- **Speed Insights (Vercel, free on Hobby)**: the browser's own Core Web Vitals from real phones, INP among them
+  (tap to the next frame: a lab run on 27 November showed every tap on the CanvasKit canvas counted as an interaction).
+  The app loads Vercel's `/_vercel/speed-insights/script.js` after its start, on a build with a commit only
+  (`frontend/lib/core/perf/vercel_insights_web.dart`). Where: the app project's **Speed Insights** tab.
+  The free tier shows the Real Experience Score (one score from LCP, CLS, INP, FCP) by route, 24 hours and 7 days,
+  10,000 events over a rolling 30 days for the whole team (then collection pauses 14 days or more; nothing is billed).
+  The INP, LCP and CLS numbers themselves need Speed Insights Plus (Pro only).
+  No dashboard toggle is needed for the free tier; `vercel project speed-insights enable` is the paid Plus upgrade.
+- **Web Analytics (Vercel, free on Hobby, 50,000 events a month)**: page views by route, device and country.
+  The script loads beside Speed Insights; it counts nothing until the owner presses **Enable** on the app project's
+  Analytics tab (no tool or project setting does it). Custom events are Pro only.
+- **What either is told of the address**: the route pattern, never what fills it (`insights_route.dart`):
+  `/join/<code>` is `/join/[code]`, `/game/<id>` is `/game/[id]`, anything else the app does not route is
+  `/[other]`, and the query goes. Speed Insights reads `data-route`/`data-path` on its tag (kept current through the
+  Navigation API, else the app's own `pushState`/`replaceState`); both scripts' `beforeSend` rewrite the address again.
+  The page's referrer policy is `strict-origin` (`web/index.html`), so no request's `Referer` names the address either.
+  `just web-smoke` checks what the two scripts really send for a table's link (recorded copies of them,
+  `frontend/tool/web_smoke/vercel/`). Vercel's host itself still serves, and logs, `/join/<code>` when a phone opens
+  a link, like any page. Their intake (`/_vercel/...`) is Vercel's own and is not caught by `vercel.json`'s rewrite;
+  the service worker passes it to the network (it is not in the worker's file list). There is no CSP.
+- **The phones' own numbers (our server)**: the field recorder of `?perf=1` runs quietly on the live app (no strip). It
+  sends a summary of a few KB with `navigator.sendBeacon` at each game's end (once the end board has been at rest a
+  second, never as someone taps Play again) and one of the play before the tab is hidden
+  (`frontend/lib/core/perf/field_summary.dart`, `field_beacon.dart`). Per kind of tap up to 16 values of each leg (finger
+  to first frame, request left, answer, applied, shown), frames per screen, screen changes, requests with
+  `Server-Timing`, cold starts, and a few coarse facts of the phone. A build with no commit sends nothing. Measuring can
+  never change what the app does: every hook goes through a guard that drops whatever the recorder throws
+  (`GuardedRecorder`), and `--dart-define=FIELD_QUIET=true` runs the tests and the harness with it on.
+- **What the server keeps** (`backend/apps/observe/`, `POST /api/observe/summary/`): one row per summary, 8 KB at most,
+  limited per address, stamped to the hour, cleared after 30 days or beyond the newest 2,000. Every label must be made
+  of the closed lists' words (`vocabulary.py`: the app's screens, controls and socket events, and this server's own
+  routes with ids as `·`), so a name, a role, a code or an id cannot be kept whatever a phone sends; of the phone only
+  "android chrome" and the like, its pixel ratio, cores, memory and renderer (no full browser name, graphics chip or
+  screen size).
+- **Reading them is the owner's only**: a summary sent mid-game says which screens and controls one phone used, which
+  can tell what it did at night, so `GET /api/observe/report/` answers 404 unless the request carries the server's
+  `FIELD_REPORT_KEY` (an environment variable, not set today: the report is closed to everyone and the summaries are
+  kept). With the key set on the server and on the owner's machine, `FIELD_REPORT_KEY=... just field-report [--last N]
+  [--json]` (`tool/field_report.py`) prints the last summaries merged: how many were a game's end, per kind of tap and
+  device the median and 90th percentile of each leg, the screens with the most long frames, the slowest screen
+  changes, each request split into the server's own time and the time outside it, and cold starts seen in play
+  (`boot`: far slower outside the server than the summary's other requests, an instance starting; `db_wake`: the
+  database connection was, Neon waking), each with how long the phone had asked nothing before it.
+  `tests/core/test_open_routes.py` checks every route: no 5xx for a hostile body, and nothing a caller sends comes back
+  to anyone without an account.
+- **Not free, so not on** (each needs Pro, $20 a month with $20 of usage included):
+  Speed Insights Plus ($10 per project a month plus $0.65 per 10,000 events: the vitals' numbers, Poor entries, 30 days),
+  Observability Plus ($1.20 per million events: function latency by route, 30 days of runtime logs),
+  drains ($0.50 per GB), Web Analytics custom events ($0.03 per 1,000). On Hobby, Observability keeps 12 hours with no
+  latency figures and runtime logs keep 1 hour.
 
 ## Deploy-safe changes
 

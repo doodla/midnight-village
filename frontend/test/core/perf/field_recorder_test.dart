@@ -235,13 +235,10 @@ void main() {
 
   test('a path loses its ids, codes and query', () {
     expect(
-      cleanPath('https://x.example/api/v2/games/123/vote/?t=abc'),
-      '/api/v2/games/·/vote/',
+      cleanPath('https://x.example/api/onuw/games/123/vote/?t=abc'),
+      '/api/onuw/games/·/vote/',
     );
-    expect(
-      cleanPath('/api/v2/lobbies/QWERTY/join/'),
-      '/api/v2/lobbies/·/join/',
-    );
+    expect(cleanPath('/api/lobbies/QWERTY/join/'), '/api/lobbies/·/join/');
     expect(serverTiming('connect;dur=12.5, total;dur=50'), (
       connect: 12.5,
       total: 50.0,

@@ -47,12 +47,18 @@ backend=$!
 set +m
 
 web="$front/build/phone_frames/web"
-stamp="$(git -C "$front" rev-parse HEAD)-$(git -C "$front" status --porcelain -- lib web pubspec.yaml assets | sha1sum | cut -c1-8)-$api_port"
+# PHONE_FRAMES_DEFINES="NAME=value ...": more --dart-define's for the build, e.g.
+# FIELD_QUIET=true for the live app's quiet field recorder (a build here has no
+# commit, so it is off unless asked: lib/design_system/perf/perf_strip.dart).
+defines=()
+for define in ${PHONE_FRAMES_DEFINES:-}; do defines+=("--dart-define=$define"); done
+stamp="$(git -C "$front" rev-parse HEAD)-$(git -C "$front" status --porcelain -- lib web pubspec.yaml assets | sha1sum | cut -c1-8)-$api_port-${PHONE_FRAMES_DEFINES:-}"
 if [ "${PHONE_FRAMES_REBUILD:-}" = 1 ] || [ "$(cat "$web/.phone_frames" 2>/dev/null)" != "$stamp" ]; then
   echo "[phone-frames] building the web app (release, as tool/vercel_build.sh) for it"
   rm -rf "$web"
   (cd "$front" && flutter build web --release --dart-define=ENV=prod \
     --dart-define=API_ORIGIN="http://127.0.0.1:$api_port" --dart-define=BUILD_COMMIT= \
+    ${defines[@]+"${defines[@]}"} \
     --output "$web" > "$work/build.log" 2>&1) || { tail -30 "$work/build.log"; exit 2; }
   echo "$stamp" > "$web/.phone_frames"
 fi

@@ -761,21 +761,38 @@ a design round follows.
 ## Press and Ambient (`feel/`: the motion layer)
 
 One press and one loop for the whole kit, so a tap answers the frame the finger lands and nothing idles unseen (`docs/design/feel.md`, principles 1, 3 and 6).
-The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`; no part presses through `Pressable` yet (each tappable primitive keeps its own `_touch`, a later piece).
+The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`.
+Pressed through `Pressable`: `PrimaryButton`, `SecondaryButton`, `PaperScrap`, `IconAction`, `TextAction` and the card turned in place on 04 (`HoldToReveal` with `inPlace`);
+the other tappable primitives (the night board's cards, rows, slips, chips, steppers) keep their own `_touch` until a later piece.
 
 - **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
   The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
   it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, or a slide past the tap's slop from where it landed, on the screen as
   the tap measures it (just off the part's edge but within the slop it stays down: the tap still fires)
   (`holds: true`, for a hold, only on the lift or cancel), over `Motion.quick` on `Motion.land` (a settle under a tenth past rest).
+  04's card also comes up when its hold gives up before it is one (the finger slid past the hold's slop): `HoldToReveal` turns the press off until the lift.
   It never joins the gesture arena: the `GestureDetector`, `InkWell` or `HoldToReveal` inside fires exactly when it would without it
   (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through;
   it runs when the part is built, never per frame, so only a paint layer listens.
-  `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest).
-  Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws).
+  `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest; `PressSink.dip` is the kit's 2 px).
+  `PressDecoration` (`feel/press_paint.dart`) is its paper: the resting decoration blended toward the pressed one by the press, by paint alone (the shadow that tightens);
+  a change that is not a finger's (busy, a rise, a pick) eases over its `duration` as an `AnimatedContainer` does.
+  `PaperPiece(press:)` and `TiltedPaper(press:, pressed:)` take a finger's press so; `pressed:` stays for a press that is not a finger's (a busy button).
+  The plaque sinks into its backing, an outline fills with a hairline (a main one also dips), a scrap sinks into its shadow, a quiet word or a glyph dims;
+  a locked or waiting button presses and returns. On 04 `PaperFlip(press:)` shrinks the back 2% and hands its back the press (`PressScope`):
+  the hero sinks toward its slab's shadow (`FaceDownCard.heroPressKeep`, half), both from the frame the finger lands, held down while the card lies face down;
+  as it turns both are given back over the first half of the turn (`press * (1 - 2 * turn)`), so at the edge the unpressed face takes over with no jump
+  (`card_turn_press_test.dart`, a frame a millisecond, held and let go).
+  While a press blends, a deckled edge (a shadow moving under a finger) is a moved copy of one cut once for its size, not torn every frame (`DeckleBorder.whileMoving`);
+  at rest and all the way down every edge is cut where it lies and nothing more is made for it, as before (`deckle_moving_test.dart`).
+  Tests: `press_parts_test.dart` (the first frame, a quick tap, the lift, reduce motion and no rebuild, by the pixels drawn, for every part).
+  Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws);
+  a tap down and up before a frame is drawn keeps its lift until that frame is done (a post-frame callback, never a timer), so it still shows one pressed frame.
   A locked part keeps `enabled` and still answers;
   only a part that must not move turns it off.
-  Its own `RepaintBoundary`. Adopting it:
+  While pressed or settling it is its own repaint boundary (`PressLayer`); at rest none, so a part at rest draws exactly as without it.
+  A dim is `PressFade` (an opacity layer only while it dims; a `FadeTransition` is a layer whenever it is visible), and 04's hero holds its art in a `PressLayer`:
+  at rest a part has exactly the layers main's had (`press_parts_test.dart` reads them off the render tree). Adopting it:
   `Pressable(builder: (context, press, child) => PressSink(press: press, by: dip, child: child), child: GestureDetector(onTap: onTap, child: paper))`
 - **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock
   (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`, with no exceptions).
@@ -907,8 +924,13 @@ The rules and what is still to choose: `docs/design/feel.md`, section 6.
 ## The field recorder's strip (`perf/`; only with `?perf=1` on the web address)
 
 Where a tap's time goes on a real phone, measured by the app itself (the recorder is `lib/core/perf/`; how the owner uses it: `docs/dev/owner-feedback.md`, 24 November).
-Off (always, unless the tab asked) the app is exactly as it is:
+On the live app (a build with a commit) the same recorder also runs quietly, with no strip: a small summary at each game's end, and one of the play before a hidden tab, goes to the server
+(`core/perf/field_summary.dart`, `field_beacon.dart`; the owner reads them with `just field-report`; `docs/dev/deploy-vercel.md`, "Seeing the live app").
+A recorder that is on is reached only through `GuardedRecorder` (`core/perf/perf.dart`): nothing it throws reaches the app;
+`--dart-define=FIELD_QUIET=true` runs the tests with the quiet recorder on (`test/helpers/quiet_field.dart`).
+Off (a local run, the tests, unless the tab asked) the app is exactly as it is:
 `perfStripAround` returns the app itself, and every hook (`Perf.recorder`) is the constant `PerfOff`, which holds nothing and returns nothing.
+The quiet mode draws nothing either: `perfStripAround` wraps only for `?perf=1`.
 On, `PerfStrip` is a strip of paper at the bottom edge, above the system bar, in the caption type: the last tap's "finger → screen · request left · answer · worst" in ms.
 The app sits above it (the strip takes the bottom padding; the app is pushed up by the strip's height, never under it); it hides while the keyboard is up.
 It repaints only when a tap finishes, on its own layer (`RepaintBoundary`).

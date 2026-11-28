@@ -146,6 +146,10 @@ phone-frames *args:
 phone-frames-live *args:
     python3 tool/phone_frames/live_rtt.py {{args}}
 
+# What real phones measured in real play (the live app's summaries: one at each game's end, one of the play before a hidden tab): per kind of tap the median and 90th percentile of each leg by device, slowest screens, cold starts. The owner's only: needs FIELD_REPORT_KEY (the server's same key). Usage: FIELD_REPORT_KEY=... just field-report [--last N] [--json] [--api origin]
+field-report *args:
+    python3 tool/field_report.py {{args}}
+
 # Boot the harness backend, then run the end-to-end harness (API + UI runners)
 # against it and tear it down (needs Postgres; see docs/dev/debug-harness/)
 test-harness:
