@@ -4,6 +4,14 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 28 November 2026, 08 Talk, live (7e7d1b6), Pixel, Chrome (screenshot, verbatim)
+
+> All our checks. How is shit breaking
+
+> The images are all gone dude
+
+Six seats; the eight roles drawn as words, no portraits, on a half-empty board; the button left of centre. OPEN (`talk-broken`).
+
 ## 24 November 2026, playing the live app on an Android phone (412 points wide) and a friend's Pixel, in Chrome (verbatim)
 
 > The game was very choppy.
@@ -172,9 +180,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
 ## Relayed by the coordinating session, 22 November 2026 (not heard directly; confirm with the owner)
 
 - Practice players: yes, "but hidden enable so it's not visible to everyone. I'm thinking long
-  press on an element or something". Switched on by a hidden gesture on an existing element;
-  nothing visible to ordinary players. Built (see "In flight").
-- "Polish puzzles" was a typo for "polish passes".
+  press on an element or something". Built: a hidden gesture on an existing element.
 - Six sample looks (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2): "Skip till our default
   is good". Parked: no other looks until Shadow paper is good.
 - Polish passes: "include design improvements as well. Make the game look prettier and feel
@@ -193,13 +199,11 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   main screen feel a bit too big" (first screen and table; options going to the board).
 - Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
   directly, 22 November).
-- 22 Nov, same-address API trial (#66): it BROKE the live web app for about 30 minutes (23:15 to
-  23:49 UTC) and was reverted (#68). Cause: Vercel's rewrite `/api/:path*` does not match a path
-  ending in a slash, and every API path does, so calls got `index.html`. No local check can see
-  Vercel's own forwarding. Not retried: a retry needs (1) `/api/(.*)` -> `.../api/$1`, (2) proof
-  on a Vercel deployment's own address BEFORE it serves players (a slash path and a POST both
-  answer JSON), and (3) the owner's yes. Live baseline to beat: Start 1.41 s fast, 2.78 s slow
-  phone; Join 1.33 s, 2.60 s.
+- 22 Nov, same-address API trial (#66) broke the live web app for 30 minutes; reverted (#68):
+  Vercel's `/api/:path*` misses a path ending in a slash (`docs/dev/deploy-vercel.md`). A retry
+  needs `/api/(.*)` -> `.../api/$1`, proof on a deployment's own address before it serves players
+  (a slash path and a POST answer JSON), and the owner's yes. Baseline: Start 1.41 s fast, 2.78 s
+  slow; Join 1.33 s, 2.60 s.
 
 ## 23 November 2026: the type scale (heard directly)
 
