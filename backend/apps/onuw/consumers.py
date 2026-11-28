@@ -204,11 +204,14 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
     def _register_presence(self):
         from . import beat, game_presence
 
+        # The token is read first: a read that fails leaves nothing counted
+        # (connect fails before ``_presence_counted``, so disconnect would not
+        # uncount a row registered here).
+        self._beat_token = beat.token(self.game_id)
         if game_presence.register_connection(
             self.game_id, self.user_id, self.channel_name
         ):
             _host_presence(self.game_id, self.user_id, True)
-        self._beat_token = beat.token(self.game_id)
 
     @database_sync_to_async
     def _unregister_presence(self):

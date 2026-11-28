@@ -4,6 +4,9 @@ Integration tests for the ONUW GameConsumer WebSocket.
 Tests connection authorization, message routing, and player isolation.
 """
 
+import contextlib
+from unittest.mock import patch
+
 from django.test import TransactionTestCase
 
 import pytest
@@ -12,7 +15,7 @@ from channels.testing import WebsocketCommunicator
 
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw.consumers import GameConsumer
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
 from tests.sockets import heard
 
 pytestmark = pytest.mark.integration
@@ -190,6 +193,28 @@ class TestGameConsumerConnect(TransactionTestCase):
         assert response == {"type": "night_window", "window": 2, "deadline": None}
 
         await communicator.disconnect()
+
+
+class TestGameConsumerTokenReadFails(TransactionTestCase):
+    """Reading the token as a socket opens can fail (the database): the socket
+    is then not left counted, so nobody shows present who is not."""
+
+    @pytest.mark.asyncio
+    async def test_a_failing_token_read_leaves_no_presence_row(self):
+        game, users = await _create_game_with_players(player_count=4)
+        communicator = _build_communicator(game.id, users[1])
+
+        with (
+            patch("apps.onuw.beat.token", side_effect=RuntimeError("db gone")),
+            contextlib.suppress(Exception),
+        ):
+            await communicator.connect()
+            await communicator.disconnect()
+
+        rows = await database_sync_to_async(
+            lambda: SocketPresence.objects.filter(game_id=game.id).count()
+        )()
+        assert rows == 0, "the socket stays counted though its connect failed"
 
 
 async def _next_of(communicator, kind: str) -> dict:
