@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/square_foot.dart';
 import 'package:midnight_village/design_system/primitives/until_touched.dart';
 
 import 'finger.dart';
@@ -22,7 +23,8 @@ import 'truncated_text.dart';
 //   (name_pieces.dart: the pieces and names come from the kit, not a list);
 // - the screen's main action (its amber button) is there, on the screen
 //   without scrolling, not under another piece, labelled for a screen reader,
-//   48 to touch, and a finger's press reaches it (`pressLikeAFinger`). A state
+//   48 to touch, and a finger's press reaches it (`pressLikeAFinger`); on the
+//   cobbles (08, 09) it lies in their middle. A state
 //   with no main action (a wait, a lock) says so, with why: the one opt-out;
 // - the phone's text size takes effect in the tree;
 // - what the state says must be seen is drawn and on the screen; the pieces
@@ -245,6 +247,26 @@ List<String> checkDrawn(WidgetTester tester, SweepPlan plan, Size screen) {
     if (!onScreen(r, screen)) problems.add('main button off the screen: $r');
     if (!reachable(tester, e) && !_underHeldFace(tester, e)) {
       problems.add('main button under a piece (${_onTop(tester, e)}): $r');
+    }
+  }
+  // The cobbles' plaque (08, 09: `SquareFoot`) lies in their middle on every
+  // phone, as the mocks have it.
+  for (final foot in find.byType(SquareFoot).evaluate()) {
+    final cobbles = ownRect(foot).center.dx;
+    final plaque = find.descendant(
+      of: find.byElementPredicate((e) => identical(e, foot)),
+      matching: find.byType(PrimaryButton),
+    );
+    for (final e in plaque.evaluate()) {
+      final middle = ownRect(e).center.dx;
+      if ((middle - cobbles).abs() > 1) {
+        problems.add(
+          'the plaque on the cobbles is off their middle: at '
+          '${middle.toStringAsFixed(1)}, the cobbles\' at '
+          '${cobbles.toStringAsFixed(1)}. Fix: centre it in '
+          'lib/design_system/primitives/square_foot.dart',
+        );
+      }
     }
   }
   for (final finder in plan.mustSee) {

@@ -23,7 +23,6 @@ import '../../../helpers/screen_sweep.dart' show sweepSizes;
 /// The owner's phone in Chrome: 412 wide, 784 under the browser's bars.
 const _ownersChrome = Size(412, 784);
 
-/// Every recorded `/me/` of the talk.
 List<String> get _talks => [
   for (final sample in ContractSamples.index)
     if (sample.path == '/onuw/games/{game_id}/me/' &&

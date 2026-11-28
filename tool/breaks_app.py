@@ -2,7 +2,7 @@
 """The app's deliberate breaks (tool/prove_guards.py). They run where Flutter is: on GitHub in
 "Analyze and Format"; locally when `flutter` is on PATH."""
 
-from breaks_kit import Edit, Break
+from breaks_kit import Break, Edit
 
 NAME_TAG = "frontend/lib/design_system/primitives/name_tag.dart"
 NAME_LINE = "            Flexible(child: FitLine(name, style: style)),\n"
@@ -81,5 +81,37 @@ APP: tuple[Break, ...] = (
             ),
         ),
         tests=("frontend/test/design_system/primitives/main_button_rule_test.dart",),
+    ),
+    Break(
+        name="talk_deck_four_to_a_row_or_words_alone",
+        promise="one-look",
+        why="the talk's deck never takes fewer to a row: eight roles at 412 wide are"
+        " drawn as words, no portraits (the owner, 28 November 2026)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/presentation/shell/talk_square.dart",
+                "      for (var c = columns; c >= SquareMetrics.fewestColumns; c--)"
+                " gridOf(c),\n",
+                "      gridOf(columns),\n",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/presentation/talk_deck_portraits_test.dart",
+        ),
+    ),
+    Break(
+        name="cobbles_plaque_at_the_start_of_its_row",
+        promise="one-look",
+        why="08's and 09's button sits left of the cobbles' middle on any phone wider"
+        " than the button (the owner, 28 November 2026)",
+        edits=(
+            Edit(
+                "frontend/lib/design_system/primitives/square_foot.dart",
+                "    alignment: Alignment.topCenter,\n",
+                "",
+            ),
+        ),
+        # Every shard of the sweep holds some 08 states.
+        tests=("frontend/test/screen_cases/sweep_1of4_test.dart::08-talk",),
     ),
 )
