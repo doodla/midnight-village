@@ -36,6 +36,15 @@ change costs one, not two. The script compares with what the branch holds, so a 
 cancelled is made up by the next one. Over the 24 hours in which this was written, 49 merges
 cost 98 deployments; with this they would have cost 35.
 
+It moves nothing until **every check `docs/dev/main-ruleset.json` requires has passed on the
+merged commit** (as a run of GitHub Actions; up to 45 minutes): two pull requests that were each
+green can break each other once both are in. When both sides change, it moves `live-server`
+first and `live-app` only once `/api/health/` serves the commit `live-server` holds, so a new
+app never talks to an old server. A live branch only moves forward along main, and never to a
+commit below the rollback floor (`FLOOR` in the script). Each refusal is a red run that says why
+and what fixes it; nothing moves. If the gate itself is broken, "Run workflow" on `main` with
+`skip_waits` ticked skips the two waits (forward-only and the floor still hold).
+
 * **Daily cap**: Vercel's Limits page lists 100 deployments created per day on Hobby (a
   86400 s window; once hit, wait for it to pass). Every deployment created counts, preview or
   production, on each project. Vercel's monorepo docs say builds canceled by an Ignored Build
@@ -550,8 +559,8 @@ The previous code serves while `migrate` runs on every deploy (every deployment 
   (`core/migrations/0012_lobbymember_drop_is_ready.py`, database only, with its test and a frozen INSERT in push 1's shape).
   After push 2 a build from before push 1 can neither read nor write that table
   (its model still selects the column, so every lobby page fails, not only a join):
-  roll forward instead. Rollback floor today:
-  commit e8f50b5 (#81), where `is_ready` left the model.
+  roll forward instead. The rollback floor is code: `FLOOR` in `tool/promote_live.py` (today #81, where `is_ready`
+  left the model); the release job refuses to put anything older on a live branch.
 - **The previous build is run against the new schema, on every pull request with a migration.** `just previous-build-check`
   (`tool/previous_build_check.sh`, a step of GitHub's "Backend Checks") checks out main, puts this change's migrations in it, builds a database from them and
   runs main's own tests on it. A migration the serving build cannot live with fails there

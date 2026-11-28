@@ -162,13 +162,17 @@ class Gates(unittest.TestCase):
         found = list(self.gates())
         self.assertTrue(found)
         for name, part, gate, jobs in found:
-            self.assertIn(part, jobs, f"{name}: {gate} needs {part}, which is not a job")
+            self.assertIn(
+                part, jobs, f"{name}: {gate} needs {part}, which is not a job"
+            )
 
     def test_a_gate_always_runs_and_passes_only_on_success_of_every_part(self):
         for name, part, gate, jobs in self.gates():
             body = "\n".join(l.split("#", 1)[0] for l in jobs[gate].splitlines())
             self.assertRegex(
-                body, r"(?m)^    if:\s*\$\{\{\s*always\(\)\s*\}\}\s*$", f"{name}: {gate}"
+                body,
+                r"(?m)^    if:\s*\$\{\{\s*always\(\)\s*\}\}\s*$",
+                f"{name}: {gate}",
             )
             # the parts' combined result is read, and only "success" passes:
             # "failure", "cancelled" and "skipped" (a part that did not run) do not
@@ -183,8 +187,12 @@ class Gates(unittest.TestCase):
 
     def test_the_widget_tests_parts_cover_the_whole_suite(self):
         text = (ROOT / ".github" / "workflows" / "flutter-tests.yml").read_text()
-        (total,) = set(re.findall(r"just test-widgets \$\{\{ matrix\.part \}\} (\d+)", text))
-        (listed,) = re.findall(r"part: \[([\d, ]+)\]", jobs_of(text)["widget-tests-part"])
+        (total,) = set(
+            re.findall(r"just test-widgets \$\{\{ matrix\.part \}\} (\d+)", text)
+        )
+        (listed,) = re.findall(
+            r"part: \[([\d, ]+)\]", jobs_of(text)["widget-tests-part"]
+        )
         self.assertEqual(
             [int(n) for n in listed.split(",")], list(range(1, int(total) + 1))
         )
@@ -279,9 +287,7 @@ class WorkflowPublishing(unittest.TestCase):
 
     def test_the_job_publishes_only_from_main(self):
         (job,) = jobs_of(self.text).values()
-        self.assertRegex(
-            job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$"
-        )
+        self.assertRegex(job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$")
 
     def test_builds_with_the_script_and_publishes_the_one_asset(self):
         self.assertIn("tool/build_android.sh", self.code)
@@ -394,6 +400,22 @@ class WorkflowAfterMerge(unittest.TestCase):
         for name in ("API_ORIGIN", "PUBLIC_ORIGIN"):
             (line,) = re.findall(rf"(?m)^  {name}: \S+$", self.code)
             self.assertIn(line, android)
+
+    def test_the_promotion_can_see_mains_checks_the_server_and_the_floor(self):
+        """tool/promote_live.py waits for main's checks (it needs `checks: read` and the
+        token), for the server (it needs its address), and proves the floor (it needs the
+        whole history); skipping the waits is a person's choice on a manual run only."""
+        (job,) = jobs_of(self.text).values()
+        self.assertRegex(job, r"(?m)^      checks: read\b")
+        self.assertRegex(job, r"(?m)^          fetch-depth: 0\b")
+        step = self.code[self.code.index("id: live") :].split("\n      - name:")[0]
+        self.assertIn("GH_TOKEN: ${{ github.token }}", step)
+        self.assertIn('tool/promote_live.py --api "$API_ORIGIN"', step)
+        self.assertIn("inputs.skip_waits", step)
+        self.assertRegex(
+            self.code,
+            r"(?m)^      skip_waits:\s*\n(?:        .*\n)*?        default: false",
+        )
 
     def test_the_web_build_says_which_commit_it_is(self):
         build = (ROOT / "frontend" / "tool" / "vercel_build.sh").read_text()

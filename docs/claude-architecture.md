@@ -73,7 +73,9 @@ dated reason. The `Web page smoke` job's `routes.test.cjs` judges `frontend/verc
 rewrite as a pattern.
 
 The branches Vercel deploys from (`live-server`, `live-app`) are moved by `tool/promote_live.py`
-only when what a side ships changed (`guardrails/tests/test_promote_live.py`).
+only when what a side ships changed, only once main's required checks passed on the merged
+commit, the server before the app, only forward, and never below the rollback floor `FLOOR`
+(`guardrails/tests/test_promote_live.py`: a deliberate break per promise, with no network).
 
 A second workflow is not part of the wall: `deployed-check.yml` ("Deployed Check") runs after
 every merge to main and proves the live server and app work together

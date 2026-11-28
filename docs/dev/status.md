@@ -12,8 +12,8 @@ GitHub Issues (`docs/dev/running-the-work.md`); what needs the owner is on the o
   (`docs/dev/deploy-vercel.md`, "Deploy-safe changes"). After every merge the "Deployed Check"
   workflow proves the live server and app work together (`docs/dev/deploy-vercel.md`, "The
   check after each merge"). A red run on main opens an issue titled "main is red": look now.
-- Never roll back to a build from before core migration 0011 (commit e8f50b5, #81): it can
-  neither read nor write the lobby's members.
+- Never roll back below the floor, `FLOOR` in `tool/promote_live.py` (today #81, core migration 0011):
+  older builds can neither read nor write the lobby's members. The release job refuses it.
 
 ## What is built
 
