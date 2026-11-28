@@ -25,14 +25,6 @@ effect: the job runs inside the transaction that claims and deletes the row, so 
 A timer the test must cancel or replace first is scheduled far off (an hour), so a slow machine cannot fire it before the test gets there;
 due times are written with the database clock (`Now()`).
 
-## Traps
-
-- **WebSocket connections require JWT auth.** The ASGI middleware validates tokens.
-  Tests need `WebsocketCommunicator` with an authenticated user scope — unauthenticated connections are rejected silently.
-
-- **Throttle rates must be configured in test settings.** Guest auth endpoints use DRF throttling.
-  If `DEFAULT_THROTTLE_RATES` is missing from test settings, guest creation tests fail with 429s that look like server errors.
-
 ## What a tap costs the server (`backend/tests/perf`)
 
 `tap_costs.play` plays one whole game the way the app does (a `v2` table, every phone
@@ -65,32 +57,8 @@ where `CI` is set: there it fails instead).
 
 ## What a seat is told (`backend/tests/privacy`)
 
-`test_two_deals.py` (a guard) plays one scripted game twice, seat for seat, through the real
-API, the second game changing one thing the viewer must not know: two other seats' cards, the
-cards of the seat whose pick lands on the viewer (a Robber takes the viewer's card in one game
-only), a seat's card against a centre card, the centre's order (for a viewer that picks from
-the centre), the card a pick of the viewer's that reads nothing lands on (a Troublemaker's
-swap, the Drunk's take, a Doppelganger copying either), or another seat's first vote (onto
-the viewer, or off it). Everything the viewer is told must be byte-identical: each answer it
-gets (status, headers, body, errors), each frame its lobby and game sockets send, and an
-answer from every route of the urlconf at every stage (GET; while voting also POST, PATCH and
-DELETE, each undone after). The sockets are the viewer's real consumers (`sockets.py`): their
-own `connect` (the groups they join, what they send at once, the first beat), every group
-message to a group they joined, through their own handlers, and one heartbeat at each stage.
-They run in the test's own thread through `async_to_sync`, so their database work uses the
-test's connection and sees its transaction (Channels' closing of old connections around it is
-switched off there); only the heartbeat's timer is not theirs: one beat is driven per stage.
-What a seat may rightly learn is stated once in `two_deals.py`, from the action type of each
-pick: a look or a robbery reads the card picked, a swap of two others or a blind take from the
-centre reads nothing. A scripted move the server refuses, or a case whose two games did not
-differ as it claims (checked from the database), is a `ScriptError`, not the comparison: only
-the comparison failing says "learns", and only that kills a break (`expect="learns"`). Cases
-come from `ROLE_REGISTRY`: each role a viewer and a changed card; each kind of change at one
-table size (seat swaps at nine seats, the rest at seven); a role with no night action has
-one case, the sleepers taking the kinds in turn. Each game runs in a savepoint that is undone,
-so both start from the same ids; the Server-Timing detail is read from the live settings
-(`backend/config/settings/vercel.py`). Its breaks (`tool/breaks_server.py`, L1 to L14) are the leaks
-two reviews found it missed; X4 (every unlocked vote refused, no leak) must come out "broken".
+`test_two_deals.py` (a guard): two seeded games differing only in what the viewer must not
+know tell it the same bytes (rules: its docstring and `two_deals.py`).
 
 ## Migration tests
 

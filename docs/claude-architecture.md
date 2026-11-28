@@ -37,9 +37,7 @@ commit. No test suite runs in a commit, so a commit needs no long Bash timeout.
 
 `just gate-full [backend|frontend|guardrails ...]` (`.claude/hooks/gate-full.sh`, mode "full") runs every
 required GitHub check that can run here, in parallel, with times, and ends by naming the ones only
-GitHub runs (`GATE_FULL_SKIPS` in `.claude/hooks/lib/gate.sh`). Its backend and frontend
-blocks end with `just prove-guards` for their kinds of break, as GitHub's two jobs do. A pass is
-recorded.
+GitHub runs (`GATE_FULL_SKIPS` in `.claude/hooks/lib/gate.sh`). A pass is recorded.
 `.claude/guardrails/tests/test_gate_full.py` holds its steps and that list to the workflows, and that a
 recipe of `backend/` or `frontend/` found at the root means the same there (`check-backend`,
 `test-backend`, `flutter-test`, `flutter-format-check` carry the folder's own meaning).
@@ -134,26 +132,8 @@ unless its description has a line `- <file name>: <why>`; locally it only remind
 read: a guard is a text file). `just check` also lints `tool/` and the hooks for
 errors swallowed in silence (`just lint-tools` in `backend/`).
 
-**Proved guards.** A guard counts only if a recorded deliberate break proves it bites. `just prove-guards`
-(`tool/prove_guards.py`) holds named breaks (`tool/breaks_server.py`, `breaks_tools.py`,
-`breaks_app.py`): each a small realistic mistake, the CLAUDE.md promise it breaks, and the
-focused tests that must fail on it. Each is put into a throwaway copy of the tree, anchored on
-a function or a marker line (an anchor that moved fails "break no longer applies: update
-it"). A break is killed only when a named killer test fails an assertion, and a backend
-break names that failure (`expect=`, the words of the promise's own assertion, or its tests as
-`path::test`) (`tool/breaks_verdict.py`): an import error, a test that errors, a crash in the
-code under test, the two-deal script failing to play (`ScriptError`), a failure other than the
-named one, a command that fails without printing what its guard prints, a failed sample
-re-record or a Flutter file that does not build is "broken" and fails the run. A bogus break
-(`proves_nothing=`, the review's X4) must come out "broken". It also fails when a
-known survivor (`survives=`) is killed, and when a `Guard file` kills no break or its breaks
-ran and none saw a test in it fail (`tool/breaks_rules.py`; a helper guard counts through the
-tests that import it). Against main, `NOT_YET_PROVED` (the guards older than the rule) and the
-known survivors only shrink and no break disappears, unless the pull request names it under
-"Guards changed". GitHub runs the server's and tools' breaks in "Backend Checks" and the
-app's in "Analyze and Format" (a Flutter break that cannot run there fails); `just handover`
-runs those whose promise the change touches (`.claude/guardrails/tests/test_prove_guards.py` and
-`test_prove_guards_runs.py`; the first also applies every break to the tree as it stands).
+**Proved guards.** A guard counts only when a recorded break proves it bites (`just prove-guards`;
+its rules: the docstrings of `tool/prove_guards.py` and `tool/breaks_verdict.py`).
 
 **Disk.** Each worktree fills about a gigabyte of build output. `tool/tidy.py` clears it for
 a worktree that has gone quiet: no source file changed for three hours and no process is
@@ -298,8 +278,7 @@ file again (delete the old ruleset first, or edit its checks in the settings).
 
 A check every agent runs into costs every agent, so a new one is accepted only when it:
 1. tests the promise, not the shape of the last bug;
-2. comes with a recorded break it catches, by its own assertion (`just prove-guards` runs
-   them; a guard file with no break fails it; see "Proved guards");
+2. comes with a recorded break it catches (`just prove-guards`, "Proved guards");
 3. prints `file:line: what is wrong. Fix: <command or edit>`;
 4. takes its cases from a registry or the code where one exists, not a list kept by hand;
 5. has no allowlist kept by hand that can grow.
