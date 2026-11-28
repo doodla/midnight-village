@@ -484,14 +484,12 @@ void main() {
         tester.view.physicalSize = const Size(320, 568);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
-        final me = recordedMe('me_choose_prompt_seer');
-        final deadline = DateTime.parse(me['deadline'] as String);
-        final s = await ShellSetup.pump(
-          tester,
-          me,
-          clock: deadline.subtract(Duration(seconds: left)),
-          textScale: 1.3,
-        );
+        final recorded = recordedMe('me_choose_prompt_seer');
+        final deadline = DateTime.parse(recorded['deadline'] as String);
+        final at = deadline.subtract(Duration(seconds: left));
+        // A stage as long as the time left, seen as it opens.
+        final me = {...recorded, 'stage_started_at': at.toIso8601String()};
+        final s = await ShellSetup.pump(tester, me, clock: at, textScale: 1.3);
         await s.settle(tester);
         expect(find.text(shown), findsOneWidget);
         expect(truncatedText(tester), isEmpty);

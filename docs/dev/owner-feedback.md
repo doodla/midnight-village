@@ -4,13 +4,19 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
-## 28 November 2026, the home page (01) on the live app, Chrome on an Android Pixel (412 wide) (verbatim)
+## 28 November 2026, 01 on the live app (Chrome, a Pixel, 412 wide; verbatim)
 
 > On the home page, when I tap, the name field also drops.
 
 > And things jump when the page loads and settles. Looks noob
 
-OPEN (branch `home-settle`).
+OPEN (`home-settle`).
+
+## 28 November 2026, 08's clock (Android app from 7e7d1b6, 7 seats, a recording; verbatim)
+
+> The timer is fucked. Keeps jumping around.
+
+Every frame (seconds in, clock): 0.0 3:32, 0.32 3:17, 0.89 3:16, 1.87 3:15, 2.89 3:17, 3.44 3:16, 4.44 3:15, 5.46 3:14, 5.75 3:17. OPEN (branch `clock-jumps`).
 
 ## 24 November 2026, playing the live app on an Android phone (412 points wide) and a friend's Pixel, in Chrome (verbatim)
 
@@ -46,12 +52,9 @@ In the lab, `just phone-frames --perf <dir>` plays the same game with it on and 
 
 > 5-7 seconds ish. But that feels like forever.
 
-HANDLED (branch `start-lands-fast`): the socket and the server were fast; the phone was not.
-A phone that missed `game_started` or `play_again` (its socket down at that moment, the phone
-asleep) waited at 02 for the 15 s poll; now any lobby that says the table is in a game, the
-socket coming back and the app coming back read where the phone sits at once. And the event
-itself moves the screen (the dusk on `game_started`, 02 on `play_again`), the reads filling in
-behind. `just phone-timing` measures tap to guest screen on a slowed phone against a budget.
+HANDLED (branch `start-lands-fast`): a phone that missed `game_started` or `play_again` waited
+for the 15 s poll; now the socket or the app coming back reads where it sits at once, and the
+event itself moves the screen. `just phone-timing` measures it.
 
 ## 24 November 2026, when an open app reloads itself to a new version (the owner's board: a button, not their words)
 

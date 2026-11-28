@@ -17,6 +17,8 @@ mixin _LiveGameEvents on _$LiveGameNotifier, _LiveGameTaps {
   void _loadOutcomeSoon();
   void _invalidateTable();
   void _clearFetchFailure();
+  bool _clockFromView(GameMe me);
+  ValueNotifier<int> get clockMoved;
 
   /// A ready or a vote of this phone's is queued or out, so a count the
   /// table hears may or may not hold it yet.
@@ -36,7 +38,9 @@ mixin _LiveGameEvents on _$LiveGameNotifier, _LiveGameTaps {
   /// the table's `game_results`, just after it, so none are asked for.
   void _acceptView(GameMe me) {
     final current = state.requireValue;
-    if (me.gameId != gameId || me.place <= current.server.place) return;
+    if (me.gameId != gameId) return;
+    if (_clockFromView(me)) clockMoved.value++;
+    if (me.place <= current.server.place) return;
     _heldProgress = null;
     _viewsApplied++;
     _clearFetchFailure();
