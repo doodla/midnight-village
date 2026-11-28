@@ -5,6 +5,7 @@ bitten, adding a role); each part is described where it lives:
 
 - `apps/core/README.md`: shared infrastructure (accounts, lobbies, presence, timers).
 - `apps/onuw/README.md`: One Night Ultimate Werewolf (the engine, the night, the vote).
+- `apps/observe/README.md`: how the live app measures itself (speed summaries, the owner's report).
 - `tests/README.md`: the tests.
 
 Setup: `tool/setup_env.sh <db_name>` from the repo root (`docs/dev/environment.md`); never

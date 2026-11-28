@@ -53,7 +53,7 @@ There is one game flow: the screens read one model and one table.
   else the last open `BackHandler` answers
   (03 back to 02, 02's leave question, My night put away on 08, 01's code field closed, "You're at another table." goes there as "Go there" does);
   else the screen's `BackRule`: `backRuleFor(AppScreen)` beside `screenFor` names one for every screen
-  (01 leaves the app, 02 asks first through the table's own "Stay" / "Leave", never while a deal or a leave is on its way, 03 returns to 02, 04 to 11 do nothing: only Leave exits a game);
+  (01 leaves the app, 02 asks first through the table's own "Stay" / "Leave", never while a deal or a leave is on its way, 03 returns to 02, 04 to the end board do nothing: only Leave exits a game);
   `HomeGate` names the rule of its waits (the opening waits leave: the seat is the server's, reopening reads it back).
   A sheet or dialog never outlives its screen:
   `BackPolicy.place` changes with the screen, and every route above the page closes, its opener getting no answer

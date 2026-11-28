@@ -11,8 +11,8 @@ tool/bootstrap_container.sh
 It installs the tools below, starts Postgres, sets its password and runs `tool/setup_env.sh`
 (about three minutes; safe to run again). Without it a fresh container cannot build or test
 the app, and the commit gate refuses any commit that needs the frontend checks. The cloud
-environment has no setup script of its own yet: the owner can only approve one at a computer
-(asked 22 and 23 November 2026). At every session start `.claude/hooks/session-start.sh`
+environment's setup script does not set up this repository (it installs another project's
+dependencies); the owner can only approve a new one at a computer (asked 22 and 23 November 2026). At every session start `.claude/hooks/session-start.sh`
 starts Postgres if it is installed and down.
 
 ## Tools (what the command installs)
