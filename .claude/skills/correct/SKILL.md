@@ -11,8 +11,8 @@ Input: one mistake that happened, with its evidence: a review file, a red run, a
 1. **Name the promise it broke**, in one sentence, not the instance: "a recipe name means one
    thing in every folder", not "`cd frontend && just test` ran the backend's tests". Say who is
    hurt when it breaks: a player, the owner, a builder.
-2. **Look for the guard that should have caught it**: the tests that carry `Guard file`
-   (`grep -rl "Guard file"`), the checks in `tool/`, the tests beside the code. If one covers
+2. **Look for the guard that should have caught it**: `just prove-guards --list` (each
+   promise and the tests that kill its breaks), the tests beside the code. If one covers
    the promise and missed, widen its cases rather than add a second check.
 3. **Make it impossible first, if you can**: one owner for the state, one way to do the task,
    a type that cannot hold the bad value, the old way deleted. Else **write the check** to
@@ -27,8 +27,8 @@ Input: one mistake that happened, with its evidence: a review file, a red run, a
 4. **Prove it on the original mistake.** Bring the mistake back (revert the fix, or the
    smallest edit that re-creates it), see the check fail with its message, undo, see it pass.
    It passes on today's tree with no exception, or it tests the wrong promise.
-   Record that break so it is rerun: if `just --list` names prove-guards, as a break there;
-   until then as a test that re-creates the original mistake and asserts the check fails.
+   Record it as a break, run by `just prove-guards`: the mistake, its promise, the test that
+   must fail (`tool/breaks_tools.py`, `tool/breaks_server.py`, `tool/breaks_app.py`).
 5. **Delete the prose the check replaces** in the same change: the line in a `CLAUDE.md`, an
    agent definition, a README, a "do not" comment. Prose stays only where judgment is needed.
 6. **If no honest check is possible, say so and stop.** A check that tests the shape of the

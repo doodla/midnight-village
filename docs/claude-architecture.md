@@ -268,8 +268,8 @@ Every agent lists its tools: one defined with all tools starts at about 78k toke
 
 ## Skills (`.claude/skills/`)
 
-Our own: `correct` turns a mistake that happened into a check that would have caught it (or
-says no honest one exists). In `no-comments` one haiku per file proposes (`sorter.md`);
+Our own: `correct` turns a mistake that happened into a check that would have caught it, its
+break recorded in `just prove-guards` (or says no honest one exists). In `no-comments` one haiku per file proposes (`sorter.md`);
 `tool/comment_rows.py` checks the answers and deletes only what `tool/empty_comments.py` proves
 says nothing (`.claude/guardrails/tests/test_comment_rows.py`, `test_empty_comments.py`). Adapted from pstack, MIT: `.claude/skills/NOTICE`.
 A skill whose front matter has no vendor's `metadata:` is ours (`tool/skills.py`): measured and
