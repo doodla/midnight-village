@@ -22,8 +22,8 @@ Duration fingerTime(Duration down, Duration now) =>
 /// taken at the start of the next frame, not in the timer itself: a browser
 /// busy drawing (a press's first frames on a slow phone) hands the app the
 /// timer and a lift it was keeping back together, the timer often first, so
-/// the lift is let in before the hold is decided. The hold draws in that
-/// frame, as it would have: nothing waits longer.
+/// the lift is let in before the hold is decided: by its own time it is a
+/// tap. The hold draws in that frame, as it would have: nothing waits longer.
 class FingerTimedLongPress extends LongPressGestureRecognizer {
   FingerTimedLongPress({required super.duration, super.debugOwner});
 
@@ -72,9 +72,13 @@ class FingerTimedLongPress extends LongPressGestureRecognizer {
         landed != null &&
         state == GestureRecognizerState.possible &&
         event.pointer == primaryPointer &&
-        (event is PointerUpEvent || event is PointerMoveEvent) &&
-        fingerTime(landed, event.timeStamp) >= deadline!) {
-      _hold();
+        (event is PointerUpEvent || event is PointerMoveEvent)) {
+      final held = fingerTime(landed, event.timeStamp);
+      // Past the hold by the finger's own times; or the timer has run and
+      // the times cannot say (events with none), so it decides, as before.
+      if (held >= deadline! || (_nextFrame != null && held == Duration.zero)) {
+        _hold();
+      }
     }
     super.handleEvent(event);
   }

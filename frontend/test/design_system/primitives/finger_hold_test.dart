@@ -115,6 +115,20 @@ void main() {
       expect(part.taps, ['tap']);
     });
 
+    testWidgets('a lift with no times after the timer has run stays a hold, '
+        'as before', (tester) async {
+      final part = _Part();
+      await tester.pumpWidget(part.build());
+      final finger = TestPointer(5);
+      final at = tester.getCenter(find.byType(RawGestureDetector));
+      await tester.sendEventToBinding(finger.down(at));
+      await tester.binding.delayed(_hold);
+      await tester.sendEventToBinding(finger.up());
+      await tester.pump();
+
+      expect(part.taps, ['hold']);
+    });
+
     test('times out of order or missing say nothing', () {
       expect(
         fingerTime(const Duration(seconds: 2), const Duration(seconds: 1)),
