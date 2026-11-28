@@ -2,49 +2,56 @@
 """One scripted game through the real API, and everything one seat (the viewer) is told.
 
 The script is written by seat, never by role: every seat does what its own ``/me/`` prompt
-asks, picking by one rule (``Plan.picks``), and every scripted move must succeed. So two
-games dealt differently play the same moves seat for seat, and anything the viewer is told
-that differs between them can only come from what the viewer must not know.
+asks, picking by one rule (``Plan.seat_picks``), and every scripted move must succeed. So
+two games dealt differently play the same moves seat for seat, and anything the viewer is
+told that differs between them can only come from what the viewer must not know. A move
+the server refuses, or a case whose two games do not differ as it says, is a
+``ScriptError``: the script could not play, which is not the comparison failing (a break
+that only does that proves nothing, tool/breaks_verdict.py).
 
-What a seat may rightly learn is what its own night reads, and nothing else: the seats
-and centre cards its own picks name, the seats holding its kin when its role wakes to see
-its team (werewolves for a werewolf-team role, its own role otherwise), and its own card
-at the end when its role wakes and picks nothing (the Insomniac). A Doppelganger reads as
-the card it copies. ``Plan`` keeps every variation outside that: the viewer's picks avoid
-the changed places (and what the changed seats' own picks touch), a variation that moves
-the viewer's kin is not made, and nobody picks a viewer who reads its own card.
+What a seat may rightly learn is what its own night reads, and nothing else, decided by
+the ACTION TYPE of each pick (``reads``): a look (``PEEK_PLAYER``, ``PEEK_CENTER``, the
+lone werewolf's look at the centre) reads the card it looks at, a robbery
+(``SWAP_WITH_PLAYER``) the card it takes; a swap of two others (``SWAP_OTHERS``) and a
+blind take from the centre (``SWAP_WITH_CENTER``) read nothing. Besides: the seats holding
+its kin when its role wakes to see its team (werewolves for a werewolf-team role, its own
+role otherwise), and its own card at the end when its role wakes and picks nothing (the
+Insomniac). A Doppelganger reads the card it copies, then acts as it. ``Plan`` keeps every
+variation outside that: a pick that reads avoids the changed places (and what the changed
+seats' own picks touch); a pick that reads nothing goes where it would anyway, so a case
+can change exactly the card it lands on; a variation that moves the viewer's kin is not
+made, and nobody picks a viewer who reads its own card.
 
-What the viewer is told: every answer to a request it makes (status, headers, body),
-every frame its lobby and game sockets would deliver (the groups worked out from the
-consumers' own ``connect``), and, at each stage, an answer from every route of the
-urlconf (GET; at two stages also POST, PATCH and DELETE, each in a savepoint undone after).
+What the viewer is told: every answer to a request it makes (status, headers, body), and
+every frame its lobby and game sockets send. Those are the viewer's REAL consumers
+(``LobbyConsumer``, ``GameConsumer``): their own ``connect`` (the groups it joins, what it
+sends at once, the first beat), every group message the layer carries to a group they
+joined, through their own handlers, and one heartbeat at each stage. They run in the
+test's own thread and database connection (``ViewerSocket``), so they see the test's
+transaction. At each stage, an answer from every route of the urlconf (GET; while voting
+also POST, PATCH and DELETE, each in a savepoint undone after).
 """
 
 from __future__ import annotations
 
 import ast
-import inspect
-import json
 import re
-import textwrap
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 from django.db import transaction
 from django.test import override_settings
 from django.urls import URLPattern, URLResolver, get_resolver
 
-from asgiref.sync import async_to_sync
-from channels.consumer import get_handler_name
-
-from apps.core import consumers as core_consumers
-from apps.onuw import consumers as game_consumers
+from apps.core.consumers import LobbyConsumer
+from apps.onuw.consumers import GameConsumer
+from apps.onuw.engine.choose import pick_shapes
 from apps.onuw.engine.roles import ROLE_REGISTRY, ActionType, Team
 from apps.onuw.models import Game, PlayerRole
 from tests.contract.recorder import Recording, Table, recording
+from tests.privacy.sockets import ViewerSocket
 
 ME = "/onuw/games/{game_id}/me/"
 ACTION = "/onuw/games/{game_id}/action/"
@@ -115,6 +122,41 @@ def copies(role: str) -> bool:
     return ROLE_REGISTRY[role].wave == 1
 
 
+# The action types whose pick of a seat reads the card picked: a look, a robbery.
+SEAT_READS = {ActionType.PEEK_PLAYER, ActionType.SWAP_WITH_PLAYER}
+
+
+def reads(role: str, kind: str) -> bool:
+    """Whether a pick by ``role`` of a seat (``kind`` "players") or of a centre card
+    ("center") reads the card picked, from the role's action types. A swap of two others
+    and a blind take from the centre read nothing. The one centre pick a team-seeing role
+    makes is the lone werewolf's look (engine/choose.pick_shapes), which reads."""
+    found = ROLE_REGISTRY[role]
+    types = set(found.action_types)
+    if kind == "players":
+        return bool(types & SEAT_READS)
+    return ActionType.PEEK_CENTER in types or (
+        ActionType.SEE_TEAM in types and found.team == Team.WEREWOLF
+    )
+
+
+def first_shape(role: str, *, lone: bool = False) -> tuple[str, int]:
+    """The pick a phone acting as ``role`` makes: its prompt's first shape (``_picks``)."""
+    ((kind, want),) = pick_shapes(role, lone_werewolf=lone)[0].items()
+    return kind, want
+
+
+class ScriptError(Exception):
+    """The script could not play as written: a move refused, a pick off the prompt, a
+    case whose two games do not differ as it says. Not an AssertionError on purpose:
+    it is not the comparison, so a break that only causes it kills nothing."""
+
+
+def script_check(ok: object, why: str) -> None:
+    if not ok:
+        raise ScriptError(f"the script could not play: {why}")
+
+
 Place = int | str  # a seat, or "c0".."c2" for a centre card
 
 
@@ -162,9 +204,8 @@ class Plan:
     def viewer_role(self) -> str:
         """The role the viewer acts as: a Doppelganger is the card its own pick copies."""
         role = self.dealt[self.viewer]
-        if not copies(role):
-            return role
-        return self.dealt[self.seat_picks(self.viewer, 1, protect=False)[0]]
+        picks = self.seat_picks(self.viewer, 1, protect=False)
+        return self.dealt[picks[0]] if copies(role) and picks else role
 
     def protected(self) -> set[int]:
         """Seats nobody else picks: a viewer that reads its own card at the end."""
@@ -174,22 +215,42 @@ class Plan:
         count = len(self.dealt)
         return [(seat - step) % count for step in range(1, count)]
 
-    def seat_picks(self, seat: int, want: int, *, protect: bool = True) -> list[int]:
-        """The seats a seat's picks name: its neighbours to the left, in order. The viewer
-        skips the changed places and what the changed seats' own picks name."""
+    def seat_picks(
+        self, seat: int, want: int, *, protect: bool = True, reading: bool = True
+    ) -> list[int]:
+        """The seats a seat's picks name: its neighbours to the left, in order. A
+        viewer's pick that reads skips the changed places and what the changed seats'
+        own picks name; one that reads nothing skips nothing."""
         skip = (self.protected() if protect and seat != self.viewer else set()) | {seat}
-        if seat == self.viewer:
+        if seat == self.viewer and reading:
             changed = {p for p in self.changed() if isinstance(p, int)}
             skip |= changed | {s for c in changed for s in self.order(c)[:2]}
         return [s for s in self.order(seat) if s not in skip][:want]
 
-    def centre_picks(self, seat: int, want: int) -> list[int]:
-        """The viewer looks at the centre from its far end, past the changed cards; the
-        others from its near end."""
+    def centre_picks(self, seat: int, want: int, *, reading: bool = True) -> list[int]:
+        """The viewer picks from the centre's far end, a look past the changed cards;
+        the others from its near end."""
         if seat != self.viewer:
             return list(range(CENTRE))[:want]
         changed = {int(p[1]) for p in self.changed() if isinstance(p, str)}
-        return [i for i in reversed(range(CENTRE)) if i not in changed][:want]
+        skip = changed if reading else set()
+        return [i for i in reversed(range(CENTRE)) if i not in skip][:want]
+
+    def blind_landing(self) -> list[Place]:
+        """Where the viewer's pick that reads nothing lands (a Troublemaker's two seats,
+        the Drunk's centre card, a Doppelganger's once it acts as either): [] for a
+        viewer whose picks all read."""
+        acting = self.viewer_role()
+        kind, want = first_shape(acting)
+        if kind not in ("players", "center") or reads(acting, kind):
+            return []
+        if kind == "players":
+            return list(self.seat_picks(self.viewer, want, reading=False))
+        return [f"c{i}" for i in self.centre_picks(self.viewer, want, reading=False)]
+
+    def looks_at_centre(self) -> bool:
+        acting = self.viewer_role()
+        return first_shape(acting, lone=not self.kin_seats())[0] == "center"
 
     def effective(self, seat: int) -> str:
         """The role a seat acts as: a Doppelganger is the card its first pick copies."""
@@ -247,50 +308,6 @@ def routes(code: str, game_id: str, player_ids: list[int]) -> list[str]:
     )
 
 
-def _value(node: ast.expr, space: dict[str, Any]) -> Any:
-    """A line of the consumer's own code, worked out (our own source, never input)."""
-    return eval(compile(ast.Expression(node), "", "eval"), space)  # noqa: S307
-
-
-def consumer_groups(module: Any, cls: type, **attrs: Any) -> list[str]:
-    """The groups a consumer's own ``connect`` joins, worked out from its code with the
-    socket's attributes (game_id, user_id, lobby_code): a new group joins the sweep."""
-    tree = ast.parse(textwrap.dedent(inspect.getsource(cls.connect)))
-    me = SimpleNamespace(**attrs)
-    space = {**vars(module), "self": me}
-    groups = []
-    for node in sorted(ast.walk(tree), key=lambda n: getattr(n, "lineno", 0)):
-        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Attribute):
-            try:
-                setattr(me, node.targets[0].attr, _value(node.value, space))
-            except Exception:  # noqa: S112 - not every line of connect names a group
-                continue
-        elif (
-            isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "group_add"
-        ):
-            groups.append(_value(node.args[0], space))
-    return groups
-
-
-def socket_frames(
-    consumer_cls: type, message: dict[str, Any], user_id: int
-) -> list[Any]:
-    """What a socket of ``consumer_cls`` held by ``user_id`` sends for a group message."""
-    consumer = consumer_cls()
-    consumer.user_id = user_id
-    out: list[Any] = []
-
-    async def base_send(frame: dict[str, Any]) -> None:
-        out.append(json.loads(frame["text"]))
-
-    consumer.base_send = base_send
-    handler = getattr(consumer, get_handler_name(message), None)
-    if handler is None:
-        return [{"unhandled": message["type"]}]
-    async_to_sync(handler)(message)
-    return out
-
-
 class _UndoError(Exception):
     pass
 
@@ -301,6 +318,7 @@ class ViewerTable(Table):
     viewer: str
     told: list[Any]
     seen_messages: int
+    sockets: list[ViewerSocket]
 
     def request(self, method: str, who: str, path: str, *args: Any, **kw: Any):
         status, body = super().request(method, who, path, *args, **kw)
@@ -313,41 +331,48 @@ class ViewerTable(Table):
         self.drain()
         return status, body
 
-    def groups(self) -> dict[str, type]:
-        pid = self.pid(self.viewer)
-        mine: dict[str, type] = {}
-        for group in consumer_groups(
-            core_consumers,
-            core_consumers.LobbyConsumer,
-            lobby_code=self.code,
-            user_id=pid,
-        ):
-            mine[group] = core_consumers.LobbyConsumer
-        if self.game_id:
-            for group in consumer_groups(
-                game_consumers,
-                game_consumers.GameConsumer,
-                game_id=self.game_id,
-                user_id=pid,
-            ):
-                mine[group] = game_consumers.GameConsumer
-        return mine
+    def call(self, method: str, who: str, path: str, body: Any = None) -> Any:
+        """A scripted move: refused, it is the script that cannot play."""
+        got, payload = self.request(method, who, path, body)
+        script_check(got < 300, f"{method} {path} as {who}: {got} {payload}")
+        return payload
+
+    def connect(self, name: str) -> None:
+        """A game socket opens: the viewer's is its real consumer."""
+        if name != self.viewer:
+            super().connect(name)
+            return
+        self.sockets.append(
+            ViewerSocket(self, "game", GameConsumer, game_id=str(self.game_id))
+        )
+        self.drain()
+
+    def connect_lobby(self, name: str) -> None:
+        if name != self.viewer:
+            super().connect_lobby(name)
+            return
+        self.sockets.append(ViewerSocket(self, "lobby", LobbyConsumer, code=self.code))
+        self.drain()
 
     def drain(self) -> None:
-        if self.viewer not in self.players:  # no socket of its own yet
-            self.seen_messages = len(self.layer.sent)
-            return
-        mine = self.groups()
-        for group, message in self.layer.sent[self.seen_messages :]:
-            if group in mine:
-                for frame in socket_frames(mine[group], message, self.pid(self.viewer)):
-                    self.told.append(
-                        ["ws", group.replace(self.game_id, "{game_id}"), frame]
-                    )
-        self.seen_messages = len(self.layer.sent)
+        """Every message the layer carried since, to the viewer's sockets that joined
+        its group (each socket's own handler says what its phone is sent)."""
+        while self.seen_messages < len(self.layer.sent):
+            index = self.seen_messages
+            group, message = self.layer.sent[index]
+            self.seen_messages += 1
+            for socket in self.sockets:
+                socket.deliver(index, group, message)
+
+    def beat(self) -> None:
+        for socket in self.sockets:
+            socket.beat()
+        self.drain()
 
     def sweep(self, *, every_method: bool = False) -> None:
-        """The viewer asks every route; a write is undone after it is answered."""
+        """A beat of each of the viewer's sockets, then the viewer asks every route; a
+        write is undone after it is answered."""
+        self.beat()
         ids = [self.pid(n) for n in self.players]
         for path in routes(self.code, self.game_id, [self.pid(self.viewer), *ids]):
             self.request("GET", self.viewer, path)
@@ -365,15 +390,24 @@ class ViewerTable(Table):
 
 
 def _picks(t: ViewerTable, plan: Plan, seat: int, prompt: dict[str, Any]) -> list[dict]:
+    """The seat's picks for its prompt's first shape; whether they read is the action
+    type of the role the prompt says the seat acts as (``reads``)."""
     shape = prompt["shapes"][0]
     valid = prompt.get("valid_targets") or {}
+    acting = prompt.get("role_acting_as") or plan.effective(seat)
     if "players" in shape:
-        seats = plan.seat_picks(seat, shape["players"])
+        reading = reads(acting, "players")
+        seats = plan.seat_picks(seat, shape["players"], reading=reading)
         ids = [t.pid(plan.names[s]) for s in seats]
-        assert all(i in valid.get("player_ids", []) for i in ids), (seat, prompt)
+        script_check(
+            all(i in valid.get("player_ids", []) for i in ids),
+            f"seat {seat} picks {seats}, off its prompt {prompt}",
+        )
         return [{"player_id": i} for i in ids]
     if "center" in shape:
-        return [{"center_index": i} for i in plan.centre_picks(seat, shape["center"])]
+        reading = reads(acting, "center")
+        indices = plan.centre_picks(seat, shape["center"], reading=reading)
+        return [{"center_index": i} for i in indices]
     return []
 
 
@@ -397,6 +431,7 @@ def _facts(game_id: str) -> dict[str, Any]:
         "now": [pr.current_role for pr in roles],
         "votes": [pr.vote_target_id for pr in roles],
         "ids": [pr.user_id for pr in roles],
+        "log": list(game.night_actions_log or []),
     }
 
 
@@ -412,6 +447,7 @@ def play(run: Recording, plan: Plan) -> tuple[list[Any], dict[str, Any]]:
         next(run.codes),
     )
     t.viewer, t.told, t.seen_messages = plan.names[plan.viewer], [], 0
+    t.sockets = []
     names, count = plan.names, len(plan.dealt)
     for name in names:
         t.guest(name)
@@ -419,6 +455,8 @@ def play(run: Recording, plan: Plan) -> tuple[list[Any], dict[str, Any]]:
     for name in names[1:]:
         t.clock.advance(30)
         t.call("POST", name, "/lobbies/{code}/join/")
+        if name == t.viewer:
+            t.connect_lobby(name)
     deck: dict[str, int] = {}
     for role in (*plan.dealt, *plan.centre):
         deck[role] = deck.get(role, 0) + 1

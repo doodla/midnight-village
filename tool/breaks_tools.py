@@ -64,7 +64,9 @@ TOOLS: tuple[Break, ...] = (
             Edit(NIGHT_RESULTS, 'return {"nothing_chosen": True}', "return {}"),
         ),
         resample=True,
-        tests=("backend/tests/contract/test_sample_coverage.py",),
+        tests=(
+            "backend/tests/contract/test_sample_coverage.py::test_a_choice_left_unmade_is_recorded",
+        ),
     ),
     _tool(
         "file_size_limit_raised",

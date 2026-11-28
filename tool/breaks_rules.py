@@ -98,11 +98,19 @@ def list_problems(breaks, guards: list[str], debt, was_guard=None, root: Path = 
             problems.append(
                 f"{m.name}: a command break says what its guard prints (expect=)"
             )
+        named = all("::" in t for t in m.tests)
+        if m.tests and m.runner() == "backend" and not (m.expect or named or m.survives):
+            problems.append(
+                f"{m.name}: a backend break names the failure that kills it: expect="
+                " (words its failing assertion says) or its tests as path::test"
+            )
         for path in m.files():
             if not (root / path).exists():
                 problems.append(f"{m.name}: {path} does not exist: update the break")
         problems += helper_problems(m, root)
-    bitten = {k for m in breaks if not m.survives for k in m.killers()}
+    bitten = {
+        k for m in breaks if not (m.survives or m.proves_nothing) for k in m.killers()
+    }
     for guard in guards:
         if guard not in bitten and guard not in debt:
             problems.append(

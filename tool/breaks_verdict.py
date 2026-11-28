@@ -1,12 +1,15 @@
 # Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """What a break's run proved (tool/prove_guards.py): killed, survived, or broken.
 
-A break is killed only when a NAMED killer test fails an assertion. Anything else that
-ends a run non-zero proves nothing and is "broken", which fails `just prove-guards` with
-its own message: an import or collection error, a test that errors rather than fails, a
-crash inside the code under test (an ImportError raised by a lazily loaded module, a
-500), a command that cannot start or fails without printing what its guard prints, a
-Flutter file that does not compile.
+A break is killed only when a NAMED killer test fails an assertion, and (backend) the
+failure says what the break names (`expect=`: the words of the promise's own assertion,
+"learns" for the two-deal test). Anything else that ends a run non-zero proves nothing and
+is "broken", which fails `just prove-guards` with its own message: an import or
+collection error, a test that errors rather than fails, a crash inside the code under test
+(an ImportError raised by a lazily loaded module, a 500), a script that could not play
+(the two-deal test's `ScriptError`: a scripted move refused, a case whose games did not
+differ), a failure that is not the one named, a command that cannot start or fails without
+printing what its guard prints, a Flutter file that does not compile.
 
 Each function returns (status, the killer files that failed, why).
 """
@@ -22,6 +25,8 @@ JUDGED = re.compile(r"^(AssertionError\b|assert\b|Failed: |E\s+assert\b)")
 CRASH = re.compile(
     r"^(ImportError|ModuleNotFoundError|NameError|SyntaxError|IndentationError)\b"
 )
+# The two-deal test's own failure to play (backend/tests/privacy/two_deals.py).
+SCRIPT = "ScriptError"
 UNITTEST_FAIL = re.compile(r"^FAIL: \w+ \(([\w.]+)\)", re.M)
 UNITTEST_SUMMARY = re.compile(r"^FAILED \(([^)]*)\)", re.M)
 FLUTTER_UNBUILT = ("Failed to load", "Compilation failed", "Error: Could not resolve")
@@ -33,7 +38,7 @@ def module_of(path: str) -> str:
     return ".".join(Path(path.removeprefix("backend/")).with_suffix("").parts)
 
 
-def backend(code: int, junit: str | None, killers: list[str]):
+def backend(code: int, junit: str | None, killers: list[str], expect: str = ""):
     if code == 0:
         return "survived", set(), ""
     if code != 1 or not junit:
@@ -44,6 +49,7 @@ def backend(code: int, junit: str | None, killers: list[str]):
         for kind in ("error", "failure"):
             for node in case.iter(kind):
                 message = (node.get("message") or "").strip()
+                said = message + "\n" + (node.text or "")
                 test = f"{where}::{case.get('name')}"
                 if kind == "error":
                     return (
@@ -51,11 +57,25 @@ def backend(code: int, junit: str | None, killers: list[str]):
                         set(),
                         f"{test} errored, it did not fail: {message[:120]}",
                     )
+                if SCRIPT in said:
+                    return (
+                        "broken",
+                        set(),
+                        f"{test}: the script could not play, which is not the comparison"
+                        f" failing: {message[:160]}",
+                    )
                 if CRASH.match(message) or not JUDGED.match(message):
                     return (
                         "broken",
                         set(),
                         f"{test} crashed, it did not judge: {message[:120]}",
+                    )
+                if expect and expect not in said:
+                    return (
+                        "broken",
+                        set(),
+                        f"{test} failed, but not as the break names ({expect!r}):"
+                        f" {message[:160]}",
                     )
                 failed |= {
                     k

@@ -131,10 +131,13 @@ errors swallowed in silence (`just lint-tools` in `backend/`).
 `breaks_app.py`): each a small realistic mistake, the CLAUDE.md promise it breaks, and the
 focused tests that must fail on it. Each is put into a throwaway copy of the tree, anchored on
 a function or a marker line (an anchor that moved fails "break no longer applies: update
-it"). A break is killed only when a named killer test fails an assertion
-(`tool/breaks_verdict.py`): an import error, a test that errors, a crash in the code under
-test, a command that fails without printing what its guard prints, a failed sample re-record
-or a Flutter file that does not build is "broken" and fails the run. It also fails when a
+it"). A break is killed only when a named killer test fails an assertion, and a backend
+break names that failure (`expect=`, the words of the promise's own assertion, or its tests as
+`path::test`) (`tool/breaks_verdict.py`): an import error, a test that errors, a crash in the
+code under test, the two-deal script failing to play (`ScriptError`), a failure other than the
+named one, a command that fails without printing what its guard prints, a failed sample
+re-record or a Flutter file that does not build is "broken" and fails the run. A bogus break
+(`proves_nothing=`, the review's X4) must come out "broken". It also fails when a
 known survivor (`survives=`) is killed, and when a `Guard file` kills no break or its breaks
 ran and none saw a test in it fail (`tool/breaks_rules.py`; a helper guard counts through the
 tests that import it). Against main, `NOT_YET_PROVED` (the guards older than the rule) and the

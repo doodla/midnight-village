@@ -133,6 +133,8 @@ class Break:
     # instead of tests: a command run from the copy's root, which must exit non-zero
     # and print `expect` (what its guard says), or the run proves nothing
     command: tuple[str, ...] = ()
+    # a command's: what its guard prints. A backend break's: words its killer's failing
+    # assertion says (the promise's own assertion), unless every test is `path::test`
     expect: str = ""
     env: tuple[tuple[str, str], ...] = ()
     # guard files proved besides the test files: a helper those tests import, or a
@@ -144,6 +146,9 @@ class Break:
     # re-record contract_samples/ with the mistake in before the tests run, as a
     # builder following "after a payload change run `just samples`" would
     resample: bool = False
+    # a break that is NOT a mistake its tests should catch (a bogus one: it only makes
+    # the script fail): the harness must judge it "broken"; "killed" is a false catch
+    proves_nothing: bool = False
 
     def runner(self) -> str:
         if self.command:

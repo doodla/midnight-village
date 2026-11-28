@@ -21,6 +21,8 @@ and the copy is put back. `just prove-guards` fails when:
   (tool/breaks_verdict.py: a crash, an import error or a command that cannot start
   proves nothing);
 - a break marked `survives` is now killed (take the mark off);
+- a break marked `proves_nothing` (a bogus one: it only stops the script) is not judged
+  broken, so a kill that is not the promise's own assertion would be counted;
 - a file marked `Guard file` kills no break, or every break naming it ran and none saw a
   test in it fail;
 - the list grew where it may only shrink (tool/breaks_rules.py), or a break cannot run
@@ -191,7 +193,7 @@ def judge(m: Break, code: int, output: str, killer: str, folder: Path):
         junit = report.read_text() if report.is_file() else None
         report.unlink(missing_ok=True)
         return verdicts.backend(
-            code, junit, [k for k in m.killers() if k.endswith(".py")]
+            code, junit, [k for k in m.killers() if k.endswith(".py")], m.expect
         )
     if runner == "guardrails":
         return verdicts.guardrails(code, output, killer)
@@ -290,6 +292,14 @@ def run_one(m: Break, copy: Path) -> dict:
 
 def verdict(m: Break, result: dict) -> str | None:
     status = result["status"]
+    if m.proves_nothing:
+        if status == "broken":
+            return None
+        return (
+            f"{m.name} proves nothing ({m.why}), so it must come out broken, and came"
+            f" out {status}: a kill that is not the promise's own assertion was counted"
+            " (tool/breaks_verdict.py)"
+        )
     if m.survives:
         if status == "killed":
             return f"{m.name} is killed now: take its `survives` mark off"
@@ -312,7 +322,7 @@ def proved(breaks, results, root: Path = ROOT) -> set[str]:
     seen: set[str] = set()
     for result in results:
         m = by_name[result["name"]]
-        if result["status"] != "killed" or m.survives:
+        if result["status"] != "killed" or m.survives or m.proves_nothing:
             continue
         seen |= result["failed"]
         for helper in m.guards:
@@ -332,9 +342,10 @@ def proved(breaks, results, root: Path = ROOT) -> set[str]:
 def unproved(breaks, ran: set[str], seen: set[str], guards: set[str]) -> list[str]:
     """Guard files every break of which ran, and none of which saw it bite."""
     out = []
-    named = {k for m in breaks if not m.survives for k in m.killers()}
+    biting = [m for m in breaks if not (m.survives or m.proves_nothing)]
+    named = {k for m in biting for k in m.killers()}
     for guard in sorted(named & guards):
-        naming = [m for m in breaks if guard in m.killers() and not m.survives]
+        naming = [m for m in biting if guard in m.killers()]
         if all(m.name in ran for m in naming) and guard not in seen:
             out.append(f"{guard}: its breaks ran and no test in it was seen to fail")
     return out

@@ -101,6 +101,69 @@ class ACatchIsAFailedAssertion(unittest.TestCase):
         self.assertEqual(v.backend(0, None, [KILLER])[0], "survived")
 
 
+class AKillIsThePromisesOwnAssertion(unittest.TestCase):
+    """Round 2 of the review: X4 (no leak; every unlocked vote refused) was counted as a
+    privacy kill, because every scripted move of the two-deal test was an assert."""
+
+    X4 = junit(
+        "tests.privacy.test_two_deals",
+        "failure",
+        "tests.privacy.two_deals.ScriptError: the script could not play: POST"
+        " /onuw/games/{game_id}/vote/ as Seat0: 400 lock must be true or false",
+    )
+
+    def test_x4_a_script_that_cannot_play_is_broken_not_killed(self):
+        status, _, why = v.backend(1, self.X4, [KILLER], "learns")
+        self.assertEqual(status, "broken")
+        self.assertIn("the script could not play", why)
+        self.assertEqual(v.backend(1, self.X4, [KILLER])[0], "broken")  # even unnamed
+
+    def test_an_assertion_that_is_not_the_named_one_is_broken(self):
+        setup = junit(
+            "tests.privacy.test_two_deals",
+            "failure",
+            "AssertionError: the games did not differ as the case says",
+        )
+        status, _, why = v.backend(1, setup, [KILLER], "learns")
+        self.assertEqual(status, "broken")
+        self.assertIn("not as the break names", why)
+        learns = junit(
+            "tests.privacy.test_two_deals", "failure", "AssertionError: seat 1 learns"
+        )
+        self.assertEqual(v.backend(1, learns, [KILLER], "learns")[0], "killed")
+
+    def test_the_bogus_x4_is_recorded_and_must_come_out_broken(self):
+        x4 = next(m for m in pg.BREAKS if m.name.startswith("X4_"))
+        self.assertTrue(x4.proves_nothing)
+        self.assertIsNone(pg.verdict(x4, {"status": "broken"}))
+        self.assertIn("must come out broken", pg.verdict(x4, {"status": "killed"}))
+        self.assertIn("must come out broken", pg.verdict(x4, {"status": "survived"}))
+        ran = [{"name": x4.name, "status": "killed", "failed": {KILLER}}]
+        self.assertEqual(pg.proved([x4], ran), set())  # it proves no guard
+
+    def test_a_backend_break_must_name_its_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "backend/tests").mkdir(parents=True)
+            (root / "backend/tests/t.py").write_text("")
+            loose = Break(
+                name="loose",
+                promise="atomicity",
+                why="w",
+                edits=(),
+                tests=("backend/tests/t.py",),
+            )
+            found = breaks_rules.list_problems([loose], [], frozenset(), None, root)
+            self.assertIn("names the failure that kills it", found[0])
+            for named in (
+                Break(**{**vars(loose), "expect": "learns"}),
+                Break(**{**vars(loose), "tests": ("backend/tests/t.py::test_x",)}),
+            ):
+                self.assertEqual(
+                    breaks_rules.list_problems([named], [], frozenset(), None, root), []
+                )
+
+
 class TheListOnlyShrinks(unittest.TestCase):
     BEFORE = {"names": ["a", "b"], "survives": ["b"], "debt": ["x.dart"]}
 
@@ -153,7 +216,9 @@ class AGuardIsProvedByARunThatSawItFail(unittest.TestCase):
         ran = [{"name": "m", "status": "killed", "failed": set()}]
         self.assertEqual(pg.proved([m], ran), set())
         self.assertTrue(pg.unproved([m], {"m"}, set(), {KILLER}))
-        self.assertEqual(pg.unproved([m], set(), set(), {KILLER}), [])  # not run: nothing said
+        self.assertEqual(
+            pg.unproved([m], set(), set(), {KILLER}), []
+        )  # not run: nothing said
 
     def test_a_skipped_flutter_break_fails_on_github(self):
         self.assertTrue(pg.can_run("backend"))

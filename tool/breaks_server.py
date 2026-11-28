@@ -9,9 +9,24 @@ VOTING = "backend/apps/onuw/voting.py"
 CONSUMER = "backend/apps/onuw/consumers.py"
 NIGHT_WINDOW = "backend/apps/onuw/night_window.py"
 TWO_DEALS = "backend/tests/privacy/test_two_deals.py"
-TWO_DEALS_HELPER = "backend/tests/privacy/two_deals.py"
+# the helpers the two-deal test imports: the script and comparison, the viewer's sockets
+TWO_DEALS_HELPERS = (
+    "backend/tests/privacy/two_deals.py",
+    "backend/tests/privacy/sockets.py",
+)
 SERIALIZERS = "backend/apps/onuw/serializers.py"
 ME_ANCHOR = '        data["vote_targets"] = self._vote_targets(instance)\n'
+# The two-deal test's comparison, and only it, says this word: a scripted move refused
+# or a case that did not differ is a ScriptError, which proves nothing.
+LEARNS = "learns"
+WOLF_IDS = (
+    'sorted(Game.objects.get(id=game_id).player_roles.filter(original_role="Werewolf")'
+    '.values_list("user_id", flat=True))'
+)
+RESULT = (
+    "        results.append(\n"
+    '            {"wave": window, "action_type": action_type, "revealed_info": revealed}'
+)
 
 
 def _two_deals(name: str, why: str, *edits: Edit) -> Break:
@@ -22,7 +37,8 @@ def _two_deals(name: str, why: str, *edits: Edit) -> Break:
         why=why,
         edits=edits,
         tests=(TWO_DEALS,),
-        guards=(TWO_DEALS_HELPER,),
+        guards=TWO_DEALS_HELPERS,
+        expect=LEARNS,
     )
 
 
@@ -98,6 +114,67 @@ LEAKS: tuple[Break, ...] = (
             "SERVER_TIMING_DETAIL = True",
         ),
     ),
+    # The review's second round: three leaks the two-deal test did not see.
+    _two_deals(
+        "L9_wolf_ids_in_the_beat",
+        "the game socket's beat, sent straight on the socket (no group), carries the"
+        " werewolves' ids",
+        Edit(
+            "backend/apps/onuw/beat.py",
+            '    return _token(game["phase"], game["current_wave"], moved_on)',
+            '    return {**_token(game["phase"], game["current_wave"], moved_on),'
+            f' "w": {WOLF_IDS}}}',
+            within="token",
+        ),
+    ),
+    _two_deals(
+        "L10_troublemaker_told_the_cards_it_swapped",
+        "the Troublemaker's night result names the two cards it swapped (it reads nothing)",
+        Edit(
+            "backend/apps/onuw/night_results.py",
+            RESULT,
+            '        if entry.get("action_type") == "swap_others":\n'
+            '            ids = entry.get("targets", {}).get("player_ids", [])\n'
+            '            revealed = {**revealed, "roles": [PlayerRole.objects.get('
+            "game=game, user_id=i).original_role for i in ids]}\n" + RESULT,
+            within="night_results_for_player",
+        ),
+    ),
+    _two_deals(
+        "L11_drunk_told_the_card_it_took",
+        "the Drunk's night result names the centre card it took (it reads nothing)",
+        Edit(
+            "backend/apps/onuw/night_results.py",
+            RESULT,
+            '        if entry.get("action_type") == "swap_with_center":\n'
+            '            i = int(entry.get("targets", {}).get("center_index", 0))\n'
+            '            revealed = {**revealed, "took": (game.dealt_center_cards'
+            " or game.center_cards)[i]}\n" + RESULT,
+            within="night_results_for_player",
+        ),
+    ),
+)
+# Not leaks: the harness must judge each "broken" (it proves nothing), never "killed".
+BOGUS: tuple[Break, ...] = (
+    Break(
+        name="X4_no_leak_an_unlocked_vote_refused",
+        promise="hidden-information",
+        why="the review's bogus break: every unlocked vote is refused, for everyone. The"
+        " two-deal script cannot play its vote; the comparison never runs",
+        edits=(
+            Edit(
+                "backend/apps/onuw/views_play.py",
+                "        if type(lock) is not bool:",
+                "        if lock is not True:",
+            ),
+        ),
+        tests=(
+            f"{TWO_DEALS}::test_another_seats_vote_before_the_reveal_never_changes_what"
+            "_a_seat_is_told[villager-at-7]",
+        ),
+        expect=LEARNS,
+        proves_nothing=True,
+    ),
 )
 LOCKED_READY = (
     "        game = Game.objects.select_for_update().get(id=game.id)\n"
@@ -139,7 +216,8 @@ SERVER_AUDIT: tuple[Break, ...] = (
         resample=True,
         # the privacy guard looks for role words only and passes on this
         tests=(TWO_DEALS,),
-        guards=(TWO_DEALS_HELPER,),
+        guards=TWO_DEALS_HELPERS,
+        expect=LEARNS,
     ),
     Break(
         name="B2_role_words_on_the_table_socket",
@@ -150,6 +228,7 @@ SERVER_AUDIT: tuple[Break, ...] = (
         ),
         resample=True,
         tests=("backend/tests/contract/test_contract_privacy.py",),
+        expect="tells everyone",
     ),
     Break(
         name="B3_no_row_lock_on_the_vote",
@@ -173,7 +252,7 @@ SERVER_AUDIT: tuple[Break, ...] = (
         tests=(
             "backend/tests/onuw/test_lock_in_voting.py::TestReveal::test_concurrent_last_two_locks_reveal_once",
             # the race above is not lost every time; the budget sees the locks go
-            "backend/tests/perf/test_tap_query_budget.py",
+            "backend/tests/perf/test_tap_query_budget.py::test_every_request_costs_what_its_budget_says",
         ),
     ),
     Break(
@@ -227,7 +306,7 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 within="drunk_timeout_center_index",
             ),
         ),
-        tests=("backend/tests/onuw/test_drunk_timeout.py",),
+        tests=("backend/tests/onuw/test_drunk_timeout.py::TestARealDrunkRunsOutOfTime",),
     ),
     Break(
         name="B7_ready_over_the_socket",
@@ -300,7 +379,9 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 "from . import asked as ask\nfrom apps.onuw import models as _game_models  # noqa\n",
             ),
         ),
-        tests=("backend/tests/core/test_core_stays_game_agnostic.py",),
+        tests=(
+            "backend/tests/core/test_core_stays_game_agnostic.py::test_core_never_imports_a_game_app",
+        ),
     ),
     Break(
         name="B9b_observe_imports_the_game",
@@ -328,7 +409,9 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 "\n\ndef _late():\n    from apps.onuw import services  # noqa: F401\n",
             ),
         ),
-        tests=("backend/tests/onuw/test_module_directions.py",),
+        tests=(
+            "backend/tests/onuw/test_module_directions.py::test_a_part_of_the_service_imports_only_the_parts_before_it",
+        ),
     ),
     Break(
         name="B11b_two_guards_skipped_from_conftest",
@@ -364,4 +447,4 @@ SERVER_AUDIT: tuple[Break, ...] = (
     ),
 )
 
-SERVER: tuple[Break, ...] = SERVER_AUDIT + LEAKS
+SERVER: tuple[Break, ...] = SERVER_AUDIT + LEAKS + BOGUS

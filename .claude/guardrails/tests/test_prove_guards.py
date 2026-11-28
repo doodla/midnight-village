@@ -33,7 +33,13 @@ def b():
 
 def a_break(name="m", tests=("backend/tests/t.py",), survives="", promise="atomicity"):
     return Break(
-        name=name, promise=promise, why="w", edits=(), tests=tests, survives=survives
+        name=name,
+        promise=promise,
+        why="w",
+        edits=(),
+        tests=tests,
+        survives=survives,
+        expect="fails",
     )
 
 
