@@ -66,7 +66,7 @@ def measure(rec, moments):
     rows = []
     for m in moments:
         row = {"name": m["name"], "kind": m["kind"], **window(rec, m["t0"], m["t1"])}
-        for k in ("content_ms", "tap", "note"):
+        for k in ("content_ms", "first_change_ms", "steps", "tap", "note"):
             if k in m:
                 row[k] = m[k]
         rows.append(row)

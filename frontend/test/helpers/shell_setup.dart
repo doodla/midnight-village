@@ -44,7 +44,7 @@ import 'fake_wakelock_service.dart';
 import 'mock_http_client.dart';
 import 'mock_websocket.dart';
 import 'live_game_setup.dart'
-    show httpDate, sampleClockStart, tableOf, testHealTiming;
+    show httpDate, sampleClockStart, stopwatchOf, tableOf, testHealTiming;
 
 export 'live_game_setup.dart' show recordedMe, sampleClockStart;
 
@@ -201,6 +201,7 @@ class ShellSetup {
         appResumesProvider.overrideWith((ref) => _resumes.stream),
         healTimingProvider.overrideWithValue(healTiming),
         clockProvider.overrideWithValue(() => clock),
+        phoneStopwatchProvider.overrideWithValue(stopwatchOf(() => clock)),
         wakelockServiceProvider.overrideWithValue(wakelock),
         // The screen gallery pins the back so its pictures are stable.
         if (pinnedCardBack case final back?)

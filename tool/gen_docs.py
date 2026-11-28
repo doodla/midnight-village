@@ -179,7 +179,7 @@ def screens() -> str:
     )
     sweep = (ROOT / "frontend/test/helpers/screen_sweep.dart").read_text()
     sizes = re.search(r"const sweepSizes = \[(.*?)\];", sweep, re.S)[1]
-    sizes = ", ".join(f"{w}x{h}" for w, h in re.findall(r"Size\((\d+), (\d+)\)", sizes))
+    sizes = ", ".join(f"{w}x{h}" for w, h in re.findall(r"Size\(([\d.]+), ([\d.]+)\)", sizes))
     scales = re.search(r"const sweepScales = \[([^\]]*)\]", sweep)[1]
     pictures = (ROOT / "tool/handover_pictures.py").read_text()
     drawn = ", ".join(
@@ -206,7 +206,7 @@ def screens() -> str:
         f"Every state is swept at {sizes}, text at {scales.replace(', ', ', ')}\n"
         "(`sweepSizes`, `sweepScales` in `frontend/test/helpers/screen_sweep.dart`).\n"
         f"GitHub draws every state strict at {' and '.join(strict)} wide (`just screens {strict[0]} strict`);\n"
-        f"`just look <state>` shows one at {look[1]}x{look[2]}; `just handover` draws what a change reaches at {drawn}.\n"
+        f"`just look <state>` shows one at {look[1]}x{look[2]}; `just handover` draws a change at {drawn}.\n"
     )
 
 

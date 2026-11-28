@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/primitives/primary_button.dart';
 import 'package:midnight_village/design_system/primitives/secondary_button.dart';
+import 'package:midnight_village/design_system/primitives/square_foot.dart';
 import 'package:midnight_village/design_system/primitives/until_touched.dart';
 
 import 'finger.dart';
@@ -22,21 +23,31 @@ import 'truncated_text.dart';
 //   (name_pieces.dart: the pieces and names come from the kit, not a list);
 // - the screen's main action (its amber button) is there, on the screen
 //   without scrolling, not under another piece, labelled for a screen reader,
-//   48 to touch, and a finger's press reaches it (`pressLikeAFinger`). A state
+//   48 to touch, and a finger's press reaches it (`pressLikeAFinger`); on the
+//   cobbles (08, 09) it lies in their middle. A state
 //   with no main action (a wait, a lock) says so, with why: the one opt-out;
 // - the phone's text size takes effect in the tree;
 // - what the state says must be seen is drawn and on the screen; the pieces
 //   it says lie apart do not lie on each other; its own rules hold.
 
 /// Phones: a small one, a tall narrow one, a large Android one (412 wide: a link
-/// drawn for 390 came out broken on the owner's), and last the mocks' one, which
-/// is the size a state opens at.
+/// drawn for 390 came out broken on the owner's), a Pixel in Chrome (411.43
+/// wide under the browser's bars: the talk's deck lost its pictures between
+/// 411 and 412), and last the mocks' one, which is the size a state opens at.
 const sweepSizes = [
   Size(360, 640),
   Size(360, 780),
   Size(412, 915),
+  Size(411.43, 784),
   Size(390, 844),
 ];
+
+/// A phone's size as a line says it: 411.43x784, 360x640.
+String sizeLabel(Size size) {
+  String side(double v) =>
+      v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(2);
+  return '${side(size.width)}x${side(size.height)}';
+}
 
 /// The phone's text size: as set, larger, the largest a table plays with.
 const sweepScales = [1.0, 1.3, 1.6];
@@ -247,6 +258,26 @@ List<String> checkDrawn(WidgetTester tester, SweepPlan plan, Size screen) {
       problems.add('main button under a piece (${_onTop(tester, e)}): $r');
     }
   }
+  // The cobbles' plaque (08, 09: `SquareFoot`) lies in their middle on every
+  // phone, as the mocks have it.
+  for (final foot in find.byType(SquareFoot).evaluate()) {
+    final cobbles = ownRect(foot).center.dx;
+    final plaque = find.descendant(
+      of: find.byElementPredicate((e) => identical(e, foot)),
+      matching: find.byType(PrimaryButton),
+    );
+    for (final e in plaque.evaluate()) {
+      final middle = ownRect(e).center.dx;
+      if ((middle - cobbles).abs() > 1) {
+        problems.add(
+          'the plaque on the cobbles is off their middle: at '
+          '${middle.toStringAsFixed(1)}, the cobbles\' at '
+          '${cobbles.toStringAsFixed(1)}. Fix: centre it in '
+          'lib/design_system/primitives/square_foot.dart',
+        );
+      }
+    }
+  }
   for (final finder in plan.mustSee) {
     final found = finder.evaluate().toList();
     if (found.isEmpty) {
@@ -321,7 +352,7 @@ Future<List<String>> sweepScreen(
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
-        final at = '${size.width.toInt()}x${size.height.toInt()} text x$scale';
+        final at = '${sizeLabel(size)} text x$scale';
         problems.addAll([
           for (final e in errors) '$at: $e',
           for (final p in checkDrawn(tester, plan, size)) '$at: $p',

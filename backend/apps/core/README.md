@@ -27,8 +27,6 @@ its timers are `threading.Timer`s in that process
 (the rows make them survive a restart, but a timer armed in process A is lost with A until a restart re-arms it, and a second process would not know about A's timers),
 and `recover_timers` re-derives and re-arms at start-up.
 Redis in `production.py` is only the channel layer.
-Recovery logs one INFO line about it at every start.
-(The repo has no Dockerfile or Procfile: `just dev`/`just serve`/`just harness-serve` and CI.)
 
 ## Where things live (principle 6)
 
@@ -39,6 +37,7 @@ a JSON parser that answers a body nested too deep with a 400, not a 500 (`backen
 the `Server-Timing` header every answer carries (CORS exposes it to the web app, whose field recorder splits a round trip with it)
 (`backend/apps/core/server_timing.py`: on the live server only how long the request took to get its database connection, when it made one, and the total rounded to 50 ms, because round-trip and message counts can depend on other players' hidden moves (`backend/tests/perf/test_header_hides_play.py`); with `SERVER_TIMING_DETAIL`, on in development, the harness and the tests, also its database round trips, socket and timer messages and each part's time),
 durable timers (`backend/apps/core/timers.py`, `ScheduledTimer`, the queue subscriber `backend/apps/core/queue_worker.py`) and generic presence (`backend/apps/core/presence.py`).
+A socket refuses any database write while it handles a phone's frame (`backend/apps/core/frames.py`).
 A game app plugs in through `backend/apps/core/games.py`:
 `GameHooks` registered per `Lobby.game_type` from `AppConfig.ready`
 (`backend/apps/onuw/hooks.py`: settings validation, the newest game's socket group, who is connected to it, when its players were noticed gone, whether it is finished, which game a member plays in: `member_game`)

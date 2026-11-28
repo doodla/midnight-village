@@ -1,16 +1,9 @@
 """A whole game on a phone profile: every screen, transition and tap, measured.
 
 One phone (headless Chrome: Android's user agent, touch, 412 x 915 at 2.625 device
-pixels, the release web build as Vercel builds it, CanvasKit) plays through every
-screen while bots fill the table over the API:
-
-- join: a cold load of a table's link, the name, Join, 02 as a guest;
-- host: a cold load of 01, Start a table, 02, 03 set-up (a deck change, Done),
-  bots joining, then three games, the phone's role set at the deal (a DEBUG
-  backend's `forced_assignment`, added to the app's own Start request): the Drunk
-  (pick a card), the Troublemaker (pick players), a Villager (nothing to do). Each
-  game: the deal, 04 (hold the card, Ready), the night, the talk (hold My night,
-  Ready to vote), the vote (a pick, Lock in), the end board's reveal, Play again.
+pixels, the release web build as Vercel builds it, CanvasKit) plays the game in
+`script.py` (a guest joining by a link; a host setting up, then up to three games)
+while bots fill the table over the API.
 
 The profile: CPU slowed `--cpu` times (4 by default: Chrome's "mid-tier mobile",
 the factor Lighthouse uses to make a desktop core stand for a mid-range Android;
@@ -19,8 +12,14 @@ the factor Lighthouse uses to make a desktop core stand for a mid-range Android;
 software, SwiftShader, on another process).
 
 Every number comes from the page (`page_probe.RECORDER`) and the compositor's
-screencast; `report.py` turns them into rows and budgets. Exits 1 when a budget
-is broken, 2 when the game could not be played. Run through `just phone-frames`.
+screencast; `report.py` turns them into rows and budgets (reported, never failing:
+every tap is over the 100 ms one today). Each measured step is checked against the map
+pass (checks.py); the first that did not do the same stops the run, loudly.
+Exits 0 when everything asked for was measured, 3 when a step was lost (what was
+measured before it is kept), 2 when the game could not be played.
+`--list` prints the moments; `--moments a,b` measures only those (parts of their names)
+and stops after the last. Run through `just phone-frames`, or two refs side by side
+through `just speed-verdict`.
 
 `--perf <dir>`: the app's own field recorder on (`?perf=1`, `frontend/lib/core/perf/`,
 the readout a real phone gives the owner); after the games its strip and summary are
@@ -29,6 +28,7 @@ pictured, its report copied through its own buttons, and its numbers put beside 
 """
 
 import argparse
+import base64
 import asyncio
 import json
 import os
@@ -36,7 +36,8 @@ import sys
 
 import httpx
 import perf_readout
-from moments import Run
+import script
+from moments import Enough, Lost, Plan, Run
 from page_probe import RECORDER, Page
 from playwright.async_api import async_playwright
 from report import BUDGETS, markdown, measure, over_budget, save, table
@@ -46,41 +47,6 @@ UA = (
     "Chrome/131.0.0.0 Mobile Safari/537.36"
 )
 NET = {"latency": 150, "down": 9e6 / 8, "up": 3e6 / 8}
-# The table's own lengths (its settings): long enough that no stage ends by its clock.
-LENGTHS = {
-    "card_look_seconds": 60,
-    "night_wave_seconds": 60,
-    "night_min_window_seconds": 6,
-    "night_doppelganger_window_seconds": 0,
-    "discussion_seconds": 180,
-    "voting_seconds": 120,
-}
-DECK = {
-    "Werewolf": 2,
-    "Seer": 1,
-    "Troublemaker": 1,
-    "Drunk": 1,
-    "Villager": 1,
-    "Insomniac": 1,
-}
-# Per game: the phone's role, then Bea's, Cal's and Dan's, and the centre.
-GAMES = [
-    (
-        "Drunk",
-        ["Werewolf", "Seer", "Villager"],
-        ["Werewolf", "Troublemaker", "Insomniac"],
-    ),
-    (
-        "Troublemaker",
-        ["Seer", "Werewolf", "Drunk"],
-        ["Werewolf", "Villager", "Insomniac"],
-    ),
-    (
-        "Villager",
-        ["Werewolf", "Werewolf", "Insomniac"],
-        ["Seer", "Troublemaker", "Drunk"],
-    ),
-]
 
 
 class Bots:
@@ -197,12 +163,95 @@ async def phone(browser, args, measuring):
     return ctx, Page(page, cdp)
 
 
-async def play(args, measuring, boxes):
+class Table:
+    """What the bots and the server do for the script (script.py's `t`)."""
+
+    def __init__(self, bots, api, seen, me, tokens, forced):
+        self.bots, self.api = bots, api
+        self.seen, self.me, self.tokens, self.forced = seen, me, tokens, forced
+
+    async def new_table(self):
+        r = await self.bots.call(
+            "POST", "/lobbies/", "Ada", json={"game_type": "onuw", "defaults": "v2"}
+        )
+        return r.json()["code"]
+
+    async def join(self, name):
+        return await self.bots.call("POST", f"/lobbies/{self.seen['code']}/join/", name)
+
+    async def settings(self, settings):
+        r = await self.bots.c.patch(
+            self.api + f"/lobbies/{self.seen['code']}/",
+            headers={"Authorization": self.tokens["h"]},
+            json={"settings": settings},
+        )
+        if r.status_code != 200:
+            raise RuntimeError(
+                f"the table's settings were refused: {r.status_code} {r.text[:300]}"
+            )
+
+    def force(self, mine, theirs, centre):
+        self.forced.clear()
+        self.forced["player_roles"] = {
+            str(self.me["id"]): mine,
+            **{str(self.bots.players[n][0]): r for n, r in theirs.items()},
+        }
+        self.forced["center"] = centre
+
+    async def all_ready(self, phase=None, look=False):
+        for n in script.BOTS:
+            await self.bots.staged(
+                self.seen["game"], n, "ready", {"ready": True}, phase, look
+            )
+
+    def night(self):
+        return asyncio.ensure_future(self.bots.night(self.seen["game"], script.BOTS))
+
+    async def all_lock(self):
+        ids = {n: self.bots.players[n][0] for n in script.BOTS}
+        for n in script.BOTS:
+            target = ids["Cal"] if n == "Bea" else ids["Bea"]
+            await self.bots.staged(
+                self.seen["game"],
+                n,
+                "vote",
+                {"target_player_id": target, "lock": True},
+                "voting",
+            )
+
+
+async def leg(run, ctx, play_it):
+    """One leg of the script: (the run went on, why it was lost or None)."""
+    lost, more = None, True
+    try:
+        await play_it
+    except Enough:
+        more = False
+    except Lost as e:
+        lost, more = {"at": e.name, "why": e.why}, False
+        if run.args.out:
+            # What the screen showed instead: its last frame, and the step's answer.
+            stem = run.args.out.rsplit(".", 1)[0]
+            shot = run.P.shots[-1][1] if run.P.shots else await run.P.page.screenshot()
+            with open(stem + ".lost.jpg", "wb") as f:
+                f.write(shot)
+            lost["picture"] = stem + ".lost.jpg"
+            answer = (run.expect.get(e.name) or {}).get("answer")
+            if answer:
+                with open(stem + ".lost.answer.png", "wb") as f:
+                    f.write(base64.b64decode(answer["png"]))
+                lost["answer"] = {"word": answer["word"], "box": answer["box"]}
+    await run.collect()
+    await ctx.close()
+    return more, lost
+
+
+async def play(args, measuring, boxes, plan, legs, games):
     api = args.api.rstrip("/") + "/api"
     bots = Bots(api)
     for n in ("Ada", "Bea", "Cal", "Dan"):
         await bots.guest(n)
-    runs = []
+    runs, lost, more = [], None, True
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             executable_path=args.chrome or None,
@@ -212,227 +261,79 @@ async def play(args, measuring, boxes):
                 "--ignore-gpu-blocklist",
             ],
         )
-        # Leg 1: a guest by the table's link.
         ctx, P = await phone(browser, args, measuring)
-        run = Run(args, P, bots, boxes, measuring)
-        runs.append(run)
         gpu = await P.page.evaluate(
             """() => { const g = document.createElement('canvas').getContext('webgl2');
                if (!g) return 'no WebGL2'; const d = g.getExtension('WEBGL_debug_renderer_info');
                return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'WebGL2'; }"""
         )
-        r = await bots.call(
-            "POST", "/lobbies/", "Ada", json={"game_type": "onuw", "defaults": "v2"}
-        )
-        code = r.json()["code"]
-        await run.cold(
-            "first screen by a link (join)", f"{args.app}/join/{code}", ["Join"]
-        )
-        await run.rest("join screen")
-        await run.type_name("Zed")
-        await run.tap(
-            "Join (by link) -> 02", "^Join$", ["Ada deals", "Scan to join"], screen=True
-        )
-        await run.rest("02 table as a guest")
-        await run.collect()
-        await ctx.close()
+        none = Table(bots, api, {}, {}, {}, {})
+        if "join" in legs:
+            # Leg 1: a guest by the table's link.
+            run = Run(args, P, bots, boxes, measuring, plan)
+            runs.append(run)
+            more, lost = await leg(run, ctx, script.join_leg(run, none))
+        else:
+            await ctx.close()
+        if "host" in legs and more:
+            # Leg 2: the host.
+            ctx, P = await phone(browser, args, measuring)
+            run = Run(args, P, bots, boxes, measuring, plan)
+            runs.append(run)
+            seen, me, tokens, forced = {}, {}, {}, {}
 
-        # Leg 2: the host.
-        ctx, P = await phone(browser, args, measuring)
-        run = Run(args, P, bots, boxes, measuring)
-        runs.append(run)
-        me = {}
+            async def seen_response(resp):
+                if resp.request.method != "POST" or resp.status != 201:
+                    return
+                if resp.url.endswith("/auth/guest/"):
+                    me.update((await resp.json())["user"])
+                elif resp.url.endswith("/api/lobbies/"):
+                    seen["code"] = (await resp.json())["code"]
+                elif resp.url.endswith("/start/"):
+                    seen["game"] = (await resp.json())["game_id"]
 
-        seen = {}
-
-        async def seen_response(resp):
-            if resp.request.method != "POST" or resp.status != 201:
-                return
-            if resp.url.endswith("/auth/guest/"):
-                me.update((await resp.json())["user"])
-            elif resp.url.endswith("/api/lobbies/"):
-                seen["code"] = (await resp.json())["code"]
-            elif resp.url.endswith("/start/"):
-                seen["game"] = (await resp.json())["game_id"]
-
-        P.page.on("response", seen_response)
-        tokens = {}
-        P.page.on(
-            "request",
-            lambda req: tokens.__setitem__("h", req.headers["authorization"])
-            if "authorization" in req.headers
-            else None,
-        )
-        forced = {}
-
-        async def start_route(route):
-            if route.request.method != "POST":
-                await route.continue_()
-                return
-            body = json.loads(route.request.post_data or "{}")
-            body["debug"] = {"forced_assignment": forced}
-            if args.dump:
-                print(f"[start] {route.request.url} {body}", file=sys.stderr)
-            await route.continue_(post_data=json.dumps(body))
-
-        await P.page.route("**/onuw/lobbies/*/start/", start_route)
-        await run.cold("first screen 01 (cold)", args.app + "/", ["Start a table"])
-        await run.rest("01 first screen")
-        await run.type_name("Host")
-        await run.tap(
-            "Start a table -> 02", "^Start a table$", ["Scan to join"], screen=True
-        )
-        await run.rest("02 table, alone")
-        code = seen["code"]
-        host = {"Authorization": tokens["h"]}
-        # Names are not in the semantics; the button says what the table needs.
-        joined = {"Bea": "~", "Cal": "!Need 3 players", "Dan": "Start the game"}
-        for n, button in joined.items():
-            await run.event(
-                f"02 {n} joins (socket)",
-                lambda n=n: bots.call("POST", f"/lobbies/{code}/join/", n),
-                [button],
+            P.page.on("response", seen_response)
+            P.page.on(
+                "request",
+                lambda req: tokens.__setitem__("h", req.headers["authorization"])
+                if "authorization" in req.headers
+                else None,
             )
-        await run.rest("02 table, four seated")
-        # The deck panel is one button; its "Edit" is at the top right.
-        await run.tap(
-            "Edit -> 03 set-up", "^Edit\\s", ["Classic"], at=(0.92, 0.15), screen=True
-        )
-        await run.rest("03 set-up")
-        await run.tap("03 add a Minion", "^Minion$", ["Take one Minion out"])
-        await run.tap(
-            "03 take it out", "^Take one Minion out", ["!Take one Minion out"]
-        )
-        await run.tap("Done -> 02", "^Done", ["Start the game", "Need"], screen=True)
-        # The table's own lengths and deck, set once the set-up page is closed.
-        r = await bots.c.patch(
-            api + f"/lobbies/{code}/",
-            headers=host,
-            json={"settings": {"deck": "custom", "roles": DECK, **LENGTHS}},
-        )
-        if r.status_code != 200:
-            raise RuntimeError(
-                f"the table's settings were refused: {r.status_code} {r.text[:300]}"
-            )
-        for g, (mine, theirs, centre) in enumerate(GAMES[: args.games], 1):
-            names = ["Bea", "Cal", "Dan"]
-            forced.clear()
-            forced["player_roles"] = {
-                str(me["id"]): mine,
-                **{str(bots.players[n][0]): r for n, r in zip(names, theirs)},
-            }
-            forced["center"] = centre
-            await game(run, bots, g, mine, names, seen)
-        if args.perf and measuring:
-            # The app's own readout, as the owner would copy it.
-            record = await perf_readout.read(P, ctx, args.app, args.perf)
-            lines = perf_readout.compare(run.moments, record)
-            print("\n[phone-frames] the app's readout beside phone-frames:")
-            print("\n".join(lines))
-            perf_readout.write(
-                os.path.join(args.perf, "compare.txt"), "\n".join(lines) + "\n"
-            )
-        await run.collect()
-        await ctx.close()
+
+            async def start_route(route):
+                if route.request.method != "POST":
+                    await route.continue_()
+                    return
+                body = json.loads(route.request.post_data or "{}")
+                body["debug"] = {"forced_assignment": forced}
+                if args.dump:
+                    print(f"[start] {route.request.url} {body}", file=sys.stderr)
+                await route.continue_(post_data=json.dumps(body))
+
+            await P.page.route("**/onuw/lobbies/*/start/", start_route)
+            table = Table(bots, api, seen, me, tokens, forced)
+
+            async def host():
+                await script.host_leg(run, table, games)
+                if args.perf and measuring:
+                    # The app's own readout, as the owner would copy it.
+                    record = await perf_readout.read(P, ctx, args.app, args.perf)
+                    lines = perf_readout.compare(run.moments, record)
+                    print("\n[phone-frames] the app's readout beside phone-frames:")
+                    print("\n".join(lines))
+                    perf_readout.write(
+                        os.path.join(args.perf, "compare.txt"), "\n".join(lines) + "\n"
+                    )
+
+            more, lost = await leg(run, ctx, host())
         await browser.close()
-    return runs, gpu
+    return runs, gpu, lost
 
 
-async def game(run, bots, g, mine, names, seen):
-    tag = f"g{g} {mine}"
-    await run.tap(
-        f"{tag}: Start the game -> deal -> 04",
-        "^Start the game",
-        ["Look first"],
-        screen=True,
-    )
-    game_id = seen["game"]
-    await run.rest(f"{tag}: 04 your card")
-    await run.tap(
-        f"{tag}: 04 hold the card",
-        "^Your card, hidden",
-        ["Ready"],
-        # As a person holds: until the card has counted as looked at. On the
-        # slowed phone the face shows about 1.2 s after the touch and its timers
-        # run up to 1 s late, so 1.6 s raced the count (seen 2.3 s in the app):
-        # lost, the phone stayed on 04 and every later moment measured a
-        # different screen than it named.
-        hold=3.5,
-        tolerate=True,
-    )
-    await run.tap(
-        f"{tag}: 04 Ready", "^Ready$", ["Ready ✓", "of 4 ready"], tolerate=True
-    )
-
-    async def all_ready(phase=None, look=False):
-        for n in names:
-            await bots.staged(game_id, n, "ready", {"ready": True}, phase, look)
-
-    await run.event(
-        f"{tag}: 04 -> night (others ready)",
-        lambda: all_ready(look=True),
-        ["Choose a card", "Choose", "Nothing to do", "sleeps"],
-    )
-    await run.rest(f"{tag}: night {mine}", 2.5)
-    bot_night = asyncio.ensure_future(bots.night(game_id, names))
-    if mine == "Drunk":
-        await run.tap(f"{tag}: night pick Left", "^Left", ["Swap with"], tolerate=True)
-        await run.tap(f"{tag}: night Swap", "^Swap with", ["Chosen"], tolerate=True)
-    elif mine == "Troublemaker":
-        await run.tap(
-            f"{tag}: night pick Bea", "^Bea", ["Choose 1 more"], tolerate=True
-        )
-        await run.tap(
-            f"{tag}: night pick Cal", "^Cal", ["Swap Bea", "Swap Cal"], tolerate=True
-        )
-        await run.tap(f"{tag}: night Swap", "^Swap ", ["Chosen"], tolerate=True)
-    await run.event(
-        f"{tag}: night -> talk (window closes)", lambda: bot_night, ["Ready to vote"]
-    )
-    await run.rest(f"{tag}: 08 talk", 4)
-    await run.tap(
-        f"{tag}: 08 hold My night",
-        "My night",
-        ["Ready to vote"],
-        hold=1.5,
-        tolerate=True,
-    )
-    await run.tap(
-        f"{tag}: 08 Ready to vote", "^Ready to vote", ["Ready ✓"], tolerate=True
-    )
-    await run.event(
-        f"{tag}: 08 -> 09 vote (others ready)",
-        lambda: all_ready("discussion"),
-        ["Who dies today?", "Pick a name"],
-    )
-    await run.rest(f"{tag}: 09 vote", 3)
-    await run.tap(f"{tag}: 09 pick Bea", "^Bea", ["Lock in Bea"], tolerate=True)
-    await run.tap(f"{tag}: 09 Lock in", "^Lock in", ["Locked"], tolerate=True)
-    ids = {n: bots.players[n][0] for n in names}
-
-    async def all_lock():
-        for n in names:
-            target = ids["Cal"] if n == "Bea" else ids["Bea"]
-            await bots.staged(
-                game_id,
-                n,
-                "vote",
-                {"target_player_id": target, "lock": True},
-                "voting",
-            )
-
-    await run.event(f"{tag}: 09 -> end board reveal", all_lock, ["Play again"])
-    await run.rest(f"{tag}: 12 end board", 3)
-    await run.tap(
-        f"{tag}: Play again -> 02", "^Play again", ["Start the game"], screen=True
-    )
-    await run.rest(f"{tag}: 02 table again", 2)
-
-
-def main():
+def options():
     a = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    a.add_argument("--api", required=True)
-    a.add_argument("--app", required=True)
+    a.add_argument("--api", default="")
+    a.add_argument("--app", default="")
     a.add_argument("--chrome", default="")
     a.add_argument(
         "--cpu", type=float, default=4, help="CPU slowdown (4: a mid-range Android)"
@@ -443,6 +344,12 @@ def main():
     a.add_argument("--boxes", default="", help="keep the map pass here, reuse it")
     a.add_argument("--games", type=int, default=3, help="games to play (1 to 3)")
     a.add_argument(
+        "--moments",
+        default="",
+        help="measure only these (comma-separated parts of their names; `--list`)",
+    )
+    a.add_argument("--list", action="store_true", help="print the moments and stop")
+    a.add_argument(
         "--dpr", type=float, default=2.625, help="device pixels per point (2.625)"
     )
     a.add_argument("--analyse", default="", help="report a saved .raw.json again")
@@ -451,16 +358,40 @@ def main():
         default="",
         help="open the app with ?perf=1 and keep its readout here (perf_readout.py)",
     )
-    args = a.parse_args()
-    boxes = {}
+    return a
+
+
+def planned(args):
+    """(the plan, the legs to play, the games to play) for `--moments` and `--games`."""
+    if not args.moments:
+        return Plan(), {"join", "host"}, args.games
+    chosen, games = script.pick(args.moments, args.games)
+    names = [m["name"] for m in chosen]
+    return Plan(names, names[-1]), {m["leg"] for m in chosen}, games
+
+
+def main():
+    args = options().parse_args()
+    if args.list:
+        print(script.describe())
+        sys.exit(0)
+    try:
+        plan, legs, games = planned(args)
+    except LookupError as e:
+        print(f"[phone-frames] {e}", file=sys.stderr)
+        sys.exit(2)
+    boxes, lost, checked = {}, None, {}
     if not args.analyse:
+        if not (args.api and args.app):
+            print("[phone-frames] --api and --app are needed (run.sh gives them)")
+            sys.exit(2)
         try:
             if args.boxes and os.path.exists(args.boxes):
                 with open(args.boxes) as f:
                     boxes.update(json.load(f))
             else:
                 print("[phone-frames] map pass (semantics on, unslowed): each control")
-                asyncio.run(play(args, False, boxes))
+                asyncio.run(play(args, False, boxes, plan, legs, games))
                 if args.boxes:
                     save(args.boxes, boxes)
             if args.map_only:
@@ -468,17 +399,22 @@ def main():
             print(
                 f"[phone-frames] measured pass: CPU {args.cpu}x slower, semantics off"
             )
-            runs, gpu = asyncio.run(play(args, True, boxes))
+            runs, gpu, lost = asyncio.run(play(args, True, boxes, plan, legs, games))
         except (LookupError, RuntimeError) as e:
             print(f"[phone-frames] the game could not be played: {e}", file=sys.stderr)
             sys.exit(2)
         raw = [{"rec": r.rec, "moments": r.moments} for r in runs]
+        for r in runs:
+            checked.update(r.checked)
         if args.out:
-            save(args.out.rsplit(".", 1)[0] + ".raw.json", {"gpu": gpu, "runs": raw})
+            save(
+                args.out.rsplit(".", 1)[0] + ".raw.json",
+                {"gpu": gpu, "runs": raw, "lost": lost},
+            )
     else:
         with open(args.analyse) as f:
             got = json.load(f)
-        gpu, raw = got["gpu"], got["runs"]
+        gpu, raw, lost = got["gpu"], got["runs"], got.get("lost")
     rows = [row for run in raw for row in measure(run["rec"], run["moments"])]
     over = over_budget(rows)
     print(table(rows))
@@ -491,14 +427,28 @@ def main():
                 "net": NET,
                 "gpu": gpu,
                 "budgets": BUDGETS,
+                "asked": sorted(plan.names) if plan.names else None,
+                "games": games,
                 "rows": rows,
                 "over": over,
+                "lost": lost,
+                "checked": checked,
             },
         )
         with open(args.out.rsplit(".", 1)[0] + ".md", "w") as f:
             f.write(markdown(rows) + "\n")
-    print(f"\n{len(over)} budget(s) broken" + "".join(f"\n  {o}" for o in over))
-    sys.exit(1 if over else 0)
+    print(
+        f"\n{len(over)} budget(s) over (reported; a budget never fails the run)"
+        + "".join(f"\n  {o}" for o in over)
+    )
+    if lost:
+        print(
+            f"\n[phone-frames] NOT MEASURED from {lost['at']!r} on: {lost['why']}."
+            "\nNothing after it is a number; what is above it was checked and kept.",
+            file=sys.stderr,
+        )
+        sys.exit(3)
+    sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -63,16 +63,28 @@ def imports(test_text: str, helper: str) -> bool:
     return bool(re.search(pattern, test_text, re.M))
 
 
+def reads(root: Path, test: str, helper: str) -> bool:
+    """Whether a test file brings the helper in: its own imports, or those of a
+    conftest.py above it (pytest runs a conftest's autouse fixtures for every test
+    below it)."""
+    path = root / test
+    if not path.is_file():
+        return False
+    above = [d / "conftest.py" for d in path.parents if d.is_relative_to(root)]
+    return any(
+        imports(f.read_text(errors="replace"), helper)
+        for f in [path, *above]
+        if f.is_file()
+    )
+
+
 def helper_problems(m, root: Path) -> list[str]:
     tests = {t.split("::")[0] for t in m.tests}
     problems = []
     for killer in m.guards:
         if killer in tests or (m.command and killer == m.command[0]):
             continue
-        readers = [t for t in tests if (root / t).is_file()]
-        if not any(
-            imports((root / t).read_text(errors="replace"), killer) for t in readers
-        ):
+        if not any(reads(root, t, killer) for t in tests):
             problems.append(
                 f"{m.name}: guards= names {killer}, which is not its command's file nor a"
                 " helper its tests import: a guard counts only where a test of it runs"
@@ -99,7 +111,11 @@ def list_problems(breaks, guards: list[str], debt, was_guard=None, root: Path = 
                 f"{m.name}: a command break says what its guard prints (expect=)"
             )
         named = all("::" in t for t in m.tests)
-        if m.tests and m.runner() == "backend" and not (m.expect or named or m.survives):
+        if (
+            m.tests
+            and m.runner() == "backend"
+            and not (m.expect or named or m.survives)
+        ):
             problems.append(
                 f"{m.name}: a backend break names the failure that kills it: expect="
                 " (words its failing assertion says) or its tests as path::test"

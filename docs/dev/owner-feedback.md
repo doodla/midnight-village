@@ -12,6 +12,14 @@ commit when it has shipped. In-flight state is here too, so a new session can pi
 
 OPEN (`home-settle`).
 
+## 28 November 2026, 08 Talk, live (7e7d1b6), Pixel, Chrome (screenshot, verbatim)
+
+> All our checks. How is shit breaking
+
+> The images are all gone dude
+
+Six seats; the eight roles drawn as words, no portraits, on a half-empty board; the button left of centre. OPEN (`talk-broken`).
+
 ## 28 November 2026, 08's clock (Android app from 7e7d1b6, 7 seats, a recording; verbatim)
 
 > The timer is fucked. Keeps jumping around.
@@ -36,7 +44,7 @@ They played in the browser (Chrome) and say it was everywhere.
 
 > I'm looking for micro joy moments as well. It should feel like a labour of love 💞
 
-OPEN. Measured (branch `perf-frames`): `just phone-frames` plays a whole game on a phone profile (the release web build, Chrome, CPU slowed 4x, or 1x and 2x for a fast phone) and reports, for every screen, transition and tap, the frames over 16 and 50 ms, the worst frame, the long tasks, the time to content, and for a tap the time to the first changed pixel, to its final state and to the server's answer; it fails when a budget is broken. The causes, ranked, are the next pieces.
+OPEN. Measured: `just phone-frames` plays a game on a slowed phone (release web build, Chrome, CPU 4x) and times every screen, transition and tap; `just speed-verdict main` says per moment whether a change is sooner, level or later. The causes, ranked, are the next pieces.
 
 Measured on the phone itself (branch `perf-field`): our lab Chrome has no graphics chip, so it cannot say what a Pixel does; the app now measures itself.
 Open the game's address with `?perf=1` at the end (`https://midnight-village-app-anthelion.vercel.app/?perf=1`, or a table's link with `?perf=1`); the tab remembers it (`?perf=0` switches it off).
@@ -183,9 +191,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
 ## Relayed by the coordinating session, 22 November 2026 (not heard directly; confirm with the owner)
 
 - Practice players: yes, "but hidden enable so it's not visible to everyone. I'm thinking long
-  press on an element or something". Switched on by a hidden gesture on an existing element;
-  nothing visible to ordinary players. Built (see "In flight").
-- "Polish puzzles" was a typo for "polish passes".
+  press on an element or something". Built: a hidden gesture on an existing element.
 - Six sample looks (https://claude.ai/artifact/7rsphhNPs5Uypyqbj4QiH2): "Skip till our default
   is good". Parked: no other looks until Shadow paper is good.
 - Polish passes: "include design improvements as well. Make the game look prettier and feel
@@ -204,13 +210,11 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   main screen feel a bit too big" (first screen and table; options going to the board).
 - Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
   directly, 22 November).
-- 22 Nov, same-address API trial (#66): it BROKE the live web app for about 30 minutes (23:15 to
-  23:49 UTC) and was reverted (#68). Cause: Vercel's rewrite `/api/:path*` does not match a path
-  ending in a slash, and every API path does, so calls got `index.html`. No local check can see
-  Vercel's own forwarding. Not retried: a retry needs (1) `/api/(.*)` -> `.../api/$1`, (2) proof
-  on a Vercel deployment's own address BEFORE it serves players (a slash path and a POST both
-  answer JSON), and (3) the owner's yes. Live baseline to beat: Start 1.41 s fast, 2.78 s slow
-  phone; Join 1.33 s, 2.60 s.
+- 22 Nov, same-address API trial (#66) broke the live web app for 30 minutes; reverted (#68):
+  Vercel's `/api/:path*` misses a path ending in a slash (`docs/dev/deploy-vercel.md`). A retry
+  needs `/api/(.*)` -> `.../api/$1`, proof on a deployment's own address before it serves players
+  (a slash path and a POST answer JSON), and the owner's yes. Baseline: Start 1.41 s fast, 2.78 s
+  slow; Join 1.33 s, 2.60 s.
 
 ## 23 November 2026: the type scale (heard directly)
 

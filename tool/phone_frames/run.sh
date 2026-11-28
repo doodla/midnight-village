@@ -4,14 +4,20 @@
 # Starts its own backend (`just harness-serve`), builds the release web app as
 # Vercel does (tool/vercel_build.sh's flags: dart2js, CanvasKit) for it, serves it,
 # plays with a headless Chrome phone and three bots, and stops what it started.
-# A build is kept in frontend/build/phone_frames/ and reused while the frontend's
-# commit and the backend port are the same (PHONE_FRAMES_PORT pins the port;
-# PHONE_FRAMES_REBUILD=1 forces a build).
-# PHONE_FRAMES_FRONTEND=<a frontend folder> measures another checkout (main).
+# A build is kept in frontend/build/phone_frames/ and reused while what it is built
+# from (lib, web, assets, the pubspec: their content, not the commit) and the backend
+# port are the same (PHONE_FRAMES_PORT pins the port; PHONE_FRAMES_REBUILD=1 forces a build).
+# PHONE_FRAMES_FRONTEND=<a frontend folder> measures another checkout's app, and
+# PHONE_FRAMES_BACKEND=<a checkout> serves another checkout's server
+# (`just speed-verdict` uses both: one checkout per side).
 # It stops everything it started when it ends, however it ends.
 # Not in the required checks: it needs Chrome, a web build and a few minutes.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
+case " $* " in
+  # The moments, from the script itself: nothing to build or serve.
+  *" --list "*) exec python3 "$root/tool/phone_frames/script.py" ;;
+esac
 front=${PHONE_FRAMES_FRONTEND:-$root/frontend}
 free() { python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'; }
 # The backend's own port, a free one, so two runs never meet on one backend
@@ -42,7 +48,7 @@ trap 'exit 130' INT TERM
 echo "[phone-frames] backend on $api_port"
 # Job control on: the backend gets a process group of its own (its pid).
 set -m
-(cd "$root" && HARNESS_PORT=$api_port exec just harness-serve > "$work/backend.log" 2>&1) &
+(cd "${PHONE_FRAMES_BACKEND:-$root}" && HARNESS_PORT=$api_port exec just harness-serve > "$work/backend.log" 2>&1) &
 backend=$!
 set +m
 
@@ -52,7 +58,9 @@ web="$front/build/phone_frames/web"
 # commit, so it is off unless asked: lib/design_system/perf/perf_strip.dart).
 defines=()
 for define in ${PHONE_FRAMES_DEFINES:-}; do defines+=("--dart-define=$define"); done
-stamp="$(git -C "$front" rev-parse HEAD)-$(git -C "$front" status --porcelain -- lib web pubspec.yaml assets | sha1sum | cut -c1-8)-$api_port-${PHONE_FRAMES_DEFINES:-}"
+inputs=(lib web pubspec.yaml pubspec.lock assets)
+tree=$(cd "$front" && git rev-parse "${inputs[@]/#/HEAD:./}" | sha1sum | cut -c1-12)
+stamp="$tree-$(git -C "$front" status --porcelain -- "${inputs[@]}" | sha1sum | cut -c1-8)-$api_port-${PHONE_FRAMES_DEFINES:-}"
 if [ "${PHONE_FRAMES_REBUILD:-}" = 1 ] || [ "$(cat "$web/.phone_frames" 2>/dev/null)" != "$stamp" ]; then
   echo "[phone-frames] building the web app (release, as tool/vercel_build.sh) for it"
   rm -rf "$web"

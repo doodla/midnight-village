@@ -75,6 +75,39 @@ APP: tuple[Break, ...] = (
         tests=("frontend/test/design_system/primitives/clock_users_test.dart",),
     ),
     Break(
+        name="clock_takes_each_answer_as_now",
+        promise="server-authoritative",
+        why="each answer's Date resets the server's clock (the live host holds Date"
+        " for seconds: the talk's clock jumped back every few seconds, 28 Nov 2026)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/domain/server_clock.dart",
+                "    if (_offset == null || offset > _offset!) _offset = offset;\n",
+                "    _offset = offset;\n",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/presentation/stage_clock_steady_test.dart",
+        ),
+    ),
+    Break(
+        name="clock_ignores_phone_clock_steps",
+        promise="server-authoritative",
+        why="the phone's clock set forward mid-game leaves the server's clock that far"
+        " ahead for good (every later answer is a lower floor and is ignored)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/domain/server_clock.dart",
+                "        if (_offset case final offset?) _offset = offset - step;\n",
+                "",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/domain/server_clock_test.dart",
+            "frontend/test/features/game/presentation/stage_clock_steady_test.dart",
+        ),
+    ),
+    Break(
         name="a_field_lifts_with_its_focus",
         promise="screens-still",
         why="the name field's paper lifts while it has the focus, so a touch anywhere"
@@ -127,5 +160,36 @@ APP: tuple[Break, ...] = (
             ),
         ),
         tests=("frontend/test/design_system/primitives/main_button_rule_test.dart",),
+    ),
+    Break(
+        name="talk_deck_four_to_a_row_or_words_alone",
+        promise="one-look",
+        why="the talk's deck never takes fewer to a row: eight roles at 412 wide are"
+        " drawn as words, no portraits (the owner, 28 November 2026)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/presentation/shell/talk_square.dart",
+                "      for (var c = columns; c >= SquareMetrics.fewestColumns; c--)\n",
+                "      for (var c = columns; c >= columns; c--)\n",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/presentation/talk_deck_portraits_test.dart",
+        ),
+    ),
+    Break(
+        name="cobbles_plaque_at_the_start_of_its_row",
+        promise="one-look",
+        why="08's and 09's button sits left of the cobbles' middle on any phone wider"
+        " than the button (the owner, 28 November 2026)",
+        edits=(
+            Edit(
+                "frontend/lib/design_system/primitives/square_foot.dart",
+                "    alignment: Alignment.topCenter,\n",
+                "",
+            ),
+        ),
+        # Every shard of the sweep holds some 08 states.
+        tests=("frontend/test/screen_cases/sweep_1of4_test.dart::08-talk",),
     ),
 )

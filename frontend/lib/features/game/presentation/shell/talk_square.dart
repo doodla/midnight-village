@@ -22,8 +22,11 @@ import '../../../../design_system/skin/skin.dart';
 /// (`PaperParts.square*`); what is here is the grid's count and the gaps,
 /// which are the app's spacing.
 abstract final class SquareMetrics {
-  /// Columns of the deck: three, four past six roles.
+  /// Columns of the deck: three, four past six roles; down to
+  /// [fewestColumns] (more rows) where a row's words are too wide, and never
+  /// a pile alone on a row of its own.
   static const fewRoles = 6;
+  static const fewestColumns = 2;
 
   /// Between piles in a row (at most), between the deck's rows, between tags.
   static const pileGap = Space.xl;
@@ -200,16 +203,23 @@ class _Plan {
     }
     final tags = tagRows * tagHeight + (tagRows - 1) * SquareMetrics.tagGap;
     final parts = context.skin.parts;
-    // The deck's rows, as even as they go (the first longer).
-    final columns = piles.length > SquareMetrics.fewRoles ? 4 : 3;
-    final count = math.max(1, (piles.length / columns).ceil());
-    final grid = <List<Pile>>[];
-    var at = 0;
-    for (var r = 0; r < count; r++) {
-      final n = piles.length ~/ count + (r < piles.length % count ? 1 : 0);
-      grid.add(piles.sublist(at, at + n));
-      at += n;
+    // [list] in [count] rows, as even as they go (the first longer).
+    List<List<Pile>> rowsOf(List<Pile> list, int count) {
+      final grid = <List<Pile>>[];
+      var at = 0;
+      for (var r = 0; r < count; r++) {
+        final n = list.length ~/ count + (r < list.length % count ? 1 : 0);
+        grid.add(list.sublist(at, at + n));
+        at += n;
+      }
+      return grid;
     }
+
+    // A grid is balanced when no pile is left alone on its row.
+    bool balanced(List<List<Pile>> grid) =>
+        piles.length < 2 || grid.every((row) => row.length > 1);
+
+    final columns = piles.length > SquareMetrics.fewRoles ? 4 : 3;
     final stripLine = (TextPainter(
       text: TextSpan(text: 'Ag', style: type.tag),
       textDirection: TextDirection.ltr,
@@ -228,12 +238,27 @@ class _Plan {
     final widest = piles.length > SquareMetrics.fewRoles
         ? parts.squarePortraitMany
         : parts.squarePortraitFew;
-    // Name-only cards are as wide as their words: as many to a row as fit.
-    final packed = <List<Pile>>[];
+    // Name-only cards are as wide as their words: as many to a row as fit,
+    // then as even as those rows let them be where that is no taller (each
+    // row is as tall as its tallest pile).
+    Size words(Pile pile) => DeckPile.sizeOf(
+      DeckPile.cardSize(0, labels[pile.label]!, strip),
+      pile.count,
+      nameOnly: true,
+    );
+    double wordsWide(Pile pile) => words(pile).width;
+    bool rowFits(List<Pile> row) =>
+        row.fold(0.0, (w, pile) => w + wordsWide(pile)) +
+            (row.length - 1) * Space.xs <=
+        width;
+    double tall(List<List<Pile>> rows) => rows.fold(
+      0.0,
+      (h, row) => h + row.map((p) => words(p).height).reduce(math.max),
+    );
+    var packed = <List<Pile>>[];
     var rowWidth = 0.0;
     for (final pile in piles) {
-      final card = DeckPile.cardSize(0, labels[pile.label]!, strip);
-      final w = DeckPile.sizeOf(card, pile.count, nameOnly: true).width;
+      final w = wordsWide(pile);
       if (packed.isNotEmpty && rowWidth + Space.xs + w <= width) {
         packed.last.add(pile);
         rowWidth += Space.xs + w;
@@ -242,7 +267,13 @@ class _Plan {
         rowWidth = w;
       }
     }
-    _Plan at_(double portrait, {required bool fits}) {
+    final even = rowsOf(piles, packed.length);
+    if (even.every(rowFits) && tall(even) <= tall(packed)) packed = even;
+    _Plan at_(
+      double portrait, {
+      required bool fits,
+      List<List<Pile>> grid = const [],
+    }) {
       final rows = portrait > 0 ? grid : packed;
       final gaps = <double>[];
       var cardHeight = 0.0;
@@ -283,18 +314,41 @@ class _Plan {
       );
     }
 
+    // The fullest balanced rows first, at the largest portrait down to a
+    // comfortable one (`squarePortraitMany`): three calm faces to a row
+    // before two big ones. Then the largest portrait that fits at any of
+    // them, before the portraits go (eight roles' words, four to a row, are
+    // wider than a 412 phone).
+    final grids = [
+      for (var c = columns; c >= SquareMetrics.fewestColumns; c--)
+        rowsOf(piles, math.max(1, (piles.length / c).ceil())),
+    ].where(balanced).toList();
+    _Plan? fitting(double p, List<List<Pile>> grid) {
+      final plan = at_(p, fits: true, grid: grid);
+      return plan.used <= room.height && plan.gaps.every((g) => g >= Space.xs)
+          ? plan
+          : null;
+    }
+
+    final comfortable = math.min(widest, parts.squarePortraitMany);
+    for (final grid in grids) {
+      for (var p = widest; p >= comfortable; p -= parts.squarePortraitStep) {
+        final plan = fitting(p, grid);
+        if (plan != null) return plan;
+      }
+    }
     for (
       var p = widest;
       p >= parts.squarePortraitLeast;
       p -= parts.squarePortraitStep
     ) {
-      final plan = at_(p, fits: true);
-      if (plan.used <= room.height && plan.gaps.every((g) => g >= Space.xs)) {
-        return plan;
+      for (final grid in grids) {
+        final plan = fitting(p, grid);
+        if (plan != null) return plan;
       }
     }
-    // The portraits would be below what reads as a face: name-only cards,
-    // before the board ever scrolls.
+    // The portraits would be below what reads as a face at any number to a
+    // row: name-only cards, before the board ever scrolls.
     final names = at_(0, fits: true);
     if (names.used <= room.height) return names;
     return at_(0, fits: false);

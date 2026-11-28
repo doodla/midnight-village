@@ -158,7 +158,8 @@ the code says fails, with the fix.
 
 **The heavy queue.** `tool/heavy.py` (`just heavy <command...>`, `just heavy --status`): every heavy
 command waits for one of a few slots, so the machine is never asked for more than it has (how,
-and how the count was chosen: its docstring; `.claude/guardrails/tests/test_heavy.py`).
+and how the count was chosen: its docstring; `.claude/guardrails/tests/test_heavy.py`); a speed
+measurement takes every slot (`--alone`).
 
 **As GitHub's backend job runs it.** That job has no Flutter, so `just test-guardrails` runs its tests with Flutter and Dart
 off PATH (`tool/path_without.py`; `.claude/guardrails/tests/test_path_without.py`): a test that runs them fails on a builder's

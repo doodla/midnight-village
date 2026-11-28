@@ -15,6 +15,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from config.test_database import leftover_databases
+from tests.waits import no_waits  # noqa: F401  (autouse: no request or job sleeps)
 
 
 @pytest.fixture(scope="session")
