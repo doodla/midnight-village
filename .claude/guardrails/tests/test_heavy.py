@@ -118,6 +118,55 @@ class Queue(unittest.TestCase):
         until(c_held.exists, "then c")
         c_go.write_text("x")
 
+    def holder_alone(self, name):
+        go, held = self.tmp / f"{name}.go", self.tmp / f"{name}.held"
+        code = f"import pathlib,time; pathlib.Path({str(held)!r}).write_text('x')\nwhile not pathlib.Path({str(go)!r}).exists(): time.sleep(0.02)"
+        process = subprocess.Popen(
+            [sys.executable, str(HEAVY), "--alone", "--name", name, "--"]
+            + [sys.executable, "-c", code],
+            env=self.env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.started.append(process)
+        return process, held, go
+
+    def test_an_alone_job_waits_for_every_slot_and_nothing_behind_it_starts(self):
+        a, a_held, a_go = self.holder("a")
+        until(a_held.exists, "a holds a slot")
+        alone, alone_held, alone_go = self.holder_alone("speed")
+        until(lambda: "waiting 1" in self.status(), "the alone job waits")
+        # A slot is still free, but the alone job is first in line: a later job waits.
+        c, c_held, c_go = self.holder("c")
+        until(lambda: "waiting 2" in self.status(), "the job behind it waits")
+        self.assertFalse(alone_held.exists(), "it ran beside another job")
+        self.assertFalse(
+            c_held.exists(), "a job behind the alone one took the free slot"
+        )
+        a_go.write_text("x")
+        until(alone_held.exists, "it runs once every slot is free")
+        out = self.status()
+        self.assertIn("2 of 2 slots busy", out)
+        self.assertIn("alone: every slot", out)
+        self.assertFalse(c_held.exists(), "a job ran beside the alone one")
+        alone_go.write_text("x")
+        until(c_held.exists, "the next job runs when it is done")
+        c_go.write_text("x")
+        for process in (a, alone, c):
+            self.assertEqual(process.wait(timeout=20), 0)
+
+    def test_an_alone_job_says_it_waits_for_every_slot(self):
+        a, a_held, a_go = self.holder("a")
+        until(a_held.exists, "a holds a slot")
+        alone, alone_held, alone_go = self.holder_alone("speed")
+        until(lambda: "waiting 1" in self.status(), "the alone job waits")
+        a_go.write_text("x")
+        until(alone_held.exists, "it runs")
+        alone_go.write_text("x")
+        _, said = alone.communicate(timeout=20)
+        self.assertIn("waiting for every slot (alone)", said)
+
     def test_waiting_says_where_it_stands_at_once_and_does_not_poll(self):
         self.env["HEAVY_SLOTS"] = "1"
         a, a_held, a_go = self.holder("a")
@@ -157,7 +206,9 @@ class Queue(unittest.TestCase):
         self.env["HEAVY_SLOTS"] = "1"
         marker = self.tmp / "pid"
         process = self.start("bash", "-c", f"echo $$ > {marker}; exec sleep 300")
-        until(lambda: marker.exists() and marker.stat().st_size > 0, "the command started")
+        until(
+            lambda: marker.exists() and marker.stat().st_size > 0, "the command started"
+        )
         pid = int(marker.read_text())
         process.send_signal(signal.SIGKILL)
         process.wait(timeout=20)
@@ -306,7 +357,9 @@ class EveryHeavyRecipeUsesIt(unittest.TestCase):
                     part = part.strip().removeprefix("@")
                     if self.HEAVY_WORDS.search(" " + part) and "heavy.py" not in part:
                         # a command that only names the thing (an echo, a comment, a path to read)
-                        if part.startswith(("echo", "#", "python3 tool/", "just ", "{")):
+                        if part.startswith(
+                            ("echo", "#", "python3 tool/", "just ", "{")
+                        ):
                             continue
                         missing.append(f"{name}: {part[:90]}")
         self.assertEqual(
@@ -338,9 +391,15 @@ class NothingStartsABackendItDoesNotStop(unittest.TestCase):
         self.assertTrue({"run_harness.sh", "run.sh"} <= names, names)
         for path in scripts:
             text = path.read_text()
-            self.assertIn("set -m", text, f"{path.name}: the backend needs a group of its own")
-            self.assertRegex(text, r'kill -TERM -- "-\$backend', f"{path.name}: stop the group")
-            self.assertRegex(text, r"kill -KILL -- ", f"{path.name}: and kill it after a grace")
+            self.assertIn(
+                "set -m", text, f"{path.name}: the backend needs a group of its own"
+            )
+            self.assertRegex(
+                text, r'kill -TERM -- "-\$backend', f"{path.name}: stop the group"
+            )
+            self.assertRegex(
+                text, r"kill -KILL -- ", f"{path.name}: and kill it after a grace"
+            )
             self.assertRegex(text, r"trap [^\n]*EXIT", f"{path.name}: on any exit")
 
     def test_no_script_starts_a_server_in_a_subshell_it_then_kills_by_pid(self):

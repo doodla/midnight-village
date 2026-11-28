@@ -3,7 +3,12 @@
 
     just heavy <command...>        run it when a slot is free (waits its turn)
     just heavy --status            who holds a slot, since when, who waits
-    tool/heavy.py [--name WORDS] [--] <command...>
+    tool/heavy.py [--name WORDS] [--alone] [--] <command...>
+
+`--alone` takes every slot, for a job whose numbers another job beside it would skew (a
+speed measurement: `just speed-verdict`, `just phone-frames`). It waits its turn like any
+job, keeps the slots it has while the rest free, and while it waits or runs nothing
+behind it starts.
 
 A whole-suite Flutter test, a web build, the phone-frames run and the backend suite each
 take gigabytes and every core. Five at once restarted the machine; one at a time (an
@@ -199,20 +204,29 @@ class Queue:
         finally:
             fcntl.flock(self.gate, fcntl.LOCK_UN)
 
-    def try_take(self, place: Path, info: dict) -> int | None:
-        """The slot's fd when it is this waiter's turn and a slot is free, else None."""
+    def try_take(self, place: Path, info: dict, held: dict[int, int]) -> bool:
+        """Takes a free slot into `held` (slot number -> fd) when it is this waiter's
+        turn: True once it has what it needs, one slot, or every slot when `info` says
+        `alone`. An alone waiter keeps the slots it has while it waits for the rest,
+        and stays first in line, so no job behind it takes a slot that frees."""
         fcntl.flock(self.gate, fcntl.LOCK_EX)
         try:
             ahead = [p for p, _ in self.line(sweep=True) if p.name < place.name]
             if ahead:
-                return None
+                return False
+            needs = self.slots if info.get("alone") else 1
             for number in range(1, self.slots + 1):
+                if len(held) >= needs:
+                    break
+                if number in held:
+                    continue
                 fd = open_lock(self.slot_path(number))
                 if try_lock(fd):
                     write_info(fd, {**info, "slot": number, "since": time.time()})
-                    return fd
-                os.close(fd)
-            return None
+                    held[number] = fd
+                else:
+                    os.close(fd)
+            return len(held) >= needs
         finally:
             fcntl.flock(self.gate, fcntl.LOCK_UN)
 
@@ -225,7 +239,8 @@ class Queue:
 
 def who(info: dict) -> str:
     where = f" in {info['where']}" if info.get("where") else ""
-    return f"`{info.get('name', '?')}`{where} (pid {info.get('pid', '?')})"
+    alone = ", alone: every slot" if info.get("alone") else ""
+    return f"`{info.get('name', '?')}`{where} (pid {info.get('pid', '?')}{alone})"
 
 
 def status_text(queue: Queue) -> str:
@@ -383,7 +398,17 @@ def passes_through(env) -> bool:
     return bool(env.get("HEAVY_SLOT")) or bool(env.get("CI"))
 
 
-LIGHT = {"check", "check-backend", "analyze", "format-check", "flutter-format-check", "test-guardrails", "guard-edits", "lint", "typecheck"}
+LIGHT = {
+    "check",
+    "check-backend",
+    "analyze",
+    "format-check",
+    "flutter-format-check",
+    "test-guardrails",
+    "guard-edits",
+    "lint",
+    "typecheck",
+}
 
 
 def wrap(command: list[str], name: str) -> list[str]:
@@ -391,52 +416,71 @@ def wrap(command: list[str], name: str) -> list[str]:
     that only reads or lints). Used by the tools that run steps themselves."""
     if command[:1] == ["just"] and len(command) > 1 and command[1] in LIGHT:
         return command
-    return [sys.executable, str(Path(__file__).resolve()), "--name", name, "--", *command]
+    return [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--name",
+        name,
+        "--",
+        *command,
+    ]
 
 
-def wait_for_slot(queue: Queue, info: dict) -> tuple[int, float]:
-    """Waits in line for a slot, saying where it stands at once and every REPORT
-    seconds: (the slot's fd, seconds waited)."""
+def wait_for_slot(queue: Queue, info: dict) -> tuple[list[int], float]:
+    """Waits in line for a slot (every slot when `info` says `alone`), saying where it
+    stands at once and every REPORT seconds: (the slots' fds, seconds waited)."""
     queued = time.monotonic()
     place, wait_fd = queue.enter(info)
-    slot_fd = queue.try_take(place, info)
+    mine_held: dict[int, int] = {}
+    got = queue.try_take(place, info, mine_held)
     last_said = None
-    while slot_fd is None:
+    what = "every slot (alone)" if info.get("alone") else "a slot"
+    while not got:
         if last_said is None or time.monotonic() - last_said >= REPORT:
             last_said = time.monotonic()
             mine, held, _ = queue.where(place)
+            others = [(n, i) for n, i in held if n not in mine_held]
             running = ", ".join(
-                f"{who(i)} for {span(time.time() - i.get('since', 0))}" for _, i in held
+                f"{who(i)} for {span(time.time() - i.get('since', 0))}"
+                for _, i in others
             )
             say(
-                f"heavy: waiting for a slot ({len(held)} of {queue.slots} busy): number {mine}"
+                f"heavy: waiting for {what} ({len(held)} of {queue.slots} busy): number {mine}"
                 f" in line, {span(time.monotonic() - queued)} so far."
                 f" Running: {running or 'nothing (your turn soon)'}."
                 "  `just heavy --status` shows it. Do not poll: start this command"
                 " with run_in_background and end your turn."
             )
         time.sleep(0.5)
-        slot_fd = queue.try_take(place, info)
+        got = queue.try_take(place, info, mine_held)
     try:
         place.unlink()
     except OSError:
         pass
     os.close(wait_fd)
-    return slot_fd, time.monotonic() - queued
+    return list(mine_held.values()), time.monotonic() - queued
 
 
 def main(argv: list[str]) -> int:
     name = None
+    alone = False
     args = list(argv)
     if args[:1] == ["--status"]:
         print(status_text(Queue(state_dir(), slot_count())))
         return 0
-    if args[:1] == ["--name"] and len(args) > 2:
-        name, args = args[1], args[2:]
+    while args[:1] in (["--name"], ["--alone"]):
+        if args[0] == "--alone":
+            alone, args = True, args[1:]
+        elif len(args) > 2:
+            name, args = args[1], args[2:]
+        else:
+            break
     if args[:1] == ["--"]:
         args = args[1:]
     if not args:
-        print("usage: just heavy <command...>   |   just heavy --status", file=sys.stderr)
+        print(
+            "usage: just heavy <command...>   |   just heavy --status", file=sys.stderr
+        )
         return 2
     if passes_through(os.environ):
         os.execvp(args[0], args)
@@ -447,8 +491,9 @@ def main(argv: list[str]) -> int:
         "where": Path.cwd().name,
         "queued": time.time(),
         "user": os.environ.get("USER", ""),
+        **({"alone": True} if alone else {}),
     }
-    slot_fd, waited = wait_for_slot(queue, info)
+    slot_fds, waited = wait_for_slot(queue, info)
     if waited > 2:
         say(f"heavy: got a slot after {span(waited)}.")
     # The command is inside this slot: a recipe it calls runs at once (HEAVY_SLOT).
@@ -468,7 +513,8 @@ def main(argv: list[str]) -> int:
             "at": time.strftime("%Y-%m-%d %H:%M"),
         },
     )
-    os.close(slot_fd)
+    for fd in slot_fds:
+        os.close(fd)
     return code
 
 
