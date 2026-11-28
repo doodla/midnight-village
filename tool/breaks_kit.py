@@ -18,7 +18,11 @@ from dataclasses import dataclass
 PROMISES: dict[str, tuple[str, tuple[str, ...]]] = {
     "server-authoritative": (
         "all game logic on the server",
-        ("backend/apps/", "frontend/lib/core/requests/"),
+        (
+            "backend/apps/",
+            "frontend/lib/core/requests/",
+            "frontend/lib/features/game/domain/server_clock.dart",
+        ),
     ),
     "hidden-information": (
         "responses, socket events and errors are player-scoped",

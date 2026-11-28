@@ -12,9 +12,11 @@ import '../../../helpers/live_game_setup.dart';
 // in seeded random orders: every frame the server sends on a game socket (from
 // the recorded samples, so a new kind is in the next run), `/me/` reads whose
 // `Date` the live host holds up to 20 s, the socket dropping and coming back,
-// the app coming back. After each, the clock the phone shows must be within a
-// second of the true time left and never more than it showed before
-// (owner, 28 November 2026: "The timer is fucked. Keeps jumping around").
+// the app coming back, and the phone's own clock set 20 s forward and later
+// 20 s back (automatic time sync, a hand on the settings). After each, the
+// clock the phone shows must be within a second of the true time left and
+// never more than it showed before (owner, 28 November 2026: "The timer is
+// fucked. Keeps jumping around").
 
 void main() {
   final night = ContractSamples.map('ws/game/me_night')['me'] as Map;
@@ -46,9 +48,19 @@ void main() {
       final random = Random(seed);
       var server = opened.subtract(const Duration(seconds: 7));
       final skew = Duration(minutes: random.nextInt(21) - 10);
+      final talkLength = deadline.difference(opened);
+      final steps = {
+        opened.add(talkLength * (0.15 + 0.3 * random.nextDouble())):
+            const Duration(seconds: 20),
+        opened.add(talkLength * (0.55 + 0.3 * random.nextDouble())):
+            const Duration(seconds: -20),
+      };
+      var stepped = Duration.zero;
+      final start = server;
       final setup = LiveGameSetup.create(
         night.cast<String, dynamic>(),
-        clock: () => server.add(skew),
+        clock: () => server.add(skew).add(stepped),
+        stopwatch: () => server.difference(start),
       );
       addTearDown(setup.dispose);
       DateTime held() {
@@ -80,6 +92,15 @@ void main() {
         server = server.add(Duration(milliseconds: 50 + random.nextInt(2500)));
         final kind = names[random.nextInt(names.length)];
         seen.add(kind);
+        // A step while the app was away is the sleep's: the phone's clock is
+        // the truth then. Mid-stage, with the app open:
+        if (kind != 'the app comes back') {
+          for (final at in steps.keys.toList()) {
+            if (server.isBefore(at)) continue;
+            stepped += steps.remove(at)!;
+            seen.add('the phone clock moved');
+          }
+        }
         setup.answerMe(talk, serverDate: held());
         await kinds[kind]!();
         await setup.settle();
@@ -97,7 +118,11 @@ void main() {
         }
         before = shown;
       }
-      expect(seen.toSet(), names.toSet(), reason: 'every kind arrived');
+      expect(seen.toSet(), {
+        ...names,
+        'the phone clock moved',
+      }, reason: 'every kind arrived');
+      expect(steps, isEmpty, reason: 'both steps were made');
     });
   }
 }

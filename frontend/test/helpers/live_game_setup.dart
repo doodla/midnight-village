@@ -27,6 +27,16 @@ export 'sheet/sheet_data.dart' show recordedMe;
 /// from 21:13): no deadline fetch fires during a test unless it says so.
 final sampleClockStart = DateTime.utc(2024, 3, 7, 21, 13);
 
+/// A stopwatch that counts as [clock] does: a test's phone clock that never
+/// steps.
+Duration Function() stopwatchOf(DateTime Function() clock) {
+  DateTime? start;
+  return () {
+    final now = clock();
+    return now.difference(start ??= now);
+  };
+}
+
 /// Healing as fast as a test can wait for it.
 const testHealTiming = HealTiming(
   afterDeadline: Duration(milliseconds: 10),
@@ -84,6 +94,7 @@ class LiveGameSetup {
   factory LiveGameSetup.create(
     Map<String, dynamic> me, {
     DateTime Function()? clock,
+    Duration Function()? stopwatch,
     HealTiming timing = testHealTiming,
     ReconnectingWebSocket? socket,
   }) {
@@ -113,6 +124,9 @@ class LiveGameSetup {
           appResumesProvider.overrideWith((ref) => resumes.stream),
           healTimingProvider.overrideWithValue(timing),
           clockProvider.overrideWithValue(clock ?? () => sampleClockStart),
+          phoneStopwatchProvider.overrideWithValue(
+            stopwatch ?? stopwatchOf(clock ?? () => sampleClockStart),
+          ),
         ],
       ),
       http,

@@ -75,6 +75,39 @@ APP: tuple[Break, ...] = (
         tests=("frontend/test/design_system/primitives/clock_users_test.dart",),
     ),
     Break(
+        name="clock_takes_each_answer_as_now",
+        promise="server-authoritative",
+        why="each answer's Date resets the server's clock (the live host holds Date"
+        " for seconds: the talk's clock jumped back every few seconds, 28 Nov 2026)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/domain/server_clock.dart",
+                "    if (_offset == null || offset > _offset!) _offset = offset;\n",
+                "    _offset = offset;\n",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/presentation/stage_clock_steady_test.dart",
+        ),
+    ),
+    Break(
+        name="clock_ignores_phone_clock_steps",
+        promise="server-authoritative",
+        why="the phone's clock set forward mid-game leaves the server's clock that far"
+        " ahead for good (every later answer is a lower floor and is ignored)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/domain/server_clock.dart",
+                "        if (_offset case final offset?) _offset = offset - step;\n",
+                "",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/domain/server_clock_test.dart",
+            "frontend/test/features/game/presentation/stage_clock_steady_test.dart",
+        ),
+    ),
+    Break(
         name="a_field_lifts_with_its_focus",
         promise="screens-still",
         why="the name field's paper lifts while it has the focus, so a touch anywhere"

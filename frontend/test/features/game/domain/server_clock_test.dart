@@ -10,14 +10,21 @@ import 'package:midnight_village/features/game/domain/server_clock.dart';
 void main() {
   final start = DateTime.utc(2026, 11, 28, 9, 21, 31);
   late DateTime phone;
+  late Duration watch;
   late ServerClock clock;
 
   setUp(() {
     phone = start;
-    clock = ServerClock(() => phone);
+    watch = Duration.zero;
+    clock = ServerClock(() => phone, () => watch);
   });
 
-  void pass(int ms) => phone = phone.add(Duration(milliseconds: ms));
+  void pass(int ms) {
+    phone = phone.add(Duration(milliseconds: ms));
+    watch += Duration(milliseconds: ms);
+  }
+
+  void setPhone(int seconds) => phone = phone.add(Duration(seconds: seconds));
 
   test(
     'an answer whose Date is older than one already heard changes nothing',
@@ -65,5 +72,37 @@ void main() {
       clock.until(start.add(const Duration(seconds: 20))),
       const Duration(seconds: 17),
     );
+  });
+
+  for (final step in [20, -20]) {
+    test("the phone's clock set ${step}s mid-stage: the server's clock goes "
+        'on, and a true Date agrees', () {
+      clock.heard(start.add(const Duration(seconds: 20)), stamp: true);
+      pass(3000);
+      clock.now();
+      setPhone(step);
+      pass(1000);
+      final truth = start.add(const Duration(seconds: 24));
+      expect(clock.now(), truth);
+      expect(clock.heard(truth, stamp: true), isFalse);
+      expect(clock.now(), truth);
+    });
+  }
+
+  test("a phone's clock set forward with no Date ever read moves its own "
+      'floor too', () {
+    clock.heard(start.subtract(const Duration(minutes: 3)));
+    setPhone(20);
+    pass(1000);
+    expect(clock.now(), start.add(const Duration(seconds: 1)));
+  });
+
+  test("across a sleep the stopwatch stopped: the phone's clock is the "
+      'truth', () {
+    clock.heard(start, stamp: true);
+    clock.now();
+    phone = phone.add(const Duration(minutes: 5));
+    clock.cameBack();
+    expect(clock.now(), start.add(const Duration(minutes: 5)));
   });
 }
