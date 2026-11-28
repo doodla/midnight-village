@@ -1,0 +1,22 @@
+{
+  "name": "Live branches: only the release job moves them",
+  "target": "branch",
+  "source_type": "Repository",
+  "source": "doodla/midnight-village",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "refs/heads/live-server",
+        "refs/heads/live-app"
+      ]
+    }
+  },
+  "rules": [
+    { "type": "update", "parameters": { "update_allows_fetch_and_merge": false } }
+  ],
+  "bypass_actors": [
+    { "actor_id": null, "actor_type": "DeployKey", "bypass_mode": "always" }
+  ]
+}

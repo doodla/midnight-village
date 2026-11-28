@@ -36,12 +36,23 @@ change costs one, not two. The script compares with what the branch holds, so a 
 cancelled is made up by the next one. Over the 24 hours in which this was written, 49 merges
 cost 98 deployments; with this they would have cost 35.
 
+It moves nothing until **every check `docs/dev/main-ruleset.json` requires has passed on the
+merged commit** (as a run of GitHub Actions; up to 45 minutes): two pull requests that were each
+green can break each other once both are in. When both sides change, it moves `live-server`
+first and `live-app` only once `/api/health/` serves the commit `live-server` holds, so a new
+app never talks to an old server. A live branch only moves forward along main, and never to a
+commit below the rollback floor (`FLOOR` in the script). Each refusal is a red run that says why
+and what fixes it; nothing moves. If the gate itself is broken, "Run workflow" on `main` with
+`skip_waits` ticked skips the two waits (forward-only and the floor still hold).
+
 * **Daily cap**: Vercel's Limits page lists 100 deployments created per day on Hobby (a
   86400 s window; once hit, wait for it to pass). Every deployment created counts, preview or
   production, on each project. Vercel's monorepo docs say builds canceled by an Ignored Build
   Step still count, which is why this uses `git.deploymentEnabled`, not `ignoreCommand`.
 * **Going live** is a merge to `main` that changes what a side ships: one deployment for
-  that side. Nobody pushes to `live-server` or `live-app` by hand.
+  that side. Nobody pushes to `live-server` or `live-app` by hand: the Bash guard refuses it
+  (`.claude/hooks/push_rules.py`), and GitHub's rulesets on the two branches
+  (`docs/dev/rulesets/`) let only the release job's key move them, forward only.
 * **A one-off preview** of a branch: run `vercel deploy` from a checkout linked to the project
   (the CLI creates the deployment itself). It still counts toward the cap, and the backend
   needs the new address in `ALLOWED_HOSTS`, so only when a preview is really wanted.
@@ -404,7 +415,9 @@ Friends get the app from one stable address; nobody builds or hands out a file b
   The web app's first screen (01) shows a quiet "Get the app" link that opens `/app`, only in an Android browser.
 * **First merge:** the link on 01 exists about ten minutes before the first file does (the build has to finish); until then it leads to a not-found page.
 * **Not a check:** it never runs on pull requests and is not in `docs/dev/main-ruleset.json`;
-  it has `contents: write` on its one job only.
+  it runs in two jobs: "Build Android APK" (Java, Flutter, Gradle: a read token, not kept on disk) hands the file to
+  "Publish Android APK", the one job with `contents: write` (a release asset is repository contents), which runs only `gh`.
+  Every action in a job with a write token is pinned by commit, its version beside it (`WriteTokens` in the test below).
   A failed build does not block anything; the previous file stays.
   `guardrails/tests/test_workflows.py` holds it to those rules.
 * **Untested until the first run on `main`:** the workflow itself (it cannot run off GitHub);
@@ -450,14 +463,60 @@ against the two live addresses, from outside, with no account and no secret:
 **What it leaves in the live database**: five guest accounts per run, named `Deploy check A`,
 `B` and `C` (no table, no game). The two listeners count in "N at tables" for the seconds
 their sockets are open. Nothing prunes the guests yet (to do with the server cleanups: guests
-with those names older than a day).
+with those names older than a day; why that can wait: "The watch between merges").
 
 **When it fails**: the run "Deployed Check" is red on `main` (the Actions tab; GitHub emails
 whoever's merge started the failed run). The log has one line per step, `ok` or `FAIL`
 with what answered. A failure means players may be looking at a broken game: read the line,
-and roll back in Vercel (the owner's account) or revert the merge. A newer merge cancels an
-older run that is still waiting. By hand: "Run workflow" on `main`, or locally
-`python3 tool/deployed_check.py --api <server origin> --app <app origin>`.
+then go back (below). A newer merge cancels an older run that is still waiting. By hand:
+"Run workflow" on `main`, or locally `python3 tool/deployed_check.py --api <server origin> --app <app origin>`.
+
+### Going back
+
+**The way back is forward:** `just revert-release <PR number or commit>` (`tool/revert_release.py`).
+It makes a branch from `main` that undoes that merge and prints what happens next: which side
+redeploys, whether the change added migrations and what they now need, and that the rollback
+floor is not crossed. It pushes only with `--push`. Its pull request merges like any other; the
+release job then promotes it (main's checks first, the server before the app). Nobody moves a
+live branch back: GitHub refuses it (`docs/dev/rulesets/`) and so does the Bash guard.
+
+- **Migrations stay.** A deploy only migrates forward, so the live database keeps what the
+  change added; the revert keeps those migration files, and undoing their schema is a new,
+  deploy-safe migration (a column or table in two pushes; "Deploy-safe changes" below).
+- **Faster, by the owner only: Vercel's Instant Rollback.** On Hobby it goes back to the
+  immediately previous production deployment only. Afterwards Vercel turns off auto-assignment
+  of production domains: **later merges build but do not go live** until someone promotes a
+  deployment in Vercel (the project's Production tile, Manage, pick one, Confirm; Vercel's docs,
+  "Undo a rollback"). While the server is rolled back, the release job refuses to move the app
+  ("the server is not serving ..."): that red run is the reminder. Never promote a deployment
+  older than the rollback floor (`FLOOR` in `tool/promote_live.py`).
+- **Data**: Neon's Free plan restores up to 6 hours back (at most 1 GB of change history), and
+  keeps one manual snapshot (owner's console; Neon's plans page, 28 November 2026). Take that snapshot before merging a migration that moves data.
+
+## The watch between merges
+
+Between merges nothing else would notice that the live game broke (Neon suspended at its
+monthly limit, Upstash over its commands, Vercel paused, an Instant Rollback). So
+`.github/workflows/live-watch.yml` ("Live Watch") runs the same check every 6 hours and by
+hand ("Run workflow"), moving nothing: `tool/deployed_check.py --deep --sockets` against what
+serves now. `--deep` asks `/api/health/?deep=1` (`backend/apps/core/health.py`): a fresh
+database connection runs `SELECT 1` and a fresh Redis client sends one `PING`, each with 5
+seconds, and the answer is only `ok` or `failed` per part plus the commit (503 when a part
+failed; plain `/api/health/` answers as before). The check after each merge passes `--deep` too.
+
+**Cost on the free plans** (four runs a day): each run keeps Neon awake about 7 minutes (the run, then
+5 idle minutes before it sleeps): about 0.1 CU-hours a day at the 0.25 CU minimum, some 4 a
+month of the 100; it sends a few hundred Redis commands (an estimate, not measured; of 500,000 a month) and about a hundred requests to Vercel. The check after each merge
+already runs the same thing on every merge, several dozen times a day, so the watch adds little.
+**What it leaves behind** is the same as that check's: five guest accounts per run (one user
+row and one refresh-token row each, about 1 KB), no table and no game (the last one out deletes
+the table). At four runs a day that is about 7 MB a year against Neon Free's 1 GB per project, and real
+players' guests are kept the same way, so no clean-up was added; pruning old guests is a server
+clean-up to do for all guests at once.
+
+**When it is red**: the failed step's line names the part (`database failed`: look at Neon;
+`redis failed`: Upstash; no answer: Vercel). It tells nobody but the Actions tab: the owner
+does not read GitHub (to do: a push to their phone).
 
 **What it proves that "Web page smoke" does not.** "Web page smoke" builds the page and opens
 it in Chrome against no server: it never makes a request through Vercel's own routing. On 22
@@ -550,8 +609,8 @@ The previous code serves while `migrate` runs on every deploy (every deployment 
   (`core/migrations/0012_lobbymember_drop_is_ready.py`, database only, with its test and a frozen INSERT in push 1's shape).
   After push 2 a build from before push 1 can neither read nor write that table
   (its model still selects the column, so every lobby page fails, not only a join):
-  roll forward instead. Rollback floor today:
-  commit e8f50b5 (#81), where `is_ready` left the model.
+  roll forward instead. The rollback floor is code: `FLOOR` in `tool/promote_live.py` (today #81, where `is_ready`
+  left the model); the release job refuses to put anything older on a live branch.
 - **The previous build is run against the new schema, on every pull request with a migration.** `just previous-build-check`
   (`tool/previous_build_check.sh`, a step of GitHub's "Backend Checks") checks out main, puts this change's migrations in it, builds a database from them and
   runs main's own tests on it. A migration the serving build cannot live with fails there
