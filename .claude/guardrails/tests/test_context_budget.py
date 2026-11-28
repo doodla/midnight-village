@@ -116,6 +116,17 @@ class WhatCountsAsToRead(unittest.TestCase):
             self.assertTrue(any(k.startswith(role + ",") for k in found), role)
         self.assertIn("the instruction surface", found)
 
+    def test_each_file_of_our_skills_is_measured_and_third_party_skills_are_not(self):
+        found = self.tool.measure()
+        skill_files = [k for k in found if k.startswith("skill file ")]
+        self.assertIn("skill file .claude/skills/no-comments/sorter.md", skill_files)
+        self.assertFalse([k for k in skill_files if "/flutter-" in k], skill_files)
+        for key in skill_files:
+            self.assertEqual(found[key][1], self.tool.SKILL_LIMIT, key)
+        surface = self.tool.surface()
+        self.assertIn(".claude/skills/correct/SKILL.md", surface)
+        self.assertFalse([p for p in surface if "/flutter-" in p])
+
 
 if __name__ == "__main__":
     unittest.main()
