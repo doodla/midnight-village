@@ -85,6 +85,12 @@ jobs:
       - name: Generated code is current
         run: just gen-check
 
+      # Each of the app's deliberate breaks, in a copy of the tree, must fail its
+      # guard's tests (tool/breaks_app.py; the server's run in "Backend Checks").
+      - name: The app's guards bite
+        if: ${{ !cancelled() }}
+        run: just prove-guards --runner flutter
+
   # ─── Release has no debug toolbar ──────────────────────────────────────────
   # Builds the web app with no --dart-define (what a forgotten flag gives) and
   # fails if the /debug toolbar is in it: the behaviour, not a test of the source.

@@ -110,6 +110,17 @@ unless its description has a line `- <file name>: <why>`; locally it only remind
 read: a guard is a text file). `just check` also lints `tool/` and the hooks for
 errors swallowed in silence (`just lint-tools` in `backend/`).
 
+**Proved guards.** A guard counts only if a recorded deliberate break proves it bites. `just prove-guards`
+(`tool/prove_guards.py`) holds named breaks (`tool/breaks_server.py`, `breaks_tools.py`,
+`breaks_app.py`): each a small realistic mistake, the CLAUDE.md promise it breaks, and the
+focused tests that must fail on it. Each is put into a throwaway copy of the tree, anchored on
+a function or a marker line (an anchor that moved fails "break no longer applies: update
+it"). It fails when a break survives, when a known survivor (`survives=`) is killed, and when
+a `Guard file` kills no break (the guards older than the rule are in `NOT_YET_PROVED`, which
+only shrinks). GitHub runs the server's and tools' breaks in "Backend Checks" and the app's in
+"Analyze and Format"; `just handover` runs those whose promise the change touches
+(`guardrails/tests/test_prove_guards.py`, which also applies every break to the tree as it stands).
+
 **Disk.** Each worktree fills about a gigabyte of build output. `tool/tidy.py` clears it for
 a worktree that has gone quiet: no source file changed for three hours and no process is
 working in it (the session-start hook runs this in the background). `just tidy` also removes

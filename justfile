@@ -82,6 +82,13 @@ tidy *args:
 copy-page *args:
     @tool/copy_page.py {{args}}
 
+# Deliberate breaks that prove each guard bites: each break is put into a throwaway copy
+# of the tree and its focused tests must fail (tool/prove_guards.py). `just prove-guards <name>` runs one,
+# `--list` lists them, `--reached` only those this change touches (what `just handover` runs).
+# GitHub runs the server's in "Backend Checks" and the app's in "Analyze and Format".
+prove-guards *args:
+    @tool/heavy.py --name prove-guards -- tool/prove_guards.py {{args}}
+
 # The queue every heavy command goes through (tool/heavy.py): a few at once, the rest wait their
 # turn and say where they are. The recipes that are heavy (tests, builds, screens, phone-frames,
 # the harness) use it themselves. `just heavy --status`: who holds a slot, since when, who waits.
