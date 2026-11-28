@@ -30,8 +30,9 @@ LAYERS = (
     "game_presence",
     "services",
 )
-# Beside the layers: used by views and the server's start-up, imported by no layer.
-BESIDE = ("night_results", "recovery")
+# Beside the layers: used by views, the socket consumer and the server's start-up,
+# imported by no layer (the repair and the beat reach into recovery and practice).
+BESIDE = ("night_results", "recovery", "repair", "beat")
 
 
 def imported_modules(path: Path) -> set[str]:
@@ -69,8 +70,9 @@ def test_the_parts_exist_and_the_scan_sees_imports() -> None:
     assert "game_presence" in imported_modules(ONUW / "services.py")
     assert imported_modules(ONUW / "recovery.py") & set(LAYERS)
     views = set()
-    # the views, and the lazy repair they share with the socket's beat (repair.py)
-    for name in ("views", "views_play", "views_read", "repair"):
+    # the views, the socket consumer (its beat: beat.py, repair.py), and the lazy
+    # repair they share (repair.py)
+    for name in ("views", "views_play", "views_read", "consumers", "repair"):
         views |= imported_modules(ONUW / f"{name}.py")
     assert set(BESIDE) <= views
 

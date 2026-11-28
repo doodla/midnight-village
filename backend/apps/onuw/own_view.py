@@ -35,11 +35,14 @@ none.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
 from django.db import connection, transaction
+
+from rest_framework.renderers import JSONRenderer
 
 from apps.core.practice import is_practice
 
@@ -91,8 +94,21 @@ def views_for(game: Game, all_player_roles: list[PlayerRole]) -> list[dict[str, 
 
 def _own_message(game_id: Any, view: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """One player's view on that player's own group: the group is named from the
-    view's own ``player_id``, so a view can only be addressed to its owner."""
-    return player_group(game_id, view["player_id"]), {"type": OWN_VIEW, "me": view}
+    view's own ``player_id``, so a view can only be addressed to its owner. It is
+    rendered as ``GET /me/`` renders it (``_as_http``)."""
+    return player_group(game_id, view["player_id"]), {
+        "type": OWN_VIEW,
+        "me": _as_http(view),
+    }
+
+
+def _as_http(body: dict[str, Any]) -> dict[str, Any]:
+    """``body`` as the HTTP answer carries it: through the API's own JSON
+    renderer and back, so the socket's view has exactly the shape of ``GET
+    /me/``'s (keys strings, times and ids as their text) and only what JSON
+    holds reaches the channel layer. A body that cannot be rendered raises,
+    and the stage's table events then go alone (``send_built_after_commit``)."""
+    return json.loads(JSONRenderer().render(body))
 
 
 @contextmanager
@@ -125,7 +141,9 @@ def stage_batch(game_id: Any, table: Messages) -> tuple[Messages, Messages]:
         # pyrefly: ignore [missing-attribute]
         prs = list(game.player_roles.select_related("user").all())
         views = [_own_message(game.id, view) for view in views_for(game, prs)]
-        results = results_body(game, prs) if game.phase == Phase.RESULTS else None
+        results = (
+            _as_http(results_body(game, prs)) if game.phase == Phase.RESULTS else None
+        )
     if results is not None:
         table = [(group, _with_results(message, results)) for group, message in table]
     return views, table

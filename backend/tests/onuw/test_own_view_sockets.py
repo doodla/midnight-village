@@ -78,30 +78,40 @@ class TestTheBeat(TransactionTestCase):
     async def test_each_socket_hears_the_beat_and_its_beat_asks_for_the_repair(
         self,
     ):
-        """Three real sockets, a short beat: each hears ``beat`` frames (the same
-        bytes for all) and each beat hands its game and channel to the repair
-        (``repair_on_beat`` decides which socket runs it). Beats run one after
-        another, so by a socket's second frame its first beat has asked."""
+        """Three real sockets, a short beat: each hears a beat as it opens and
+        then on time, the same bytes for all (the table's token, nothing of
+        anyone's), and the game's repair is asked for. A repair that fails stops
+        nothing: the beats go on (frames are the clock here: no sleep)."""
         game, users = await _create_game_with_players(3)
-        asked: list[tuple] = []
+        asked: list[str] = []
+
+        def failing(game_id) -> None:
+            asked.append(str(game_id))
+            raise RuntimeError("the repair is down")
+
         with (
             override_settings(ONUW_PRESENCE_HEARTBEAT_SECONDS=0.05),
-            patch("apps.onuw.repair.repair_on_beat", lambda *a: asked.append(a)),
+            patch("apps.onuw.repair.repair_on_beat", failing),
         ):
             sockets = []
             for user in users:
                 communicator = _build_communicator(game.id, user)
                 connected, _ = await communicator.connect()
                 assert connected
+                first = await communicator.receive_json_from(timeout=5)
+                assert first["type"] == "beat", "the first frame, at once"
                 sockets.append(communicator)
-            for communicator in sockets:
+            heard = {}
+            for n, communicator in enumerate(sockets):
                 beats = []
-                while len(beats) < 2:
+                while len(beats) < 4 or not asked:
                     frame = await communicator.receive_json_from(timeout=5)
                     if frame["type"] == "beat":
                         beats.append(frame)
-                assert beats[0] == {"type": "beat", "every": 0.05}
-            assert {str(a[0]) for a in asked} == {str(game.id)}
-            assert len({a[1] for a in asked}) == 3  # every socket's channel
+                    assert len(beats) < 200, "the repair was never asked for"
+                heard[n] = beats[-1]
+            assert set(heard[0]) == {"type", "every", "phase", "window", "moved_on"}
+            assert heard[0] == heard[1] == heard[2]
+            assert set(asked) == {str(game.id)}
             for communicator in sockets:
                 await communicator.disconnect()

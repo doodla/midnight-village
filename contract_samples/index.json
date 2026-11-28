@@ -2055,7 +2055,7 @@
         "Esme",
         "Fin"
       ],
-      "description": "The heartbeat's frame: the phone counts its socket as up only while frames keep coming (within about two beats)."
+      "description": "The heartbeat's frame at the vote: the phone counts its socket as up only while frames keep coming (within about two beats), and reads once when the table's token (phase, window, moved_on) is ahead of what it holds."
     },
     {
       "name": "ws/game/game_results",
@@ -2463,6 +2463,22 @@
         "Hana"
       ],
       "description": "Votes revealed; null = did not vote."
+    },
+    {
+      "name": "ws/lobby/beat",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "beat",
+      "group": "socket",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The lobby socket's heartbeat frame after play again: the table's rev, so a phone holding an older lobby reads it once."
     },
     {
       "name": "ws/lobby/game_started",

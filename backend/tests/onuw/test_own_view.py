@@ -20,7 +20,7 @@ from unittest.mock import patch
 import pytest
 from asgiref.sync import async_to_sync
 
-from apps.onuw import basics
+from apps.onuw import basics, own_view
 from apps.onuw.consumers import GameConsumer
 from tests.contract.recorder import recording
 from tests.contract.stream_scenarios import SIX, StreamTable, stream_table
@@ -205,23 +205,55 @@ def test_a_view_goes_out_only_when_a_stage_opens(game: StreamTable) -> None:
         assert places == sorted(set(places)), f"{name}: {places}"
 
 
-def test_a_view_that_cannot_be_packed_still_lets_the_table_hear(
-    django_capture_on_commit_callbacks: Any,
-) -> None:
-    """A view the live layer cannot carry (here an int-keyed dict, which
-    msgpack refuses to unpack) fails the batch: the table's events go out alone,
-    as they were, and the phones read when they hear them."""
+def _sent_alone(capture: Any, build: Any) -> list:
+    """What the layer delivered when a stage's batch is built by ``build``."""
     from apps.core import effects
 
     table = [("game_x", {"type": "phase.change", "phase": "voting"})]
-
-    def unpackable(sent: list) -> tuple[list, list]:
-        return [("game_x_player_1", {"type": "own.view", "me": {1: "x"}})], sent
-
-    with recording(django_capture_on_commit_callbacks) as run:
+    with recording(capture) as run:
         with (
             patch("apps.core.effects.get_channel_layer", return_value=run.layer),
-            django_capture_on_commit_callbacks(execute=True),
+            capture(execute=True),
         ):
-            effects.send_built_after_commit(unpackable, table)
-        assert run.layer.sent == table
+            effects.send_built_after_commit(build, table)
+        return list(run.layer.sent)
+
+
+def test_a_view_that_cannot_be_rendered_still_lets_the_table_hear(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """A view the API's renderer refuses fails the build: the table's events go
+    out alone, as they were, and the phones read when they hear them."""
+
+    def unrenderable(sent: list) -> tuple[list, list]:
+        view = {"player_id": 1, "odd": object()}
+        return [own_view._own_message("game_x", view)], sent
+
+    sent = _sent_alone(django_capture_on_commit_callbacks, unrenderable)
+    assert sent == [("game_x", {"type": "phase.change", "phase": "voting"})]
+
+
+def test_a_message_the_live_layer_cannot_pack_still_lets_the_table_hear(
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """One the live msgpack refuses to PACK (a set) fails the send: the table's
+    events go out alone, tried again."""
+
+    def unpackable(sent: list) -> tuple[list, list]:
+        return [("game_x_player_1", {"type": "own.view", "me": {"odd": {1}}})], sent
+
+    sent = _sent_alone(django_capture_on_commit_callbacks, unpackable)
+    assert sent == [("game_x", {"type": "phase.change", "phase": "voting"})]
+
+
+def test_a_view_is_shaped_as_get_me_renders_it() -> None:
+    """Keys become strings and ids their text, as in ``GET /me/``'s JSON, so
+    nothing the socket carries can differ from the read (or fail to unpack)."""
+    import uuid
+
+    gid = uuid.UUID(int=7)
+    group, message = own_view._own_message(
+        gid, {"player_id": 3, "votes": {1: 2}, "game_id": gid}
+    )
+    assert message["me"] == {"player_id": 3, "votes": {"1": 2}, "game_id": str(gid)}
+    assert group.endswith("_player_3")

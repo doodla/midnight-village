@@ -26,6 +26,8 @@ from __future__ import annotations
 from typing import Any
 
 from apps.core import presence
+from apps.core.models import Lobby
+from apps.onuw import beat
 from apps.onuw.consumers import GameConsumer
 
 from .recorder import Recording, Table, client_event
@@ -178,6 +180,8 @@ def stream_table(run: Recording) -> StreamTable:
         t.clock.advance(10)
         t.call("POST", name, READY, {"ready": True})
     _record_view(t, "vote", "the vote opened: who she may vote for")
+    # The beat each game socket sends its phone now (the table's token).
+    at_the_vote = presence.beat_frame(beat.token(t.game_id))
     # The vote: each picks the next seat, then locks it; the last lock reveals.
     for index, name in enumerate(SIX):
         target = t.pid(SIX[(index + 1) % len(SIX)])
@@ -213,9 +217,9 @@ def stream_table(run: Recording) -> StreamTable:
         },
         t.stream,
     )
-    # The beat: what every game and lobby socket sends its phone at each
-    # heartbeat (``presence.beat_frame``), the same bytes for every socket; not
-    # sent through a group (``group`` says so).
+    # The beat: what every game and lobby socket sends its phone as it opens and
+    # at each heartbeat (``presence.beat_frame``), the same bytes for every
+    # socket of the table; not sent through a group (``group`` says so).
     t.recorder.add(
         "ws/game/beat",
         {
@@ -224,10 +228,26 @@ def stream_table(run: Recording) -> StreamTable:
             "type": "beat",
             "group": "socket",
             "recipients": list(SIX),
-            "description": "The heartbeat's frame: the phone counts its socket as up "
-            "only while frames keep coming (within about two beats).",
+            "description": "The heartbeat's frame at the vote: the phone counts its "
+            "socket as up only while frames keep coming (within about two beats), "
+            "and reads once when the table's token (phase, window, moved_on) is "
+            "ahead of what it holds.",
         },
-        presence.beat_frame(),
+        at_the_vote,
+    )
+    rev = Lobby.objects.filter(code=t.code).values_list("rev", flat=True).first()
+    t.recorder.add(
+        "ws/lobby/beat",
+        {
+            "kind": "ws",
+            "socket": "lobby",
+            "type": "beat",
+            "group": "socket",
+            "recipients": list(SIX),
+            "description": "The lobby socket's heartbeat frame after play again: "
+            "the table's rev, so a phone holding an older lobby reads it once.",
+        },
+        presence.beat_frame({"rev": rev}),
     )
     # The stream is closed: a read now is no phone's. Every seat's /me/ at the
     # results (each card's own night data), so each view the stream holds is one

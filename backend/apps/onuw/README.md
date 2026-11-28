@@ -397,7 +397,7 @@ the step and the seat (`practice_rng`) and logged at INFO.
 
 ## Night timeline (results)
 
-`GET .../results/` (results phase only, members only, as before; its body is `results.results_body`, which each player's own view at the end also carries) has `night_timeline`:
+`GET .../results/` (results phase only, members only, as before; its body is `results.results_body`, which the table's `game_results` also carries once, as `data.results`) has `night_timeline`:
 `{seats, cards, dealt, steps, final, center_moved}` built by the PURE `engine/timeline.py` (`build_night_timeline`) FORWARDS from the dealt cards
 (`PlayerRole.original_role` by seat, `Game.dealt_center_cards`) and `Game.night_actions_log` (`ActionLogEntry.to_dict` is the one log format).
 Cards have stable ids (`k0..k<n-1>` by seat, then the three centre cards) and a server-set `werewolf` flag

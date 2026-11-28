@@ -4,9 +4,11 @@ checked on the recorded samples.
 
 Every socket sample's index entry says which group delivered it and who got
 it (``recorder.Table.record_event``); ``test_contract_samples.py`` keeps the
-committed index equal to what the server sends. The night sends no event to one
-player: prompts and results are read from ``/me/``, so a seat's socket hears
-exactly what every other seat hears.
+committed index equal to what the server sends. The only thing a seat's socket
+hears that another seat's does not is its own view (``me``, its own ``GET /me/``
+on its own group, at the same moments for every seat, whatever it was dealt);
+every other event, and the beat each socket sends its phone, is the same for
+every seat.
 """
 
 from __future__ import annotations
@@ -51,13 +53,32 @@ def test_every_socket_sample_says_who_received_it() -> None:
         assert sample["recipients"], sample["name"]
 
 
+# The beat's exact keys per socket: how often beats come, and the table's token
+# (what every seat already knows: the lobby's number; the game's phase and
+# window and whether its table moved on). Nothing about anyone.
+BEAT_KEYS = {
+    "lobby": {"type", "every", "rev"},
+    "game": {"type", "every", "phase", "window", "moved_on"},
+}
+
+
 def test_what_a_socket_sends_its_own_phone_is_the_same_for_every_socket() -> None:
     """The one frame a consumer sends its socket directly (``group: socket``) is
-    the beat: its type and how often beats come, nothing about anyone."""
+    the beat, one shape per socket, exactly these keys; its values are the
+    table's, so every seat's beat is the same bytes."""
     direct = [s for s in _socket_samples() if s["group"] == "socket"]
-    assert [s["type"] for s in direct] == ["beat"]
+    assert sorted((s["socket"], s["type"]) for s in direct) == [
+        ("game", "beat"),
+        ("lobby", "beat"),
+    ]
     for sample in direct:
-        assert set(_payload(sample)) == {"type", "every"}
+        payload = _payload(sample)
+        assert set(payload) == BEAT_KEYS[sample["socket"]], sample["name"]
+        assert isinstance(payload["every"], float)
+        assert not ROLE_NAME.search(json.dumps(payload))
+    game = next(_payload(s) for s in direct if s["socket"] == "game")
+    assert isinstance(game["window"], int) and isinstance(game["moved_on"], bool)
+    assert game["phase"] in {"night", "discussion", "voting", "results"}
 
 
 def test_no_socket_sample_is_a_per_player_night_event() -> None:

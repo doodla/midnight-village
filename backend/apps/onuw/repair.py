@@ -8,25 +8,34 @@ message). Each would leave a stage waiting for good at an untimed table.
 The repair runs in two places, so it never depends on a phone reading:
 
 - ``GET /me/`` (``views.GameMeView``), as before;
-- the game socket's heartbeat (``GameConsumer._beat``), every
-  ``heartbeat_seconds`` while anyone sits at the table. Each beat only the game's
-  oldest fresh socket runs it (``runs_the_repair``: one query), so it runs about
-  once per game per beat, whichever process holds the sockets, with nothing new
-  stored.
+- the game socket's heartbeat (``GameConsumer._beat_work``), every
+  ``heartbeat_seconds`` while anyone sits at the table and the game is not at its
+  results. Each beat only the game's oldest fresh socket runs it (asked in the
+  beat's own statement, ``beat.refresh``), so it runs about once per game per
+  beat, whichever process holds the sockets, with nothing new stored.
+
+A repair that fails is counted where the owner looks (``repair_failed`` in the
+observe report, no ids) and logged: at ERROR the first time for a game, then at
+most every ``LOG_EVERY`` seconds.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from apps.core import timers
+from apps.observe import counts
 
-from . import practice, presence
+from . import practice
 from .models import Game, Phase, PlayerRole
 from .recovery import ensure_timers, timer_prefixes
 
 logger = logging.getLogger(__name__)
+
+LOG_EVERY = 600.0
+_logged: dict[str, float] = {}  # game id -> when its repair failure was last logged
 
 
 def lazy_repair(
@@ -52,34 +61,37 @@ def lazy_repair(
         ensure_timers(game, all_player_roles)
         timers.sweep(timer_prefixes(game))
     except Exception:
-        logger.exception("ensure_timers failed for game %s", game.id)
+        _failed(game.id)
     return reread
 
 
-def runs_the_repair(game_id: Any, channel_name: str) -> bool:
-    """Whether the socket ``channel_name`` is the game's oldest fresh one: the
-    one whose beat repairs the game."""
-    first = (
-        presence.fresh_rows(game_id=game_id)
-        .order_by("id")
-        .values_list("channel_name", flat=True)
-        .first()
-    )
-    return first == channel_name
-
-
-def repair_on_beat(game_id: Any, channel_name: str) -> None:
-    """A heartbeat of socket ``channel_name``: the repair, if this socket is the
-    one that runs it and the game is still being played. Never raises. The
-    database connection is left to the caller: the beat's presence refresh runs
-    next on it and closes it, so a beat opens one connection, as before."""
+def repair_on_beat(game_id: Any) -> None:
+    """The beat's repair of ``game_id`` (its oldest fresh socket's beat), while
+    the game is being played. Never raises. The database connection is left to
+    the caller (``GameConsumer._beat_work`` closes it)."""
     try:
-        if not runs_the_repair(game_id, channel_name):
-            return
         game = Game.objects.select_related("lobby").filter(id=game_id).first()
         if game is None or game.phase == Phase.RESULTS:
             return
         # pyrefly: ignore [missing-attribute]
         lazy_repair(game, list(game.player_roles.select_related("user").all()))
     except Exception:
-        logger.exception("The beat's repair failed for game %s", game_id)
+        _failed(game_id)
+
+
+def _failed(game_id: Any) -> None:
+    """A repair failed (called inside the ``except``): counted for the owner,
+    logged with its stack the first time for a game, then at most every
+    ``LOG_EVERY`` seconds, so a repair that always fails is seen, not buried."""
+    try:
+        counts.add("repair_failed")
+    except Exception:
+        logger.warning("Could not count a failed repair", exc_info=True)
+    now = time.monotonic()
+    key = str(game_id)
+    last = _logged.get(key)
+    if last is None or now - last >= LOG_EVERY:
+        if len(_logged) > 1000:
+            _logged.clear()
+        _logged[key] = now
+        logger.exception("The lazy repair failed for game %s", game_id)

@@ -89,6 +89,8 @@ SOCKET_EVENTS = frozenset(
     }
 )
 METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE"})
+# What the server counts of itself (``counts.add``): a game's lazy repair failed.
+SERVER_COUNTS = frozenset({"repair_failed"})
 HIDDEN = "·"
 
 _TAP = re.compile(

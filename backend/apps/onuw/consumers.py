@@ -37,6 +37,11 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
     a new one goes live) is dropped by ``TolerantJsonWebsocketConsumer``.
     """
 
+    # The table's token for the next beat frame (``beat.py``), and whether the
+    # game is at its results (then no beat elects or repairs).
+    _beat_token = None
+    _at_results = False
+
     async def connect(self):
         self.game_id = self.scope["url_route"]["kwargs"]["game_id"]
         user = self.scope.get("user")
@@ -70,8 +75,11 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
         # own "connected" event.
         await self._register_presence()
         self._presence_counted = True
+        # The first beat at once: the phone learns the pace (and the table's
+        # token) from the start, so the first interval is watched too.
+        await self._send_beat()
         self._heartbeat_task = asyncio.ensure_future(
-            presence.heartbeat_loop(self._beat)
+            presence.heartbeat_loop(self._send_beat, self._beat_db)
         )
 
     async def disconnect(self, code):
@@ -194,12 +202,13 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
 
     @database_sync_to_async
     def _register_presence(self):
-        from . import game_presence
+        from . import beat, game_presence
 
         if game_presence.register_connection(
             self.game_id, self.user_id, self.channel_name
         ):
             _host_presence(self.game_id, self.user_id, True)
+        self._beat_token = beat.token(self.game_id)
 
     @database_sync_to_async
     def _unregister_presence(self):
@@ -210,12 +219,17 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
         ):
             _host_presence(self.game_id, self.user_id, False)
 
-    async def _beat(self):
-        """One heartbeat: the beat frame to the phone (the same for every
-        socket), this socket's row refreshed (its own short DB use) and, from
-        the game's oldest fresh socket, the game's lazy repair (``repair.py``: a
-        lost timer or practice move must not wait for a phone to read)."""
-        await self.send_json(presence.beat_frame())
+    async def _send_beat(self):
+        """The beat frame (``presence.beat_frame``): the table's token as the
+        last beat's work read it (``beat.py``), the same for every socket of
+        the game. On time, whatever the database is doing."""
+        await self.send_json(presence.beat_frame(self._beat_token))
+
+    async def _beat_db(self):
+        """One heartbeat's database work, beside its frame: this socket's row,
+        the token for the next frame and, from the game's oldest fresh socket,
+        the game's lazy repair (``repair.py``: a lost timer or practice move must
+        not wait for a phone to read)."""
         # Not thread-sensitive: a pool thread does the beat and releases its
         # database connection, so nothing stays open between beats and the beats
         # never queue behind (or close the connection of) other consumers' work.
@@ -227,20 +241,35 @@ class GameConsumer(TolerantJsonWebsocketConsumer):
                 self.game_id, self.user_id, True
             )
 
-    def _beat_work(self):
-        """The beat's database work on one connection: the repair (which leaves
-        the connection open), then this socket's row (which closes it)."""
-        from . import repair
+    def _beat_work(self) -> bool:
+        """The presence first (it drives grace periods and host handover), then
+        the repair, which may fail or wait on a lock without touching it; one
+        connection, closed at the end whatever happened. True when the row was
+        gone and the socket came back."""
+        from apps.core import timers
 
-        repair.repair_on_beat(self.game_id, self.channel_name)
-        return self._refresh_presence()
+        from . import beat, game_presence, repair
+        from .models import Phase
 
-    def _refresh_presence(self):
-        from . import game_presence
-
-        return game_presence.refresh_connection(
-            self.game_id, self.user_id, self.channel_name
-        )
+        try:
+            found = beat.refresh(self.channel_name, elect=not self._at_results)
+            came_back = False
+            if found.found:
+                presence.ensure_check_timer("game", self.game_id, self.user_id)
+                token = found.token
+            else:
+                came_back = game_presence.register_connection(
+                    self.game_id, self.user_id, self.channel_name
+                )
+                token = beat.token(self.game_id)
+            if token is not None:
+                self._beat_token = token
+                self._at_results = token["phase"] == Phase.RESULTS
+            if found.oldest and not self._at_results:
+                repair.repair_on_beat(self.game_id)
+            return came_back
+        finally:
+            timers.release_connections()
 
     @database_sync_to_async
     def _is_player(self, game_id, user_id):
