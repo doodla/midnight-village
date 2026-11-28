@@ -62,11 +62,15 @@ class Countdown {
 
   /// Read now: the seconds, the share, and how long until the number drops
   /// (null when it never will: held, or at 0). Only [ClockTick] reads it.
-  ({int seconds, double? share, Duration? next}) _read() {
+  ///
+  /// [atMost]: the fewest seconds this clock has shown for this deadline. A
+  /// clock never counts back up: only a new deadline (the stage changed, or
+  /// the table changed its length) shows more.
+  ({int seconds, double? share, Duration? next}) _read({int? atMost}) {
     final held = _heldSeconds;
     if (held != null) return (seconds: held, share: _heldShare, next: null);
     final left = until!(deadline!);
-    final seconds = secondsFor(left);
+    final seconds = math.min(secondsFor(left), atMost ?? secondsFor(left));
     return (
       seconds: seconds,
       share: StageShare.left(
@@ -193,9 +197,11 @@ class _ClockTickState extends State<ClockTick> {
   /// never does, so each build has the room measured again.
   int _builds = 0;
 
+  final _fewest = _Fewest();
+
   @override
   Widget build(BuildContext context) {
-    final form = _form(widget.countdown?._read().seconds);
+    final form = _form(_fewest.read(widget.countdown)?.seconds);
     // What the clock's content is set from, so a change to any of it builds
     // here and has the room measured again (the room is held at its size,
     // and nothing below it would reach it).
@@ -212,6 +218,7 @@ class _ClockTickState extends State<ClockTick> {
         builder: widget.builder,
         form: form,
         reform: _reform,
+        fewest: _fewest,
       );
     }
     return _ClockRoom(
@@ -222,6 +229,7 @@ class _ClockTickState extends State<ClockTick> {
           builder: widget.builder,
           form: form,
           reform: _reform,
+          fewest: _fewest,
         ),
       ),
     );
@@ -236,6 +244,7 @@ class _ClockFace extends StatefulWidget {
     required this.builder,
     required this.form,
     required this.reform,
+    required this.fewest,
   });
 
   final Countdown? countdown;
@@ -244,6 +253,7 @@ class _ClockFace extends StatefulWidget {
   /// The form its room was measured for.
   final int form;
   final VoidCallback reform;
+  final _Fewest fewest;
 
   @override
   State<_ClockFace> createState() => _ClockFaceState();
@@ -286,9 +296,10 @@ class _ClockFaceState extends State<_ClockFace> {
   /// clock at 0 s has none, and may have time left by the new reading).
   void _onMoved() {
     if (!mounted) return;
-    final seconds = widget.countdown?._read().seconds;
+    final reading = widget.fewest.read(widget.countdown);
+    final seconds = reading?.seconds;
     if (seconds == _drawn && _ClockTickState._form(seconds) == widget.form) {
-      _arm(widget.countdown?._read().next);
+      _arm(reading?.next);
     } else {
       _onTick();
     }
@@ -307,7 +318,7 @@ class _ClockFaceState extends State<_ClockFace> {
   /// changes form (its room is measured again, from [ClockTick]).
   void _onTick() {
     if (!mounted) return;
-    final seconds = widget.countdown?._read().seconds;
+    final seconds = widget.fewest.read(widget.countdown)?.seconds;
     if (_ClockTickState._form(seconds) != widget.form) {
       widget.reform();
     } else {
@@ -317,7 +328,7 @@ class _ClockFaceState extends State<_ClockFace> {
 
   @override
   Widget build(BuildContext context) {
-    final reading = widget.countdown?._read();
+    final reading = widget.fewest.read(widget.countdown);
     _arm(reading?.next);
     final seconds = reading?.seconds;
     _drawn = seconds;
@@ -327,6 +338,26 @@ class _ClockFaceState extends State<_ClockFace> {
       WidgetsBinding.instance.addPostFrameCallback((_) => widget.reform());
     }
     return widget.builder(context, (seconds: seconds, share: reading?.share));
+  }
+}
+
+/// The fewest seconds a clock has shown for its deadline: what it reads is
+/// never more (a later answer that knows less of the server's clock, or the
+/// phone's own clock set back, never counts a clock back up). A new deadline
+/// starts again.
+class _Fewest {
+  DateTime? _deadline;
+  int? _seconds;
+
+  ({int seconds, double? share, Duration? next})? read(Countdown? countdown) {
+    if (countdown == null) return null;
+    if (countdown.deadline != _deadline) {
+      _deadline = countdown.deadline;
+      _seconds = null;
+    }
+    final reading = countdown._read(atMost: _seconds);
+    if (_deadline != null) _seconds = reading.seconds;
+    return reading;
   }
 }
 
