@@ -244,20 +244,29 @@ Decoration? _paperOf(Widget widget) => switch (widget) {
   _ => null,
 };
 
+/// Every paper a box can draw: at rest, and a pressed paper all the way down
+/// too (its shadow follows the same rules under the finger).
+List<Decoration> _papersOf(Widget widget) => switch (widget) {
+  DecoratedBox(:final decoration) => [decoration],
+  PressDecoration(:final rest, :final down) => [rest, down],
+  _ => const [],
+};
+
 /// Every shadow a decorated box on screen casts that is not a blurred glow,
 /// with the screen's lean at that place.
 List<String> shadowFaults(WidgetTester tester) {
   final faults = <String>[];
   for (final element in tester.allElements) {
     final widget = element.widget;
-    final decoration = _paperOf(widget);
-    if (decoration == null) continue;
-    final shadows = switch (decoration) {
-      BoxDecoration(:final boxShadow) => boxShadow,
-      ShapeDecoration(:final shadows) => shadows,
-      _ => null,
-    };
-    if (shadows == null || shadows.isEmpty) continue;
+    final shadows = [
+      for (final decoration in _papersOf(widget))
+        ...?switch (decoration) {
+          BoxDecoration(:final boxShadow) => boxShadow,
+          ShapeDecoration(:final shadows) => shadows,
+          _ => null,
+        },
+    ];
+    if (shadows.isEmpty) continue;
     final light = element.getElementForInheritedWidgetOfExactType<PaperLight>();
     final lean = (light?.widget as PaperLight?)?.lean ?? 0;
     for (final s in shadows) {
@@ -564,6 +573,27 @@ void main() {
         ),
       );
       expect(shadowFaults(tester), hasLength(2));
+    });
+
+    testWidgets('the check sees a pressed shadow cast toward the light', (
+      tester,
+    ) async {
+      _size(tester);
+      await tester.pumpWidget(
+        PaperLight(
+          lean: 0.5,
+          child: PressDecoration(
+            press: kAlwaysDismissedAnimation,
+            rest: BoxDecoration(
+              boxShadow: [BoxShadow(offset: const Offset(2, 4))],
+            ),
+            down: BoxDecoration(
+              boxShadow: [BoxShadow(offset: const Offset(-1, 2))],
+            ),
+          ),
+        ),
+      );
+      expect(shadowFaults(tester), hasLength(1));
     });
   });
 

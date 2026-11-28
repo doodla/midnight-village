@@ -29,14 +29,16 @@ void main() {
 
     // Every box that paints torn paper (a piece, a card, a panel, a portrait):
     // a decorated box whose shape is a deckled edge, or the paper a finger
-    // presses (`PressDecoration`, its render object a decorated box too).
+    // presses (`PressDecoration`, its render object a decorated box too),
+    // torn at rest or all the way down.
     List<RenderObject> paper() => [
       for (final e in tester.allElements)
         if (e.widget
             case DecoratedBox(
                   decoration: ShapeDecoration(shape: DeckleBorder()),
                 ) ||
-                PressDecoration(rest: ShapeDecoration(shape: DeckleBorder())))
+                PressDecoration(rest: ShapeDecoration(shape: DeckleBorder())) ||
+                PressDecoration(down: ShapeDecoration(shape: DeckleBorder())))
           if (e.renderObject != null) e.renderObject!,
     ];
     final pieces = paper();
