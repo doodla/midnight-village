@@ -8,9 +8,9 @@
 J=${TLA2TOOLS:?set TLA2TOOLS to the path of tla2tools.jar}
 cd "$(dirname "$0")" || exit 1
 out=$(mktemp -d)
-# known_zombie: a socket that dies open, with no beat, strands the seat (seat_beat: with it)
-BREAKS="late stale noup leave today seat_drop known_zombie"
-names=${*:-"seat seat_before seat_beat seat_drop known_zombie late stale noup leave today"}
+# zombie: a socket that dies open, with no beat, strands the seat (seat_beat: with it)
+BREAKS="late stale noup leave today seat_drop zombie"
+names=${*:-"seat seat_before seat_beat seat_drop zombie late stale noup leave today"}
 bad=0
 for n in $names; do
   s=$(date +%s)

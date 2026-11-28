@@ -74,6 +74,16 @@ is put on the held `/me/`; an event is lost only with its socket, which comes ba
 (`TapOrder` with `asked`) hold; every earlier run sets it FALSE. Its first run broke
 `ScreenConverges` only because the model had no retry of a failed table read: the code has
 one, so the model now says so (the finding was the model's, not the app's).
+Both reviews of `ask-less` found the socket that dies open (it looks up and delivers
+nothing, so nothing reads and the poll stays off): `ZOMBIE` makes it an action. Without the
+fix, `day_zombie` breaks `ScreenConverges` (the screen stays behind for good; it is in
+`BREAKS`). `FIX_BEAT` is the fix: the server sends every socket a `beat` frame each heartbeat
+and the phone drops one silent for 2.5 beats, so it comes back and reads. `day_beat` (every
+fix, the zombie, two faults and two taps) holds `OutcomeLoads` and `ScreenConverges`
+(9,322,705 distinct states). The seat model has the same pair (`seat/README.md`). Not
+modelled: one frame lost on a socket that stays alive (TCP does not lose frames; a full
+channel-layer queue could); the next event or tap of the table, a deadline or a resume
+heals it, and the beat does not.
 
 **A result at the choose (branch `night-result-now`, 25 November 2026).** `ANSWER_CARRIES`
 models the phone of that branch: a taken choose's answer carries the caller's results and its

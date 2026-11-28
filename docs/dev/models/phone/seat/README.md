@@ -69,6 +69,14 @@ table read already out, the table is asked again instead (`_compareTable`).
   seat out when /me/ moves past the table is asked again".
 - `seat` (this branch) holds both rules (210,114 distinct states); `seat_before` is main's
   phone (211,762).
+- **`zombie`** (`ZOMBIE` without `FIX_BEAT`: the review's finding, fixed). A socket
+  can die without closing (a phone that slept, a network changed under it): the phone still
+  counts it up, so it neither reads on its return nor runs the slow poll. Shortest trace: at
+  02 the host deals, the dead lobby socket loses `game_started`, and the phone stays at 02
+  while the server plays on. With `FIX_BEAT` (the server's `beat` frame each heartbeat; a
+  socket silent for 2.5 beats is dropped, so `Back` reads as for any drop), `seat_beat`
+  holds both rules with the zombie, drops, resumes and failures (227,182 distinct states).
+  Test: `test/core/websocket/socket_beat_test.dart`.
 
 ## Runs (`TLA2TOOLS=/path/to/tla2tools.jar ./runseat.sh`)
 
@@ -76,7 +84,9 @@ table read already out, the table is asked again instead (`_compareTable`).
 |---|---|---|
 | `seat` | the phone of this branch (`FIX_ASKLESS`) | holds both rules |
 | `seat_before` | main's phone before `ask-less` | holds both rules |
+| `seat_beat` | this branch, with `ZOMBIE` and `FIX_BEAT` | holds both rules |
 | `seat_drop` | `FIX_ASKLESS` with `SEED_OVER_READ` | breaks `Converges` (finding, fixed) |
+| `zombie` | `ZOMBIE` without `FIX_BEAT` | breaks `Converges` (finding, fixed) |
 | `late` | without `FIX_LATE` | breaks `NeverBack` (finding, fixed) |
 | `stale` | without `DROP_STALE` | breaks `NeverBack` (why the seed relies on it) |
 | `noup` | without `FIX_UP` | breaks `Converges` (finding, fixed) |
