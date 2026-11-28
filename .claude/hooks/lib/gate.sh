@@ -150,10 +150,10 @@ gate_run_blocks() {
         # the root `just check`: every step of GitHub's first backend step, not the
         # backend's own four (`check-backend`)
         backend:fast) steps="just check" ; dir=. ;;
-        backend:full) steps="just check && just test-backend && just previous-build-check && just guard-edits" ; dir=. ;;
+        backend:full) steps="just check && just test-backend && just previous-build-check && just guard-edits && just prove-guards --runner backend,guardrails,cmd" ; dir=. ;;
         frontend:fast) steps="just analyze && just flutter-format-check" ; dir=frontend ;;
         # every frontend job of GitHub's but those in GATE_FULL_SKIPS
-        frontend:full) steps="just analyze && just flutter-format-check && just gen-check && just flutter-test && just check-release && just screens 360 strict && just screens 390 strict && just test-harness" ; dir=frontend ;;
+        frontend:full) steps="just analyze && just flutter-format-check && just gen-check && just flutter-test && just check-release && just screens 360 strict && just screens 390 strict && just test-harness && just prove-guards --runner flutter" ; dir=frontend ;;
         guardrails:*) steps="just test-guardrails" ; dir=. ;;
         *) echo 1 > "$out/$block.status"; exit 0 ;;
       esac
