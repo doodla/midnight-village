@@ -106,12 +106,7 @@ def recipes_of(job: str, values: dict[str, str]) -> list[tuple[str, tuple[str, .
                 words.append(word)
             if not words or SETUP.match(words[0]):
                 continue
-            name = (
-                "flutter-test"
-                if (folder, words[0]) == ("frontend", "test")
-                else words[0]
-            )
-            found.append((name, tuple(words[1:])))
+            found.append((words[0], tuple(words[1:])))
     return found
 
 
@@ -172,8 +167,6 @@ def step_keys(folder: str, command: list[str]) -> tuple[set[str], set[str]]:
     """(recipes this local step covers whole, recipes it covers in part)."""
     if command[:1] == ["just"] and len(command) > 1:
         name = command[1]
-        if (folder, name) == ("frontend", "test"):
-            name = "flutter-test"
         return COVERS.get(name, {name}), PARTLY.get(name, set())
     if command[:2] == ["flutter", "test"]:
         return set(), PARTLY["flutter test"]

@@ -23,8 +23,8 @@ Routing and what each block runs (`hooks/lib/gate.sh`, mode "fast"):
 
 | Paths | Block | Fast checks |
 |---|---|---|
-| `backend/**` (not Markdown), `docs/specs/onuw/recommended-setups.md` | backend | `just check`: ruff lint and format, pyrefly, `makemigrations --check` (about 5 s) |
-| `frontend/**` (not Markdown) | frontend | `just analyze`, `just format-check` (about 15 s) |
+| `backend/**` (not Markdown), `docs/specs/onuw/recommended-setups.md` | backend | the root `just check` (its steps: `just --show check`) |
+| `frontend/**` (not Markdown) | frontend | `just analyze`, `just flutter-format-check` |
 | `contract_samples/**` | backend, frontend | both of the above |
 | `.claude/**` (not skills), `tool/**`, `.github/**`, `docs/dev/main-ruleset.json`, root `justfile` | guardrails | `just test-guardrails`: guardrail, gate-routing and workflow tests |
 | Markdown, `docs/**` | none | only the link check (under a second) |
@@ -35,13 +35,13 @@ tool versions; recorded in the git dir for 14 days) is not run again; a `just ga
 counts. A block is stopped after 100 s, which blocks. A broken or missing `gate.sh` blocks every
 commit. No test suite runs in a commit, so a commit needs no long Bash timeout.
 
-`just gate-full [backend|frontend|guardrails ...]` (`hooks/gate-full.sh`, mode "full") is the
-whole local suite on demand, in parallel, with times: the link check; backend `just check` and
-`just test`; frontend analyze, format check, `just test`, `just gen-check`, `just screens` strict
-at 360 and at 390; the hook tests. A pass is recorded. It skips what only GitHub runs (web
-integration, the release build, the end-to-end harness). Tests: `hooks/test_gate_routing.sh`
-(in `just test-guardrails`) checks routing, that a commit runs no suite and that `gate-full` runs
-them all.
+`just gate-full [backend|frontend|guardrails ...]` (`hooks/gate-full.sh`, mode "full") runs every
+required GitHub check that can run here, in parallel, with times, and ends by naming the ones only
+GitHub runs (`GATE_FULL_SKIPS` in `hooks/lib/gate.sh`). A pass is recorded.
+`guardrails/tests/test_gate_full.py` holds its steps and that list to the workflows, and that a
+recipe of `backend/` or `frontend/` found at the root means the same there (`check-backend`,
+`test-backend`, `flutter-test`, `flutter-format-check` carry the folder's own meaning).
+`hooks/test_gate_routing.sh` checks routing and that a commit runs no suite.
 
 ## GitHub: the wall (`.github/workflows/`)
 

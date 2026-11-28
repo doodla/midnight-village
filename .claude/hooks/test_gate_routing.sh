@@ -122,8 +122,8 @@ echo h >> "$R/frontend/lib/y.dart"; echo h >> "$R/backend/x.py"
 (cd "$R" && git add frontend/lib/y.dart backend/x.py)
 commit_ok -m "fix: both" || fail "a commit whose fast checks pass was blocked"
 grep -qx "frontend analyze" "$TMP/just.log" || fail "the gate did not run analyze for a frontend change"
-grep -qx "frontend format-check" "$TMP/just.log" || fail "the gate did not run format-check for a frontend change"
-grep -qx "backend check" "$TMP/just.log" || fail "the gate did not run check for a backend change"
+grep -qx "frontend flutter-format-check" "$TMP/just.log" || fail "the gate did not run format-check for a frontend change"
+grep -qx "repo check" "$TMP/just.log" || fail "the gate did not run the root check for a backend change"
 grep -qE ' (test|test-guardrails|gen-check|screens)' "$TMP/just.log" && fail "the gate ran a test suite: $(tr '\n' ';' < "$TMP/just.log")"
 # a commit of documentation runs no check at all
 : > "$TMP/just.log"
@@ -133,7 +133,7 @@ commit_ok -m "docs: only" || fail "a docs-only commit was blocked"
 # `just gate-full` runs the suites and the extras, records the pass, and fails when a suite fails
 : > "$TMP/just.log"
 (cd "$R" && PATH="$TMP/bin:$PATH" gate_full >/dev/null 2>&1) || fail "gate_full failed with every step passing"
-for want in "backend check" "backend test" "frontend test" "frontend gen-check" "frontend screens 360 strict" "frontend screens 390 strict" "repo test-guardrails"; do
+for want in "repo check" "repo test-backend" "repo previous-build-check" "frontend flutter-test" "frontend gen-check" "frontend check-release" "frontend test-harness" "frontend screens 360 strict" "frontend screens 390 strict" "repo test-guardrails"; do
   grep -qx "$want" "$TMP/just.log" || fail "gate_full did not run: $want"
 done
 (cd "$R" && gate_passed "backend-full-$(gate_hash backend)" && gate_passed "backend-fast-$(gate_hash backend)") \

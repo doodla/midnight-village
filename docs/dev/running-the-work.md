@@ -48,9 +48,8 @@ the end-to-end harness.
 - A red check is read, not re-run: find the cause (the job's log, the uploaded pictures) and
   fix it. A job is re-run at most once, and only after saying why it is believed flaky; a
   second red is a cause to find.
-- To know before you push: `just gate-full` runs the local part (backend, frontend, hook
-  tests, generated code, screens) in parallel, in minutes. It skips the browser, build and
-  harness jobs, which only GitHub runs.
+- To know before you push: `just gate-full` runs every check GitHub runs that can run here, in
+  minutes, and names the ones it cannot.
 - The ruleset `docs/dev/main-ruleset.json` is the wall: it makes a squash-merged pull request
   and every check required on main. It is on (`docs/claude-architecture.md`, "GitHub: the wall").
 - Add, rename or remove a check: change the job and `docs/dev/main-ruleset.json` in the same

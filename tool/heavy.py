@@ -383,7 +383,7 @@ def passes_through(env) -> bool:
     return bool(env.get("HEAVY_SLOT")) or bool(env.get("CI"))
 
 
-LIGHT = {"check", "analyze", "format-check", "test-guardrails", "guard-edits", "lint", "typecheck"}
+LIGHT = {"check", "check-backend", "analyze", "format-check", "flutter-format-check", "test-guardrails", "guard-edits", "lint", "typecheck"}
 
 
 def wrap(command: list[str], name: str) -> list[str]:

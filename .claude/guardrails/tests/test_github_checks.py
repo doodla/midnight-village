@@ -142,7 +142,7 @@ class WhatARunCovered(unittest.TestCase):
         self.assertNotEqual(rows["Widget Tests"]["state"], "FAILED")
 
     def test_the_whole_frontend_suite_covers_widgets_and_goldens(self):
-        rows = self.rows(passed("frontend", "just", "test"))
+        rows = self.rows(passed("frontend", "just", "flutter-test"))
         self.assertEqual(rows["Widget Tests"]["state"], "passed")
         self.assertEqual(rows["Golden Tests"]["state"], "passed")
         # the backend's `just test` is another recipe with the same name
@@ -164,13 +164,13 @@ class WhatARunCovered(unittest.TestCase):
     def test_a_check_with_several_recipes_is_passed_only_when_all_ran(self):
         rows = self.rows(
             passed("frontend", "just", "analyze"),
-            passed("frontend", "just", "format-check"),
+            passed("frontend", "just", "flutter-format-check"),
         )
         self.assertEqual(rows["Analyze and Format"]["state"], "partly")
         rows = self.rows(
             *[
                 passed("frontend", "just", r)
-                for r in ("analyze", "format-check", "gen-check")
+                for r in ("analyze", "flutter-format-check", "gen-check")
             ]
         )
         self.assertEqual(rows["Analyze and Format"]["state"], "passed")

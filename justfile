@@ -43,10 +43,11 @@ makemigrations *args:
 
 # --- Testing ---
 
-# Run backend tests, then the .claude/ guardrail tests
+# Run backend tests, then the .claude/ guardrail tests. With arguments only those backend
+# tests, without the coverage floor: `just test tests/onuw/test_x.py -v`
 test *args:
-    {{backend_just}} test {{args}}
-    just test-guardrails
+    {{backend_just}} test-backend {{args}}
+    @{{ if args == "" { "just test-guardrails" } else { "true" } }}
 
 # Run the .claude/ hook tests: guardrails (python3 >= 3.11), the workflows' recipes and the commit gate's routing.
 # Without Flutter and Dart on PATH, as in GitHub's "Backend Checks" job (which runs this): a test that
@@ -112,9 +113,8 @@ handover *args:
 brief *args:
     @tool/brief.py {{args}}
 
-# The whole local suite, on demand (minutes): what the commit gate skips (it only runs
-# the fast checks) and GitHub runs on a pull request, except the browser, release-build
-# and end-to-end jobs. Optionally only some of: backend frontend guardrails
+# Every required GitHub check that can run here, on demand (minutes); it ends by naming
+# the ones only GitHub runs. Optionally only some of: backend frontend guardrails
 gate-full *blocks:
     .claude/hooks/gate-full.sh {{blocks}}
 
@@ -186,7 +186,7 @@ typecheck:
 # that no line of the notes is so long that two branches clash on it (tool/doc_lines.py),
 # and that what each agent must read stays within its limit (tool/context_budget.py)
 check:
-    {{backend_just}} check
+    {{backend_just}} check-backend
     {{backend_just}} lint-tools
     tool/copy_page.py --check-spec
     tool/check_instruction_links.sh
@@ -232,7 +232,7 @@ flutter-watch:
 
 # Run Flutter tests
 flutter-test:
-    {{frontend_just}} test
+    {{frontend_just}} flutter-test
 
 # Analyze Flutter code
 flutter-analyze:
@@ -257,7 +257,7 @@ playtest-pack *args:
 # Run Flutter integration tests on Chrome
 # Uses flutter drive because flutter test does not support web devices
 flutter-test-integration:
-    {{frontend_just}} test-integration
+    {{frontend_just}} flutter-test-integration
 
 # Run Flutter integration tests in headless mode (CI)
 flutter-test-integration-ci:
@@ -460,3 +460,31 @@ server-timing *args:
 # (backend) Re-record tests/perf/tap_budget.json after a change that adds or removes a query
 tap-budget *args:
     {{backend_just}} tap-budget {{args}}
+
+# (frontend) Clean build artifacts
+flutter-clean *args:
+    {{frontend_just}} flutter-clean {{args}}
+
+# (frontend) Get dependencies
+flutter-deps *args:
+    {{frontend_just}} flutter-deps {{args}}
+
+# (frontend) Format code
+flutter-format *args:
+    {{frontend_just}} flutter-format {{args}}
+
+# (frontend) Check formatting (--output=none: report only, never rewrite files)
+flutter-format-check *args:
+    {{frontend_just}} flutter-format-check {{args}}
+
+# (frontend) Run tests with coverage (excludes the live-backend e2e harness)
+flutter-test-cov *args:
+    {{frontend_just}} flutter-test-cov {{args}}
+
+# (backend) The backend's own four checks (lint, format, types, migrations): the first step of `just check`.
+check-backend *args:
+    {{backend_just}} check-backend {{args}}
+
+# (backend) The backend's tests; with arguments only those, without the coverage floor.
+test-backend *args:
+    {{backend_just}} test-backend {{args}}

@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
-# `just gate-full [backend|frontend|guardrails ...]`: the whole local suite, on demand.
-# The commit gate only runs what takes seconds; this runs the rest the way GitHub
-# does (minus what needs a browser or a build: integration tests, the release
-# build, the end-to-end harness, which only GitHub runs): the instruction-link
-# check, then backend (`just check`, `just test`), frontend (analyze, format,
-# tests, generated code current, screens strict at 360 and 390) and the hook
-# tests, in parallel. A pass is recorded, so the next commit on the same content
-# skips its fast checks. Takes minutes.
+# `just gate-full [backend|frontend|guardrails ...]`: every required GitHub check that
+# can run here, on demand, in parallel: the steps are `gate_run_blocks`' "full" ones in
+# lib/gate.sh, and what only GitHub runs is GATE_FULL_SKIPS there (it says so at the
+# end; guardrails/tests/test_gate_full.py holds both to the workflows). A pass is
+# recorded, so the next commit on the same content skips its fast checks. Minutes.
 HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/gate.sh
 if ! source "$HOOKS/lib/gate.sh" 2>/dev/null || ! gate_require; then
