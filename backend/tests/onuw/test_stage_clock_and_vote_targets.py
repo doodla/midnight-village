@@ -14,6 +14,7 @@ All through the real API, seeded deals, seat order the reverse of user-id order
 (``Night``), every role at the table checked alike.
 """
 
+import random
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import patch
@@ -25,6 +26,7 @@ from rest_framework import status
 
 from apps.core.wire import wire_time
 from apps.onuw import night_flow, recovery
+from apps.onuw.engine.validation import length_ranges
 from apps.onuw.models import Phase
 from tests.onuw.stages import staged
 from tests.onuw.test_choose_night import choose
@@ -45,7 +47,28 @@ ROLES = {
 CENTER = ["Villager", "Tanner", "Troublemaker"]
 T0 = datetime(2026, 1, 2, 18, 0, tzinfo=UTC)
 
-LOOK, WINDOW_1, WAVE, TALK, VOTE = 30, 15, 60, 300, 120
+VOTE = 120
+# The setting of each timed stage, in the order the game opens them.
+STAGE_KEYS = (
+    "card_look_seconds",
+    "night_doppelganger_window_seconds",
+    "night_wave_seconds",
+    "discussion_seconds",
+    "voting_seconds",
+)
+
+
+def _lengths(case: str) -> dict[str, int]:
+    """Every timed stage's length: the least the live rules let a table set (above 0,
+    which is no clock), the most, or a seeded draw between. A stage that lasts other
+    than its setting (a floor, a cap, an assumed default) differs at one of them."""
+    ranges = length_ranges({"disconnect_grace_seconds": 25}, allow_untimed=False)
+    rng = random.Random(f"stage-lengths:{case}")  # noqa: S311 (a seeded test draw)
+    out = {}
+    for key in STAGE_KEYS:
+        least, most = max(1, ranges[key][0]), ranges[key][1]
+        out[key] = {"least": least, "most": most}.get(case) or rng.randint(least, most)
+    return out
 
 
 class Clock:
@@ -112,70 +135,74 @@ def deal(night: Night) -> None:
 
 
 class TestStageStartedAt:
-    def test_every_timed_stage_says_when_it_opened_the_same_on_every_seat(
-        self, make_night, clock
+    @pytest.mark.parametrize("case", ["least", "most", "seeded"])
+    def test_every_timed_stage_lasts_what_the_table_set_the_same_on_every_seat(
+        self, make_night, clock, case
     ) -> None:
-        night = make_night(
-            ROLES,
-            CENTER,
-            card_look_seconds=LOOK,
-            night_doppelganger_window_seconds=WINDOW_1,
-            night_wave_seconds=WAVE,
-            night_min_window_seconds=0,
-            discussion_seconds=TALK,
-            voting_seconds=VOTE,
+        lengths = _lengths(case)
+        night = make_night(ROLES, CENTER, night_min_window_seconds=0, **lengths)
+        # A timer the game scheduled is armed, as on a server: no read finds one
+        # missing and rebuilds it (the rebuild's reconnect allowance is recovery's).
+        armed = patch(
+            "apps.core.timers.is_scheduled",
+            new=lambda key: any(k == key for k, *_ in night.scheduled),
         )
+        with armed:
+            self._play(night, clock, lengths)
+
+    def _play(self, night: Night, clock: Clock, lengths: dict[str, int]) -> None:
+        look, window_1, wave, talk_for, vote_for = (lengths[k] for k in STAGE_KEYS)
         deal(night)
         # The look stage.
         assert clock_of_every_seat(night) == (
             iso(T0),
-            iso(T0 + timedelta(seconds=LOOK)),
+            iso(T0 + timedelta(seconds=look)),
         )
 
-        # The last look opens window 1 (the Doppelganger's) 7 s later.
-        clock.advance(7)
+        # The last look opens window 1 (the Doppelganger's), before the look's end.
+        clock.advance(look / 4)
         everyone(night, "ready", {"ready": True})
-        w1 = T0 + timedelta(seconds=7)
+        w1 = T0 + timedelta(seconds=look / 4)
         assert night.refresh().current_wave == 1
         assert clock_of_every_seat(night) == (
             iso(w1),
-            iso(w1 + timedelta(seconds=WINDOW_1)),
+            iso(w1 + timedelta(seconds=window_1)),
         )
 
         # Window 1 ends on its fixed timer; window 2 opens then.
-        clock.advance(WINDOW_1)
+        clock.advance(window_1)
         night.fire_timer(1)
-        w2 = w1 + timedelta(seconds=WINDOW_1)
+        w2 = w1 + timedelta(seconds=window_1)
         assert night.refresh().current_wave == 2
         assert clock_of_every_seat(night) == (
             iso(w2),
-            iso(w2 + timedelta(seconds=WAVE)),
+            iso(w2 + timedelta(seconds=wave)),
         )
 
-        # Every phone with a choice chooses 4 s in: the talk opens.
-        clock.advance(4)
+        # Every phone with a choice chooses before the window ends: the talk opens.
+        clock.advance(wave / 4)
         for name in night.users:
             if night.turn_open(name):
                 assert choose(night, name, []).status_code == status.HTTP_200_OK
-        talk = w2 + timedelta(seconds=4)
+        talk = w2 + timedelta(seconds=wave / 4)
         assert night.refresh().phase == Phase.DISCUSSION
         assert clock_of_every_seat(night) == (
             iso(talk),
-            iso(talk + timedelta(seconds=TALK)),
+            iso(talk + timedelta(seconds=talk_for)),
         )
 
-        # Everyone is ready 90 s in: the vote opens.
-        clock.advance(90)
+        # Everyone is ready before the talk ends: the vote opens.
+        clock.advance(talk_for / 4)
         everyone(night, "ready", {"ready": True})
-        vote = talk + timedelta(seconds=90)
+        vote = talk + timedelta(seconds=talk_for / 4)
         assert night.refresh().phase == Phase.VOTING
         assert clock_of_every_seat(night) == (
             iso(vote),
-            iso(vote + timedelta(seconds=VOTE)),
+            iso(vote + timedelta(seconds=vote_for)),
         )
 
         # The results have no stage clock.
-        clock.advance(5)
+        clock.advance(vote_for / 4)
         for name in night.users:
             target = "wolf" if name != "wolf" else "seer"
             body = {"target_player_id": night.users[target].id, "lock": True}

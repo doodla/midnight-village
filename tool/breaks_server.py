@@ -310,7 +310,9 @@ SERVER_AUDIT: tuple[Break, ...] = (
             ),
         ),
         tests=("backend/tests/onuw/test_voting_api.py",),
-        survives="only the tap budget notices, and `just tap-budget` re-records it (2d)",
+        survives="a watch on every game write finds lock-free writes made on purpose"
+        " (one-statement compare-and-set: recovery.py, night_results.py; cascade deletes"
+        " in practice.py): it needs one sanctioned lock-free write first, not a list (2d)",
     ),
     Break(
         name="B5_unseeded_deal",
@@ -381,8 +383,10 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 within="set_ready",
             ),
         ),
-        tests=("backend/tests/onuw/test_voting_api.py",),
-        survives="tests only get slower (2c)",
+        # every test runs under tests/waits.py's watch; these tap ready
+        tests=("backend/tests/onuw/test_ready_to_vote.py",),
+        guards=("backend/tests/waits.py",),
+        expect="slept",
     ),
     Break(
         name="B8b_vote_floor_of_45_seconds",
@@ -396,11 +400,11 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 within="transition_to_voting",
             ),
         ),
+        # every timed stage at the least, the most and a seeded length the rules allow
         tests=(
-            "backend/tests/onuw/test_stage_clock_and_vote_targets.py",
-            "backend/tests/onuw/test_lengths_never_freeze.py",
+            "backend/tests/onuw/test_stage_clock_and_vote_targets.py::TestStageStartedAt"
+            "::test_every_timed_stage_lasts_what_the_table_set_the_same_on_every_seat",
         ),
-        survives="no test sets a vote shorter than 45 seconds and reads its deadline (2c)",
     ),
     Break(
         name="B9a_core_imports_the_game",
@@ -414,7 +418,7 @@ SERVER_AUDIT: tuple[Break, ...] = (
             ),
         ),
         tests=(
-            "backend/tests/core/test_core_stays_game_agnostic.py::test_core_never_imports_a_game_app",
+            "backend/tests/core/test_core_stays_game_agnostic.py::test_no_app_imports_a_game_app_but_its_own_game",
         ),
     ),
     Break(
@@ -429,8 +433,9 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 "from apps.onuw.models import PlayerRole  # noqa: F401\n",
             ),
         ),
-        tests=("backend/tests/core/test_core_stays_game_agnostic.py",),
-        survives="no rule says what observe may import",
+        tests=(
+            "backend/tests/core/test_core_stays_game_agnostic.py::test_no_app_imports_a_game_app_but_its_own_game",
+        ),
     ),
     Break(
         name="B9c_a_low_layer_imports_up",
