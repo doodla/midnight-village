@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Fails when an instruction file names a path, a section or a recipe that is not there.
 
-Every tracked Markdown file is an instruction to someone (the skills under
-.claude/skills/ are third-party and left out), and so is frontend/dart_test.yaml.
+Every tracked Markdown file is an instruction to someone (third-party skills under
+.claude/skills/ are left out: tool/skills.py), and so is frontend/dart_test.yaml.
 In each, a path is backticked text with a "/" or a file extension (also the first
 word of a line in a code block); text starting with "/" is an API path. In prose, a
 word without backticks that starts with one of the repo's top folders and a slash
@@ -30,6 +30,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import skills
 
 ROOT = Path(__file__).resolve().parents[1]
 EXT = re.compile(
@@ -102,12 +105,16 @@ class Tree:
 
 
 def instruction_files(tree: Tree) -> list[str]:
-    return sorted(
+    def read(path: str) -> str | None:
+        return tree.text(path) if path in tree.files else None
+
+    found = [
         p
         for p in tree.files
-        if (p.endswith(".md") and not p.startswith(".claude/skills/"))
+        if (p.endswith(".md") and not p.startswith(skills.SKILLS))
         or p == "frontend/dart_test.yaml"
-    )
+    ]
+    return sorted(found + skills.ours(sorted(tree.files), read))
 
 
 def looks_like_path(token: str) -> bool:

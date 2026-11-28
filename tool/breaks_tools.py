@@ -76,6 +76,18 @@ TOOLS: tuple[Break, ...] = (
         "test_file_sizes.py",
     ),
     _tool(
+        "a_comment_with_a_rule_is_deleted_unattended",
+        "the-wall",
+        "no-comments applies a sorter's deletion of a comment that says never or only",
+        Edit(
+            "tool/empty_comments.py",
+            "    if has_rule_word(text):",
+            "    if False:",
+            within="provably_empty",
+        ),
+        "test_empty_comments.py::TheClasses.test_a_rule_word_keeps_a_comment_out_of_every_class",
+    ),
+    _tool(
         "guard_edit_needs_no_reason",
         "guards-hold",
         "any description explains any guard edit",

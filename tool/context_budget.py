@@ -9,7 +9,8 @@ breaks. So the reading is measured, as tokens (characters / 4), and held to limi
 - each brief (`just brief <x>`: every screen and every area);
 - each role's read-first path: the CLAUDE.md files it works under, its agent
   definition, every document those or its brief tell it to read, and its brief;
-- the whole instruction surface: every tracked Markdown file but the skills.
+- each file of our own skills (tool/skills.py), read whole when the skill is called;
+- the whole instruction surface: every tracked Markdown file but third-party skills.
 
 The rule is the file-size rule (tool/check_file_sizes.py), with no list to keep:
 something under its limit on main may not pass it; something already over it on
@@ -31,6 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import brief_docs
+import skills
 from brief_docs import DOCS, tokens
 from change_base import change_base
 
@@ -42,6 +44,10 @@ CLAUDE_MD_LIMIT = 3_000
 BRIEF_LIMIT = 10_000
 ROLE_LIMIT = 15_000
 SURFACE_LIMIT = 150_000
+# A skill is read whole, on top of a role's path, by the agent that calls it; its folder's
+# other files (a sorter's prompt) by the helpers it sends. Each stays a small part of what
+# a cheap helper holds: pstack's originals are 600 to 850 tokens, ours under 750.
+SKILL_LIMIT = 1_000
 
 # Failures printed before "and N more" (one document on every path fails every role).
 SHOWN = 6
@@ -84,10 +90,12 @@ def load(name: str):
 
 
 def surface(problems: list[str] | None = None) -> list[str]:
-    """Every instruction file: tracked Markdown, the skills left out (third-party).
-    (A role path adds any other text file it is told to read: `measure`.) Every
-    read sentence in them is checked for a file the budget cannot count."""
-    docs = [p for p in DOCS.glob("*.md") if not p.startswith(".claude/skills/")]
+    """Every instruction file: tracked Markdown, third-party skills left out
+    (tool/skills.py). (A role path adds any other text file it is told to read:
+    `measure`.) Every read sentence in them is checked for a file the budget cannot count."""
+    markdown = DOCS.glob("*.md")
+    docs = [p for p in markdown if not p.startswith(skills.SKILLS)]
+    docs += skills.ours(markdown, DOCS.read)
     for path in docs:
         named_reads(path, DOCS.text(path), problems)
     return docs
@@ -205,6 +213,12 @@ def measure(problems: list[str] | None = None) -> dict[str, tuple[int, int, str]
                 CLAUDE_MD_LIMIT,
                 "loaded in every session below it",
             )
+    for path in skills.ours(files, DOCS.read):
+        found[f"skill file {path}"] = (
+            tokens(DOCS.text(path)),
+            SKILL_LIMIT,
+            "read whole when the skill is called",
+        )
     briefs = Briefs()
     for role, (agent, claude, which) in ROLES.items():
         definition = f".claude/agents/{agent}.md"
