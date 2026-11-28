@@ -19,6 +19,7 @@ final _pages08 = <ScreenEntry>[
     '-ready': pumpTalkReady,
     '-not-sent': pumpTalkNotSent,
     '-3': pumpTalkThree,
+    '-8-roles': pumpTalkEightRoles,
     '-9': pumpTalkNine,
     '-10-long': pumpTalkTenLong,
     '-x1.3': const _AtText(1.3, pumpTalkPutAway),

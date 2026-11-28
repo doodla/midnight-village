@@ -22,8 +22,10 @@ import '../../../../design_system/skin/skin.dart';
 /// (`PaperParts.square*`); what is here is the grid's count and the gaps,
 /// which are the app's spacing.
 abstract final class SquareMetrics {
-  /// Columns of the deck: three, four past six roles.
+  /// Columns of the deck: three, four past six roles; down to
+  /// [fewestColumns] (more rows) where a row's words are too wide.
   static const fewRoles = 6;
+  static const fewestColumns = 2;
 
   /// Between piles in a row (at most), between the deck's rows, between tags.
   static const pileGap = Space.xl;
@@ -200,16 +202,21 @@ class _Plan {
     }
     final tags = tagRows * tagHeight + (tagRows - 1) * SquareMetrics.tagGap;
     final parts = context.skin.parts;
-    // The deck's rows, as even as they go (the first longer).
-    final columns = piles.length > SquareMetrics.fewRoles ? 4 : 3;
-    final count = math.max(1, (piles.length / columns).ceil());
-    final grid = <List<Pile>>[];
-    var at = 0;
-    for (var r = 0; r < count; r++) {
-      final n = piles.length ~/ count + (r < piles.length % count ? 1 : 0);
-      grid.add(piles.sublist(at, at + n));
-      at += n;
+    // The deck's rows at [columns] to a row, as even as they go (the first
+    // longer).
+    List<List<Pile>> gridOf(int columns) {
+      final count = math.max(1, (piles.length / columns).ceil());
+      final grid = <List<Pile>>[];
+      var at = 0;
+      for (var r = 0; r < count; r++) {
+        final n = piles.length ~/ count + (r < piles.length % count ? 1 : 0);
+        grid.add(piles.sublist(at, at + n));
+        at += n;
+      }
+      return grid;
     }
+
+    final columns = piles.length > SquareMetrics.fewRoles ? 4 : 3;
     final stripLine = (TextPainter(
       text: TextSpan(text: 'Ag', style: type.tag),
       textDirection: TextDirection.ltr,
@@ -242,7 +249,11 @@ class _Plan {
         rowWidth = w;
       }
     }
-    _Plan at_(double portrait, {required bool fits}) {
+    _Plan at_(
+      double portrait, {
+      required bool fits,
+      List<List<Pile>> grid = const [],
+    }) {
       final rows = portrait > 0 ? grid : packed;
       final gaps = <double>[];
       var cardHeight = 0.0;
@@ -283,18 +294,27 @@ class _Plan {
       );
     }
 
+    // The largest portrait that fits, at the most to a row that gives it: a
+    // row whose words are too wide for its portraits (eight roles, four to a
+    // row, 412 wide) takes fewer to a row, more rows, before the portraits
+    // shrink or go.
+    final grids = [
+      for (var c = columns; c >= SquareMetrics.fewestColumns; c--) gridOf(c),
+    ];
     for (
       var p = widest;
       p >= parts.squarePortraitLeast;
       p -= parts.squarePortraitStep
     ) {
-      final plan = at_(p, fits: true);
-      if (plan.used <= room.height && plan.gaps.every((g) => g >= Space.xs)) {
-        return plan;
+      for (final grid in grids) {
+        final plan = at_(p, fits: true, grid: grid);
+        if (plan.used <= room.height && plan.gaps.every((g) => g >= Space.xs)) {
+          return plan;
+        }
       }
     }
-    // The portraits would be below what reads as a face: name-only cards,
-    // before the board ever scrolls.
+    // The portraits would be below what reads as a face at any number to a
+    // row: name-only cards, before the board ever scrolls.
     final names = at_(0, fits: true);
     if (names.used <= room.height) return names;
     return at_(0, fits: false);
