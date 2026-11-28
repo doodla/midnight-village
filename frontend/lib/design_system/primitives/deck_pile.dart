@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../models/role.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
@@ -13,7 +15,8 @@ import 'board_pieces.dart';
 /// ([BoardCard]); bone, or the Werewolf team's red. Where the deck holds the
 /// role more than once the other copies stand fanned behind it (one to the
 /// left, a third to the right) and the words say how many ("3 Villagers").
-/// A tap or a hold opens the role ([onOpen]). The deck is the game's public
+/// A tap or a hold opens the role ([onOpen]); the pile settles under the
+/// finger from the frame it lands ([PressSettle]). The deck is the game's public
 /// set-up: nothing here says who holds what. Plain, the card is its words.
 class DeckPile extends StatelessWidget {
   const DeckPile({
@@ -149,11 +152,16 @@ class DeckPile extends StatelessWidget {
       button: onOpen != null,
       label: label,
       excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onOpen,
-        onLongPress: onOpen,
-        child: pile,
+      child: Pressable(
+        enabled: onOpen != null,
+        builder: (context, press, child) =>
+            PressSettle(press: press, child: child!),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onOpen,
+          onLongPress: onOpen,
+          child: pile,
+        ),
       ),
     );
   }

@@ -67,12 +67,13 @@ enum FaceDownSize {
 /// under the token (the night board sets every name at one size that fits
 /// them all, in the same room, so a name on two lines moves no card).
 ///
-/// Touch (the night board): the frame a finger lands the card dips [dip] and
-/// its shadow stays where it was; a pick lifts it [lift] with the selection's
-/// outline, a soft glow of the ground's light ([GroundElevation.glow]) and a
-/// deeper hard shadow. Every card does this, whatever it is and whether or
-/// not a pick can take it, so no role shows in how a board answers a touch.
-/// Under reduce motion each is a cut to its end state.
+/// Touch (the night board): the frame a finger lands a card with [onTap]
+/// dips [dip] and its shadow stays where it was ([Pressable], by paint
+/// alone); a pick lifts it [lift] with the selection's outline, a soft glow
+/// of the ground's light ([GroundElevation.glow]) and a deeper hard shadow.
+/// Every card does this, whatever it is and whether or not a pick can take
+/// it, so no role shows in how a board answers a touch. Under reduce motion
+/// nothing travels: the press tightens the shadow, a pick cuts to its end.
 class FaceDownCard extends StatefulWidget {
   const FaceDownCard({
     super.key,
@@ -145,7 +146,7 @@ class FaceDownCard extends StatefulWidget {
   static const lift = Space.sm;
 
   /// How far a card dips under a finger.
-  static const dip = 2.0;
+  static const dip = Space.hairline;
 
   /// The picked card's soft light: its blur and its spread.
   static const glowBlur = 22.0;
@@ -197,26 +198,12 @@ class FaceDownCard extends StatefulWidget {
 }
 
 class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
-  /// A finger is on the card.
-  var _down = false;
-
-  void _touch(bool down) {
-    // Only a card that takes a tap dips (a hold's cover presses by paint).
-    if (widget.onTap == null) return;
-    if (_down != down && mounted) setState(() => _down = down);
-  }
-
   FaceDownSize get size => widget.size;
 
   @override
   Widget build(BuildContext context) {
-    // Going down is `press`, coming back up and a pick `quick`; no time at
-    // all under reduce motion.
-    final duration = Motion.within(
-      context,
-      _down ? Motion.press : Motion.quick,
-    );
-    final dip = _down && widget.onTap != null ? FaceDownCard.dip : 0.0;
+    // A pick is `quick`, and no time at all under reduce motion.
+    final duration = Motion.within(context, Motion.quick);
     return Semantics(
       label: widget.semanticLabel,
       hint: widget.semanticHint,
@@ -226,13 +213,12 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
       // Its own layer: a lift or a dip moves this card's picture, and never
       // repaints the paper round it (`paint_cache_test.dart`).
       child: RepaintBoundary(
-        child: Listener(
-          // The press answers the frame the finger lands, not when the tap is
-          // recognised (a card under a hold's cover waits for neither).
-          onPointerDown: (_) => _touch(true),
-          onPointerUp: (_) => _touch(false),
-          onPointerCancel: (_) => _touch(false),
-          child: GestureDetector(
+        // The press answers the frame the finger lands, not when the tap is
+        // recognised (only a card that takes a tap: a hold's cover presses
+        // by paint of its own).
+        child: Pressable(
+          enabled: widget.onTap != null,
+          builder: (context, press, _) => GestureDetector(
             onTap: widget.onTap,
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
@@ -240,26 +226,30 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
               curve: Motion.curve,
               transform: Matrix4.translationValues(
                 0,
-                (widget.selected ? -FaceDownCard.lift : 0) + dip,
+                widget.selected ? -FaceDownCard.lift : 0,
                 0,
               ),
-              // A pick lifts the card as one picture: its paper is painted
-              // once, not again each frame of the lift.
-              child: RepaintBoundary(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final most = widget.cardWidth ?? size.mock.width;
-                    final width = constraints.hasBoundedWidth
-                        ? most.clamp(0.0, constraints.maxWidth)
-                        : most;
-                    final column = _column(context, width, duration, dip);
-                    return widget.tapExtra == 0
-                        ? column
-                        : Padding(
-                            padding: EdgeInsets.only(bottom: widget.tapExtra),
-                            child: column,
-                          );
-                  },
+              child: PressSink(
+                press: press,
+                by: const Offset(0, FaceDownCard.dip),
+                // A pick lifts the card as one picture: its paper is painted
+                // once, not again each frame of the lift.
+                child: RepaintBoundary(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final most = widget.cardWidth ?? size.mock.width;
+                      final width = constraints.hasBoundedWidth
+                          ? most.clamp(0.0, constraints.maxWidth)
+                          : most;
+                      final column = _column(context, width, duration, press);
+                      return widget.tapExtra == 0
+                          ? column
+                          : Padding(
+                              padding: EdgeInsets.only(bottom: widget.tapExtra),
+                              child: column,
+                            );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -273,7 +263,7 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
     BuildContext context,
     double width,
     Duration duration,
-    double dip,
+    Animation<double> press,
   ) {
     final selected = widget.selected;
     final owner = widget.owner;
@@ -293,7 +283,7 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
               context,
               width,
               duration,
-              dip,
+              press,
               foot: owner != null && widget.face != null
                   ? _roleFoot(context, widget.face!, width)
                   : 0,
@@ -378,13 +368,13 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
 
   /// The card back in its ring, lying on the table; picked, it is lifted: a
   /// deeper hard shadow, the ground's soft light and the selection's ring,
-  /// each tweened with the lift. [dip] is how far a finger has pressed it
-  /// down: the shadow stays where it was.
+  /// each tweened with the lift. Under a finger ([press]) its shadow keeps
+  /// its far edge as the card dips ([FaceDownCard.dip]).
   Widget _back(
     BuildContext context,
     double width,
     Duration duration,
-    double dip, {
+    Animation<double> press, {
     double foot = 0,
   }) {
     final skin = context.skin;
@@ -405,7 +395,9 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
         padding: EdgeInsets.only(bottom: foot),
         child: CardBackPaper(
           id: widget.face?.name ?? widget.owner ?? 'back',
-          elevation: dip > 0 ? lying.lowered(dip) : lying,
+          elevation: lying,
+          press: press,
+          pressed: lying.lowered(FaceDownCard.dip),
           face: widget.face,
           over: _hold(context, width),
         ),
@@ -415,51 +407,57 @@ class _FaceDownCardState extends State<FaceDownCard> with _FaceDownCardWords {
         ? ground.elevation.selected
         : ground.elevation.lying.scaled(width / FaceDownCard._shadowWidth);
     final glow = ground.elevation.glow;
+    BoxDecoration paper(Elevation elevation) =>
+        cutPaper(
+          context,
+          fill: ground.ground,
+          radius: radius,
+          elevation: elevation,
+        ).copyWith(
+          boxShadow: [
+            // Under the hard shadow, and always in the list so it fades in
+            // and out with the pick instead of switching (the shadows are
+            // blended pair by pair). Unpicked it is a clear shadow with no
+            // blur, which costs nothing to paint: only a picked card, and
+            // one still fading, paints the soft light.
+            if (glow != null)
+              selected
+                  ? BoxShadow(
+                      color: glow,
+                      blurRadius: FaceDownCard.glowBlur,
+                      spreadRadius: FaceDownCard.glowSpread,
+                    )
+                  : BoxShadow(color: glow.withValues(alpha: 0)),
+            ...elevation.litBy(context),
+          ],
+        );
     return AnimatedContainer(
       duration: duration,
       curve: Motion.curve,
-      decoration:
-          cutPaper(
-            context,
-            fill: ground.ground,
-            radius: radius,
-            elevation: dip > 0 ? base.lowered(dip) : base,
-          ).copyWith(
-            boxShadow: [
-              // Under the hard shadow, and always in the list so it fades in
-              // and out with the pick instead of switching (the shadows are
-              // blended pair by pair). Unpicked it is a clear shadow with no
-              // blur, which costs nothing to paint: only a picked card, and
-              // one still fading, paints the soft light.
-              if (glow != null)
-                selected
-                    ? BoxShadow(
-                        color: glow,
-                        blurRadius: FaceDownCard.glowBlur,
-                        spreadRadius: FaceDownCard.glowSpread,
-                      )
-                    : BoxShadow(color: glow.withValues(alpha: 0)),
-              ...(dip > 0 ? base.lowered(dip) : base).litBy(context),
-            ],
-          ),
       foregroundDecoration: frameRing(
         context,
         color: selected ? ground.selection : ground.hairline,
         width: selected ? skin.shape.selectedRing : skin.shape.ring,
         radius: radius,
       ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (widget.face case final role?)
-              ArtPicture(context.roleArt(role))
-            else
-              ArtPicture(context.cardBack),
-            // Over the card's eye, clear of the token on its lower edge.
-            if (_hold(context, width) case final over?) over,
-          ],
+      child: PressDecoration(
+        press: press,
+        rest: paper(base),
+        down: paper(base.lowered(FaceDownCard.dip)),
+        duration: duration,
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (widget.face case final role?)
+                ArtPicture(context.roleArt(role))
+              else
+                ArtPicture(context.cardBack),
+              // Over the card's eye, clear of the token on its lower edge.
+              if (_hold(context, width) case final over?) over,
+            ],
+          ),
         ),
       ),
     );

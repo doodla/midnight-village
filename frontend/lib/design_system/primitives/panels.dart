@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../skin/card_back_scope.dart';
 import '../skin/dress.dart';
@@ -21,8 +23,11 @@ import 'paper_piece.dart';
 
 /// A box drawn as an outline on the ground, holding a summary that opens
 /// something (the deck strip at the table, S02: thumbnails and "Edit").
-/// With [onTap] it is a button. Dressed up it is a panel of paper set into
-/// the ground (a [PaperPiece]), never an outline. [color], [width] and
+/// With [onTap] it is a button, pressed from the frame a finger lands
+/// ([Pressable], by paint alone): the outline fills with a hairline, and
+/// dressed up the paper sinks into its shadow; a finger on a tappable part
+/// inside it (a role card) presses that part alone. Dressed up it is a panel
+/// of paper set into the ground (a [PaperPiece]), never an outline. [color], [width] and
 /// [padding] are the plain outline's own where a screen needs another.
 class OutlinePanel extends StatelessWidget {
   const OutlinePanel({
@@ -54,36 +59,44 @@ class OutlinePanel extends StatelessWidget {
     final ground = context.ground;
     final radius = BorderRadius.circular(skin.shape.radius);
     final dressed = context.dress.isPaper;
-    final Widget panel = dressed
+    BoxDecoration outline(Color? fill) => BoxDecoration(
+      color: fill,
+      borderRadius: radius,
+      border: Border.all(
+        color: color ?? ground.hairline,
+        width: width ?? skin.shape.stroke,
+      ),
+    );
+    Widget panel(Animation<double>? press) => dressed
         ? PaperPiece(
             part: PaperPart.panel,
             id: semanticLabel ?? #panel,
+            press: press,
             child: Padding(padding: padding, child: child),
           )
-        : Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
-                color: color ?? ground.hairline,
-                width: width ?? skin.shape.stroke,
-              ),
-            ),
-            child: child,
+        : press == null
+        ? Container(padding: padding, decoration: outline(null), child: child)
+        : PressDecoration(
+            press: press,
+            rest: outline(null),
+            down: outline(ground.hairline),
+            child: Padding(padding: padding, child: child),
           );
-    if (onTap == null) return panel;
+    if (onTap == null) return panel(null);
     return Semantics(
       button: true,
       label: semanticLabel,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          highlightColor: Colors.transparent,
-          focusColor: dressed ? Colors.transparent : null,
-          hoverColor: dressed ? Colors.transparent : null,
-          child: panel,
+      child: Pressable(
+        builder: (context, press, _) => Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            highlightColor: Colors.transparent,
+            focusColor: dressed ? Colors.transparent : null,
+            hoverColor: dressed ? Colors.transparent : null,
+            child: panel(press),
+          ),
         ),
       ),
     );

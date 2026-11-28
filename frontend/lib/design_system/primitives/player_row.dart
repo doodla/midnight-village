@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/dress.dart';
@@ -111,8 +113,10 @@ class PlayerNameSize extends InheritedWidget {
 ///   amber.
 /// - [stretch]: how much taller than its size the row stands, where the
 ///   room allows it (the vote fills the screen).
-/// - A row with [onTap] dips 2 px the frame a finger lands and comes back
-///   when it lifts or slides away (colour only under reduce motion).
+/// - A row with [onTap] sinks into its shadow the frame a finger lands
+///   ([Pressable], by paint alone: it dips [dip] and its shadow stays where
+///   it was), and comes back when it lifts or slides away; under reduce
+///   motion nothing moves: the shadow tightens and the paper tints.
 /// - [away]: a dropped member, the token dimmed, with no words (S02).
 /// - [dimmed]: the vote once locked, where every row dims the same and none
 ///   shows the pick (S09).
@@ -133,7 +137,11 @@ class PlayerRow extends StatefulWidget {
   });
 
   /// How far a finger presses a row down.
-  static const dip = 2.0;
+  static const dip = Space.hairline;
+
+  /// The paper's tint under a finger with reduce motion: a few percent of
+  /// its ink.
+  static const pressTint = 0.08;
 
   final TokenId? token;
   final String name;
@@ -153,9 +161,6 @@ class PlayerRow extends StatefulWidget {
 }
 
 class _PlayerRowState extends State<PlayerRow> {
-  /// A finger is on the row.
-  var _down = false;
-
   /// The row opened already sealed: no stamp to play.
   late final bool _openedSealed;
 
@@ -163,10 +168,6 @@ class _PlayerRowState extends State<PlayerRow> {
   void initState() {
     super.initState();
     _openedSealed = widget.sealed;
-  }
-
-  void _touch(bool down) {
-    if (_down != down && mounted) setState(() => _down = down);
   }
 
   /// The seal's width as a share of the token's.
@@ -181,8 +182,6 @@ class _PlayerRowState extends State<PlayerRow> {
     final (la, lb) = (a.computeLuminance(), b.computeLuminance());
     return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
   }
-
-  Size _size(BuildContext context) => context.size ?? Size.zero;
 
   PlayerRowSize get size => widget.size;
   bool get picked => widget.picked;
@@ -202,29 +201,25 @@ class _PlayerRowState extends State<PlayerRow> {
     final ground = context.ground;
     final red = sealed;
     final reduced = MediaQuery.disableAnimationsOf(context);
-    // A finger answers in the first frame (`press` down, `quick` back up);
-    // with reduce motion the paper tints instead of moving.
-    final pressed = _down && onTap != null && !dimmed;
-    final dip = pressed && !reduced ? PlayerRow.dip : 0.0;
     final lift = picked ? Space.xs : 0.0;
     final base = picked ? ground.elevation.selected : ground.elevation.card;
-    final fill = red
-        ? ground.danger
-        : pressed && reduced
-        ? Color.alphaBlend(
-            skin.paper.text.withValues(alpha: 0.08),
-            ground.paper,
-          )
-        : ground.paper;
+    // Under a finger (`Pressable`): the row sinks by [PlayerRow.dip] and its
+    // shadow keeps its far edge; with reduce motion it stays and tints.
+    final sunk = base.lowered(PlayerRow.dip);
+    final fill = red ? ground.danger : ground.paper;
+    final pressedFill = red || !reduced
+        ? fill
+        : Color.alphaBlend(
+            skin.paper.text.withValues(alpha: PlayerRow.pressTint),
+            fill,
+          );
     // Whichever ink reads better on the paper. The paper only changes colour
     // in a cut (the lock; a tint of a few percent), never through the grey
     // between bone and red where neither ink reaches 4.5:1, so the ink is
     // the right one on every frame.
     final ink = _inkOn(fill, skin.paper.text, ground.onDanger);
-    final duration = Motion.within(
-      context,
-      _down ? Motion.press : Motion.quick,
-    );
+    // A pick, a lock, a change of room: `quick` (the press is the finger's).
+    final duration = Motion.within(context, Motion.quick);
     final lead = skin.shape.corner(
       size.height + widget.stretch,
       skin.shape.rowLeadRoundness,
@@ -322,24 +317,12 @@ class _PlayerRowState extends State<PlayerRow> {
       ],
     );
     final dressed = context.dress.isPaper;
-    Widget plainPaper() => AnimatedContainer(
+    Widget plainPaper(Animation<double> press) => AnimatedContainer(
       // The red is cut in, not blended from bone (see [ink]).
       key: ValueKey(red),
       duration: duration,
       curve: Motion.curve,
-      transform: Matrix4.translationValues(0, dip - lift, 0),
-      padding: EdgeInsets.fromLTRB(
-        Space.sm,
-        Space.xxs,
-        size.endPadding,
-        Space.xxs,
-      ),
-      decoration: cutPaper(
-        context,
-        fill: fill,
-        radius: radius,
-        elevation: dip > 0 ? base.lowered(dip) : base,
-      ),
+      transform: Matrix4.translationValues(0, -lift, 0),
       foregroundDecoration: picked
           ? ringDecoration(
               color: ground.selection,
@@ -352,16 +335,35 @@ class _PlayerRowState extends State<PlayerRow> {
               border: Border.all(color: ink, width: skin.shape.selectedRing),
             )
           : null,
-      child: content,
+      child: PressDecoration(
+        press: press,
+        rest: cutPaper(context, fill: fill, radius: radius, elevation: base),
+        down: cutPaper(
+          context,
+          fill: pressedFill,
+          radius: radius,
+          elevation: sunk,
+        ),
+        duration: duration,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            Space.sm,
+            Space.xxs,
+            size.endPadding,
+            Space.xxs,
+          ),
+          child: content,
+        ),
+      ),
     );
     // Dressed up: torn paper set down a hair off square (the same every build,
     // from its name and token), pinned to the table; the words stay level.
     final seed = (token, name);
-    Widget dressedPaper() => AnimatedContainer(
+    Widget dressedPaper(Animation<double> press) => AnimatedContainer(
       key: ValueKey(red),
       duration: duration,
       curve: Motion.curve,
-      transform: Matrix4.translationValues(0, dip - lift, 0),
+      transform: Matrix4.translationValues(0, -lift, 0),
       child: TiltedPaper(
         angle: skin.tilt.angle(Tilt.seededRow('${token?.name}:$name')),
         duration: duration,
@@ -369,7 +371,14 @@ class _PlayerRowState extends State<PlayerRow> {
           context,
           fill: fill,
           id: seed,
-          elevation: dip > 0 ? base.lowered(dip) : base,
+          elevation: base,
+        ),
+        press: press,
+        pressed: deckledPaper(
+          context,
+          fill: pressedFill,
+          id: seed,
+          elevation: sunk,
         ),
         // Picked is the paper's mark and the lift, never a ring; the viewer's
         // own row is told by its "You" tag (a ring along the torn edge was a
@@ -385,14 +394,17 @@ class _PlayerRowState extends State<PlayerRow> {
         ),
       ),
     );
-    final Widget paper = dressed ? dressedPaper() : plainPaper();
     // The height is set here, outside the tween: a row that changes size
     // (the room changed) is the new size at once, never mid-way and over.
-    final row = ConstrainedBox(
+    Widget row(Animation<double> press) => ConstrainedBox(
       constraints: BoxConstraints(minHeight: size.height + widget.stretch),
-      child: paper,
+      child: PressSink(
+        press: press,
+        by: const Offset(0, PlayerRow.dip),
+        child: dressed ? dressedPaper(press) : plainPaper(press),
+      ),
     );
-    final shown = AnimatedOpacity(
+    Widget shown(Animation<double> press) => AnimatedOpacity(
       duration: Motion.within(context, Motion.quick),
       opacity: dimmed ? skin.dimmed : 1,
       child: dressed
@@ -403,7 +415,7 @@ class _PlayerRowState extends State<PlayerRow> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  row,
+                  row(press),
                   Positioned(
                     top: -skin.parts.pinSize / 3,
                     left: Space.xl + Space.lg,
@@ -412,7 +424,7 @@ class _PlayerRowState extends State<PlayerRow> {
                 ],
               ),
             )
-          : row,
+          : row(press),
     );
     // Once locked (dimmed) a row cannot be picked: it reads as switched off.
     // One tree whatever the row can do, so a row that is locked (or dimmed)
@@ -422,20 +434,11 @@ class _PlayerRowState extends State<PlayerRow> {
       enabled: dimmed ? false : null,
       button: tappable ? true : null,
       selected: tappable ? picked : null,
-      child: Listener(
-        // The press answers the frame the finger lands, not when the tap is
-        // recognised.
-        onPointerDown: (_) => tappable ? _touch(true) : null,
-        // Sliding off the row cancels the press (the tap is cancelled too).
-        onPointerMove: (event) {
-          if (_down &&
-              !(Offset.zero & _size(context)).contains(event.localPosition)) {
-            _touch(false);
-          }
-        },
-        onPointerUp: (_) => _touch(false),
-        onPointerCancel: (_) => _touch(false),
-        child: Material(
+      // The press answers the frame the finger lands, not when the tap is
+      // recognised; sliding off cancels it with the tap.
+      child: Pressable(
+        enabled: tappable,
+        builder: (context, press, _) => Material(
           type: MaterialType.transparency,
           // Material sets its own default text style (the theme's body)
           // under it, for every row, tappable or not; the row's words take
@@ -443,13 +446,10 @@ class _PlayerRowState extends State<PlayerRow> {
           textStyle: DefaultTextStyle.of(context).style,
           child: InkWell(
             onTap: tappable ? onTap : null,
-            onHighlightChanged: (value) {
-              if (!value) _touch(false);
-            },
             borderRadius: radius,
             highlightColor: Colors.transparent,
             splashColor: Colors.transparent,
-            child: shown,
+            child: shown(press),
           ),
         ),
       ),

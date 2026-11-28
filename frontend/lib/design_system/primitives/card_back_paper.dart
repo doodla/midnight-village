@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../feel/press_paint.dart';
 import '../models/role.dart';
 import '../skin/card_back_scope.dart';
 import '../skin/werewolf_portrait.dart';
@@ -14,7 +15,9 @@ import '../skin/elevation.dart';
 /// shadow cast by the paper above it. The picture inside is the card's art
 /// as it is, its own printed edge left outside the navy layer (`CardBack.
 /// frameInset`); the edge of the card is two cut layers and their shadows,
-/// never a line. [face] shows a role instead of the back.
+/// never a line. [face] shows a role instead of the back. Given a [press]
+/// (`Pressable`'s), the card casts [pressed] as far as the press goes, by
+/// paint alone.
 class CardBackPaper extends StatelessWidget {
   const CardBackPaper({
     super.key,
@@ -22,6 +25,8 @@ class CardBackPaper extends StatelessWidget {
     required this.elevation,
     this.face,
     this.over,
+    this.press,
+    this.pressed,
   });
 
   final Object id;
@@ -32,6 +37,11 @@ class CardBackPaper extends StatelessWidget {
 
   /// Laid over the picture (the hold ring).
   final Widget? over;
+
+  final Animation<double>? press;
+
+  /// What the whole card casts all the way down.
+  final Elevation? pressed;
 
   @override
   Widget build(BuildContext context) {
@@ -48,21 +58,30 @@ class CardBackPaper extends StatelessWidget {
           depth: parts.deckleDepth,
           step: parts.deckleStep,
         );
+        Decoration under(Elevation elevation) => deckledPaper(
+          context,
+          fill: face == null ? parts.cardRim : ground.paper,
+          id: (id, 'rim'),
+          elevation: elevation,
+          depth: parts.deckleDepth,
+          step: parts.deckleStep,
+          edgeLine: false,
+          side: BorderSide.none,
+        );
+        final press = this.press;
         return Stack(
           fit: StackFit.expand,
           children: [
-            DecoratedBox(
-              decoration: deckledPaper(
-                context,
-                fill: face == null ? parts.cardRim : ground.paper,
-                id: (id, 'rim'),
-                elevation: elevation,
-                depth: parts.deckleDepth,
-                step: parts.deckleStep,
-                edgeLine: false,
-                side: BorderSide.none,
+            if (press == null)
+              DecoratedBox(decoration: under(elevation))
+            else
+              PressDecoration(
+                press: press,
+                rest: under(elevation),
+                down: under(pressed ?? elevation),
+                // A pick cuts its shadow in, as before.
+                duration: Duration.zero,
               ),
-            ),
             Padding(
               padding: EdgeInsets.all(rim),
               child: DecoratedBox(
