@@ -511,10 +511,12 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   The seconds are what a screen reader hears (the candle is excluded).
   Behind the title is a quiet strip of the night village
   (`TopArtLayout.strip`: 170 tall under a half veil of the ground, fading out, and at a table of three on a tall phone taller by `NightBoard.stripShare` of the height beyond `tallPhone`, to `stripMost`, taking the air two big cards leave (`ScreenFrame.topArtExtra`; nothing moves), the layered night village (`ScreenFrame.topScene` with `topSceneFrom`: `LayeredArt(from:)` starts the box at `NightBoard.villageFrom`, a canvas row under the moon, whatever the status bar adds); the title stays above 7:1 on it, `board_composition_test.dart`).
-  Touch: every card, whatever it is and whatever the role, dips 2 px the frame a finger lands (`FaceDownCard.dip`, `press`, the shadow staying where it was) and
+  Touch: every card, whatever it is and whatever the role, dips 2 px the frame a finger lands
+  (`FaceDownCard.dip`, through `Pressable` by paint alone: a `PressSink`, and the shadow staying where it was, a `PressDecoration`; dressed up `CardBackPaper(press:)`)
+  and
   a pick lifts it 8 px over `quick`, casts the deeper paper shadow and wears the `PaperMark` on its corner
   (no ring, no glow, no halo; a plain screen keeps its bone ring and glow), all tweened together and back again when it is unpicked;
-  every duration is `Motion.within`, so reduce motion cuts to the end state (the lift and the mark still show);
+  every duration is `Motion.within`, so reduce motion cuts to the end state (the lift and the mark still show), and a press moves nothing there: its shadow tightens;
   nothing vibrates at night (`pick_feel_test.dart`).
   The Choose button waits as the one locked form
   (a dressed screen: `PaperPiece.lockedPaper`, dark indigo paper barely lifted off the ground, the quietest button there is, its label naming the pick it waits for in the ground's own text, 56 tall; a plain screen keeps the outlined slot with its dark lip)
@@ -618,7 +620,7 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   the night's screens never declare it. A `VoteSlip` measures as a `PlayerRow` of the same size, so `VoteRows` lays both out by one rule;
   plain, a slip IS that row (what follows).
 - **Choosing and locking (09)**: `PlayerRow` with an `onTap` dips 2 px the frame a finger lands
-  (`PlayerRow.dip`, `press` down, `quick` back, the shadow staying where it was; sliding off or a lift of the finger returns it; under reduce motion the paper tints and nothing moves),
+  (`PlayerRow.dip`, through `Pressable` by paint alone, the shadow staying where it was; a slide past the tap's slop or a lift returns it; under reduce motion the shadow tightens, the paper tints and nothing moves; a dressed `VoteSlip` sinks its `PaperPiece` the same way),
   a pick lifts 6 px with the ink outline (`quick`), and `sealed` (the vote locked on this player) stamps a `PaperSeal` inside the token's lower right corner
   (`primitives/paper_seal.dart`: a scalloped cut disc with a hard shadow and a padlock, tilted a little like a hand-stamped seal; it comes down from `PaperSeal.landFrom` (1.4) times its size over `Motion.quick` on `Motion.land`, `easeOutBack`, under a tenth of overshoot, growing from its lower right corner so it grows up and left, over the token and away from the name; at rest, tilt and shadow included, it is inside the token, so it never hangs below the paper; a screen that opens already locked has it in place, `lands: false`).
   A lock cuts the pick's paper in dried-blood red (`ground.danger`) on the frame of the lock, words and ring in bone, the seal a bone disc with a red padlock
@@ -762,8 +764,13 @@ a design round follows.
 
 One press and one loop for the whole kit, so a tap answers the frame the finger lands and nothing idles unseen (`docs/design/feel.md`, principles 1, 3 and 6).
 The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`.
-Pressed through `Pressable`: `PrimaryButton`, `SecondaryButton`, `PaperScrap`, `IconAction`, `TextAction` and the card turned in place on 04 (`HoldToReveal` with `inPlace`);
-the other tappable primitives (the night board's cards, rows, slips, chips, steppers) keep their own `_touch` until a later piece.
+Pressed through `Pressable`: `PrimaryButton`, `SecondaryButton`, `PaperScrap`, `IconAction`, `TextAction` and the card turned in place on 04 (`HoldToReveal` with `inPlace`) (press piece 1);
+`PlayerRow`, `VoteSlip`, `PresetChip`, `DeckPile`, `ValueStepper`'s signs, `OutlinePanel`, `RoleCard` and its minus, `GlyphButton` and the night board's `FaceDownCard`s (press piece 2).
+A row or slip sinks into its shadow; a chip, a sign, the panel and the glyph fill with a hairline, and dressed up their `PaperPiece` sinks;
+a deck pile and a role card settle (`PressSettle`, `feel/press_paint.dart`: 2 px down and 2% smaller, under reduce motion their ink dims to 80% instead); the minus dims.
+Left out: the owner's `PerfStrip` (a tool), the layer that puts a night result away (`UntilTouched`), the hidden hold on a stepper's name, and the hold on "My night".
+- **Nested parts**: the innermost enabled `Pressable` under a finger takes the press alone (each listener hears the same down, the innermost first), as its detector takes the tap:
+  a role card on the table's `OutlinePanel` presses, not the panel; a part turned off (a chip with nothing to do) leaves it to the part round it (`press_test.dart`).
 
 - **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
   The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
@@ -785,7 +792,8 @@ the other tappable primitives (the night board's cards, rows, slips, chips, step
   (`card_turn_press_test.dart`, a frame a millisecond, held and let go).
   While a press blends, a deckled edge (a shadow moving under a finger) is a moved copy of one cut once for its size, not torn every frame (`DeckleBorder.whileMoving`);
   at rest and all the way down every edge is cut where it lies and nothing more is made for it, as before (`deckle_moving_test.dart`).
-  Tests: `press_parts_test.dart` (the first frame, a quick tap, the lift, reduce motion and no rebuild, by the pixels drawn, for every part).
+  Tests: `press_parts_test.dart` and `press_parts_board_test.dart`, one harness (`press_parts_harness.dart`):
+  the first frame, a quick tap, the lift, reduce motion, the layers at rest and no rebuild, by the pixels drawn, for every part in both dresses.
   Reduce motion: the press is 1 on the frame the finger lands and 0 on the lift, and `PressSink` moves nothing (pair it with a tint the part draws);
   a tap down and up before a frame is drawn keeps its lift until that frame is done (a post-frame callback, never a timer), so it still shows one pressed frame.
   A locked part keeps `enabled` and still answers;
