@@ -9,6 +9,7 @@ import 'package:midnight_village/design_system/skin/ground_scope.dart';
 import 'package:midnight_village/design_system/skin/skin_id.dart';
 import 'package:midnight_village/design_system/skin/skin_theme.dart';
 
+import '../../helpers/art_decoded.dart';
 import '../../helpers/finger.dart';
 import '../../helpers/frame_pixels.dart';
 
@@ -60,11 +61,11 @@ Future<void> _pump(
   PressPart part, {
   required VoidCallback tap,
   bool still = false,
-}) {
+}) async {
   tester.view.physicalSize = const Size(400, 500);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  return tester.pumpWidget(
+  await tester.pumpWidget(
     MaterialApp(
       theme: skinTheme(SkinId.fallback.skin),
       builder: (context, app) => MediaQuery(
@@ -83,6 +84,8 @@ Future<void> _pump(
       ),
     ),
   );
+  // The part's art is in before its rest is read, whichever test runs first.
+  await loadPictures(tester);
 }
 
 Finder _of(PressPart part) => find.byType(part.root);
