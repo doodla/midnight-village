@@ -121,25 +121,21 @@ class SkinField extends StatelessWidget {
       ),
     );
     // Dressed up the field is a piece of paper (a bone scrap for the name, a
-    // panel for the code), lifted while it has the focus: no outline.
+    // panel for the code): no outline. The paper never moves with the focus
+    // (the cursor shows it): a web browser takes the focus away on the touch
+    // that lands anywhere else, and the field must not drop as that part
+    // sinks (the owner, 28 November 2026).
     final dressed = context.dress.isPaper;
     return Semantics(
       textField: true,
       label: semanticLabel,
       child: dressed
-          ? Focus(
-              canRequestFocus: false,
-              skipTraversal: true,
-              child: Builder(
-                builder: (context) => ConstrainedBox(
-                  constraints: constraints,
-                  child: PaperPiece(
-                    part: _paper ? PaperPart.scrap : PaperPart.panel,
-                    id: (semanticLabel, #field),
-                    lifted: Focus.of(context).hasFocus,
-                    child: Align(alignment: Alignment.centerLeft, child: field),
-                  ),
-                ),
+          ? ConstrainedBox(
+              constraints: constraints,
+              child: PaperPiece(
+                part: _paper ? PaperPart.scrap : PaperPart.panel,
+                id: (semanticLabel, #field),
+                child: Align(alignment: Alignment.centerLeft, child: field),
               ),
             )
           : Container(

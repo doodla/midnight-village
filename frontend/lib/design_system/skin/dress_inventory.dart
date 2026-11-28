@@ -251,7 +251,7 @@ const inventory = <PartEntry>[
     part: PaperPart.scrap,
     plain: 'name: raised paper tile; code: 2 px outline',
     paper:
-        'name: a bone scrap; code: a panel of paper; lifted while it has the focus',
+        'name: a bone scrap; code: a panel of paper; the focus shows by the cursor alone',
   ),
   PartEntry(
     'SheetScaffold',
