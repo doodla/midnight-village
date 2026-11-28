@@ -90,9 +90,8 @@ APP: tuple[Break, ...] = (
         edits=(
             Edit(
                 "frontend/lib/features/game/presentation/shell/talk_square.dart",
-                "      for (var c = columns; c >= SquareMetrics.fewestColumns; c--)"
-                " gridOf(c),\n",
-                "      gridOf(columns),\n",
+                "      for (var c = columns; c >= SquareMetrics.fewestColumns; c--)\n",
+                "      for (var c = columns; c >= columns; c--)\n",
             ),
         ),
         tests=(

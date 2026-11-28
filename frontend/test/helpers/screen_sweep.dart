@@ -31,14 +31,23 @@ import 'truncated_text.dart';
 //   it says lie apart do not lie on each other; its own rules hold.
 
 /// Phones: a small one, a tall narrow one, a large Android one (412 wide: a link
-/// drawn for 390 came out broken on the owner's), and last the mocks' one, which
-/// is the size a state opens at.
+/// drawn for 390 came out broken on the owner's), a Pixel in Chrome (411.43
+/// wide under the browser's bars: the talk's deck lost its pictures between
+/// 411 and 412), and last the mocks' one, which is the size a state opens at.
 const sweepSizes = [
   Size(360, 640),
   Size(360, 780),
   Size(412, 915),
+  Size(411.43, 784),
   Size(390, 844),
 ];
+
+/// A phone's size as a line says it: 411.43x784, 360x640.
+String sizeLabel(Size size) {
+  String side(double v) =>
+      v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(2);
+  return '${side(size.width)}x${side(size.height)}';
+}
 
 /// The phone's text size: as set, larger, the largest a table plays with.
 const sweepScales = [1.0, 1.3, 1.6];
@@ -343,7 +352,7 @@ Future<List<String>> sweepScreen(
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
-        final at = '${size.width.toInt()}x${size.height.toInt()} text x$scale';
+        final at = '${sizeLabel(size)} text x$scale';
         problems.addAll([
           for (final e in errors) '$at: $e',
           for (final p in checkDrawn(tester, plan, size)) '$at: $p',
