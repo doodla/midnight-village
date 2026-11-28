@@ -21,10 +21,24 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
   abstract int _ids;
   abstract int? _acked;
 
+  /// A count heard while this phone's own ready or lock was out
+  /// (`_countOnItsWay`): its answer settles it ([_settleHeard]).
+  StageProgress? _heldProgress;
+
+  /// How many `/me/` this phone has applied (read or told): a tap's answer
+  /// counts for the held count only if none was applied since it left.
+  int _viewsApplied = 0;
+
+  /// For each tap out: how many `/me/` had been applied when it left.
+  final _sentWith = <int, int>{};
+
   /// This phone's own play again is on its way: its answer seats the phone
   /// with the table's lobby ([playAgain]), so the `play_again` event that
   /// may come first reads `/me/table/` as before instead of seating it.
   bool _playingAgain = false;
+
+  /// `play_again` was heard while this phone's own play again was out.
+  bool _movedWhilePlaying = false;
 
   // ---------------------------------------------------------------------------
   // Taps out, through the outbox.
@@ -65,6 +79,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
   }
 
   Future<StageAnswer> _send(OutboxItem item) async {
+    _sentWith[item.id] = _viewsApplied;
     final reply = await playerRequest(
       (door) => _service.send(door, gameId, item.request),
     );
@@ -72,6 +87,7 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
     final box = _game.outbox;
     if (box.current(item.lane)?.id != item.id) {
       // Its stage or turn ended while it was out: the answer changes nothing.
+      _sentWith.remove(item.id);
       _next(item.lane);
       return reply.answer;
     }
@@ -92,17 +108,27 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
         final turnFollows =
             item.lane == OutboxLane.choose &&
             (learned == null || learned.choosesLeft > 0);
-        if (turnFollows || _echoDiffers(item.request, reply.body)) {
+        // A ready or a lock: the answer says what was stored and the count
+        // the table was sent, put on the held `/me/` (nothing is read). A
+        // count heard while it was out is read again only when it differs.
+        final counted = _stored(item, reply.body);
+        final heard = _settleHeard(item.lane);
+        if (turnFollows ||
+            _echoDiffers(item.request, reply.body) ||
+            (heard != null && heard != counted)) {
           unawaited(refresh());
         }
       case ChooseAnswer.stale:
         // Shown until the fetch lands, so the tap does not flicker off first.
         _setOutbox(box.withCurrent(_confirming(item)));
+        _settleHeard(item.lane);
         unawaited(refresh());
       case ChooseAnswer.refused:
         _setOutbox(box.withoutCurrent(item.lane));
+        if (_settleHeard(item.lane) != null) unawaited(refresh());
       case ChooseAnswer.notSent:
         _setOutbox(box.withCurrent(item.copyWith(leg: Leg.unsent)));
+        if (_settleHeard(item.lane) != null) unawaited(refresh());
         // The ack has no "Try again": it is sent again by itself.
         if (item.lane == OutboxLane.ack) {
           _ackTimer?.cancel();
@@ -118,8 +144,49 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
       _acked = math.max(_acked ?? 0, seen);
       _failedAcks = 0;
     }
+    _sentWith.remove(item.id);
     _next(item.lane);
     return reply.answer;
+  }
+
+  /// What a taken ready or lock's [body] says the server stored, put on the
+  /// held `/me/` with the count the table was sent ([GameMe.withStored]), and
+  /// that count; null when the answer carries none (an older server, a
+  /// pick) or the stage has moved on. The tap stays shown, confirming, so an
+  /// older read that lands later cannot take it off the screen.
+  StageProgress? _stored(OutboxItem item, Map<String, dynamic>? body) {
+    final server = _game.server;
+    final raw = body?['progress'];
+    // Only if no /me/ was applied since the tap left: one that was (a read, a
+    // view) may hold a newer count than this answer; the tap then stays as it
+    // was shown, confirming, and the next count settles it.
+    final unchanged = _sentWith.remove(item.id) == _viewsApplied;
+    if (raw is! Map || server.stage != item.key || !unchanged) return null;
+    final progress = StageProgress.fromJson(raw.cast<String, dynamic>());
+    final stored = switch (item.request) {
+      ReadyRequest(:final ready) when body!['ready'] == ready =>
+        server.withStored(ready: ready, progress: progress),
+      VoteRequest(:final targetId, lock: true)
+          when body!['target_player_id'] == targetId &&
+              body['locked'] == true =>
+        server.withStored(
+          vote: MyVote.local(targetId, locked: true),
+          progress: progress,
+        ),
+      _ => null,
+    };
+    if (stored == null) return null;
+    _update((s) => s.copyWith(server: stored));
+    return progress;
+  }
+
+  /// The count heard while a tap of [lane] was out ([_heldProgress]), taken:
+  /// its answer settles it. Null for a lane that moves no count.
+  StageProgress? _settleHeard(OutboxLane lane) {
+    if (lane != OutboxLane.ready && lane != OutboxLane.vote) return null;
+    final heard = _heldProgress;
+    _heldProgress = null;
+    return heard;
   }
 
   OutboxItem _confirming(OutboxItem item) =>
@@ -286,9 +353,13 @@ mixin _LiveGameTaps on _$LiveGameNotifier {
           .read(lobbyServiceProvider)
           .playAgain(door, _game.server.lobbyCode);
     } catch (e) {
+      // The table moved on (its event said so) but this answer is not there
+      // to seat the phone: where it sits is read.
+      if (_movedWhilePlaying && ref.mounted) askWhere(ref);
       throw _refused(e, BannerCopy.cannotDeal) ?? e;
     } finally {
       _playingAgain = false;
+      _movedWhilePlaying = false;
     }
     if (!ref.mounted) return true;
     // Others may leave before 02's socket listens: read once more then.

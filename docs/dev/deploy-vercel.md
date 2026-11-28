@@ -134,15 +134,20 @@ A timer is a named job with JSON params (`night_window`, `discussion_deadline`,
 5. **Lost publications.** The row stores `published_at`, set only after the send returned.
    A row unpublished for more than 5 s (the instance died between the row and the send, or
    the send failed) does not count as scheduled, so the lazy repair re-publishes it
-   (`GET /me/` calls `ensure_timers` and then `timers.sweep` for that game's keys). The sweep
+   (`apps/onuw/repair.py`: `ensure_timers` and then `timers.sweep` for that game's keys,
+   and a practice seat's lost move). It runs on every `GET /me/`, and on the socket's
+   heartbeat: every 15 s the game's oldest open socket runs it once for its game (until
+   the results), so an untimed stage whose timer was lost moves on even when no phone
+   reads. A repair that fails is counted in the owner's report (`repair_failed`, the
+   report's `server`), since the runtime logs keep only an hour. The sweep
    also re-sends, with the SAME token (a duplicate is harmless: only one claim runs), rows
    more than 5 s past due whose message evidently never ran, at most every 30 s per row.
 6. **Cron.** `GET` or `POST /api/onuw/internal/sweep-timers/` sweeps every timer. It
    answers 403 unless `Authorization: Bearer <CRON_SECRET>` matches the `CRON_SECRET`
    environment variable (Vercel Cron sends exactly that header on its GET); with no secret
    configured it always refuses. Vercel Cron's minimum interval depends on the plan (hobby
-   plans are limited to daily runs), so the lazy repair on `GET /me/` is the primary
-   repair and the cron is a backstop for games nobody is polling. NOTE (open): the cron
+   plans are limited to daily runs), so the lazy repair (on `GET /me/` and on the socket's
+   heartbeat) is the primary repair and the cron is a backstop for games with no socket open. NOTE (open): the cron
    entry itself (the `crons` of a vercel.json) is not in the repo.
 7. **One clock.** `due_at`, `last_seen`, the staleness cutoff and every due / freshness
    comparison use the database clock, so instances with skewed clocks agree on who is
@@ -446,7 +451,9 @@ against the two live addresses, from outside, with no account and no secret:
    both must hear `game_started` within 5 seconds. The game is played through by requests
    (every length short), the host plays again, and both must hear the table reopen. The log
    says how long each took. The deal and a restart reach the other phones only this way
-   (the rescue is a read every 15 seconds), and nothing else opens a socket on the live server.
+   (the rescue is a read every 15 seconds while a phone's socket is down; a socket that
+   hears no heartbeat frame for 2.5 beats counts as down and is opened again), and nothing
+   else opens a socket on the live server.
    **How long it took** (`--timings`, `tool/deployed_timing.py`): every request of this step is timed over a connection kept open,
    and each read is repeated five times and the settings change three.
    The run's summary on GitHub shows a table per kind of request: the caller's time (first, median, worst)

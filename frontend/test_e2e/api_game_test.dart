@@ -113,7 +113,10 @@ void main() {
       final marks = {for (final p in players) p.userId: t.gameWire(p).mark};
       for (final p in [alice, bob, cara, dan]) {
         final body = await _staged(t, p, 'ready', {'ready': true});
-        expect(body, {'status': 'ok', 'ready': true});
+        expect(body, containsPair('status', 'ok'));
+        expect(body, containsPair('ready', true));
+        // The count the table was sent for this tap: no read after it.
+        expect(body['progress'], containsPair('stage', 'look'));
       }
       expect((await t.me(alice))['current_wave'], 0);
       await _staged(t, eve, 'ready', {'ready': true});
@@ -274,7 +277,9 @@ void main() {
         isEmpty,
         reason: 'a pick sends nothing to anyone',
       );
-      expect(await vote(alice, dan), {'status': 'submitted'});
+      final locked = await vote(alice, dan);
+      expect(locked, containsPair('status', 'submitted'));
+      expect(locked, containsPair('locked', true));
       final progress = await t
           .gameWire(bob)
           .waitForEvent(

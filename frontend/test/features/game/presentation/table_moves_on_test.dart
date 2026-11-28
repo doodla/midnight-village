@@ -6,6 +6,8 @@ import 'package:midnight_village/design_system/teach/learned_store.dart';
 import 'package:midnight_village/features/game/domain/screen_table.dart';
 import 'package:midnight_village/features/game/presentation/shell/table_shell.dart';
 import 'package:midnight_village/features/game/presentation/table_screen.dart';
+import 'package:midnight_village/features/lobby/presentation/where_am_i_provider.dart'
+    show askWhereIn;
 
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/server_json.dart';
@@ -226,9 +228,10 @@ void main() {
         lobby: v2Lobby('detail_auto_deck_5'),
         viewer: 'Ben',
       );
-      // The table's poll goes out and its answer is held: it was served
-      // before the deal.
+      // A read of where it sits goes out (the app coming back, the socket
+      // back) and its answer is held: it was served before the deal.
       final held = setup.http.hold(method: 'GET', path: '/me/table/');
+      askWhereIn(setup.container(tester));
       await tester.pump(const Duration(milliseconds: 60));
       expect(held.length, greaterThan(0));
 

@@ -28,6 +28,24 @@ CONSTANTS
   FIX_403,     \* a /me/ refused (not a player) asks /me/table/
   DROP_STALE,  \* a /me/table/ read out when a newer one is asked for is
                \* dropped (Riverpod keeps only the newest build's answer)
+  FIX_ASKLESS, \* branch ask-less: the end of a game reaches the phone with its
+               \* own view (`me`, then game_results, one batch), and a /me/
+               \* ahead of the table moves the table to it (MyTable.inGameAt,
+               \* finished at the results) with no read, unless a table read is
+               \* out (it decides when it lands); past a deadline the phone
+               \* reads its /me/, not the table. With a table read out the
+               \* table is asked again instead (the read may know more)
+  SEED_OVER_READ, \* the first try of ask-less: the seat from /me/ is put even
+               \* over a read out (dropping it): breaks Converges (seat_drop)
+  ZOMBIE,      \* the socket can die open (a phone that slept, a network changed
+               \* under it): the phone counts it up, the server reaches nobody
+  FIX_BEAT,    \* the server's beat: a socket silent for 2.5 beats is dropped
+               \* by the phone (then Back, as any drop)
+  LOSE,        \* an event lost on a socket that stays alive (a full or expired
+               \* channel queue): the beat proves the link, not delivery
+  FIX_TOKEN,   \* the beat carries the table's token (the lobby's rev; a game's
+               \* stage and whether its table moved on): a phone showing less
+               \* reads once (02 its lobby, judged; elsewhere where it sits)
   MaxDrops, MaxResumes, MaxFails
 
 NoTable == 50
@@ -58,10 +76,12 @@ VARIABLES
   lwhy,     \* why it was read: "mount" (02 opens) or "again"
   lmem,     \* the phone's own player list has it at the table
   mq,       \* the game's /me/ read: None, Sent, Forbidden, or the served version
-  drops, resumes, fails
+  drops, resumes, fails,
+  dead      \* ZOMBIE: the socket shown up is dead (until the phone notices, or
+            \* a new screen opens its own)
 
 vars == <<srv, member, left, up, opening, chan, tab, reads, judge, lq, lwhy, lmem,
-          mq, drops, resumes, fails>>
+          mq, drops, resumes, fails, dead>>
 Truth == IF member THEN srv ELSE NoTable
 
 (* ---------------- the phone's moves ---------------- *)
@@ -71,6 +91,8 @@ Older == IF DROP_STALE THEN {} ELSE {[cur |-> FALSE, v |-> r.v] : r \in reads}
 NewRead == Older \cup {[cur |-> TRUE, v |-> Sent]}
 \* askWhere(ref): a new read replaces the one out
 Ask == reads' = NewRead /\ judge' = FALSE
+\* a /me/table/ read is out (myTable is loading)
+ReadOut == \E r \in reads : r.cur
 \* askWhere(settledBy: moved on): a read out now is judged when it lands
 AskJudged == IF \E r \in reads : r.cur THEN judge' = TRUE /\ UNCHANGED reads ELSE Ask
 \* the app coming back (myTable's own resume): a read out answers it
@@ -90,7 +112,7 @@ Seed(v) == /\ reads' = Older /\ judge' = FALSE /\ Show(v)
 
 (* ---------------- server ---------------- *)
 \* an event reaches the phone only on a socket that is up and listened to
-Emit(src, v) == IF up /\ Src(tab) = src THEN chan' = Append(chan, [src |-> src, v |-> v])
+Emit(src, v) == IF up /\ ~dead /\ Src(tab) = src THEN chan' = Append(chan, [src |-> src, v |-> v])
                 ELSE UNCHANGED chan
 Ph == <<member, left, up, opening, tab, reads, judge, lq, lwhy, lmem, mq, drops, resumes, fails>>
 Deal == /\ Kind(srv) = "waiting" /\ srv' = srv + 1 /\ Emit("lobby", srv + 1) /\ UNCHANGED Ph
@@ -118,6 +140,11 @@ Deliver ==
                   ELSE Ask /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>>
         ELSE IF e.v = 3 /\ FIX_SEED /\ Kind(tab) = "finished"         \* play_again at the end
              THEN Seed(e.v)
+        ELSE IF e.v = 2 /\ FIX_ASKLESS                                 \* its view, then game_results
+             THEN IF tab >= 2 THEN UNCHANGED <<up, opening, tab, reads, judge, lq, lwhy, mq>>
+                  ELSE IF ReadOut /\ ~SEED_OVER_READ
+                  THEN Ask /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>>
+                  ELSE Seed(2)
         ELSE Ask /\ UNCHANGED <<up, opening, tab, lq, lwhy, mq>>       \* game_results; play_again elsewhere
   /\ UNCHANGED <<srv, member, left, lmem, drops, resumes, fails>>
 
@@ -164,21 +191,33 @@ ServeMe == /\ mq = Sent
            /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, reads, judge, lq, lwhy,
                           lmem, drops, resumes, fails>>
 ApplyMe == /\ mq \notin {None, Sent} /\ mq' = None
-           /\ IF mq = Forbidden THEN (IF FIX_403 THEN Ask ELSE UNCHANGED <<reads, judge>>)
-              ELSE IF Kind(tab) = "game" /\ mq > tab THEN Ask ELSE UNCHANGED <<reads, judge>>
-           /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lq, lwhy, lmem, drops,
-                          resumes, fails>>
+           /\ IF mq = Forbidden
+              THEN (IF FIX_403 THEN Ask ELSE UNCHANGED <<reads, judge>>)
+                   /\ UNCHANGED <<up, opening, tab, lq, lwhy>>
+              ELSE IF Kind(tab) = "game" /\ mq > tab
+              THEN IF ~FIX_ASKLESS \/ (ReadOut /\ ~SEED_OVER_READ)
+                   THEN Ask /\ UNCHANGED <<up, opening, tab, lq, lwhy>>
+                   \* the seat put from it (seatFromServer: a read out is dropped);
+                   \* the same game's socket, so nothing opens
+                   ELSE reads' = Older /\ judge' = FALSE /\ tab' = mq
+                        /\ UNCHANGED <<up, opening, lq, lwhy>>
+              ELSE UNCHANGED <<reads, judge, up, opening, tab, lq, lwhy>>
+           /\ UNCHANGED <<srv, member, left, chan, lmem, drops, resumes, fails>>
 \* in a game every stage has a deadline, and past it the phone reads /me/ until
 \* the stage changes (the day model's FIX_HEAL): a player whose game is behind
 \* reads the table; a phone not in the game is refused every time
+\* (FIX_ASKLESS: what it reads past the deadline is its /me/, which moves the
+\* table when it is ahead: ApplyMe)
 GameHeals == /\ Kind(tab) = "game" /\ reads = {} /\ mq = None
              /\ IF member THEN srv # tab ELSE FIX_403
-             /\ Ask
-             /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lq, lwhy, lmem, mq,
+             /\ IF FIX_ASKLESS /\ member
+                THEN mq' = Sent /\ UNCHANGED <<reads, judge>>
+                ELSE Ask /\ UNCHANGED mq
+             /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lq, lwhy, lmem,
                             drops, resumes, fails>>
 
 (* ---------------- the socket and the app ---------------- *)
-Drop == /\ up /\ drops < MaxDrops /\ drops' = drops + 1
+Drop == /\ up /\ ~dead /\ drops < MaxDrops /\ drops' = drops + 1
         /\ up' = FALSE /\ chan' = <<>>
         /\ UNCHANGED <<srv, member, left, opening, tab, reads, judge, lq, lwhy, lmem, mq,
                        resumes, fails>>
@@ -215,20 +254,51 @@ Sleep == /\ chan # <<>> /\ resumes < MaxResumes /\ chan' = <<>> /\ Woken
 Init == /\ srv = 0 /\ member = TRUE /\ left = FALSE /\ up = TRUE /\ opening = FALSE
         /\ chan = <<>> /\ tab = 0 /\ reads = {} /\ judge = FALSE /\ lq = LNone
         /\ lwhy = "mount" /\ lmem = TRUE /\ mq = None /\ drops = 0 /\ resumes = 0
-        /\ fails = 0
+        /\ fails = 0 /\ dead = FALSE
 
-Next == \/ Deal \/ End \/ PlayAgain \/ Leave
-        \/ Deliver \/ ServeTable \/ ApplyTable \/ ServeLobby \/ LobbyFails \/ ApplyLobby
-        \/ ServeMe \/ ApplyMe \/ GameHeals
-        \/ Drop \/ Back \/ Resume \/ Sleep
+\* ZOMBIE: the socket dies open; what was on its way is lost, nothing comes after
+Zombie == /\ ZOMBIE /\ up /\ ~dead /\ drops < MaxDrops /\ drops' = drops + 1
+          /\ dead' = TRUE /\ chan' = <<>>
+          /\ UNCHANGED <<srv, member, left, up, opening, tab, reads, judge, lq, lwhy, lmem, mq,
+                         resumes, fails>>
+\* FIX_BEAT: no frame for 2.5 beats: the phone drops it, so Back reads as for any drop
+Beat == /\ FIX_BEAT /\ dead /\ dead' = FALSE /\ up' = FALSE
+        /\ UNCHANGED <<srv, member, left, opening, chan, tab, reads, judge, lq, lwhy, lmem, mq,
+                       drops, resumes, fails>>
+\* LOSE: the next event on its way is lost, the socket alive and up
+Lose == /\ LOSE /\ up /\ ~dead /\ chan # <<>> /\ drops < MaxDrops /\ drops' = drops + 1
+        /\ chan' = Tail(chan)
+        /\ UNCHANGED <<srv, member, left, up, opening, tab, reads, judge, lq, lwhy, lmem, mq,
+                       resumes, fails, dead>>
+\* FIX_TOKEN: a beat on a live socket, once what was on its way arrived or was lost
+\* (its token is read beside the beat, never ahead of the events), says the table
+\* is ahead of what the phone shows: 02 reads its lobby (judged: it asks where the
+\* phone sits if the table moved on); anywhere else the phone asks where it sits.
+TokenBeat ==
+  /\ FIX_TOKEN /\ up /\ ~dead /\ ~opening /\ chan = <<>> /\ member /\ srv > tab
+  /\ IF Kind(tab) = "waiting"
+     THEN lq = LNone /\ lq' = LSent /\ lwhy' = "again" /\ UNCHANGED <<reads, judge>>
+     ELSE ~ReadOut /\ Ask /\ UNCHANGED <<lq, lwhy>>
+  /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lmem, mq, drops, resumes, fails,
+                 dead>>
+\* every other move: a dead socket stays dead while it is the one shown up (a
+\* new screen opening its own socket replaces it)
+M(A) == A /\ dead' = (dead /\ up')
+
+Next == \/ M(Deal \/ End \/ PlayAgain \/ Leave
+             \/ Deliver \/ ServeTable \/ ApplyTable \/ ServeLobby \/ LobbyFails \/ ApplyLobby
+             \/ ServeMe \/ ApplyMe \/ GameHeals
+             \/ Drop \/ Back \/ Resume \/ Sleep)
+        \/ Zombie \/ Beat \/ Lose \/ TokenBeat
 
 \* the host moves on; the phone's own steps and a socket coming up are fair;
-\* a resume, a leave and a failure are never promised
+\* a resume, a leave and a failure are never promised; the beat is (FIX_BEAT)
 Spec == Init /\ [][Next]_vars
-        /\ WF_vars(Deal) /\ WF_vars(End) /\ WF_vars(PlayAgain)
-        /\ WF_vars(Deliver) /\ WF_vars(ServeTable) /\ WF_vars(ApplyTable)
-        /\ WF_vars(ServeLobby) /\ WF_vars(ApplyLobby) /\ WF_vars(Back)
-        /\ WF_vars(ServeMe) /\ WF_vars(ApplyMe) /\ WF_vars(GameHeals)
+        /\ WF_vars(M(Deal)) /\ WF_vars(M(End)) /\ WF_vars(M(PlayAgain))
+        /\ WF_vars(M(Deliver)) /\ WF_vars(M(ServeTable)) /\ WF_vars(M(ApplyTable))
+        /\ WF_vars(M(ServeLobby)) /\ WF_vars(M(ApplyLobby)) /\ WF_vars(M(Back))
+        /\ WF_vars(M(ServeMe)) /\ WF_vars(M(ApplyMe)) /\ WF_vars(M(GameHeals))
+        /\ WF_vars(Beat) /\ WF_vars(TokenBeat)
 
 (* ---------------- rules ---------------- *)
 \* the screen never goes back to a table older than one it showed

@@ -16,6 +16,7 @@ import logging
 from typing import Any
 
 from apps.core.presence import (  # noqa: F401  (re-exported)
+    beat_frame,
     check_key,
     check_params,
     cutoff,

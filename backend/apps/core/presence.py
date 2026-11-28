@@ -49,6 +49,17 @@ def heartbeat_seconds() -> float:
     )
 
 
+def beat_frame(token: dict[str, Any] | None = None) -> dict[str, Any]:
+    """What a socket sends its phone as it opens and at each heartbeat. A phone
+    counts its socket as up only while frames keep coming (within about two
+    beats); ``every`` says how often they come, so the phone holds no number of
+    ours. ``token`` is what every seat at the table already knows of where it is
+    (the lobby's ``rev``; a game's ``phase``, ``window`` and ``moved_on``), the
+    same for every socket of one table: a phone holding less reads once, so a
+    frame lost on a socket that stays alive costs one read, not a stuck screen."""
+    return {"type": "beat", "every": heartbeat_seconds(), **(token or {})}
+
+
 def stale_seconds() -> float:
     return float(
         getattr(settings, "ONUW_PRESENCE_STALE_SECONDS", DEFAULT_STALE_SECONDS)
@@ -101,41 +112,82 @@ def fresh_rows(*, lobby_id: Any = None, user_id: int | None = None):
     return queryset
 
 
+def lobby_beat(channel_name: str) -> tuple[Any, int] | None:
+    """A lobby socket's heartbeat in one statement: its row refreshed, and its
+    lobby's id and ``rev`` (the table's number: the beat frame's token, the same
+    for every seat). None when the row is gone. Leaves the connection open."""
+    from django.db import connection
+
+    from .models import Lobby, LobbySocket
+
+    sockets = LobbySocket._meta.db_table
+    lobbies = Lobby._meta.db_table
+    sql = f"""
+        UPDATE {sockets} AS s SET last_seen = STATEMENT_TIMESTAMP()
+        FROM {lobbies} AS l
+        WHERE s.channel_name = %s AND l.id = s.lobby_id
+        RETURNING l.id, l.rev
+    """  # noqa: S608 (table names from the models, values as parameters)
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [channel_name])
+        row = cursor.fetchone()
+    return None if row is None else (row[0], row[1])
+
+
 def connected_user_ids(*, lobby_id: Any = None) -> set[int]:
     """Users with at least one fresh socket on the lobby."""
     return set(fresh_rows(lobby_id=lobby_id).values_list("user_id", flat=True))
 
 
-async def heartbeat_loop(beat) -> None:
-    """Run ``await beat()`` every heartbeat interval until cancelled (one task
-    per consumer). A failing beat is logged and the loop carries on.
+async def heartbeat_loop(frame, work) -> None:
+    """Every heartbeat interval until cancelled (one task per consumer): ``await
+    frame()`` on time, then ``work()`` (the beat's database work) beside it.
 
-    Cancelling (the consumer's ``disconnect``) stops it at once while it
-    sleeps, but a beat already running is finished first: its database work
-    runs in a pool thread that cancelling cannot stop, so returning early would
-    let that thread refresh, or re-create, the socket's row AFTER ``disconnect``
-    deleted it (a closed socket counted as connected until it went stale).
-    However often it is cancelled meanwhile (``disconnect``'s own task can be
-    cancelled too: shutdown, a timeout), the beat stays shielded until it ends."""
+    The frame never waits for the database: a slow database must not make
+    every phone drop a healthy socket. A beat whose work from the last beat is
+    still running starts none (they never pile up). A failing frame or work is
+    logged and the loop carries on.
+
+    Cancelling (the consumer's ``disconnect``) stops it at once, but work
+    already running is finished first: it runs in a pool thread that
+    cancelling cannot stop, so returning early would let that thread refresh,
+    or re-create, the socket's row AFTER ``disconnect`` deleted it (a closed
+    socket counted as connected until it went stale). However often it is
+    cancelled meanwhile (``disconnect``'s own task can be cancelled too:
+    shutdown, a timeout), the work stays shielded until it ends."""
     import asyncio
 
     interval = heartbeat_seconds()
-    while True:
-        await asyncio.sleep(interval)
-        running = asyncio.ensure_future(beat())
-        cancelled = False
-        while not running.done():
+    running: asyncio.Future | None = None
+    try:
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                await frame()
+            except Exception:
+                logger.exception("Heartbeat frame failed")
+            if running is not None and not running.done():
+                continue  # the last beat's work still runs: no second one
+            _log_failure(running)
+            running = asyncio.ensure_future(work())
+    except asyncio.CancelledError:
+        while running is not None and not running.done():
             try:
                 await asyncio.shield(running)
             except asyncio.CancelledError:
-                cancelled = True
+                pass
             except Exception:
-                break  # the beat failed, so it has ended: logged below
-        failure = None if running.cancelled() else running.exception()
-        if failure is not None:
-            logger.error("Presence heartbeat failed", exc_info=failure)
-        if cancelled or running.cancelled():
-            raise asyncio.CancelledError
+                break  # it failed, so it has ended: logged below
+        _log_failure(running)
+        raise
+
+
+def _log_failure(running: Any) -> None:
+    if running is None or not running.done() or running.cancelled():
+        return
+    failure = running.exception()
+    if failure is not None:
+        logger.error("Presence heartbeat failed", exc_info=failure)
 
 
 # ── The durable check ───────────────────────────────────────────────────────

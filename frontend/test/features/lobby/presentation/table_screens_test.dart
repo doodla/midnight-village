@@ -797,7 +797,9 @@ void main() {
         status: 404,
       );
 
-      setup.event(ContractSamples.map('ws/lobby/player_left'));
+      // The socket drops and comes back: the phone reads its table again.
+      await setup.dropLobbySocket();
+      await tester.pump(const Duration(seconds: 2));
       await setup.settle(tester);
       expect(find.text(BannerCopy.tableClosed), findsOneWidget);
 

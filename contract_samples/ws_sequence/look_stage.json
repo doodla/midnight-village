@@ -5,6 +5,7 @@
     "progress",
     "progress",
     "progress",
+    "me",
     "night_window"
   ],
   "Ben": [
@@ -13,6 +14,7 @@
     "progress",
     "progress",
     "progress",
+    "me",
     "night_window"
   ],
   "Cleo": [
@@ -21,6 +23,7 @@
     "progress",
     "progress",
     "progress",
+    "me",
     "night_window"
   ],
   "Dev": [
@@ -29,6 +32,7 @@
     "progress",
     "progress",
     "progress",
+    "me",
     "night_window"
   ],
   "Esme": [
@@ -37,6 +41,7 @@
     "progress",
     "progress",
     "progress",
+    "me",
     "night_window"
   ]
 }

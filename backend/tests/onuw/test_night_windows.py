@@ -82,7 +82,13 @@ class _Recorder:
         self.events: list[tuple[str, dict[str, Any]]] = []
 
     def group_send(self, group: str, event: dict[str, Any]) -> None:
-        self.events.append((group, event))
+        # Packed and unpacked as the live layer does (msgpack): an event Redis
+        # could not carry fails the test.
+        from tests.contract.recorder import LIVE_SERIALIZER
+
+        self.events.append(
+            (group, LIVE_SERIALIZER.deserialize(LIVE_SERIALIZER.serialize(event)))
+        )
 
 
 class Night:

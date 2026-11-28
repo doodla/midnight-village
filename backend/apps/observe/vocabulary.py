@@ -80,11 +80,17 @@ SOCKET_EVENTS = frozenset(
         "player_presence",
         "progress",
         "vote_reveal",
+        # a player's own view as a stage opens, and the heartbeat's frame
+        # (which the phone swallows: it never names it, but the server sends it)
+        "me",
+        "beat",
         # the recorder's word for a message with no type it knows
         "message",
     }
 )
 METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE"})
+# What the server counts of itself (``counts.add``): a game's lazy repair failed.
+SERVER_COUNTS = frozenset({"repair_failed"})
 HIDDEN = "·"
 
 _TAP = re.compile(

@@ -9,14 +9,16 @@ part of 'where_am_i_provider.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 /// Where this player sits (`GET /me/table/`): the first fetch of a cold
-/// start, fetched again (invalidated) when the table may have moved on (a
-/// phase change, play again, a host change, leave, reconnect, a lobby that
-/// says its table is in a game this phone was not told of). Coming back to
+/// start, fetched again (invalidated) when the seat may have changed (play
+/// again, a host change, leave, a refused game, reconnect, a lobby that
+/// says its table is in a game this phone was not told of; a stage change
+/// moves it from what `/me/` says, `MyTable.inGameAt`). Coming back to
 /// the app reads it again at once, whatever the screen: an event missed
 /// while the phone slept is healed by that one read. A failed fetch is
 /// retried until it succeeds ([retryForever]). At a waiting table or a
 /// finished game, where only an event would say the table moved on, it is
-/// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
+/// also polled slowly ([HealTiming.tablePoll]) while the socket that would
+/// hear its news is down ([SocketHealth]): the backstop, never the way
 /// a missed event heals; a poll that brings the same answer is not a new
 /// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
 /// device as the last seat ([LastSeat]).
@@ -30,14 +32,16 @@ part of 'where_am_i_provider.dart';
 const myTableProvider = MyTableProvider._();
 
 /// Where this player sits (`GET /me/table/`): the first fetch of a cold
-/// start, fetched again (invalidated) when the table may have moved on (a
-/// phase change, play again, a host change, leave, reconnect, a lobby that
-/// says its table is in a game this phone was not told of). Coming back to
+/// start, fetched again (invalidated) when the seat may have changed (play
+/// again, a host change, leave, a refused game, reconnect, a lobby that
+/// says its table is in a game this phone was not told of; a stage change
+/// moves it from what `/me/` says, `MyTable.inGameAt`). Coming back to
 /// the app reads it again at once, whatever the screen: an event missed
 /// while the phone slept is healed by that one read. A failed fetch is
 /// retried until it succeeds ([retryForever]). At a waiting table or a
 /// finished game, where only an event would say the table moved on, it is
-/// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
+/// also polled slowly ([HealTiming.tablePoll]) while the socket that would
+/// hear its news is down ([SocketHealth]): the backstop, never the way
 /// a missed event heals; a poll that brings the same answer is not a new
 /// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
 /// device as the last seat ([LastSeat]).
@@ -52,14 +56,16 @@ final class MyTableProvider
         $FunctionalProvider<AsyncValue<MyTable?>, MyTable?, FutureOr<MyTable?>>
     with $FutureModifier<MyTable?>, $FutureProvider<MyTable?> {
   /// Where this player sits (`GET /me/table/`): the first fetch of a cold
-  /// start, fetched again (invalidated) when the table may have moved on (a
-  /// phase change, play again, a host change, leave, reconnect, a lobby that
-  /// says its table is in a game this phone was not told of). Coming back to
+  /// start, fetched again (invalidated) when the seat may have changed (play
+  /// again, a host change, leave, a refused game, reconnect, a lobby that
+  /// says its table is in a game this phone was not told of; a stage change
+  /// moves it from what `/me/` says, `MyTable.inGameAt`). Coming back to
   /// the app reads it again at once, whatever the screen: an event missed
   /// while the phone slept is healed by that one read. A failed fetch is
   /// retried until it succeeds ([retryForever]). At a waiting table or a
   /// finished game, where only an event would say the table moved on, it is
-  /// also polled slowly ([HealTiming.tablePoll]): the backstop, never the way
+  /// also polled slowly ([HealTiming.tablePoll]) while the socket that would
+  /// hear its news is down ([SocketHealth]): the backstop, never the way
   /// a missed event heals; a poll that brings the same answer is not a new
   /// state (nothing is told, so nothing is drawn). Null: at no table. Every answer is kept on the
   /// device as the last seat ([LastSeat]).
@@ -93,7 +99,7 @@ final class MyTableProvider
   }
 }
 
-String _$myTableHash() => r'4348ad4e9a72312c1a6232b6dabd717fa22787e2';
+String _$myTableHash() => r'794cec43d958ef27b319bae7eac25cc548c60321';
 
 @ProviderFor(seatSeed)
 const seatSeedProvider = SeatSeedProvider._();

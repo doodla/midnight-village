@@ -4,9 +4,11 @@ checked on the recorded samples.
 
 Every socket sample's index entry says which group delivered it and who got
 it (``recorder.Table.record_event``); ``test_contract_samples.py`` keeps the
-committed index equal to what the server sends. The night sends no event to one
-player: prompts and results are read from ``/me/``, so a seat's socket hears
-exactly what every other seat hears.
+committed index equal to what the server sends. The only thing a seat's socket
+hears that another seat's does not is its own view (``me``, its own ``GET /me/``
+on its own group, at the same moments for every seat, whatever it was dealt);
+every other event, and the beat each socket sends its phone, is the same for
+every seat.
 """
 
 from __future__ import annotations
@@ -47,8 +49,36 @@ def test_every_socket_sample_says_who_received_it() -> None:
     samples = _socket_samples()
     assert samples
     for sample in samples:
-        assert sample["group"] in ("player", "broadcast"), sample["name"]
+        assert sample["group"] in ("player", "broadcast", "socket"), sample["name"]
         assert sample["recipients"], sample["name"]
+
+
+# The beat's exact keys per socket: how often beats come, and the table's token
+# (what every seat already knows: the lobby's number; the game's phase and
+# window and whether its table moved on). Nothing about anyone.
+BEAT_KEYS = {
+    "lobby": {"type", "every", "rev"},
+    "game": {"type", "every", "phase", "window", "moved_on"},
+}
+
+
+def test_what_a_socket_sends_its_own_phone_is_the_same_for_every_socket() -> None:
+    """The one frame a consumer sends its socket directly (``group: socket``) is
+    the beat, one shape per socket, exactly these keys; its values are the
+    table's, so every seat's beat is the same bytes."""
+    direct = [s for s in _socket_samples() if s["group"] == "socket"]
+    assert sorted((s["socket"], s["type"]) for s in direct) == [
+        ("game", "beat"),
+        ("lobby", "beat"),
+    ]
+    for sample in direct:
+        payload = _payload(sample)
+        assert set(payload) == BEAT_KEYS[sample["socket"]], sample["name"]
+        assert isinstance(payload["every"], float)
+        assert not ROLE_NAME.search(json.dumps(payload))
+    game = next(_payload(s) for s in direct if s["socket"] == "game")
+    assert isinstance(game["window"], int) and isinstance(game["moved_on"], bool)
+    assert game["phase"] in {"night", "discussion", "voting", "results"}
 
 
 def test_no_socket_sample_is_a_per_player_night_event() -> None:
@@ -122,3 +152,52 @@ def test_the_night_window_and_progress_events_go_to_the_whole_table(
     # Counts and window numbers only: no player id, no role.
     allowed = {"type", "stage", "done", "needed", "window", "deadline"}
     assert set(_payload(sample)) <= allowed
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [s for s in _socket_samples() if s["type"] == "me"],
+    ids=lambda s: s["name"],
+)
+def test_an_own_view_goes_to_one_player_on_their_own_group(
+    sample: dict[str, Any],
+) -> None:
+    assert sample["group"] == "player"
+    assert len(sample["recipients"]) == 1
+
+
+def _streams() -> list[dict[str, Any]]:
+    index = json.loads((SAMPLES_DIR / "index.json").read_text(encoding="utf-8"))
+    return [s for s in index["samples"] if s["kind"] == "ws_stream"]
+
+
+def test_there_is_a_whole_game_stream_to_check() -> None:
+    assert {s["name"] for s in _streams()} == {"ws_stream/six_seats"}
+
+
+@pytest.mark.parametrize("sample", _streams(), ids=lambda s: s["name"])
+def test_in_a_whole_game_every_seat_hears_the_same_kinds_and_only_its_own_view(
+    sample: dict[str, Any],
+) -> None:
+    """Every seat's socket hears the same kinds of event in the same order (who
+    connected before it aside), whatever it was dealt; each ``me`` it hears is
+    its own (the ``player_id`` its own ``/me/`` answered), and no other event
+    holds a key of a player's own view."""
+    own_keys = {"me", "your_role", "night_results", "action_prompt", "my_vote"}
+    streams: dict[str, list[dict[str, Any]]] = _payload(sample)
+    assert len(streams) >= 5
+    heard = {}
+    for seat, items in streams.items():
+        events = [i["event"] for i in items if "event" in i]
+        heard[seat] = [e["type"] for e in events if e["type"] != "player_presence"]
+        reads = [i["answer"] for i in items if "answer" in i]
+        mine = next(a for a in reads if a["method"] == "GET")["body"]["player_id"]
+        for event in events:
+            if event["type"] == "me":
+                assert event["me"]["player_id"] == mine, f"{seat}: another's view"
+            else:
+                assert not set(event) & own_keys, f"{seat}: {event['type']}"
+    reference = next(iter(heard.values()))
+    assert "me" in reference
+    for seat, kinds in heard.items():
+        assert kinds == reference, f"{seat} heard something different"

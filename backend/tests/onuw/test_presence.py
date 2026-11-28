@@ -1157,6 +1157,10 @@ class TestSocketRowsAndHeartbeats:
         Game.objects.count()
 
 
+async def _no_frame() -> None:
+    """A heartbeat frame that sends nothing (the loop's database half alone)."""
+
+
 class TestHeartbeatLoop:
     async def test_cancelling_lets_a_beat_in_flight_finish_before_it_stops(
         self, settings
@@ -1173,7 +1177,7 @@ class TestHeartbeatLoop:
             await release.wait()
             finished.append("beat")
 
-        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+        loop = asyncio.ensure_future(presence.heartbeat_loop(_no_frame, beat))
         await started.wait()
         loop.cancel()
         await asyncio.sleep(0)
@@ -1199,7 +1203,7 @@ class TestHeartbeatLoop:
             await release.wait()
             finished.append("beat")
 
-        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+        loop = asyncio.ensure_future(presence.heartbeat_loop(_no_frame, beat))
 
         async def disconnect() -> None:  # what the consumers do
             loop.cancel()
@@ -1234,7 +1238,7 @@ class TestHeartbeatLoop:
                 raise RuntimeError("database down")
             second.set()
 
-        loop = asyncio.ensure_future(presence.heartbeat_loop(beat))
+        loop = asyncio.ensure_future(presence.heartbeat_loop(_no_frame, beat))
         async with asyncio.timeout(30):
             await second.wait()
         loop.cancel()
@@ -1243,6 +1247,33 @@ class TestHeartbeatLoop:
 
         assert len(beats) >= 2
         assert "Presence heartbeat failed" in caplog.text
+
+    async def test_a_stuck_database_never_holds_the_frames(self, settings) -> None:
+        """The frame goes on its own clock: while one beat's database work is
+        stuck, the frames keep coming and no second work piles up behind it (a
+        slow database must not make every phone drop a healthy socket)."""
+        settings.ONUW_PRESENCE_HEARTBEAT_SECONDS = 0
+        frames: list[int] = []
+        works: list[int] = []
+        five, release = asyncio.Event(), asyncio.Event()
+
+        async def frame() -> None:
+            frames.append(1)
+            if len(frames) >= 5:
+                five.set()
+
+        async def work() -> None:
+            works.append(1)
+            await release.wait()
+
+        loop = asyncio.ensure_future(presence.heartbeat_loop(frame, work))
+        async with asyncio.timeout(30):
+            await five.wait()
+        assert works == [1], "one work at a time"
+        release.set()
+        loop.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await loop
 
 
 class TestConsumerHeartbeat(TransactionTestCase):

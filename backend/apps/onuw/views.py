@@ -27,16 +27,15 @@ from apps.core import timers
 from apps.core.lobbies import bump_rev, ensure_tokens
 from apps.core.models import Lobby
 
-from . import practice
 from .deal import deal_refusal, dealt_settings
 from .debug import ForcedAssignmentError, parse_forced_assignment
 from .engine.assignment import assign_roles
 from .engine.decks import auto_deck
 from .models import Game, Phase, PlayerRole
 from .night_flow import begin_night
-from .recovery import ensure_timers, timer_prefixes
+from .own_view import me_body
+from .repair import lazy_repair
 from .serializers import (
-    GameMeSerializer,
     GameStartResponseSerializer,
 )
 from .view_helpers import (
@@ -219,35 +218,16 @@ class GameMeView(APIView):
         # Fetch all player roles for the players list (public info only)
         all_player_roles = list(game.player_roles.select_related("user").all())
 
-        # The backstop for practice players (``practice.behind``: no query at a
-        # table without them): if one has not done its part in the stage open now
-        # (the drive after the stage opened was lost), it acts now, and this read
+        # The lazy repair (``repair.py``: a lost practice move, a lost or
+        # unregistered timer), also run by the game socket's heartbeat; this read
         # shows the game after it.
-        if practice.behind(game, all_player_roles):
-            practice.drive(game.id)
-            game.refresh_from_db()
+        reread = lazy_repair(game, all_player_roles)
+        if reread is not None:
             player_role.refresh_from_db()
-            all_player_roles = list(game.player_roles.select_related("user").all())
+            all_player_roles = reread
 
-        # Re-create any timer this game should have but this process lost (a
-        # restart). Cheap when they are all registered; never blocks the read.
-        try:
-            ensure_timers(game, all_player_roles)
-            # Re-publish this game's timers whose firing was lost (cheap: one
-            # query when nothing is wrong).
-            timers.sweep(timer_prefixes(game))
-        except Exception:
-            logger.exception("ensure_timers failed for game %s", game.id)
-
-        serializer = GameMeSerializer(
-            game,
-            context={
-                "player_role": player_role,
-                "all_player_roles": all_player_roles,
-                "request": request,
-            },
-        )
-        return Response(serializer.data)
+        # The one builder of a player's view, the socket's own view too.
+        return Response(me_body(game, player_role, all_player_roles))
 
 
 class SweepTimersView(APIView):

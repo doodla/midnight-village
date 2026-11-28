@@ -89,6 +89,32 @@ abstract final class GameEvents {
     'reason': reason,
   });
 
+  /// This phone's own view as a stage opens (`me`, to this player alone,
+  /// before the table's event): [me] is a recorded `/me/` (`recordedMe`).
+  static String ownView(Map<String, dynamic> me) => _event(
+    me['phase'] == 'results' ? 'ws/game/me_results' : 'ws/game/me_talk',
+    {'me': me},
+  );
+
+  /// The heartbeat's frame a game socket sends its phone as it opens and
+  /// every [every] seconds, with the table's token: where the game is
+  /// ([phase], night [window]) and whether its table [movedOn].
+  static String beat({
+    num every = 15.0,
+    String phase = 'voting',
+    int window = 0,
+    bool movedOn = false,
+  }) => _event('ws/game/beat', {
+    'every': every,
+    'phase': phase,
+    'window': window,
+    'moved_on': movedOn,
+  });
+
+  /// The lobby socket's heartbeat frame: the table's [rev].
+  static String lobbyBeat({required int rev, num every = 15.0}) =>
+      _event('ws/lobby/beat', {'every': every, 'rev': rev});
+
   /// The host took the table back to the lobby for another game.
   static String playAgain({required String lobbyCode}) =>
       _event('ws/game/play_again', {'lobby_code': lobbyCode});

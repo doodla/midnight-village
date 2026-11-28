@@ -9,8 +9,10 @@ cd "$(dirname "$0")" || exit 1
 out=$(mktemp -d)
 # day_outcome: F5 (OutcomeLoads). day_screen: F6 (ScreenConverges). Both fixed in the app
 # (FIX_HEAL); the runs keep the finding. day_late: #16 until the phone sends `asked`.
-BREAKS="day_outcome day_screen day_late"
-names=${*:-"day_fix day_asked day_outcome day_screen day_late"}
+# day_zombie: a socket that dies open strands the screen without the beat (day_beat: with it).
+# day_lost: a frame lost on a live socket strands it without the beat's token (day_token: with it).
+BREAKS="day_outcome day_screen day_late day_zombie day_lost"
+names=${*:-"day_fix day_asked day_askless day_askless_order day_beat day_token day_zombie day_lost day_outcome day_screen day_late"}
 bad=0
 for n in $names; do
   s=$(date +%s)

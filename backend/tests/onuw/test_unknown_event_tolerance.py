@@ -16,6 +16,7 @@ from tests.onuw.test_game_consumer import (
     _build_communicator,
     _create_game_with_players,
 )
+from tests.sockets import heard
 
 pytestmark = pytest.mark.integration
 
@@ -44,11 +45,9 @@ class TestLobbySocket:
 
         # The first thing the client gets is the known event: the unknown one was
         # neither forwarded nor allowed to close the socket.
-        assert await communicator.receive_json_from(timeout=2) == {
-            "type": "player_joined"
-        }
+        assert await heard(communicator) == {"type": "player_joined"}
         await communicator.send_json_to({"anything": 1})
-        assert (await communicator.receive_json_from(timeout=2))["type"] == "error"
+        assert (await heard(communicator))["type"] == "error"
         await communicator.disconnect()
 
 
@@ -59,9 +58,7 @@ class TestGameSocket:
         communicator = _build_communicator(game.id, users[0])
         assert (await communicator.connect())[0]
         # Connecting announces the player's own presence; not what this is about.
-        assert (await communicator.receive_json_from(timeout=2))["type"] == (
-            "player_presence"
-        )
+        assert (await heard(communicator))["type"] == ("player_presence")
         layer = get_channel_layer()
         assert layer is not None
 
@@ -73,7 +70,7 @@ class TestGameSocket:
             f"game_{game.id}", {"type": "night.window", "window": 2, "deadline": None}
         )
 
-        first = await communicator.receive_json_from(timeout=2)
+        first = await heard(communicator)
         assert first["type"] == "night_window"  # nothing of the unknown one came first
         assert first["window"] == 2
         await communicator.disconnect()
@@ -93,8 +90,11 @@ class TestStrictMode:
 
         await layer.group_send(f"lobby_{code}", {"type": "player.joinned"})
 
+        # What the socket sent before it (its beat as it opened, the table's
+        # own body) comes out first; then the misspelled event fails.
         with pytest.raises(ValueError, match="No handler for message type"):
-            await communicator.receive_output(timeout=2)
+            for _ in range(10):
+                await communicator.receive_output(timeout=2)
 
     def test_the_test_and_development_settings_are_strict_and_base_is_not(self):
         from config.settings import base, development, harness, test
@@ -119,7 +119,7 @@ class TestTheWarning:
             await layer.group_send(
                 f"lobby_{code}", {"type": "player.joined", "username": "x"}
             )
-            await communicator.receive_json_from(timeout=2)
+            await heard(communicator)
 
         log.warning.assert_called_once()
         assert "ready.progress" in log.warning.call_args.args[1]

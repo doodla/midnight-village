@@ -126,17 +126,18 @@ class GameMeSerializer(serializers.Serializer):
 
     def get_is_host(self, game: Game) -> bool:
         """
-        Whether the requesting player is the effective host (the owner, or the
-        acting host while the owner's phone is away).
+        Whether the player whose view this is holds the host role (the owner, or
+        the acting host while the owner's phone is away).
 
         Controls host-only actions such as ending the discussion phase early.
-        Returns False when the request context is unavailable (e.g. tests
-        that omit it).
+        Read from the view's own player (``player_role``), so a view sent on the
+        player's socket (``own_view``) says what their ``GET /me/`` says. False
+        when the context names no player (tests that omit it).
         """
-        request = self.context.get("request")
-        if request is None:
+        player_role = self.context.get("player_role")
+        if player_role is None:
             return False
-        return game.lobby.is_host(request.user.id)
+        return game.lobby.is_host(player_role.user_id)
 
     def get_your_role(self, game: Game) -> dict:
         """
@@ -174,7 +175,9 @@ class GameMeSerializer(serializers.Serializer):
             return None
         from . import choose_night
 
-        return choose_night.prompt_for(game, player_role)
+        return choose_night.prompt_for(
+            game, player_role, self.context.get("game_state")
+        )
 
     def get_night_results(self, game: Game) -> list[dict[str, Any]]:
         """
@@ -232,7 +235,11 @@ class GameMeSerializer(serializers.Serializer):
 
     def _progress(self, game: Game) -> dict[str, Any] | None:
         """``{"stage", "done", "needed"}`` at the look, talk and vote stages: a
-        count of the table's taps, never who tapped. None elsewhere."""
+        count of the table's taps, never who tapped. None elsewhere. The same for
+        every player: a builder of several views counts once and passes it
+        (``progress`` in the context, ``own_view.views_for``)."""
+        if "progress" in self.context:
+            return self.context["progress"]
         from .readiness import stage_progress
 
         return stage_progress(game)
