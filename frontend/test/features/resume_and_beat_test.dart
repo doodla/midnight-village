@@ -96,6 +96,29 @@ void main() {
       expect(setup.meFetches, me + 1);
       expect(setup.tableFetches, tables + 1);
     });
+
+    test('a beat with a phase this app does not know (a newer server): '
+        'nothing is read, and the socket still heard it', () async {
+      final setup = await seated();
+      final me = setup.meFetches;
+      final tables = setup.tableFetches;
+      final unknown = jsonEncode({
+        ...ContractSamples.map('ws/game/beat'),
+        'phase': 'twilight',
+        'window': 9,
+      });
+      for (var i = 0; i < 3; i++) {
+        wall = wall.add(const Duration(seconds: 15));
+        channels.single.addOffContractEvent(unknown);
+        await setup.settle();
+      }
+      expect(setup.meFetches, me, reason: 'an unknown phase is no token');
+      expect(setup.tableFetches, tables);
+      wall = wall.add(const Duration(seconds: 5));
+      setup.resume();
+      await setup.settle();
+      expect(channels, hasLength(1), reason: 'its frames were heard');
+    });
   });
 
   group('a lobby, back from the background', () {

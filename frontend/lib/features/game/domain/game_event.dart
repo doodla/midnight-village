@@ -72,10 +72,16 @@ sealed class GameEvent {
         },
       ),
       'play_again' => const TableMovedEvent(),
-      'beat' => switch ((event['phase'], event['window'])) {
-        (final String phase, final int window) => BeatEvent(
-          place: GameMe.placeOf(GamePhase.fromServer(phase), window),
-          phase: GamePhase.fromServer(phase),
+      // Read tolerantly: a token this app cannot read (an older server's
+      // none, a phase it does not know) is no token, never a read; the
+      // socket heard the frame all the same.
+      'beat' => switch ((
+        GamePhase.tryFromServer(event['phase']),
+        event['window'],
+      )) {
+        (final GamePhase phase, final int window) => BeatEvent(
+          place: GameMe.placeOf(phase, window),
+          phase: phase,
           movedOn: event['moved_on'] == true,
         ),
         _ => const BeatEvent(),

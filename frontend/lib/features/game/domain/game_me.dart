@@ -21,8 +21,11 @@ enum GamePhase {
   final String server;
 
   static GamePhase fromServer(Object? name) =>
-      values.where((p) => p.server == name).firstOrNull ??
-      (throw FormatException('Unknown phase', name));
+      tryFromServer(name) ?? (throw FormatException('Unknown phase', name));
+
+  /// The phase named [name]; null for a name this app does not know.
+  static GamePhase? tryFromServer(Object? name) =>
+      values.where((p) => p.server == name).firstOrNull;
 }
 
 /// This phone's own vote in the vote (`/me/`'s `my_vote`): picked, or
