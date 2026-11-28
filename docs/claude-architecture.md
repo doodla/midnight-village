@@ -268,7 +268,7 @@ Every agent lists its tools: one defined with all tools starts at about 78k toke
 
 Our own: `correct` turns a mistake that happened into a check that would have caught it (or
 says no honest one exists). `no-comments` sorts the comments a change adds with one haiku per
-file (`sorter.md`), and `tool/comment_rows.py` checks their answers: a quote not at its line is
+file (`sorter.md`), and `tool/comment_rows.py` checks their answers: a quote not where it says is
 dropped, a comment nobody judged is missing, an always-kept line is never deleted
 (`.claude/guardrails/tests/test_comment_rows.py`). Adapted from pstack, MIT: `.claude/skills/NOTICE`.
 A skill whose front matter has no vendor's `metadata:` is ours (`tool/skills.py`): measured and

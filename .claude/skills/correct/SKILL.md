@@ -26,6 +26,7 @@ Input: one mistake that happened, with its evidence: a review file, a red run, a
      and GitHub runs it too. A test that holds a rule for the whole app carries `Guard file`.
 4. **Prove it on the original mistake.** Bring the mistake back (revert the fix, or the
    smallest edit that re-creates it), see the check fail with its message, undo, see it pass.
+   It passes on today's tree with no exception, or it tests the wrong promise.
    Record that break so it is rerun: if `just --list` names prove-guards, as a break there;
    until then as a test that re-creates the original mistake and asserts the check fails.
 5. **Delete the prose the check replaces** in the same change: the line in a `CLAUDE.md`, an

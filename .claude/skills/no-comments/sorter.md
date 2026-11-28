@@ -37,7 +37,8 @@ last line. Answer one JSON line per comment, and nothing else:
 ```
 
 - `comment`: the comment's first line, copied exactly from the file (with its `#`, `//` or `"""`).
-- `code`: one line of code the comment is about, copied exactly, at most 8 lines below it.
+- `code`: one line of code the comment is about, copied exactly, at most 8 lines below it
+  (other comments between do not count).
 - `verdict`: `delete`, `keep` or `review`. `why`: the rule above, in a few words.
 
 A row whose quotes are not in the file at those lines is thrown away and the file sorted again.

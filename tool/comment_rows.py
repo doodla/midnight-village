@@ -48,7 +48,10 @@ ALWAYS_KEEP = [
     (re.compile(r"licen[cs]e|copyright|SPDX", re.I), "a licence line"),
 ]
 SUPPRESSION = re.compile(r"noqa|type: ?ignore|// ?ignore(_for_file)?:|pragma|pylint:")
-WINDOW = (3, 8)  # lines before the comment and after its end where its code may be
+WINDOW = (
+    3,
+    8,
+)  # lines before the comment, and after it and the comments that follow it
 
 
 def git(*args: str) -> str:
@@ -161,7 +164,14 @@ def judge_row(row: dict, change: Change) -> str | None:
     )
     if not comment or line > len(lines) or comment not in lines[line - 1]:
         return f"line {line}: the comment it quotes is not on that line"
-    near = lines[max(0, line - 1 - WINDOW[0]) : end + WINDOW[1]]
+    after = (
+        end  # the comments and blank lines after it do not count (a banner's docstring)
+    )
+    while after < len(lines) and (
+        not lines[after].strip() or is_comment(path, lines[after])
+    ):
+        after += 1
+    near = lines[max(0, line - 1 - WINDOW[0]) : after + WINDOW[1]]
     if not code or not any(code in other for other in near):
         return f"line {line}: the code it quotes is not near the comment"
     return None

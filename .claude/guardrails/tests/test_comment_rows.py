@@ -115,6 +115,21 @@ class Answers(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("the code it quotes is not near the comment", out)
 
+    def test_code_below_a_banner_and_the_doc_comment_after_it_is_near(self):
+        doc = [f"/// line {n} of the doc" for n in range(7)]
+        text = ["// -----", "// The beat", "// -----", "", *doc, "int every = 2;"]
+        (self.root / "beat.dart").write_text("\n".join(text) + "\n")
+        rows = self.every_comment()
+        found = {"file": "beat.dart", "line": 1, "end": 3, "comment": "// -----"}
+        found.update(code="int every = 2;", verdict="delete", why="banner")
+        docs = {"file": "beat.dart", "line": 5, "end": 11, "comment": "/// line 0"}
+        docs.update(code="int every = 2;", verdict="keep", why="why")
+        code, out = self.run_tool(
+            "--base", self.base, self.answer(rows + [found, docs])
+        )
+        self.assertEqual(code, 0, out)
+        self.assertIn("delete 3, keep 3, review 1", out)
+
     def test_a_comment_no_row_judged_is_missing(self):
         code, out = self.run_tool(
             "--range", self.span, self.answer(self.every_comment()[:4])
