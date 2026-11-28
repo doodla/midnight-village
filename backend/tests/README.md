@@ -89,7 +89,7 @@ come from `ROLE_REGISTRY`: each role a viewer and a changed card; each kind of c
 table size (seat swaps at nine seats, the rest at seven); a role with no night action has
 one case, the sleepers taking the kinds in turn. Each game runs in a savepoint that is undone,
 so both start from the same ids; the Server-Timing detail is read from the live settings
-(`config/settings/vercel.py`). Its breaks (`tool/breaks_server.py`, L1 to L11) are the leaks
+(`config/settings/vercel.py`). Its breaks (`tool/breaks_server.py`, L1 to L14) are the leaks
 two reviews found it missed; X4 (every unlocked vote refused, no leak) must come out "broken".
 
 ## Migration tests

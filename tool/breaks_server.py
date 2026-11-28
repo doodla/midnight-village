@@ -153,6 +153,40 @@ LEAKS: tuple[Break, ...] = (
             within="night_results_for_player",
         ),
     ),
+    # The review's second round: three more it found caught, kept so they stay caught.
+    _two_deals(
+        "L12_wolf_ids_in_the_pushed_own_view",
+        "each phone's own view, pushed as a stage opens, carries the werewolves' ids",
+        Edit(
+            "backend/apps/onuw/own_view.py",
+            "        views = [_own_message(game.id, view) for view in views_for(game, prs)]",
+            '        views = [(g, {**m, "me": {**m["me"], "w": sorted(pr.user_id for pr in'
+            ' prs if pr.original_role == "Werewolf")}}) for g, m in (_own_message('
+            "game.id, view) for view in views_for(game, prs))]",
+            within="stage_batch",
+        ),
+    ),
+    _two_deals(
+        "L13_a_pack_flag_on_the_players_list",
+        "the players list says whether two werewolves are seated",
+        Edit(
+            "backend/apps/onuw/views_read.py",
+            '        return Response({"players": players})',
+            '        return Response({"players": players, "pack": sum(pr.original_role =='
+            ' "Werewolf" for pr in all_prs) >= 2})',
+        ),
+    ),
+    _two_deals(
+        "L14_a_longer_night_when_a_wolf_is_in_the_centre",
+        "a night window lasts five seconds longer when a werewolf is in the centre",
+        Edit(
+            NIGHT_WINDOW,
+            "opened_at + timedelta(seconds=seconds) if seconds > 0 else None",
+            'opened_at + timedelta(seconds=seconds + (5 if "Werewolf" in'
+            " (game.dealt_center_cards or game.center_cards) else 0))"
+            " if seconds > 0 else None",
+        ),
+    ),
 )
 # Not leaks: the harness must judge each "broken" (it proves nothing), never "killed".
 BOGUS: tuple[Break, ...] = (
@@ -306,7 +340,9 @@ SERVER_AUDIT: tuple[Break, ...] = (
                 within="drunk_timeout_center_index",
             ),
         ),
-        tests=("backend/tests/onuw/test_drunk_timeout.py::TestARealDrunkRunsOutOfTime",),
+        tests=(
+            "backend/tests/onuw/test_drunk_timeout.py::TestARealDrunkRunsOutOfTime",
+        ),
     ),
     Break(
         name="B7_ready_over_the_socket",
