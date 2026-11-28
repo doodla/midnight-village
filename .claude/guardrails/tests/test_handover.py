@@ -6,9 +6,11 @@ Run with: python3 -m unittest discover -s .claude/guardrails/tests
 import contextlib
 import importlib.util
 import io
+import os
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
@@ -229,6 +231,13 @@ class TheFile(unittest.TestCase):
 
 
 class OnlyOnThisCommit(unittest.TestCase):
+    def setUp(self):
+        # The steps here run at once, not in the machine's heavy queue: a speed verdict
+        # holding every slot (or three suites) made these tests wait for it.
+        patch = unittest.mock.patch.dict(os.environ, {"HEAVY_SLOT": "1"})
+        patch.start()
+        self.addCleanup(patch.stop)
+
     def test_a_run_killed_part_way_keeps_what_it_finished(self):
         """The first check is recorded the moment it ends, before the second
         starts: a kill during the second loses only the second."""
@@ -243,7 +252,11 @@ class OnlyOnThisCommit(unittest.TestCase):
             second = (
                 "second",
                 ".",
-                [sys.executable, "-c", f"import shutil; shutil.copy({str(kept)!r}, {str(seen)!r})"],
+                [
+                    sys.executable,
+                    "-c",
+                    f"import shutil; shutil.copy({str(kept)!r}, {str(seen)!r})",
+                ],
             )
             with contextlib.redirect_stdout(io.StringIO()):
                 tool.run_checks([first, second], "a" * 40, piece, kept)
@@ -252,17 +265,27 @@ class OnlyOnThisCommit(unittest.TestCase):
     def test_pictures_drawn_on_this_commit_are_not_drawn_again(self):
         pictures = load(REPO).tool("handover_pictures")
         drawn = []
-        pictures.draw = lambda checkout, states, w, h, out, what: drawn.append(what) or True
+        pictures.draw = (
+            lambda checkout, states, w, h, out, what: drawn.append(what) or True
+        )
         pictures.base_checkout = lambda base: Path("/nowhere")
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             real_run = pictures.subprocess.run
             pictures.subprocess.run = lambda *a, **k: type(
-                "Done", (), {"returncode": 0, "stdout": '{"changed": [], "new": [], "missing": [], "sheets": []}', "stderr": ""}
+                "Done",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": '{"changed": [], "new": [], "missing": [], "sheets": []}',
+                    "stderr": "",
+                },
             )()
             try:
                 for size in pictures.SIZES:
-                    (out / "run-aaaaaaaaaaaa" / f"{size[0]}x{size[1]}").mkdir(parents=True)
+                    (out / "run-aaaaaaaaaaaa" / f"{size[0]}x{size[1]}").mkdir(
+                        parents=True
+                    )
                 with contextlib.redirect_stdout(io.StringIO()):
                     pictures.pictures(["09-vote"], "base", out, "a" * 40)
                     first = len(drawn)

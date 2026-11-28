@@ -44,7 +44,7 @@ They played in the browser (Chrome) and say it was everywhere.
 
 > I'm looking for micro joy moments as well. It should feel like a labour of love 💞
 
-OPEN. Measured (branch `perf-frames`): `just phone-frames` plays a whole game on a phone profile (the release web build, Chrome, CPU slowed 4x, or 1x and 2x for a fast phone) and reports, for every screen, transition and tap, the frames over 16 and 50 ms, the worst frame, the long tasks, the time to content, and for a tap the time to the first changed pixel, to its final state and to the server's answer; it fails when a budget is broken. The causes, ranked, are the next pieces.
+OPEN. Measured: `just phone-frames` plays a game on a slowed phone (release web build, Chrome, CPU 4x) and times every screen, transition and tap; `just speed-verdict main` says per moment whether a change is sooner, level or later. The causes, ranked, are the next pieces.
 
 Measured on the phone itself (branch `perf-field`): our lab Chrome has no graphics chip, so it cannot say what a Pixel does; the app now measures itself.
 Open the game's address with `?perf=1` at the end (`https://midnight-village-app-anthelion.vercel.app/?perf=1`, or a table's link with `?perf=1`); the tab remembers it (`?perf=0` switches it off).

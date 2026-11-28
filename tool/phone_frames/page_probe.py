@@ -19,8 +19,6 @@ import base64
 import io
 import time
 
-from PIL import Image, ImageChops
-
 RECORDER = r"""
 (() => {
   const R = window.__pf = {frames: [], loaf: [], lt: [], first: null, want: null,
@@ -124,10 +122,12 @@ class Page:
             self.requests.append((req.url, req.method, start, end))
 
         self.inflight = 0
+        self.sent = []  # (url, method, epoch s) as each request leaves
 
         def sent(req):
             if "/api/" in req.url:
                 self.inflight += 1
+                self.sent.append((req.url, req.method, time.time()))
 
         def over(req):
             if "/api/" in req.url:
@@ -183,13 +183,16 @@ class Page:
         one before it by `share` of the screen, or `timeout` seconds."""
         end = time.monotonic() + timeout
         while time.monotonic() < end:
-            before = [s for s in self.shots if s[0] <= since]
-            after = [s for s in self.shots if s[0] > since]
+            shots = sorted(self.shots, key=lambda s: s[0])
+            before = [s for s in shots if s[0] <= since]
+            after = [s for s in shots if s[0] > since]
             if before and after:
                 base, cur = _img(before[-1][1]), _img(after[-1][1])
                 if base.size == cur.size:
-                    diff = ImageChops.difference(base, cur).point(
-                        lambda v: 255 if v > 24 else 0
+                    diff = (
+                        _chops()
+                        .difference(base, cur)
+                        .point(lambda v: 255 if v > 24 else 0)
                     )
                     if diff.histogram()[255] / (cur.size[0] * cur.size[1]) > share:
                         return True
@@ -206,6 +209,18 @@ class Page:
             "Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []}
         )
 
+    async def base(self):
+        """A fresh picture of the screen just before the finger, the base every change
+        after it is measured from. The screencast's own frames cannot be: a still
+        screen sends none (the first change was then the base, and the second change was
+        reported as the first answer), and the frame it sends on starting can be stale
+        (a card still face up from the hold before: its turning back read as an 8 ms
+        answer)."""
+        t = time.time()
+        shot = await self.page.screenshot(type="jpeg", quality=60, scale="css")
+        self.shots.append((t, shot))
+        return "screenshot"
+
     async def screencast(self, on):
         if on:
             self.shots = []
@@ -218,13 +233,22 @@ class Page:
 
 
 def _img(jpeg):
+    from PIL import Image  # here: the rest of the tool runs without Pillow
+
     return Image.open(io.BytesIO(jpeg)).convert("L")
+
+
+def _chops():
+    from PIL import ImageChops
+
+    return ImageChops
 
 
 def changes(shots, since, box=None, scale=1.0, threshold=24):
     """The screencast frames after `since` (epoch s) that differ from the frame
     before it: [(seconds after, share of the box changed)]. A pixel counts when it
     moved by more than `threshold` of 255 (JPEG noise stays under it)."""
+    shots = sorted(shots, key=lambda s: s[0])
     before = [s for s in shots if s[0] <= since]
     after = [s for s in shots if s[0] > since]
     if not before and len(after) > 1:
@@ -238,7 +262,7 @@ def changes(shots, since, box=None, scale=1.0, threshold=24):
         cur = _img(jpeg)
         if cur.size != prev.size:
             prev = prev.resize(cur.size)
-        diff = ImageChops.difference(cur, prev)
+        diff = _chops().difference(cur, prev)
         if box:
             k = cur.size[0] / 412 * scale
             diff = diff.crop(
