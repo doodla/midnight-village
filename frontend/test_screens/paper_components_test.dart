@@ -4,7 +4,7 @@
 // (game 7: Ana the moth, Ben the hare, Cleo the spindle, Dev the scythe, Esme
 // the bell; the ten-seat board is the same game with five more seats), so a
 // player's sigil is the same on every picture. Run it with
-// `just paper-components [folder]`; it is not part of `just test`. The same test
+// `just paper-components [folder]`; it is not part of `just flutter-test`. The same test
 // on main and on a branch makes the before and after pictures.
 import 'dart:io';
 import 'dart:typed_data';

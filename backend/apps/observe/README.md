@@ -20,11 +20,17 @@ The phones' own speed, kept so the owner can read it without copying anything
   `FIELD_REPORT_KEY` setting (an environment variable; unset, the report is closed to
   everyone). It says how many summaries were a game's end, and per kind of tap and device each
   leg's median, 90th percentile and worst; the screens with the most long frames; the slowest
-  screen changes; requests; cold starts. Its own allowance (`field_report`, 60 an hour).
+  screen changes; requests; cold starts; and `server`: what the server counted of itself
+  over 30 days (`counts.totals`). Its own allowance (`field_report`, 60 an hour).
   `FIELD_REPORT_KEY=... just field-report` prints it (`tool/field_report.py`).
 - `FieldSummary` (migration 0001): `received_at` (the hour), `commit`, `device`, `body`.
+- `ServerCount` (migration 0002): `word` (one of `vocabulary.SERVER_COUNTS`), `hour`, `n`.
+  `counts.add(word)` is one statement (this hour's row made or raised; rows older than 30
+  days of that word go with it). A game app calls it where something goes wrong that the
+  owner should see but the runtime logs keep only an hour: `repair_failed` (a game's lazy
+  repair, `backend/apps/onuw/repair.py`). No game, player or table.
 
-Samples: `contract_samples/http/observe/` (`tests/contract/observe_scenarios.py`), and the app's
+Samples: `contract_samples/http/observe/` (`backend/tests/contract/observe_scenarios.py`), and the app's
 own summary in `contract_samples/app/field_summary.json` (written by the app's test; the server's
-test keeps all of it). Tests: `tests/observe/`, and `tests/core/test_open_routes.py` for every
+test keeps all of it). Tests: `backend/tests/observe`, and `backend/tests/core/test_open_routes.py` for every
 route open without an account.

@@ -93,8 +93,9 @@ def transition_to_voting(game: Game) -> None:
     # stops waiting for it when its grace period ends.
     readiness._schedule_grace_timers_after_commit(game)
 
-    # Broadcast phase change to all players
-    basics._send_after_commit(
+    # Broadcast phase change to all players, each player's own view first
+    basics._send_stage_after_commit(
+        game,
         [
             (
                 f"game_{game.id}",
@@ -107,7 +108,7 @@ def transition_to_voting(game: Game) -> None:
                 },
             ),
             (f"game_{game.id}", {"type": "progress", **readiness.vote_progress(game)}),
-        ]
+        ],
     )
     basics._practice_after_commit(game)
 
@@ -143,10 +144,13 @@ def submit_vote(
     lock: bool = True,
     stage: str | None = None,
     asked: int | None = None,
+    told: dict[str, Any] | None = None,
 ) -> list[str]:
     """
     Pick (``lock=False``) or lock in (``lock=True``) a vote. Returns the list of
     errors (empty = success); ``VOTE_ERROR_CODES`` maps each to its API code.
+    A lock that is stored puts the count it sends in ``told["progress"]`` (when
+    ``told`` is given), for the answer: the tapper's phone needs no read.
 
     A vote is *picked* (``vote_target`` set, changeable, never announced) and then
     *locked* (``has_acted``, final: ``AlreadyActedError``). Everything happens in
@@ -184,6 +188,8 @@ def submit_vote(
             # locking in is refused.
             # pyrefly: ignore [missing-attribute]
             if lock and voter_pr.vote_target_id == target_player_id:
+                if told is not None:  # the same answer: the lock and the count
+                    told["progress"] = readiness.vote_progress(game)
                 return []
             raise basics.AlreadyActedError("You have already locked in your vote.")
 
@@ -212,13 +218,11 @@ def submit_vote(
         # Every row once, after the write: the count, the reveal check and the
         # reveal itself read the same rows.
         prs = readiness._player_roles(game)
+        progress = readiness.vote_progress(game, prs)
+        if told is not None:
+            told["progress"] = progress
         basics._send_after_commit(
-            [
-                (
-                    f"game_{game.id}",
-                    {"type": "progress", **readiness.vote_progress(game, prs)},
-                )
-            ]
+            [(f"game_{game.id}", {"type": "progress", **progress})]
         )
         # Reveal once everyone has locked, or everyone still being waited for has
         # (a player gone past the grace period is a non-voter at the deadline too).
@@ -278,9 +282,12 @@ def set_ready(
     ready: bool,
     stage: str | None = None,
     asked: int | None = None,
+    told: dict[str, Any] | None = None,
 ) -> list[str]:
     """Mark the caller ready at the stage that asks for it. Returns the list of
-    errors (empty = success); ``READY_ERROR_CODES`` maps them to codes.
+    errors (empty = success); ``READY_ERROR_CODES`` maps them to codes. The count
+    it sends goes in ``told["progress"]`` too (when ``told`` is given), for the
+    answer: the tapper's phone needs no read.
 
     Two stages ask: the look at the card (night, window 0: ``True`` only, looking is
     one way) and the talk (``True`` or ``False``). When every player not gone past
@@ -319,6 +326,8 @@ def set_ready(
             pr.save(update_fields=changed)
         progress = readiness.stage_progress(game)
         if progress is not None:  # looking or in the talk: both have a count
+            if told is not None:
+                told["progress"] = progress
             basics._send_after_commit(
                 [(f"game_{game.id}", {"type": "progress", **progress})]
             )
@@ -425,4 +434,5 @@ def reveal_votes(game: Game, prs: list[PlayerRole] | None = None) -> None:
             },
         )
     )
-    basics._send_after_commit(messages)
+    # Each player's own view of the results (and the results) first.
+    basics._send_stage_after_commit(game, messages)

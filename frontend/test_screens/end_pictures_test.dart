@@ -1,6 +1,6 @@
 // The end board in pictures, for a look beside its mocks: every outcome on a
 // 360 x 780 phone (the mocks' size) at 2x, then a short phone and the larger
-// text sizes. Run it with `just end-pictures`; it is not part of `just test`.
+// text sizes. Run it with `just end-pictures`; it is not part of `just flutter-test`.
 // `just contact-sheet <folder>` makes one sheet.
 import 'dart:io';
 import 'dart:typed_data';

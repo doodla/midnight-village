@@ -21,8 +21,11 @@ enum GamePhase {
   final String server;
 
   static GamePhase fromServer(Object? name) =>
-      values.where((p) => p.server == name).firstOrNull ??
-      (throw FormatException('Unknown phase', name));
+      tryFromServer(name) ?? (throw FormatException('Unknown phase', name));
+
+  /// The phase named [name]; null for a name this app does not know.
+  static GamePhase? tryFromServer(Object? name) =>
+      values.where((p) => p.server == name).firstOrNull;
 }
 
 /// This phone's own vote in the vote (`/me/`'s `my_vote`): picked, or
@@ -251,6 +254,15 @@ class GameMe {
   /// A night window is open (1 or 2).
   bool get inWindow => phase == GamePhase.night && window > 0;
 
+  /// Where this `/me/`'s stage is in its game ([placeOf]): within a game the
+  /// stage only moves forward, so of two views of one game the one with the
+  /// higher place is the newer (contract, section 4).
+  int get place => placeOf(phase, window);
+
+  /// The place of the stage at [phase] and night [window]: the phase, then
+  /// the window (the look 0, the Doppelganger's 1, everyone's 2).
+  static int placeOf(GamePhase phase, int window) => phase.index * 3 + window;
+
   GameMe _with({
     ChoosePrompt? prompt,
     NightReport? report,
@@ -323,6 +335,12 @@ class GameMe {
     if (counts == null || was == now) return counts;
     return counts.moved(now ? 1 : -1);
   }
+
+  /// With what a tap's answer says the server stored: this phone's [ready] or
+  /// [vote] and the table's [progress] counted with it, exactly (nothing is
+  /// counted here, unlike [withReady]).
+  GameMe withStored({bool? ready, MyVote? vote, StageProgress? progress}) =>
+      _with(ready: ready, myVote: vote, progress: progress);
 
   /// With the server's newer counts, when they are for this stage's counts;
   /// otherwise unchanged (a count for another stage is a reason to fetch).

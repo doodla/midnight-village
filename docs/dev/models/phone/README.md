@@ -2,26 +2,26 @@
 
 > These models predate the protocol-1 cleanup (20 November 2026):
 > they speak of "protocol 2", the contract's "Third amendment" (now `docs/specs/onuw/api-contract-v2.md`, sections 5 and 9), `ProtocolTwoGameNotifier`
-> (now `LiveGameNotifier`), the server module night2 (now `apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names);
+> (now `LiveGameNotifier`), the server module night2 (now `backend/apps/onuw/choose_night.py`) and sample names ending in `_v2` (now plain names);
 > the one flow they model is the only one left.
 
 Two models of ONE phone against an abstract server that keeps the rules of
-`docs/specs/onuw/api-contract-v2.md` ("Third amendment"), written from the app code at
+`docs/specs/onuw/api-contract-v2.md` ("9. Sending a request twice"), written from the app code at
 `a1eb6dd` (the data layer of `526909f`). Every finding is replayed against the real notifier
-in `frontend/test/features/game/presentation/protocol_two_findings_test.dart` and fixed in
+in a findings test added with the fix in
 `303f1df` (`fix(frontend): protocol 2 phones heal every fetch and trust the server's turn`).
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `night/PhoneNight.tla` | The night: look stage, window 1 (the Doppelganger's look and follow-up), window 2, the talk. Header names the Dart files modelled. |
+| `docs/dev/models/phone/night/PhoneNight.tla` | The night: look stage, window 1 (the Doppelganger's look and follow-up), window 2, the talk. Header names the Dart files modelled. |
 | `night/*.cfg` | One configuration per run (`ROLE`, `COPY`, which fixes are on). `runall.sh` and `rerun.sh` write them and run TLC. |
-| `night/view.mjs` | The reader's words for the chart: a name for each state and arrow. |
-| `night/chart/`, `night/chart-robber/` | Chart (`chart.mmd`) and report of the `FollowUpArmed` counterexample, for a Doppelganger who copied the Minion and the Robber. |
-| `day/PhoneDay.tla` | From the talk to the next game: the ready and vote lanes of the `Outbox`, `/me/`, `/me/table/`, the results, play again. |
-| `day/*.cfg`, `day/runday.sh` | Its runs. |
-| `lobby/` | A third model: the host's settings lane in the lobby (`SettingsLane` in `features/lobby/domain/settings_lane.dart`, sent by `lobby_taps.dart`), first of `7821a42`, now the fixed design (gaps a, b, b2, c closed), with its own README, runs and known gaps. |
+| `docs/dev/models/phone/night/view.mjs` | The reader's words for the chart: a name for each state and arrow. |
+| `docs/dev/models/phone/night/chart`, `docs/dev/models/phone/night/chart-robber` | Chart (`chart.mmd`) and report of the `FollowUpArmed` counterexample, for a Doppelganger who copied the Minion and the Robber. |
+| `docs/dev/models/phone/day/PhoneDay.tla` | From the talk to the next game: the ready and vote lanes of the `Outbox`, `/me/`, `/me/table/`, the results, play again. |
+| `day/*.cfg`, `docs/dev/models/phone/day/runday.sh` | Its runs. |
+| `lobby/` | A third model: the host's settings lane in the lobby (`SettingsLane` in `frontend/lib/features/lobby/domain/settings_lane.dart`, sent by `lobby_taps.dart`), first of `7821a42`, now the fixed design (gaps a, b, b2, c closed), with its own README, runs and known gaps. |
 
 The scripts look for TLC at `$TLA2TOOLS` (default: a path in the session that made them;
 set the variable). TLC logs are not kept.
@@ -60,8 +60,35 @@ answered `409 stale_request` and stored nowhere. `day_asked` (`FIX_ASKED`, the s
 `day_late`) holds `TapOrder` (1,002,993 distinct states). The phone does not send `asked` yet,
 so `day_late` is the phone of today; it becomes a holding run when the phone sends it.
 Run one: `java -cp tla2tools.jar tlc2.TLC -config day_asked.cfg PhoneDay.tla` in `day/`.
-`day/runday.sh` runs every `day_*` run and fails when one ends otherwise than recorded here
+`docs/dev/models/phone/day/runday.sh` runs every `day_*` run and fails when one ends otherwise than recorded here
 (`TLA2TOOLS=/path/to/tla2tools.jar day/runday.sh`).
+
+**Told, not asked (branch `ask-less`, 27 November 2026).** `FIX_ASKLESS` in `day/` models the
+phone of that branch: a stage change carries this phone's own view (`me`, before the
+table's event; the results with it at the end), applied when its stage is later, and the
+event then reads nothing; a taken ready or lock's answer (the stored value and the count)
+is put on the held `/me/`; an event is lost only with its socket, which comes back and reads
+`/me/` and `/me/table/`; the slow table poll runs only while the socket is down; a failed
+`/me/table/` read is read again (`retryForever`: the poll had stood in for it before).
+`day_askless` (every fix, `OutcomeLoads` and `ScreenConverges`: 5,083,702 distinct states) and `day_askless_order`
+(`TapOrder` with `asked`) hold; every earlier run sets it FALSE. Its first run broke
+`ScreenConverges` only because the model had no retry of a failed table read: the code has
+one, so the model now says so (the finding was the model's, not the app's).
+Both reviews of `ask-less` found the socket that dies open (it looks up and delivers
+nothing, so nothing reads and the poll stays off): `ZOMBIE` makes it an action. Without the
+fix, `day_zombie` breaks `ScreenConverges` (the screen stays behind for good; it is in
+`BREAKS`). `FIX_BEAT` is the fix: the server sends every socket a `beat` frame each heartbeat
+and the phone drops one silent for 2.5 beats, so it comes back and reads. `day_beat` (every
+fix, the zombie, two faults and two taps) holds `OutcomeLoads` and `ScreenConverges`
+(9,322,705 distinct states). The seat model has the same pair (`docs/dev/models/phone/seat/README.md`).
+The second reviews found the other half: the beat proves the link, not delivery. `LOSE` loses
+an event on a socket that stays alive (a full or expired channel-layer queue can): without
+the fix `day_lost` breaks `ScreenConverges` (shortest trace: play again's event is lost and
+the end board stays for good; a lost `game_results` would leave the wait screen). `FIX_TOKEN`
+is the fix: the beat carries the table's token (`phase`, `window`, `moved_on`), read beside the
+beat so it only trails the events, and a phone holding less reads once (`TokenBeat`: `/me/`,
+the results, or `/me/table/`). `day_token` (every fix, the zombie, a lost frame, two faults and
+two taps) holds both rules (10,206,620 distinct states).
 
 **A result at the choose (branch `night-result-now`, 25 November 2026).** `ANSWER_CARRIES`
 models the phone of that branch: a taken choose's answer carries the caller's results and its

@@ -193,9 +193,11 @@ def _restore_deadline_timer(game: Game) -> None:
 
 def announce_window(game: Game, window: int) -> None:
     """Tell the table a window opened with ONE group event, the same bytes for every
-    phone and nothing per player (each phone reads its prompt from ``GET /me/``).
+    phone and nothing per player; before it, on each player's own group, their own
+    view with its prompt (``own_view``: a phone that missed it reads ``GET /me/``).
     The caller (``send_wave_prompts``) has set the deadline and the timer."""
-    basics._send_after_commit(
+    basics._send_stage_after_commit(
+        game,
         [
             (
                 f"game_{game.id}",
@@ -207,7 +209,7 @@ def announce_window(game: Game, window: int) -> None:
                     else None,
                 },
             )
-        ]
+        ],
     )
 
 
@@ -219,8 +221,8 @@ def send_wave_prompts(game: Game, wave: int) -> None:
     length is measured from here) and its deadline, then, once the transaction
     commits: schedules the window's one timer (night_wave_seconds, or exactly
     night_doppelganger_window_seconds for window 1) and sends the ONE group event
-    ``night.window`` (``announce_window``): every phone reads its own prompt
-    from ``GET /me/``. A timer of 0 seconds means no timer and no deadline.
+    ``night.window`` (``announce_window``), each phone's own view with its prompt
+    just before it. A timer of 0 seconds means no timer and no deadline.
     """
     seconds = _fixed_window_seconds(game, wave) or basics.get_timer_seconds(
         game, "night_wave_seconds", basics.DEFAULT_NIGHT_WAVE_SECONDS
@@ -515,8 +517,9 @@ def transition_to_discussion(game: Game) -> None:
             {"game_id": str(game.id)},
         )
 
-    # Broadcast phase change to all players
-    basics._send_after_commit(
+    # Broadcast phase change to all players, each player's own view first
+    basics._send_stage_after_commit(
+        game,
         [
             (
                 f"game_{game.id}",
@@ -529,6 +532,6 @@ def transition_to_discussion(game: Game) -> None:
                 },
             ),
             (f"game_{game.id}", {"type": "progress", **readiness.talk_progress(game)}),
-        ]
+        ],
     )
     basics._practice_after_commit(game)

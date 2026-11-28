@@ -137,6 +137,12 @@ def me(night: Night, name: str) -> dict[str, Any]:
     return response.data
 
 
+def night_events_to(night: Night, name: str) -> list[dict[str, Any]]:
+    """Every message sent to ``name``'s own group."""
+    group = f"game_{night.game.id}_player_{night.users[name].id}"
+    return [e for g, e in night.recorder.events if g == group]
+
+
 def results(night: Night, name: str) -> list[dict[str, Any]]:
     return me(night, name)["night_results"]
 
@@ -167,26 +173,34 @@ def finish_window_two(night: Night, picks: dict[str, Any] | None = None) -> None
 
 
 class TestOpening:
-    def test_a_window_opens_with_one_group_event_and_nothing_per_player(
+    def test_a_window_opens_with_one_group_event_after_each_players_own_view(
         self, make_p2
     ) -> None:
+        """The table hears one group event; before it, in the same batch, each
+        player's own group carries that player's own view, and it is the very
+        body their ``GET /me/`` answers (``own_view``)."""
         night = make_p2(TEN)
 
         night.start()
 
         assert night.game.current_wave == 2
-        assert night.recorder.events == [
-            (
-                f"game_{night.game.id}",
-                {
-                    "type": "night.window",
-                    "window": 2,
-                    "deadline": wire_time(night.game.phase_deadline),
-                },
-            )
+        group = f"game_{night.game.id}"
+        assert [e for g, e in night.recorder.events if g == group] == [
+            {
+                "type": "night.window",
+                "window": 2,
+                "deadline": wire_time(night.game.phase_deadline),
+            }
         ]
+        own = [(g, e) for g, e in night.recorder.events if g != group]
+        assert [g for g, _ in own] == [
+            f"{group}_player_{night.users[name].id}" for name in TEN
+        ]
+        assert night.recorder.events[-1][0] == group  # the views come first
+        for name, (_, event) in zip(TEN, own, strict=True):
+            assert event == {"type": "own.view", "me": me(night, name)}
 
-    def test_a_whole_night_with_a_doppelganger_sends_nothing_per_player(
+    def test_a_whole_night_with_a_doppelganger_sends_each_seat_only_its_views(
         self, make_p2
     ) -> None:
         night = make_p2(DOPPEL)
@@ -196,18 +210,16 @@ class TestOpening:
         night.fire_timer(1)  # window 1's fixed length ends
         finish_window_two(night)
 
+        # Each seat's own group: one own view per stage opened, nothing else,
+        # and every one is that seat's own.
+        for name, user in night.users.items():
+            views = night_events_to(night, name)
+            assert [e["type"] for e in views] == ["own.view"] * 3
+            assert {e["me"]["player_id"] for e in views} == {user.id}
+        # What the table hears is role-free.
         assert [
-            (group, event["type"])
-            for group, event in night.recorder.events
-            if "_player_" in group
-        ] == []
-        # What the table does hear is role-free.
-        assert [e["type"] for _, e in night.recorder.events] == [
-            "night.window",
-            "night.window",
-            "phase.change",
-            "progress",
-        ]
+            e["type"] for g, e in night.recorder.events if g == f"game_{night.game.id}"
+        ] == ["night.window", "night.window", "phase.change", "progress"]
 
     def test_the_doppelganger_window_comes_first_and_is_fixed(self, make_p2) -> None:
         night = make_p2(DOPPEL)
@@ -1194,12 +1206,13 @@ class TestNightUniformity:
                 night.fire_timer(window)  # a fixed window ends on its timer
 
         assert set(answers) == {b'{"status":"submitted"}'}
-        # One group, and only the group: no seat has a channel of its own.
-        assert {group for group, _ in night.recorder.events} == {
-            f"game_{night.game.id}"
+        # The group's events, and on each seat's own group the same kinds at the
+        # same points: one own view per stage opened, whatever it was dealt.
+        heard = {
+            name: [e["type"] for e in night_events_to(night, name)] for name in roles
         }
-        for name in roles:
-            assert night.events_to(name) == []
+        assert len(set(map(tuple, heard.values()))) == 1
+        assert set(next(iter(heard.values()))) == {"own.view"}
 
     def test_get_me_has_the_same_keys_for_every_seat(self, make_p2) -> None:
         night = make_p2(TEN)

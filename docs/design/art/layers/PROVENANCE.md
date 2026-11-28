@@ -32,12 +32,12 @@ folder and are not kept here: the PNGs are the record, and `flat.jpg` is the che
 ## Making them again
 
 `frontend/tool/layers/` holds the scripts that cut the two flat pictures into these layers, in the
-order `run.sh` runs them (numpy, OpenCV, Pillow, scipy, fetched by `uv`):
+order run.sh runs them (numpy, OpenCV, Pillow, scipy, fetched by `uv`):
 
     frontend/tool/layers/run.sh /some/work/folder
     uv run --with numpy --with pillow python frontend/tool/layers/compare.py /some/work/folder/out
 
-`run.sh` copies each `flat.jpg` in, runs 04 (`s04_masks.py`: the moon's circle; `s04_sky.py`: a cubic sky
+run.sh copies each `flat.jpg` in, runs 04 (`s04_masks.py`: the moon's circle; `s04_sky.py`: a cubic sky
 model; `s04_seg.py`: the moon, clouds, tips and shadows; `s04_export2.py`, through `s04_build.py` and
 `s04_layers2.py`: the plate, the cloud and shadow layers, the torn tips, the bleed) and then 08 (`s08_a.py`
 and `s08_b.py`: the classes, the plate and the pale band; `s08_c.py`: the roofs and gallows, birds, the fill

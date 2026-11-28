@@ -1,3 +1,10 @@
 {
-  "status": "submitted"
+  "status": "submitted",
+  "target_player_id": 29,
+  "locked": true,
+  "progress": {
+    "stage": "vote",
+    "done": 1,
+    "needed": 5
+  }
 }

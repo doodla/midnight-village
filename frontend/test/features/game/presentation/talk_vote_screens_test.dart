@@ -174,8 +174,8 @@ void main() {
       await s.close(tester);
     });
 
-    testWidgets('a count event while the tap is unconfirmed fetches /me/ '
-        'instead of adding it again', (tester) async {
+    testWidgets('the answer says what was stored and its count: the event '
+        'after it is shown as it says, nothing read', (tester) async {
       final s = await ShellSetup.pump(
         tester,
         recordedMe('me_discussion_choose_seer'),
@@ -185,18 +185,53 @@ void main() {
       await s.settle(tester);
       await _putAway(tester); // Ready is under the sheet it opened with
       s.answerPost('/ready/', 'game/ready_talk');
+      final fetched = s.meFetches;
       await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
       await s.settle(tester);
       expect(find.text('1 of 5 ready'), findsOneWidget);
-      // The server now counts it, and says so in the event and in /me/.
-      s.answerMe(recordedMe('me_talk_ready'));
-      final fetched = s.meFetches;
+      // The table hears the same count: this phone's own tap, counted once.
       s.ws.addServerEvent(ContractSamples.map('ws/game/progress_talk'));
       await s.settle(tester);
-      expect(s.meFetches, greaterThan(fetched));
+      expect(s.meFetches, fetched, reason: 'the answer confirmed it');
       expect(find.text('1 of 5 ready'), findsOneWidget, reason: 'not 2');
       expect(_button(tester), CommonCopy.readyDone);
       await s.close(tester);
+    });
+
+    testWidgets('a count heard while the tap is out waits for its answer: '
+        'the same count, nothing read; another, /me/ read', (tester) async {
+      for (final same in [true, false]) {
+        final s = await ShellSetup.pump(
+          tester,
+          recordedMe('me_discussion_choose_seer'),
+          learned: _everything,
+          before: _answerAck,
+        );
+        await s.settle(tester);
+        await _putAway(tester);
+        s.answerPost('/ready/', 'game/ready_talk');
+        s.answerMe(recordedMe('me_talk_ready'));
+        final held = s.http.hold(
+          method: 'POST',
+          path: '/onuw/games/${s.gameId}/ready/',
+        );
+        final fetched = s.meFetches;
+        await pressLikeAFinger(tester, find.byType(PrimaryButton).last);
+        await s.settle(tester);
+        // Its own count (or someone else's) is heard before its answer.
+        s.ws.addServerEvent(
+          ContractSamples.map(
+            same ? 'ws/game/progress_talk' : 'ws/game/progress_talk_open',
+          ),
+        );
+        await s.settle(tester);
+        expect(s.meFetches, fetched, reason: 'held for the answer');
+        held.releaseAll();
+        await s.settle(tester);
+        expect(s.meFetches, same ? fetched : fetched + 1);
+        expect(find.text('1 of 5 ready'), findsOneWidget, reason: 'not 2');
+        await s.close(tester);
+      }
     });
 
     testWidgets('a restart mid-talk after Ready opens at "Ready ✓" and sends '

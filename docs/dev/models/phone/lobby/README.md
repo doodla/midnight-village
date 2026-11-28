@@ -51,7 +51,7 @@ goes out is `lobby_taps.dart`, a part of `lobby_notifier.dart`.
   "Try again" deals what the read shows. The set-up page (03) says "Not sent." only for its
   lost changes and its "Try again" only resends them (`RetryChanges`): it never deals. A held
   deal is the table's (02) line and button. And a failed lobby read heals by itself: it is
-  made again with `core/healing/`'s backoff until one lands (`HealRead`).
+  made again with `frontend/lib/core/healing`'s backoff until one lands (`HealRead`).
 - **R4, a guest's phone says nothing** (`GuestQuiet`: `(phost # 0 \/ guest) => ~NotSent`).
   When the host role moves away (a 403, or a lobby or `host_changed` that names another
   host), the lane forgets what it would send again, the changes waiting and any held deal,
@@ -83,9 +83,9 @@ goes out is `lobby_taps.dart`, a part of `lobby_notifier.dart`.
 | `ReadServe`, `ReadApply`, `ReadFail` | `_refreshOnce`, `_replayBuffered`, `_applyHeld` |
 | `EvDeliver` | `_handleWebSocketEvent`: held while a read is out; else `_onLobbyUpdate` (`_showServer`) or a read |
 | `RetryChanges` | `_LobbyTaps.retryChanges` (03's Try again: `changesNotSent` only) |
-| `HealRead`, `owed` | `LobbyNotifier._healRead` (`core/healing/`'s `retryAfter`) |
+| `HealRead`, `owed` | `LobbyNotifier._healRead` (`frontend/lib/core/healing`'s `retryAfter`) |
 | `SockDrop`, `SockUp` | the socket's state in `_connectWebSocket`: `readOnDrop` |
-| `SOther`, `SMove`, `SApply`, `SRefuse` | the server: `views.py`, `practice.make_room`, `announce_lobby`, `host.py` |
+| `SOther`, `SMove`, `SApply`, `SRefuse` | the server: views.py, `practice.make_room`, `announce_lobby`, `host.py` |
 
 The lane's rules are unit tested one per rule in
 `frontend/test/features/lobby/domain/settings_lane_test.dart`; the notifier around it, each

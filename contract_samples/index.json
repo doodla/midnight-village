@@ -762,6 +762,54 @@
       "description": "/me/ in the results phase."
     },
     {
+      "name": "http/game/me_results_six_ana",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Seer's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_ben",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Robber's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_cleo",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Troublemaker's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_dev",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Werewolf's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_esme",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Werewolf's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
+      "name": "http/game/me_results_six_fin",
+      "kind": "http",
+      "method": "GET",
+      "path": "/onuw/games/{game_id}/me/",
+      "status": 200,
+      "description": "The Insomniac's /me/ at the results of the six-seat game: the final card and the night's own data."
+    },
+    {
       "name": "http/game/me_talk_practice",
       "kind": "http",
       "method": "GET",
@@ -1762,6 +1810,14 @@
       "description": "The host takes the table back to the lobby."
     },
     {
+      "name": "http/lobby/play_again_app_table",
+      "kind": "http",
+      "method": "POST",
+      "path": "/lobbies/{code}/play-again/",
+      "status": 200,
+      "description": "Play again at a table opened the way the app opens it (its settings carry the starting set): the lobby, waiting."
+    },
+    {
       "name": "http/lobby/play_again_not_finished",
       "kind": "http",
       "method": "POST",
@@ -1986,6 +2042,22 @@
       "description": "Something that is not a summary: nothing kept."
     },
     {
+      "name": "ws/game/beat",
+      "kind": "ws",
+      "socket": "game",
+      "type": "beat",
+      "group": "socket",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The heartbeat's frame at the vote: the phone counts its socket as up only while frames keep coming (within about two beats), and reads once when the table's token (phase, window, moved_on) is ahead of what it holds."
+    },
+    {
       "name": "ws/game/game_results",
       "kind": "ws",
       "socket": "game",
@@ -2054,6 +2126,50 @@
         "Hana"
       ],
       "description": "The owner is back and hosts again."
+    },
+    {
+      "name": "ws/game/me_night",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: window 2 opened: her prompt, her card. The body is her GET /me/."
+    },
+    {
+      "name": "ws/game/me_results",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: the game ended: her final card, and the results. The body is her GET /me/."
+    },
+    {
+      "name": "ws/game/me_talk",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: the talk opened: what her night told her. The body is her GET /me/."
+    },
+    {
+      "name": "ws/game/me_vote",
+      "kind": "ws",
+      "socket": "game",
+      "type": "me",
+      "group": "player",
+      "recipients": [
+        "Ana"
+      ],
+      "description": "Her own view, on her own group only, sent before the table's event: the vote opened: who she may vote for. The body is her GET /me/."
     },
     {
       "name": "ws/game/night_window_1",
@@ -2349,6 +2465,22 @@
       "description": "Votes revealed; null = did not vote."
     },
     {
+      "name": "ws/lobby/beat",
+      "kind": "ws",
+      "socket": "lobby",
+      "type": "beat",
+      "group": "socket",
+      "recipients": [
+        "Ana",
+        "Ben",
+        "Cleo",
+        "Dev",
+        "Esme",
+        "Fin"
+      ],
+      "description": "The lobby socket's heartbeat frame after play again: the table's rev, so a phone holding an older lobby reads it once."
+    },
+    {
       "name": "ws/lobby/game_started",
       "kind": "ws",
       "socket": "lobby",
@@ -2609,6 +2741,12 @@
       "kind": "ws_sequence",
       "socket": "game",
       "description": "What every seat's socket heard while window 2 was open."
+    },
+    {
+      "name": "ws_stream/six_seats",
+      "kind": "ws_stream",
+      "socket": "game",
+      "description": "A whole game at six seats as each phone saw it: every event its game socket received and the answer to each of its own requests, in order (a request's events before its answer)."
     }
   ]
 }

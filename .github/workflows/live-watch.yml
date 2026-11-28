@@ -1,0 +1,51 @@
+# The watch between merges: is the live game working right now?
+#
+# Every 6 hours (and by hand: "Run workflow") it runs the same live-game check as the
+# release job, without moving anything: the server reaches its database and Redis
+# (`/api/health/?deep=1`), the app and its server, a real Start and Join, and a deal
+# and a restart heard on the socket (tool/deployed_check.py --deep --sockets). A red
+# run means players may meet a broken game even though nothing was merged: Neon
+# suspended at its monthly limit, Upstash over its commands, Vercel paused, a Vercel
+# rollback. The failed step's line says which (docs/dev/deploy-vercel.md, "The watch
+# between merges").
+#
+# Not a check of the merge wall: never on a pull request, never required, no write, no
+# secret. Held by guardrails/tests/test_release_workflows.py.
+
+name: Live Watch
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One at a time; a run by hand while one is going waits for it.
+concurrency:
+  group: live-watch
+  cancel-in-progress: false
+
+env:
+  # The two live addresses (docs/dev/deploy-vercel.md).
+  API_ORIGIN: https://midnight-village-anthelion.vercel.app
+  PUBLIC_ORIGIN: https://midnight-village-app-anthelion.vercel.app
+
+jobs:
+  watch:
+    name: Live game works right now
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Its database and Redis, Start, Join and a deal heard on the live game
+        run: >
+          python3 tool/deployed_check.py
+          --api "$API_ORIGIN" --app "$PUBLIC_ORIGIN" --deep --sockets

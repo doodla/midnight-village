@@ -11,6 +11,8 @@ Shared by every app (game logic, host handover, presence, durable timers).
 
 from __future__ import annotations
 
+import copy
+import logging
 import time
 from collections.abc import Callable
 from typing import Any
@@ -21,6 +23,8 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from apps.core import server_timing, timers
+
+logger = logging.getLogger(__name__)
 
 
 def after_commit(func: Callable[[], None]) -> None:
@@ -41,6 +45,58 @@ def send_after_commit(messages: list[tuple[str, dict[str, Any]]]) -> None:
     if channel_layer is None or not messages:
         return
     after_commit(lambda: _deliver(channel_layer, messages))
+
+
+Messages = list[tuple[str, dict[str, Any]]]
+
+
+def send_built_after_commit(
+    build: Callable[[Messages], tuple[Messages, Messages]],
+    messages: Messages,
+    *,
+    what: str = "messages",
+) -> None:
+    """Like ``send_after_commit``, with more built once the transaction has
+    committed: ``build(messages)`` (which may read the database: it sees the
+    committed state) returns the messages to send FIRST and ``messages`` as they
+    are to go with them (amended, or the same), all in one batch.
+
+    What is built can never take ``messages`` down with it: a ``build`` that
+    fails, or a batch that cannot be sent (a message the layer cannot pack, a
+    Redis push that fails), is logged and the ORIGINAL ``messages`` go out alone,
+    tried twice (a phone that hears the table's event with no view reads)."""
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+    original = copy.deepcopy(messages)
+
+    def run() -> None:
+        try:
+            first, amended = build(copy.deepcopy(original))
+        except Exception:
+            logger.exception("Could not build the %s to send", what)
+            first, amended = [], []
+        if first or amended:
+            try:
+                _deliver(channel_layer, [*first, *amended])
+                return
+            except Exception:
+                logger.exception("Could not send the %s: the rest goes alone", what)
+        if original:
+            _deliver_twice(channel_layer, original)
+
+    after_commit(run)
+
+
+def _deliver_twice(
+    channel_layer: Any, messages: list[tuple[str, dict[str, Any]]]
+) -> None:
+    """``_deliver``, tried once more when it fails (the second failure raises)."""
+    try:
+        _deliver(channel_layer, messages)
+    except Exception:
+        logger.exception("Could not send the table's messages: trying once more")
+        _deliver(channel_layer, messages)
 
 
 def _deliver(channel_layer: Any, messages: list[tuple[str, dict[str, Any]]]) -> None:

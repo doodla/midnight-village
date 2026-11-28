@@ -1,8 +1,8 @@
 # Design handoff: Shadow paper
 
-Everything needed to rebuild the app's screens in the chosen look. Read
-`../specs/frontend/design-brief.md` first; it holds the decisions. This folder holds the
-pictures.
+The pictures and art of the chosen look. What a screen must do and say is in
+`docs/specs/frontend/first-time-play.md` (`just brief <screen>` quotes it); this folder holds
+the pictures.
 
 ## What is here
 
@@ -13,13 +13,13 @@ polish passes build from it.
 
 | Folder | What |
 |---|---|
-| `mocks/*.png` | The 11 screens (plus `03b`, the role sheet) at 390x844. These are the target. |
+| `mocks/*.png` | The first mocks of the screens at 390x844 (plus `03b`, the role sheet); `10-the-count` and `11-results` show screens since replaced by the end board, whose own pictures are in `docs/specs/frontend/`. Where a mock and the spec differ, the spec wins. |
 | `mocks/*.dc.html` | The mock markup. Every size, colour, radius, shadow and font size is an inline style, so read these for exact values. Image `src` values (`/_blob/...`) only resolve inside the mock canvas; use the files in `art/` instead. |
-| `art/roles/` | Role portraits, 576x768, file named after the role (the Werewolf has three: `werewolf_lunge`, `werewolf_stare`, `werewolf_snarl`); `PROVENANCE.md` says where they came from. |
-| `art/tokens/` | 10 player tokens (crow, key, moth, bell, thorn, antler, hare, lantern, spindle, scythe), 320x320, to be shown in a circle: one per seat at a table of 10. And the practice players' 9, each the thing it is named for (scarecrow, teapot, broom, kettle, haystack, bucket, candle, weathervane, wheelbarrow; `apps/core/practice.py`), never handed to a person. |
-| `art/scenes/` | Candle, table, street door, sleeping village (flat pictures). |
-| `art/card-backs/` | The five card backs (moon, window, teeth, eye, quilt), 1200x1600; one is drawn for a whole game. `PROVENANCE.md` says how each was made. |
-| `art/layers/` | The two headers that move, drawn in layers (cuts of paper with alpha, PNG masters): `night-village/` (04: the plate, the moon, the clouds and their shadows) and `dawn-gallows/` (08: the sky, the sun, the hills, the birds, the roofs, the gallows). `flat.jpg` in each is the picture the layers were cut from. `PROVENANCE.md` says where every piece came from and how far each may move. |
+| `docs/design/art/roles` | Role portraits, 576x768, file named after the role (the Werewolf has three: `werewolf_lunge`, `werewolf_stare`, `werewolf_snarl`); `PROVENANCE.md` says where they came from. |
+| `docs/design/art/tokens` | 10 player tokens (crow, key, moth, bell, thorn, antler, hare, lantern, spindle, scythe), 320x320, to be shown in a circle: one per seat at a table of 10. And the practice players' 9, each the thing it is named for (scarecrow, teapot, broom, kettle, haystack, bucket, candle, weathervane, wheelbarrow; `backend/apps/core/practice.py`), never handed to a person. |
+| `docs/design/art/scenes` | Candle, table, street door, sleeping village (flat pictures). |
+| `docs/design/art/card-backs` | The five card backs (moon, window, teeth, eye, quilt), 1200x1600; one is drawn for a whole game. `PROVENANCE.md` says how each was made. |
+| `docs/design/art/layers` | The two headers that move, drawn in layers (cuts of paper with alpha, PNG masters): `docs/design/art/layers/night-village/` (04: the plate, the moon, the clouds and their shadows) and `docs/design/art/layers/dawn-gallows/` (08: the sky, the sun, the hills, the birds, the roofs, the gallows). `flat.jpg` in each is the picture the layers were cut from. `PROVENANCE.md` says where every piece came from and how far each may move. |
 
 The mock canvas, where the product owner comments: https://claude.ai/artifact/AQ2LuLA5KkRPXHiZoGb6j9
 (page "Round 4"). The product owner's verdict on these mocks: "close enough"; build them and
@@ -44,8 +44,8 @@ a flat picture or a layer no skin uses is removed, with its master.
 
 ## Status of each screen
 
-`01-join`, `04-your-card` and `11-results` were approved earlier. The other eight were revised
-after one round of feedback (19 November 2026) and then accepted as close enough.
+The mocks were accepted as close enough (19 November 2026); the app has moved on since, and the
+spec, not the mock, says what a screen is now.
 
 ## How the art was made
 

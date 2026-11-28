@@ -13,7 +13,7 @@ import 'end_reveal_pages.dart';
 // nobody hanged, the Hunter, ten players) at its moments, each named with its
 // time, and the one-hanged reveal filmed a frame every 33 ms. Run it with
 // `just end-reveal-frames` (frontend/test/README.md); it is not part of
-// `just test`.
+// `just flutter-test`.
 
 /// Where the frames go: `--dart-define=END_REVEAL_DIR=/some/folder`.
 const _dir = String.fromEnvironment(

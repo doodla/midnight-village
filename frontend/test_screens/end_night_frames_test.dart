@@ -16,7 +16,7 @@ import '../test/helpers/finger.dart';
 // What happened, filmed: the six-player game (`results`) stepped through at a
 // player's pace, a frame every 66 ms: the scrap tapped, each step played and
 // read for a moment, the next tap, and back to the result. Run it with
-// `just end-night-frames` (frontend/test/README.md); not part of `just test`.
+// `just end-night-frames` (frontend/test/README.md); not part of `just flutter-test`.
 
 const _dir = String.fromEnvironment(
   'END_NIGHT_DIR',

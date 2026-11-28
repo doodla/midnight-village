@@ -8,7 +8,7 @@ what it describes.
 ## Where information a player asks for appears
 
 **One rule.** Information a player asks for (their night, a role's details, and whatever a screen adds later) opens as a sheet from the bottom edge, in the one
-place, by the one primitive: `showSkinSheet` with a `SheetScaffold` (`primitives/sheet_scaffold.dart`) and its "Close" button (`RoleSheetCopy.close`).
+place, by the one primitive: `showSkinSheet` with a `SheetScaffold` (`frontend/lib/design_system/primitives/sheet_scaffold.dart`) and its "Close" button (`RoleSheetCopy.close`).
 It is the same place whatever was tapped, never a popover or a card floating at the touch point, and it closes the same way every time:
 its button, a tap on the scrim, or Back
 (the sheet is a route, so `BackPolicy` closes it before the screen's own Back; it also closes when the screen under it changes).
@@ -26,14 +26,14 @@ the held face of "You" on the night board (a hold, the face above the thumb: nig
 ## The dress: plain, or paper (one switch per screen)
 
 **Every component has a look in both dresses, listed in "Every component, in both dresses" below, and a paper one comes from ONE table
-(`skin/dress_style.dart`), never from its own code;
+(`frontend/lib/design_system/skin/dress_style.dart`), never from its own code;
 paper draws no stroke.** The deck set-up page (03) is paper too (`DeckView.defaultDress`), so the host does not step from paper into plain.
 
 A screen is **plain** (the look the game has today, exactly) unless it asks to be **dressed up**:
-`ScreenFrame(dress: Dress.paper)` (`skin/dress.dart`; `dress: null` is as the screen above it, so
+`ScreenFrame(dress: Dress.paper)` (`frontend/lib/design_system/skin/dress.dart`; `dress: null` is as the screen above it, so
 a preview or a test can wrap the app in a `DressScope` and see every screen dressed). The frame
 declares a `DressScope`; below it `context.skin` is the dressed skin (`Skin.dressedUp`: its
-colours, drops, one 5 px corner, angles, `skin.mood` and `skin.parts`; `skin/skins/shadow_paper_dress.dart`)
+colours, drops, one 5 px corner, angles, `skin.mood` and `skin.parts`; `frontend/lib/design_system/skin/skins/shadow_paper_dress.dart`)
 and every shared part below reads `context.dress` for what it draws or leaves out. **Four screens
 are dressed up** (the owner, 23 November 2026: the table before the game, your card, the night
 board; and 01, 24 November 2026, with the opening under it: each declares `DressScope(dress: widget.dress ?? Dress.paper)` above its frame, `dress:` is
@@ -41,7 +41,7 @@ for a preview or a test); the talk (08), the vote (09) and the end board are pap
 own `ScreenFrame(dress: Dress.paper)`; every other screen is plain, and the owner chooses the rest one by one. A sheet or dialog
 opened from a screen carries its dress (`showSkinSheet`).
 Every game-wide scope (ground, dress, card back, Werewolf portrait) reaches a sheet or dialog the same way:
-`GameScopes` (`skin/game_scopes.dart`) captures them at the opening context and wraps the route's content, `showSkinSheet`/`showSkinDialog` are the only openers
+`GameScopes` (`frontend/lib/design_system/skin/game_scopes.dart`) captures them at the opening context and wraps the route's content, `showSkinSheet`/`showSkinDialog` are the only openers
 (`game_scopes_test.dart` scans `lib` for `showModalBottomSheet`, `showDialog` and the like, and for `art.role(` in a screen);
 a new scope is added in that one file. A screen's own code, above its frame,
 reads `context.dress` too (the table, your card and the night board take `dress:` for a preview;
@@ -51,14 +51,14 @@ The long version, with every token and value, is `docs/design/feel.md` section 1
 degrades to the plain one (a `PaperPin` takes no room, `PaperBanner` is its words, `deckledPaper` is
 `cutPaper`), and every size, angle and colour is the skin's, never a number in a screen:
 
-- **Paper shadow and the one light** (`skin/elevation.dart`, `primitives/paper_light.dart`).
+- **Paper shadow and the one light** (`frontend/lib/design_system/skin/elevation.dart`, `frontend/lib/design_system/primitives/paper_light.dart`).
   `HardShadow` is a hard offset copy (plain); `HardShadow.drop` is the paper shadow (a contact
   shadow plus a cast of five stacked flat copies: no blur, no saveLayer); `HardShadow.edge` is the
   paper's thickness and never leans. `Mood.leanOf` says which way a screen's shadows lean (night: the
   moon high on the right, so left; day: a low sun on the left; a lantern: straight down); `ScreenFrame`
   declares it as `PaperLight`, and `cutPaper`, `deckledPaper` and the cards read it (`litBy`).
   `skin_contract_test.dart` holds "no blur".
-- **One file each** (`primitives/`, tests in `paper_parts_test.dart`): `deckle.dart`
+- **One file each** (`primitives/`, tests in paper_parts_test.dart): `deckle.dart`
   (`DeckleBorder`, a rectangle whose sides step in and out by a hair, seeded from the piece's id:
   paint only, the layout box and the hit target are the plain rectangle's), `deckled_paper.dart`
   (`deckledPaper`: fill, grain, torn edge, shadow; `deckledRing`: a pick's ring along the torn edge,
@@ -67,7 +67,7 @@ degrades to the plain one (a `PaperPin` takes no room, `PaperBanner` is its word
   `Tilt.seededRow` 1.2; the words stay level), `paper_banner.dart` (`PaperBanner`: torn bone paper
   with two pins; `bleed` lets the paper reach past the words' box), `paper_mark.dart` (`PaperMark`,
   the one picked/done mark; `PaperMarkCorner` hangs it on a pick), `paper_piece.dart`
-  (`PaperPiece`: the body of every paper component, from the one table `skin/dress_style.dart`; the primary button's amber on its backing is one), `fanned.dart`
+  (`PaperPiece`: the body of every paper component, from the one table `frontend/lib/design_system/skin/dress_style.dart`; the primary button's amber on its backing is one), `fanned.dart`
   (`Fanned`: one card of a fan, turned and enlarged, paint only: a tap lands on the card's own
   untransformed slot. So that what is seen is what is tapped, its paper never reaches past its slot by more
   than half the row's `gap` toward a neighbour, nor the row above (`above`) by more than half of it, lift included: the skin's size and turn are taken down just until that holds,
@@ -76,7 +76,7 @@ degrades to the plain one (a `PaperPin` takes no room, `PaperBanner` is its word
   light), `lantern_pool.dart` (`LanternPool`), `paper_grain.dart` (`PaperGrain`, a seeded tile made
   once), and a picked row's mark and the sheet's torn top inside their own parts. The secondary button is a bone
   scrap (no pin, no outline).
-- **`Mood`** (`primitives/mood.dart`; the palette is `skin.mood`, `MoodPalette`) is painted by a dressed
+- **`Mood`** (`frontend/lib/design_system/primitives/mood.dart`; the palette is `skin.mood`, `MoodPalette`) is painted by a dressed
   `ScreenFrame` under everything: the ground, the game's own village (the layered art, the night
   village or the dawn gallows, at real strength in the top third and falling into shadow below), a
   moon's or lantern's pool, a vignette. **What it costs**: it is composed ONCE per (screen size,
@@ -95,18 +95,18 @@ degrades to the plain one (a `PaperPin` takes no room, `PaperBanner` is its word
   sit on the village: they sit on paper, on a `TextBacking`, or on the plain ground; `mood_test.dart`
   measures the ground and its lights (7:1) and `dressed_contrast_test.dart` the real screens at 360 x 780
   and 390 x 844 with the village on, against the worst pixel round each word.
-- **To see it**: `just paper-dress` renders every part in both dresses (`test_screens/paper_dress_test.dart`)
+- **To see it**: `just paper-dress` renders every part in both dresses (`frontend/test_screens/paper_dress_test.dart`)
   and the table, your card and the night board in paper dress. `just paper-parts` is the parts page: every inventory component in paper dress in every state
-  (rest, pressed, picked, locked, focused) on the night and lantern grounds (`test_screens/paper_parts_test.dart`,
-  from `test/helpers/parts_catalogue.dart`); `just paper-components` is the table, your card, the night board and
+  (rest, pressed, picked, locked, focused) on the night and lantern grounds (`frontend/test_screens/paper_parts_test.dart`,
+  from `frontend/test/helpers/parts_catalogue.dart`); `just paper-components` is the table, your card, the night board and
   the card-details sheet as the live app has them, for before and after.
 
 ## Every component, in both dresses (the inventory)
 
-`skin/dress_inventory.dart` is this list; `test/design_system/primitives/paper_components_test.dart`
+`frontend/lib/design_system/skin/dress_inventory.dart` is this list; `frontend/test/design_system/primitives/paper_components_test.dart`
 holds the code to it: every file in `primitives/` is a row here or says why it is not a component,
 every row has a sample on the parts page (`just paper-parts`), and no row paints a stroke on paper.
-Paper looks come from ONE table, `skin/dress_style.dart` (`PaperPart`, read by `PaperPiece`, the one
+Paper looks come from ONE table, `frontend/lib/design_system/skin/dress_style.dart` (`PaperPart`, read by `PaperPiece`, the one
 body of every paper component); a component never draws its own fill, edge, shadow or border on a
 paper screen.
 
@@ -126,10 +126,10 @@ to its panel, so it stands off the ground by 1.25:1 and lies lower than a chip),
 part and every ground, barely lifted (`PaperPiece.flattened`: `lockedLift` of a scrap's lift,
 `lockedShadow` of its ink, no backing), its label naming what unlocks it (never the live label) in the
 ground's own text at 4.5:1 or more; `paper_rules_test.dart` ("locked") holds it lower than every live
-button form in luminance and in shadow, and `paper_consistency_test.dart` scans `lib/` so a new locked
+button form in luminance and in shadow, and `paper_consistency_test.dart` scans `frontend/lib` so a new locked
 button is listed with Sheets and dialogs are opened from a context UNDER the screen's `ScreenFrame` (`FrameMark`; `showSkinSheet` asserts it):
 that is where the dress, ground and light are declared, so a card's sheet on the deck page and the table's "Leave" sheet come up in paper, lit as their screen
-is (`paper_rules_test.dart`, "sheets and dialogs": every opener in `lib/` is opened on its real screen, and a new one fails until it is listed).
+is (`paper_rules_test.dart`, "sheets and dialogs": every opener in `frontend/lib` is opened on its real screen, and a new one fails until it is listed).
 A card in the deck on 03 is told from one out of it in the paper language:
 IN is full colour on lifted paper with the `PaperMark` and a bone name tag;
 OUT is lowered paper, no shadow, its colour mostly gone (`PaperParts.outSaturation`), no mark, the name on the quiet navy tag.
@@ -146,79 +146,79 @@ one (`PaperParts.cardRim`; never red: red is the Werewolf team's, painted only b
 markers and by artwork, `paper_consistency_test.dart` walks every paint call; `CardBackPaper`, the art's own
 printed rim left outside by `CardBack.frameInset`), a token a
 paper disc (`PaperParts.tokenInset`). Three tests hold it over every paper screen and every component
-state (`test/design_system/primitives/paper_rules_test.dart`): SHADOW (every shadow falls down and away
+state (`frontend/test/design_system/primitives/paper_rules_test.dart`): SHADOW (every shadow falls down and away
 from the screen's one light, `PaperLight`, which a sheet or dialog carries over in `GameScopes`; the
 paper shadow is moved copies, never a spread, so there is no halo), SEPARATION (a piece differs from
 what it lies on by 1.25:1 and casts a shadow; its words 4.5:1) and MATERIAL (pressed, picked, locked
 and focused are the same piece as rest; only the colour moves). Only drawings that are lines by nature (the
-QR code's modules and the scanner's camera frame) sit in a `Drawn` (`primitives/drawn.dart`), the
+QR code's modules and the scanner's camera frame) sit in a `Drawn` (`frontend/lib/design_system/primitives/drawn.dart`), the
 one allow-list the stroke test knows; the images (roles, card backs) are pictures and need none.
 The paper mark's tick, the seal and both lanterns are filled shapes of paper with
 a shadow, never strokes. The plain dress
 is every component's own code, kept exactly as it was (the owner has not asked for those screens).
 
-| Component | Plain look | Paper look | File (under `lib/design_system/`) |
+| Component | Plain look | Paper look | File (under `frontend/lib/design_system`) |
 | --- | --- | --- | --- |
-| PrimaryButton | amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline | ready: one amber piece on a darker backing, only its label in it (a second smaller line under it where it has one: 08's count); waiting and locked (the night board's "Choose" slot too): the quietest piece there is, dark indigo paper barely lifted off the ground with its label saying why (one locked form, 4.5:1); quiet: a bone scrap; on (a toggle pressed, 08's "Ready ✓"): navy paper laid lower where the amber was, its words bone; done: words and the paper mark, no paper | `primitives/primary_button.dart` |
-| SecondaryButton | 2 px outline on the ground, no fill ("paper": a raised paper tile) | a bone scrap, lower lift than the amber; dimmed when waiting | `primitives/secondary_button.dart` |
-| TextAction | small button type, underlined, no fill | plain serif words in full ink, no underline, no paper; dims when pressed | `primitives/text_action.dart` |
-| IconAction | Material icon button (the table's Share) | a bare ink glyph, no paper under it (it lies on a notice already); a press dims it, focus lifts it | `primitives/icon_action.dart` |
-| GlyphButton | outlined square with a glyph; on = lift and fill | a bone scrap square with the glyph; on = lifted with the paper mark | `primitives/viewfinder.dart` |
-| ValueStepper | two outlined round buttons round the value | two cut paper discs (minus, plus), sunk into the panel at the end of the range; the value in a well (paper sunk into the panel, the ground's own colour) | `primitives/value_stepper.dart` |
-| HoldRing | a ring that fills while the finger stays down, the word "Hold" | a navy paper disc with the word on it; the hold's progress an amber paper arc round it, filling clockwise over the same time (filled shapes only, no stroke) | `teach/hold_cue.dart` |
-| HoldToReveal | a focus outline on the cover | focus lifts the cover (a deeper shadow), no outline | `primitives/hold_to_reveal.dart` |
-| PresetChip | outlined box; the selected one lifts and takes a thicker ring | a cut-paper tag: picked = bone paper lifted high with a wax seal over its corner (its own form, `PaperPart.chipPicked`, never a button's); not picked = a flat, dim scrap of navy paper | `primitives/chips.dart` |
-| TagChip | flat fill in ink (danger for the Werewolf team) | a cut-paper tag; a team's tag (`TagChip.team`) is paper of the team's own colour on every surface: the Werewolf team red, the Village blue, the Tanner umber | `primitives/tag_chip.dart` |
-| YouTag | "You" outlined in the row's ink; "Practice" bare words | "You" on a cut-paper tag in the ink of what it lies on (navy on a bone row, bone on the night), set in the tag face wherever it is | `primitives/you_tag.dart` |
-| CountBadge | a filled round badge with the number | a drop of wax with the number in it (a `PaperPiece`, part wax), never a ring | `primitives/count_badge.dart` |
-| SeatDot / SlotMark | filled disc or slip; empty ones outlined | filled paper disc or slip; empty ones a darker paper disc, no outline | `primitives/dots.dart` |
-| ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | punched paper dots with a shadow; the unlit one a darker paper that keeps 3:1 against the ground | `primitives/progress_pips.dart` |
-| ScrapLabel | words in ink ("Edit") | a small bone scrap with the words | `primitives/scrap_label.dart` |
-| PlayerRow | paper row with a ring when picked or your own | a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag | `primitives/player_row.dart` |
-| PlayerToken | round token art | a cut disc of paper with its shadow, the emblem laid in it (its printed rim left outside); never a ring | `primitives/player_token.dart` |
-| RoleCard | portrait with a ring (lit or hairline) and a count badge | a mini card cut from paper. IN the deck: full colour, lifted paper, the paper mark on its corner, the name on a bone tag, a count a wax badge on its lower corner. OUT: lowered paper with no shadow, its colour mostly gone and faded, no mark, the name on the quiet navy tag | `primitives/role_card.dart` |
-| Fanned | cards in a row | cards fanned a hair, paint only | `primitives/fanned.dart` |
-| FaceDownCard | card back in a ring, hard shadow; picked = ring, lift, glow | two cut layers, a darker indigo one (never red) with the navy one laid on it a rim smaller, both deckled with their shadows (the card back's own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; a face-up card's role name on the quiet navy tag (never a team's colour); the one hero card on a deckled bone card like the face | `primitives/face_down_card.dart` |
-| PaperCard | cut paper card, hard shadow | deckled paper with the paper shadow; pinned = a pin through each top corner (a notice) | `primitives/paper_card.dart` |
-| HeldFace | the role card: portrait with a hairline frame, a rule above the text | the role card on paper, no frame and no rule; the same name, tag and rows as the sheet (`RoleHead`, `RoleRules`); the art of each role whole, in a window of its own shape | `faces/held_face.dart` |
-| RoleSheetBody | portrait, tags and the role's words on paper | the same on paper: the team tag above the name (`RoleHead`), the rows of small labels and short lines (`RoleRules`), the portrait a deckled picture | `primitives/role_sheet_body.dart` |
-| PeekBox | a strip of night laid on the day with a card in it | a panel of night paper (deckled, with its shadow); its card two cut layers like every card back | `primitives/panels.dart` |
-| OutlinePanel | 2 px hairline outline round a summary | a panel of paper set into the ground (a tone that stands off it by 1.25:1), deckled, with its shadow, no outline | `primitives/panels.dart` |
-| Notice | one line of words and a quiet action ("Not sent." "Try again") | the same line, its action plain serif words | `primitives/notice.dart` |
-| QrPicture | the code in the ground's ink | the same, on the pinned notice (a drawing, allowed: `Drawn.qrCode`) | `primitives/qr_picture.dart` |
-| SkinField | name: raised paper tile; code: 2 px outline | name: a bone scrap; code: a panel of paper; lifted while it has the focus | `primitives/skin_field.dart` |
-| SheetScaffold | paper sheet with a lit strip along its top | a torn sheet of paper, no lit strip; its Close is plain serif words (`SheetClose`) | `primitives/sheet_scaffold.dart` |
-| Rule / SideRule | a hairline, or a line down a block's side | no line: the room it takes | `primitives/rule.dart` |
-| PaperBanner | its words on the ground | torn bone paper with two pins | `primitives/paper_banner.dart` |
-| TextBacking | nothing | a name plate: a cut-paper tag behind the words (paint only), the words in the tag's ink | `primitives/text_backing.dart` |
-| TimerBand | a band with the clock, the sun or the bar | the same band; the night board's sits on a banner | `primitives/band.dart` |
-| WorldTimer | the seconds beside a candle on a panel with a hairline frame | the same panel with no frame | `primitives/world_timer.dart` |
-| Countdown, ClockTick | what a clock counts (a stage's deadline by the server's clock, or held still for a picture); only the clock primitives read it, in a `ClockTick` that rebuilds them alone each second, in its own build scope (as a `LayoutBuilder` has: a tick never reaches the screen's layout builders, which would lay out and paint the screen again) and a room where layout and paint stop (`clock_users_test.dart`, the sweep's rest rule) | the same | `primitives/countdown.dart` |
-| CandleGauge | the paper candle (art) on a ledge with a hairline | the candle on a ledge with no hairline (the candle is art) | `primitives/candle_gauge.dart` |
-| PaperMark | not drawn (a pick is a ring) | a drop of wax with a tick cut from paper laid on it (filled, with a shadow; no ring): the one mark for picked and done | `primitives/paper_mark.dart` |
-| PaperSeal | a scalloped seal with a padlock | a disc of red wax with the padlock in bone, no ring | `primitives/paper_seal.dart` |
-| PaperPin | takes no room | a flat pin: only where something is pinned (a notice, a slip) | `primitives/paper_pin.dart` |
-| Pending / BusyMark | the control sinks with a small lantern in its padding | the same, on the control's own paper | `primitives/pending.dart` |
-| Waiting | three paper lanterns on cords, lit one after another | the same | `primitives/waiting_sign.dart` |
-| PaperLantern | a cut-paper lantern with a warm glow | cut from paper: a cord strip, filled ribs, no outline; the busy mark a punched lantern whose flame is a hole | `primitives/paper_lantern.dart` |
-| Viewfinder / ShutteredWindow | a paper window with four corners; a closed one is outlined | the same window; a closed one is a recess of paper (the corners are a drawing, allowed: `Drawn.scanner`) | `primitives/viewfinder.dart` |
-| PaperScrap / PaperSlip | its words in the ground's ink, with the same 48 touch target | a scrap of bone paper pinned to the board (a scrap: the paper 40 tall, the touch target 48, a flat pin through its top left), its words in the name face; a scrap that `sends` a request keeps the busy mark's room at its paper's end, and busy the mark turns there while its words stay put in full ink (the `Pending` form of `PrimaryButton` and `SecondaryButton`; a busy scrap that does not send asserts); a slip is the same paper and says something, no tap | `primitives/paper_scrap.dart` |
-| VoteTag | the voter's sigil and their name, no paper | a name tag of bone paper (the scrap's), its left end cut to a point, at least 26 tall, with a punched hole, the voter's sigil in a small disc and their name in the name face, set smaller rather than cut | `primitives/vote_tag.dart` |
-| Twine | the same thread (filled, never a stroke): solid for a move, gapped for a look, a head at its far end where it says a way | paper thread in bone, a sagging curve between two cards' corners with a paper shadow away from the light; solid for a move, gapped for a look; with a head, a filled paper triangle at its far end, the way it went (`TwineEnd`: a head or a dot at either end, `tail` and `tip`; the links of the end board are thicker, `PaperParts.linkWidth`); red only for the Werewolf team | `primitives/twine.dart` |
-| StoryCardFace | its tab's words and the role, no paper | a card of a night's picture story (08, My night held): a tab with whose it is in the name face, never cut, the role's portrait with its name on a strip at its foot (bone paper, the Werewolf team's red), or face down the game's card back on the back's dark rim; its shadow away from the light | `primitives/story_card.dart` |
-| YouSeal | the player's own sigil alone | a blank seal of black wax pressed with the player's own sigil in grey, a disc of shadow away from the light | `primitives/you_seal.dart` |
-| InkStamp / DeathRibbon | the ribbon's picture alone; the stamp the same (no paper in it) | the black mourning ribbon pinned on a card's top right corner, a bone edge so it reads on red, a shadow away from the light; the stamp a narrow plate of dark ink in a double bone rule, its word in bone, bone lines bursting out round it, laid across a card's lower edge clear of the face and the role | `primitives/death_mark.dart` |
-| BoardCardBack | the same card face down (the end board is paper only) | a board card face down before the reveal turns it: night paper with a bone edge, the name, the game's card back in a bone frame, every back of a board one portrait size | `primitives/board_card_back.dart` |
-| FurledScroll | nothing (the end board is paper only) | the banner rolled up before it unrolls: a bone roll with its curl at each end, tied twice, a soft shadow under it | `primitives/furled_scroll.dart` |
-| BannerSlice / BoardFrame / BoardRoof | the banner's words alone; no frame (the child as it is), no roof | a swallowtail banner of cut paper (bone, or red when the Werewolf team or the Tanner won) that stretches with its words, ends never distorted; a nine-slice frame of planks about 19 thick round felt with grain; a three-slice roof | `primitives/sliced_art.dart` |
-| EndLantern | the lantern's picture alone, no glow | the paper lantern, lit with a warm glow laid on with the screen blend; unlit, the same lantern with no glow | `primitives/end_lantern.dart` |
-| BoardCard / DealtCard / BoardLight / BoardFoot | a card is its words alone; the rest draw nothing | a player's card pinned on the board: bone paper for a winner, dull for a loser (portrait darkened and drained), the Werewolf team's red, a name header, a 4:3 portrait with the role on a strip across its foot, a little darker the further it is from the lantern, its shadow away from it and bigger when raised; the small older sepia card tucked behind its corner; the lantern's warm pool on the living winners (screen blend) with the two darkenings; the cobbles with a torn lip and a shadow thrown up onto the board | `primitives/board_pieces.dart` |
-| NameTag | the player's sigil and their name, no paper | a player in the square (08): a tag of bone paper set a hair off square, the player's sigil in a small disc (your own tag: your wax seal) and their name in the name face, set smaller rather than cut; not a button | `primitives/name_tag.dart` |
-| DeckPile | the role's words alone ("3 Villagers") | one role of the deck in play: a board card (bone, the Werewolf team's red) with the role on the strip at its foot, the other copies fanned behind it; a tap or a hold opens the role | `primitives/deck_pile.dart` |
-| SealedNote | its words ("My night") | a folded note of bone paper, the flap a fold of the same paper (filled, no line), sealed with the player's own wax; held, it sinks into its shadow; until learned its seal lifts and settles once (the hold taught by doing it) | `primitives/sealed_note.dart` |
-| SquareSky | the dawn's layers, the clock, the lantern's picture | a strip of night sky over the dawn's far roofs and gallows under a veil of the night, the clock large in its middle (08's talk clock, or 09's larger vote clock: `SkyClock`), the wall lantern lit at its right, the board's roof along its foot | `primitives/square_sky.dart` |
-| SquareFoot | the screen's one button, with a failed send's line above it | the cobbles under a day board (08, 09) and on them the screen's one plaque, no wider than the square's, a failed send's quiet line above it | `primitives/square_foot.dart` |
-| VoteSlip | the vote's `PlayerRow` (picked: lift and outline; locked: red with a seal) | a player on the vote's board (09): a slip of bone paper laid on the felt, one soft shadow, no pin, the sigil a cut disc and the name in the name face (set smaller, never cut); pressed it sinks, picked it lifts with the navy-wax mark on its corner, locked it is cut in dried-blood red with the wax seal on its sigil (the owner's red row; the one red that is not a team's), the others lie down and dim | `primitives/vote_slip.dart` |
+| PrimaryButton | amber fill, hard offset shadow, ink edge by day; waiting, locked and quiet are a 2 px outline | ready: one amber piece on a darker backing, only its label in it (a second smaller line under it where it has one: 08's count); waiting and locked (the night board's "Choose" slot too): the quietest piece there is, dark indigo paper barely lifted off the ground with its label saying why (one locked form, 4.5:1); quiet: a bone scrap; on (a toggle pressed, 08's "Ready ✓"): navy paper laid lower where the amber was, its words bone; done: words and the paper mark, no paper | `frontend/lib/design_system/primitives/primary_button.dart` |
+| SecondaryButton | 2 px outline on the ground, no fill ("paper": a raised paper tile) | a bone scrap, lower lift than the amber; dimmed when waiting | `frontend/lib/design_system/primitives/secondary_button.dart` |
+| TextAction | small button type, underlined, no fill | plain serif words in full ink, no underline, no paper; dims when pressed | `frontend/lib/design_system/primitives/text_action.dart` |
+| IconAction | Material icon button (the table's Share) | a bare ink glyph, no paper under it (it lies on a notice already); a press dims it, focus lifts it | `frontend/lib/design_system/primitives/icon_action.dart` |
+| GlyphButton | outlined square with a glyph; on = lift and fill | a bone scrap square with the glyph; on = lifted with the paper mark | `frontend/lib/design_system/primitives/viewfinder.dart` |
+| ValueStepper | two outlined round buttons round the value | two cut paper discs (minus, plus), sunk into the panel at the end of the range; the value in a well (paper sunk into the panel, the ground's own colour) | `frontend/lib/design_system/primitives/value_stepper.dart` |
+| HoldRing | a ring that fills while the finger stays down, the word "Hold" | a navy paper disc with the word on it; the hold's progress an amber paper arc round it, filling clockwise over the same time (filled shapes only, no stroke) | `frontend/lib/design_system/teach/hold_cue.dart` |
+| HoldToReveal | a focus outline on the cover | focus lifts the cover (a deeper shadow), no outline | `frontend/lib/design_system/primitives/hold_to_reveal.dart` |
+| PresetChip | outlined box; the selected one lifts and takes a thicker ring | a cut-paper tag: picked = bone paper lifted high with a wax seal over its corner (its own form, `PaperPart.chipPicked`, never a button's); not picked = a flat, dim scrap of navy paper | `frontend/lib/design_system/primitives/chips.dart` |
+| TagChip | flat fill in ink (danger for the Werewolf team) | a cut-paper tag; a team's tag (`TagChip.team`) is paper of the team's own colour on every surface: the Werewolf team red, the Village blue, the Tanner umber | `frontend/lib/design_system/primitives/tag_chip.dart` |
+| YouTag | "You" outlined in the row's ink; "Practice" bare words | "You" on a cut-paper tag in the ink of what it lies on (navy on a bone row, bone on the night), set in the tag face wherever it is | `frontend/lib/design_system/primitives/you_tag.dart` |
+| CountBadge | a filled round badge with the number | a drop of wax with the number in it (a `PaperPiece`, part wax), never a ring | `frontend/lib/design_system/primitives/count_badge.dart` |
+| SeatDot / SlotMark | filled disc or slip; empty ones outlined | filled paper disc or slip; empty ones a darker paper disc, no outline | `frontend/lib/design_system/primitives/dots.dart` |
+| ProgressPips | plain pips (filled ink, empty hairline) and "N of M" | punched paper dots with a shadow; the unlit one a darker paper that keeps 3:1 against the ground | `frontend/lib/design_system/primitives/progress_pips.dart` |
+| ScrapLabel | words in ink ("Edit") | a small bone scrap with the words | `frontend/lib/design_system/primitives/scrap_label.dart` |
+| PlayerRow | paper row with a ring when picked or your own | a pinned torn slip, set down a hair off square; picked = lift and the paper mark; your own = the "You" tag | `frontend/lib/design_system/primitives/player_row.dart` |
+| PlayerToken | round token art | a cut disc of paper with its shadow, the emblem laid in it (its printed rim left outside); never a ring | `frontend/lib/design_system/primitives/player_token.dart` |
+| RoleCard | portrait with a ring (lit or hairline) and a count badge | a mini card cut from paper. IN the deck: full colour, lifted paper, the paper mark on its corner, the name on a bone tag, a count a wax badge on its lower corner. OUT: lowered paper with no shadow, its colour mostly gone and faded, no mark, the name on the quiet navy tag | `frontend/lib/design_system/primitives/role_card.dart` |
+| Fanned | cards in a row | cards fanned a hair, paint only | `frontend/lib/design_system/primitives/fanned.dart` |
+| FaceDownCard | card back in a ring, hard shadow; picked = ring, lift, glow | two cut layers, a darker indigo one (never red) with the navy one laid on it a rim smaller, both deckled with their shadows (the card back's own printed rim and margin left outside, `CardBack.frameInset`); picked = lift, deeper shadow, the paper mark; no glow, no ring; a face-up card's role name on the quiet navy tag (never a team's colour); the one hero card on a deckled bone card like the face | `frontend/lib/design_system/primitives/face_down_card.dart` |
+| PaperCard | cut paper card, hard shadow | deckled paper with the paper shadow; pinned = a pin through each top corner (a notice) | `frontend/lib/design_system/primitives/paper_card.dart` |
+| HeldFace | the role card: portrait with a hairline frame, a rule above the text | the role card on paper, no frame and no rule; the same name, tag and rows as the sheet (`RoleHead`, `RoleRules`); the art of each role whole, in a window of its own shape | `frontend/lib/design_system/faces/held_face.dart` |
+| RoleSheetBody | portrait, tags and the role's words on paper | the same on paper: the team tag above the name (`RoleHead`), the rows of small labels and short lines (`RoleRules`), the portrait a deckled picture | `frontend/lib/design_system/primitives/role_sheet_body.dart` |
+| PeekBox | a strip of night laid on the day with a card in it | a panel of night paper (deckled, with its shadow); its card two cut layers like every card back | `frontend/lib/design_system/primitives/panels.dart` |
+| OutlinePanel | 2 px hairline outline round a summary | a panel of paper set into the ground (a tone that stands off it by 1.25:1), deckled, with its shadow, no outline | `frontend/lib/design_system/primitives/panels.dart` |
+| Notice | one line of words and a quiet action ("Not sent." "Try again") | the same line, its action plain serif words | `frontend/lib/design_system/primitives/notice.dart` |
+| QrPicture | the code in the ground's ink | the same, on the pinned notice (a drawing, allowed: `Drawn.qrCode`) | `frontend/lib/design_system/primitives/qr_picture.dart` |
+| SkinField | name: raised paper tile; code: 2 px outline | name: a bone scrap; code: a panel of paper; lifted while it has the focus | `frontend/lib/design_system/primitives/skin_field.dart` |
+| SheetScaffold | paper sheet with a lit strip along its top | a torn sheet of paper, no lit strip; its Close is plain serif words (`SheetClose`) | `frontend/lib/design_system/primitives/sheet_scaffold.dart` |
+| Rule / SideRule | a hairline, or a line down a block's side | no line: the room it takes | `frontend/lib/design_system/primitives/rule.dart` |
+| PaperBanner | its words on the ground | torn bone paper with two pins | `frontend/lib/design_system/primitives/paper_banner.dart` |
+| TextBacking | nothing | a name plate: a cut-paper tag behind the words (paint only), the words in the tag's ink | `frontend/lib/design_system/primitives/text_backing.dart` |
+| TimerBand | a band with the clock, the sun or the bar | the same band; the night board's sits on a banner | `frontend/lib/design_system/primitives/band.dart` |
+| WorldTimer | the seconds beside a candle on a panel with a hairline frame | the same panel with no frame | `frontend/lib/design_system/primitives/world_timer.dart` |
+| Countdown, ClockTick | what a clock counts (a stage's deadline by the server's clock, or held still for a picture); only the clock primitives read it, in a `ClockTick` that rebuilds them alone each second, in its own build scope (as a `LayoutBuilder` has: a tick never reaches the screen's layout builders, which would lay out and paint the screen again) and a room where layout and paint stop (`clock_users_test.dart`, the sweep's rest rule) | the same | `frontend/lib/design_system/primitives/countdown.dart` |
+| CandleGauge | the paper candle (art) on a ledge with a hairline | the candle on a ledge with no hairline (the candle is art) | `frontend/lib/design_system/primitives/candle_gauge.dart` |
+| PaperMark | not drawn (a pick is a ring) | a drop of wax with a tick cut from paper laid on it (filled, with a shadow; no ring): the one mark for picked and done | `frontend/lib/design_system/primitives/paper_mark.dart` |
+| PaperSeal | a scalloped seal with a padlock | a disc of red wax with the padlock in bone, no ring | `frontend/lib/design_system/primitives/paper_seal.dart` |
+| PaperPin | takes no room | a flat pin: only where something is pinned (a notice, a slip) | `frontend/lib/design_system/primitives/paper_pin.dart` |
+| Pending / BusyMark | the control sinks with a small lantern in its padding | the same, on the control's own paper | `frontend/lib/design_system/primitives/pending.dart` |
+| Waiting | three paper lanterns on cords, lit one after another | the same | `frontend/lib/design_system/primitives/waiting_sign.dart` |
+| PaperLantern | a cut-paper lantern with a warm glow | cut from paper: a cord strip, filled ribs, no outline; the busy mark a punched lantern whose flame is a hole | `frontend/lib/design_system/primitives/paper_lantern.dart` |
+| Viewfinder / ShutteredWindow | a paper window with four corners; a closed one is outlined | the same window; a closed one is a recess of paper (the corners are a drawing, allowed: `Drawn.scanner`) | `frontend/lib/design_system/primitives/viewfinder.dart` |
+| PaperScrap / PaperSlip | its words in the ground's ink, with the same 48 touch target | a scrap of bone paper pinned to the board (a scrap: the paper 40 tall, the touch target 48, a flat pin through its top left), its words in the name face; a scrap that `sends` a request keeps the busy mark's room at its paper's end, and busy the mark turns there while its words stay put in full ink (the `Pending` form of `PrimaryButton` and `SecondaryButton`; a busy scrap that does not send asserts); a slip is the same paper and says something, no tap | `frontend/lib/design_system/primitives/paper_scrap.dart` |
+| VoteTag | the voter's sigil and their name, no paper | a name tag of bone paper (the scrap's), its left end cut to a point, at least 26 tall, with a punched hole, the voter's sigil in a small disc and their name in the name face, set smaller rather than cut | `frontend/lib/design_system/primitives/vote_tag.dart` |
+| Twine | the same thread (filled, never a stroke): solid for a move, gapped for a look, a head at its far end where it says a way | paper thread in bone, a sagging curve between two cards' corners with a paper shadow away from the light; solid for a move, gapped for a look; with a head, a filled paper triangle at its far end, the way it went (`TwineEnd`: a head or a dot at either end, `tail` and `tip`; the links of the end board are thicker, `PaperParts.linkWidth`); red only for the Werewolf team | `frontend/lib/design_system/primitives/twine.dart` |
+| StoryCardFace | its tab's words and the role, no paper | a card of a night's picture story (08, My night held): a tab with whose it is in the name face, never cut, the role's portrait with its name on a strip at its foot (bone paper, the Werewolf team's red), or face down the game's card back on the back's dark rim; its shadow away from the light | `frontend/lib/design_system/primitives/story_card.dart` |
+| YouSeal | the player's own sigil alone | a blank seal of black wax pressed with the player's own sigil in grey, a disc of shadow away from the light | `frontend/lib/design_system/primitives/you_seal.dart` |
+| InkStamp / DeathRibbon | the ribbon's picture alone; the stamp the same (no paper in it) | the black mourning ribbon pinned on a card's top right corner, a bone edge so it reads on red, a shadow away from the light; the stamp a narrow plate of dark ink in a double bone rule, its word in bone, bone lines bursting out round it, laid across a card's lower edge clear of the face and the role | `frontend/lib/design_system/primitives/death_mark.dart` |
+| BoardCardBack | the same card face down (the end board is paper only) | a board card face down before the reveal turns it: night paper with a bone edge, the name, the game's card back in a bone frame, every back of a board one portrait size | `frontend/lib/design_system/primitives/board_card_back.dart` |
+| FurledScroll | nothing (the end board is paper only) | the banner rolled up before it unrolls: a bone roll with its curl at each end, tied twice, a soft shadow under it | `frontend/lib/design_system/primitives/furled_scroll.dart` |
+| BannerSlice / BoardFrame / BoardRoof | the banner's words alone; no frame (the child as it is), no roof | a swallowtail banner of cut paper (bone, or red when the Werewolf team or the Tanner won) that stretches with its words, ends never distorted; a nine-slice frame of planks about 19 thick round felt with grain; a three-slice roof | `frontend/lib/design_system/primitives/sliced_art.dart` |
+| EndLantern | the lantern's picture alone, no glow | the paper lantern, lit with a warm glow laid on with the screen blend; unlit, the same lantern with no glow | `frontend/lib/design_system/primitives/end_lantern.dart` |
+| BoardCard / DealtCard / BoardLight / BoardFoot | a card is its words alone; the rest draw nothing | a player's card pinned on the board: bone paper for a winner, dull for a loser (portrait darkened and drained), the Werewolf team's red, a name header, a 4:3 portrait with the role on a strip across its foot, a little darker the further it is from the lantern, its shadow away from it and bigger when raised; the small older sepia card tucked behind its corner; the lantern's warm pool on the living winners (screen blend) with the two darkenings; the cobbles with a torn lip and a shadow thrown up onto the board | `frontend/lib/design_system/primitives/board_pieces.dart` |
+| NameTag | the player's sigil and their name, no paper | a player in the square (08): a tag of bone paper set a hair off square, the player's sigil in a small disc (your own tag: your wax seal) and their name in the name face, set smaller rather than cut; not a button | `frontend/lib/design_system/primitives/name_tag.dart` |
+| DeckPile | the role's words alone ("3 Villagers") | one role of the deck in play: a board card (bone, the Werewolf team's red) with the role on the strip at its foot, the other copies fanned behind it; a tap or a hold opens the role | `frontend/lib/design_system/primitives/deck_pile.dart` |
+| SealedNote | its words ("My night") | a folded note of bone paper, the flap a fold of the same paper (filled, no line), sealed with the player's own wax; held, it sinks into its shadow; until learned its seal lifts and settles once (the hold taught by doing it) | `frontend/lib/design_system/primitives/sealed_note.dart` |
+| SquareSky | the dawn's layers, the clock, the lantern's picture | a strip of night sky over the dawn's far roofs and gallows under a veil of the night, the clock large in its middle (08's talk clock, or 09's larger vote clock: `SkyClock`), the wall lantern lit at its right, the board's roof along its foot | `frontend/lib/design_system/primitives/square_sky.dart` |
+| SquareFoot | the screen's one button, with a failed send's line above it | the cobbles under a day board (08, 09) and on them the screen's one plaque, no wider than the square's, a failed send's quiet line above it | `frontend/lib/design_system/primitives/square_foot.dart` |
+| VoteSlip | the vote's `PlayerRow` (picked: lift and outline; locked: red with a seal) | a player on the vote's board (09): a slip of bone paper laid on the felt, one soft shadow, no pin, the sigil a cut disc and the name in the name face (set smaller, never cut); pressed it sinks, picked it lifts with the navy-wax mark on its corner, locked it is cut in dried-blood red with the wax seal on its sigil (the owner's red row; the one red that is not a team's), the others lie down and dim | `frontend/lib/design_system/primitives/vote_slip.dart` |
 
 ### The end board's parts (piece 1 of the end board; no screen uses them yet)
 
@@ -229,7 +229,7 @@ a pin is `PaperPin`; the plaque is the existing primary button;
 grain is `PaperGrain`; `PaperSeal` stays the vote's padlock and the "you" seal is `YouSeal` (the wax picture with the player's own sigil).
 What is new:
 
-- **The one light** (`primitives/one_light.dart`):
+- **The one light** (`frontend/lib/design_system/primitives/one_light.dart`):
   `OneLight` is a light POINT in the board's coordinates
   (`OneLight.lantern(box)` the centre of the lantern's panes, `OneLight.ofMood` a `MoodKind.lantern`'s pool as a point).
   `leanFor(rect)` is `PaperLight`'s lean worked out per piece:
@@ -239,7 +239,7 @@ What is new:
   `LitAt(rect:)` hangs the lean of a piece on the screen's `PaperLight` for everything below it, so every existing paper part is lit by the board's light
   without knowing it. Rects are in board coordinates:
   nothing is worked out again while the board scrolls.
-- **Slices** (`skin/end_art.dart`, `primitives/sliced_art.dart`):
+- **Slices** (`frontend/lib/design_system/skin/end_art.dart`, `frontend/lib/design_system/primitives/sliced_art.dart`):
   `SliceArt` says how a stretching picture is cut (in the file's pixels) and how many pixels make a point, so an end is the same size at every size;
   `SlicedArt` draws it (Flutter reads a `centerSlice` in logical pixels, `SliceArt.inPoints` is the one conversion).
   `BannerSlice`
@@ -247,7 +247,7 @@ What is new:
   `BoardFrame` (nine-slice, about 19 thick, felt and grain inside), `BoardRoof` (three-slice, 30 tall).
   `ArtSet.end` names the ornaments; `skin_contract_test.dart` holds each file at its size and no other file in the skin art's end folder.
 - **A night's picture story** (08's My night, held; usable by the end board's "What happened"):
-  `NightStory` (`night/night_story.dart`) is a pure model, `NightStory.of(NightReport)` builds it from the phone's OWN night record only
+  `NightStory` (`frontend/lib/design_system/night/night_story.dart`) is a pure model, `NightStory.of(NightReport)` builds it from the phone's OWN night record only
   (never what was done to it: a swapped player sees only their night; the Insomniac's "Now" card is her look; the Drunk's and the Troublemaker's moved cards stay face down):
   rows of `StoryCard` (who: you, a player, a center card, now; a role when seen, else face down), your own card on top as dealt;
   `StoryLink`s
@@ -255,17 +255,17 @@ What is new:
   `sleeps` (nothing moved or seen: the sleeping village);
   one `StoryLine` (its parts, names marked; a Doppelganger's opens on "You copied {name}");
   `spoken` is the sentence then every card.
-  `NightStoryView` (`night/night_story_view.dart`) draws any story from the kit
+  `NightStoryView` (`frontend/lib/design_system/night/night_story_view.dart`) draws any story from the kit
   (`StoryCardFace`, `Twine` with `head`, a pinned scrap for the sentence: body 14 with names in the name face, wrapping with its lines evened out, never cut),
   cards as large as lets it all fit from the board's top
-  (`StoryPlan`, `night/story_plan.dart`: every word measured once, the size found by halving, the plan kept per story, room, text scale and skin so the clock's tick lays nothing out again, the view in its own `RepaintBoundary`, `TalkView` keeping its panel while the night is the same; `talk_night_clock_test.dart` counts `StoryPlan.layouts`; its sizes are `StoryMetrics` and `skin.parts.story*`),
+  (`StoryPlan`, `frontend/lib/design_system/night/story_plan.dart`: every word measured once, the size found by halving, the plan kept per story, room, text scale and skin so the clock's tick lays nothing out again, the view in its own `RepaintBoundary`, `TalkView` keeping its panel while the night is the same; `talk_night_clock_test.dart` counts `StoryPlan.layouts`; its sizes are `StoryMetrics` and `skin.parts.story*`),
   scrolling only where even the smallest do not.
   Words: `NightStoryCopy`. Tests: `night_story_test.dart` (every role and case), the square's sweep (every story on three phones at text 1, 1.3, 1.6);
   every night is a recorded `/me/`
-  (`test/helpers/sheet/story_samples.dart` is the table from night to sample; `night_record.dart` reads the record the story must show; the rules in `night_story_test.dart` run over every row),
+  (`frontend/test/helpers/sheet/story_samples.dart` is the table from night to sample; `night_record.dart` reads the record the story must show; the rules in `night_story_test.dart` run over every row),
   and the sweep also runs long names ("Maximilian", "Rosa Maria", "Annabelle Whitlock", off the contract: `withLongNames(offContract: true)`) at 360 x 640, text
   1.6; `just story-pictures` draws them all.
-- **Links** (`primitives/card_link.dart`):
+- **Links** (`frontend/lib/design_system/primitives/card_link.dart`):
   `CardLink.between(a, b, kind:, avoid:, frame:)` is the one way two cards are linked for a step:
   given each card as it lies (`LaidCard`: its rect and turn) it ties the thread ON each card's edge where they face, never under anything in `avoid`, bends
   gently and more only as needed to clear `avoid` inside `frame`
@@ -273,11 +273,11 @@ What is new:
   (`LinkKind` look / team / take / swap: a dot at the card seen, a dot at each end, a head at each end).
   The end board's "What happened" draws every step with it (`end_night_links.dart`);
   08's picture story keeps its own fixed grid of threads (`StoryPlan`), which ties a Troublemaker's thread to the middle of a swap, not to a card.
-- **Twine** (`primitives/twine.dart`): `TwineRoute.between(a, b, avoid:)` ties the corners that face and bows until it clears the rects in `avoid`
+- **Twine** (`frontend/lib/design_system/primitives/twine.dart`): `TwineRoute.between(a, b, avoid:)` ties the corners that face and bows until it clears the rects in `avoid`
   (the cards' words and the cards in the way; the settled board's Hunter twine);
   `TwinePainter` paints FILLED paper thread (a stroke is not paper: the stroke test would fail it), solid for a move and in dashes for a look, with the paper
   shadow away from the light; `Twine(werewolf: true)` is red, which only the Werewolf team's thread is.
-- **Death marks** (`primitives/death_mark.dart`):
+- **Death marks** (`frontend/lib/design_system/primitives/death_mark.dart`):
   `DeathRibbon` (black corner ribbon, 30 to 38 wide, 92% outside the card, bone edge) and `InkStamp`
   (an ink block with its word knocked out and an ink spatter, no outline; its word is the caller's, from `copy.dart`).
   `DeathMark.maxCover` (0.35) is the most of a portrait either may hide:
@@ -287,21 +287,21 @@ What is new:
   `PaperScrap` (paper 40 tall, 48 to touch; 48 and 48 for two lines) and `PaperSlip` (`maxLines`: a sentence that wraps, What happened's caption), `YouSeal`,
   `EndLantern`.
 
-### The end board (piece 2: the static board; `features/game/presentation/end/`, seen only in `test_screens/` and `just screens`)
+### The end board (piece 2: the static board; `frontend/lib/features/game/presentation/end`, seen only in `frontend/test_screens` and `just screens`)
 
 `EndBoardView` draws the settled end-of-game board for one results body and one viewer (who "you" are comes from `/me/`, not the results):
 the sky, the banner, the roof, the board, the lantern, the cards, the foot.
 It measures the words, gives the plan the room there is, and draws it;
-it decides nothing: the layout is pure Dart in `features/game/domain/`
+it decides nothing: the layout is pure Dart in `frontend/lib/features/game/domain`
 (`end_board.dart`, `end_board_cards.dart` for the plan's parts, `end_board_rows.dart`, `end_board_metrics.dart` for every number, `end_banner.dart` for the sentences).
 The page is a column: the sky and banner (as tall as the banner's measured words; less sky on a short phone), the board's window (what is left), the foot
 (`EndFootBand`: two rows as tall as what is in them, its air less on a short phone).
 The plan needs only a text measure and line heights (a `TextPainter` on the real type at the phone's text size), so it is tested on every recorded results body
-and on tables of 3 to 10, at text 1, 1.3 and 1.6, without a widget (`test/features/game/domain/end_board_test.dart`, `end_board_rules_test.dart`):
+and on tables of 3 to 10, at text 1, 1.3 and 1.6, without a widget (`frontend/test/features/game/domain/end_board_test.dart`, `end_board_rules_test.dart`):
 no two cards overlap (a tilted card measured by its turned corners), nothing hung on a card covers another card or tag, nothing leaves the board, the hanged are
 in view when the board opens, the seeded tilt is the same on every phone, and who is looking moves no card (the seal's room is kept on every card).
 The guard on the drawn board is the screen sweep
-(`test/screen_cases/`, from the end board's pages and their `SweepPlan` in `test_screens/end_board_pages.dart`):
+(`frontend/test/screen_cases`, from the end board's pages and their `SweepPlan` in `frontend/test_screens/end_board_pages.dart`):
 every page on 360x640, 360x780 and 390x844 at text 1, 1.3 and 1.6, measured from the real render boxes, fails on any cut word, any piece on another, any foot
 piece off the screen or under 48 to touch, the banner's words outside the banner, or a hanged card out of view.
 `just end-pictures` draws the board beside the mocks.
@@ -341,12 +341,12 @@ the board's own twines are bone.
 
 The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once, say little). The shared pieces take plain data and callbacks and never touch the network:
 
-- **Words**: every string a player sees is in `lib/design_system/copy/`
+- **Words**: every string a player sees is in `frontend/lib/design_system/copy`
   (the library `copy.dart`, one part file per screen's words, so two screens' work never meets in one file; `Template` for gaps);
   none in widgets. A line of copy is a `Words` (a `String` wherever one is read, made only inside the copy library, and by `Template.fill`):
   a part whose text must be copy asks for `Words` (`PrimaryButton.label`), so a sentence typed in a screen does not compile;
-  a test of a part gives it `Words.forTest('...')`, which `just analyze` refuses anywhere in `lib/`.
-  `test/design_system/copy/copy_budget_test.dart` holds them to section 1 mechanically:
+  a test of a part gives it `Words.forTest('...')`, which `just analyze` refuses anywhere in `frontend/lib`.
+  `frontend/test/design_system/copy/copy_budget_test.dart` holds them to section 1 mechanically:
   the banned list, sentence, headline, button, banner and spoken lengths, the one question, no gesture explained
   (`gestureKept` would list a line the spec keeps; none today), and every screen state's word budget (`screen_states.dart`).
   `bad_copy_fixture.dart` proves each rule fails.
@@ -356,13 +356,13 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   only the Insomniac's says "now" (`face_content_test.dart` holds it).
   `widget_strings_test.dart` reads the syntax of `lib/design_system/{primitives,faces,night,teach}` and fails on any string there that could reach a screen or a
   screen reader (the server's snake_case keys, letterless joins and developer-only messages aside).
-- **Role text**: `RoleText.of(role)` (`copy/role_text.dart`), the one table for the 04 face, the role sheet (`RoleSheetBody`) and the team tags;
-  drawn by `RoleRules` (`primitives/role_rules.dart`):
+- **Role text**: `RoleText.of(role)` (`frontend/lib/design_system/copy/role_text.dart`), the one table for the 04 face, the role sheet (`RoleSheetBody`) and the team tags;
+  drawn by `RoleRules` (`frontend/lib/design_system/primitives/role_rules.dart`):
   a small label ("Night", "Vote", "Wins") in a column beside short lines, one per case, then "You are your last card." set apart;
   each label above its lines where the column would be too narrow for a word.
   A tag beside a role's name never repeats it (`RoleText.teamLabel`: "Werewolf team").
   A role's art is never cropped: on a held face its window takes the art's own shape (`HeldFace`).
-- **Cues**: `LearnedCues` (`teach/learned_store.dart`) keeps `mv.learned.v1.<id>` in `DevicePreferences`
+- **Cues**: `LearnedCues` (`frontend/lib/design_system/teach/learned_store.dart`) keeps `mv.learned.v1.<id>` in `DevicePreferences`
   (beside it, once the screens branch lands, `mv.looked.v1.<stage+player>` remembers that this phone has looked at its card for a stage), read before the first
   frame (`restoreLearned()` in `main`). Ids:
   `hold` (taught once: the ring on whatever hides a secret until the first reveal on any face; then on none), `night_choose`, `vote_lock`, `end_step`
@@ -380,23 +380,23 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   (drawn as live; a tap leads to the fix: 01's "Start a table", "Join a table" and "Join" take the cursor to the name field and `Nudge` it) or
   `.waiting(reason:)` (a change of this phone's is on its way; the reason is spoken), or it says what to do in its own label and does it
   (the table's button: "Add 1 card", "Remove 2 cards", "Need 3 players", "Need {n} more").
-  `Nudge` (`primitives/nudge.dart`, `GlobalKey<NudgeState>.nudge()`) is the one short shake over `Motion.settle`
+  `Nudge` (`frontend/lib/design_system/primitives/nudge.dart`, `GlobalKey<NudgeState>.nudge()`) is the one short shake over `Motion.settle`
   (a colour flash in the danger ink, no movement, under reduced motion) for the thing a locked button points at.
-  `main_button_rule_test.dart` scans `lib/` for a bare disabled main button;
+  `main_button_rule_test.dart` scans `frontend/lib` for a bare disabled main button;
   `frontend/CLAUDE.md`, "The app's rules".
 - **Gates**: only 04's "Ready" (a 0.8 s reveal) and a button waiting for a valid pick ("Choose a card", "Choose 1 more");
   `PrimaryButton.locked` replays the screen's cue.
   "Ready to vote" is never locked. Nothing adds a wait or assumes a timer length:
   lengths come from the server.
 - **Secrets**: `HoldToReveal` shows its face 120 ms after the press for as long as it is held (no cap) and counts a reveal at 0.8 s;
-  both timed from the finger (`FingerTimedLongPress`, `fingerTime`, `primitives/finger_hold.dart`: the pointer events' own times), so a phone too busy to
+  both timed from the finger (`FingerTimedLongPress`, `fingerTime`, `frontend/lib/design_system/primitives/finger_hold.dart`: the pointer events' own times), so a phone too busy to
   run its timers still takes a 120 ms press as a hold and counts a hold of 0.92 s as the finger lifts (every hold in the kit is one: a role card, a stepper's words);
   a hold its timer decides is taken at the start of the next frame, so a lift the browser kept back behind a long frame (a press drawn on a slow phone) is handled first and stays a tap;
   a tap is never a reveal (it reaches the cover at once: on the board, a pick);
   a screen reader, switch or keyboard shows it until activated again;
   it hides on focus loss, a covering route and the app leaving the foreground.
   The face is a `HeldFace`: the paper role card of mock 04 (`heroRole` for the role's name, the portrait through `ArtPicture.decodeAt`).
-  On 04 it turns over in place like a piece of cut paper (`PaperFlip`, `primitives/paper_flip.dart`: see "Your card turns over" below);
+  On 04 it turns over in place like a piece of cut paper (`PaperFlip`, `frontend/lib/design_system/primitives/paper_flip.dart`: see "Your card turns over" below);
   on the night board's "You" it shows above the touch point (below it, clear of the thumb, when there is no room above), never under the thumb, sized to its
   words and set smaller to fit that room; it is placed at layout from where the held card is in that frame
   (the touch kept as a share of the card, through `OverlayPortal.overlayChildLayoutBuilder`), so a screen that changes under a held finger
@@ -408,7 +408,7 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   (a countdown with no share: the bar is unlit; nothing is drawn that the server did not say) and with the screen's `title`
   beside its number (under it where they do not fit side by side), the talk's sun kept clear of the rooftops (`_SunPainter.rise`), `PeekBox(large:)`,
   `FadingScroll` (a part of a `fitsHeight` body that scrolls only when it cannot fit) and a `fitsHeight` body under a `topSlot` given the height left under the
-  band. Its content is read from `/me/` by `NightReport.fromMe` (`faces/night_report.dart`):
+  band. Its content is read from `/me/` by `NightReport.fromMe` (`frontend/lib/design_system/faces/night_report.dart`):
   `card` (04), `you(prompt)` ("You" at night; once her look is back, the Doppelganger's copy for the rest of window 1), `myNight`
   (08: the result first, window 1's page when the deck holds the Doppelganger, then "Dealt"; the same count on every phone).
   A face of several pages shows them all at once, stacked (the first large, the others as rows with a small portrait, `HeldFace`);
@@ -433,7 +433,7 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   a phone whose turn the server already has (`chooses_left` 0, `ChoosePrompt.used`) starts at "Chosen".
   A board with nothing to choose (`ChoosePrompt.sleeps`: the prompt's `kind` is `none`, and the server sends `chooses_left` 0 and never waits for it) asks
   nothing: "Nothing to do" quiet in the button's place (`PrimaryButton.done`), no teaching wave, and a tap bobs a card once (`CueWave`) and picks or sends
-  nothing. The board never scrolls (`ScreenFrame(fitsHeight: true)`) and is laid out by `BoardLayout.solve` (`night/board_layout.dart`), from the room, the text
+  nothing. The board never scrolls (`ScreenFrame(fitsHeight: true)`) and is laid out by `BoardLayout.solve` (`frontend/lib/design_system/night/board_layout.dart`), from the room, the text
   scale and every name at the table, this phone's own included (so every phone of a table gets the same board):
   the OTHER players' seats in balanced rows that never leave a card alone
   (4 others are 4 or 2 + 2, 7 are 4 + 3, 8 are 4 + 4, 9 are 3 + 3 + 3; at most five to a row; the one exception is three others, which may stand as a pair with the third centred under it, `BoardLayout.triangle`),
@@ -470,7 +470,7 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   "Skip" (Seer, Troublemaker, Doppelganger, lone Werewolf), "Keep my card" (the Robber only), "Choose for me"
   (the Drunk, who is swapped by the server all the same);
   its hold ring loses its word only where the word would fall below the 12 px label floor
-  (`ReadingFloor.caption` in `layout/space.dart`, which the gallery's floor reads too).
+  (`ReadingFloor.caption` in `frontend/lib/design_system/layout/space.dart`, which the gallery's floor reads too).
   The layout is solved again only when the names, the room, the text scale or the skin change, not on the countdown's tick.
   The strip carries the word "Center" above its cards
   (the titles say "center cards"; `BoardLayout.labelRoom`, and the place leaves the same room so the four cards sit level).
@@ -491,9 +491,9 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   the role's night line in a few words on a phone with a choice
   ("Look at cards" for the Seer, whose board says the rest; each passes the spec's "which, how many, where" test), "The village sleeps" on a sleeper's
   (an accepted tell); beside the seconds and the candle, so the board under it sits alike on every phone.
-  The candle is `CandleGauge` (`primitives/candle_gauge.dart`):
+  The candle is `CandleGauge` (`frontend/lib/design_system/primitives/candle_gauge.dart`):
   the paper candle of the candle picture cut into three sprites
-  (`tool/candle/cut_candle.py` writes `assets/skins/shadow_paper/candle/{wax,flame,holder}.webp`; `CandleArt` in the skin holds where each lies), so the paper's
+  (`frontend/tool/candle/cut_candle.py` writes `assets/skins/shadow_paper/candle/{wax,flame,holder}.webp`; `CandleArt` in the skin holds where each lies), so the paper's
   grain, red drips, lit lip and iron holder are the art's own;
   each casts a hard shadow, a little warm light lies on the village behind the flame
   (`CandleArt.light`, the flame's own colour: part of the picture, not the interface's accent, so the one-amber rule, which is about the interface's fills and is tested on the ground's roles, is not touched),
@@ -532,7 +532,7 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   (`ScreenFrame`; a body a few pixels too tall greys nothing out);
   `ScreenFrame(fitsHeight:, minBodyHeight:)` under a band gives the body the room under it and, where the band leaves less than `minBodyHeight`, scrolls the
   band and the body together rather than overflow.
-  Tests build every night input from the recorded samples (`recordedMe`, `Viewer` in `test/helpers/sheet/sheet_data.dart`), never by hand:
+  Tests build every night input from the recorded samples (`recordedMe`, `Viewer` in `frontend/test/helpers/sheet/sheet_data.dart`), never by hand:
   the results, seats, rule and prompt have no public constructor, and `night_fixture_sources_test.dart` catches the rest.
   `night_layout_test.dart` holds the board's layout and motion to be the same on every phone of a recorded game and what the table sees after Choose to be the
   same whatever the answer; `night_board_test.dart` and `pick_rule_test.dart` cover the rest.
@@ -543,7 +543,7 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   (a quiet underlined word in the small button type: a guest's "Leave" on 02 and 11).
   A clock's unit is set at `0.4` of its number on the bands (`TimerBand`), the number is measured by its shape ("0:00") so the band's layout holds still while
   it ticks, and the sun's sky takes at most `TimerBand.skyShare` of a short phone's height.
-- **The scanner's pieces** (`primitives/viewfinder.dart`):
+- **The scanner's pieces** (`frontend/lib/design_system/primitives/viewfinder.dart`):
   `Viewfinder` (a paper window, its content set in, four corners that close in and turn to ink when `found`), `ViewfinderBrackets` (the corners, a painter),
   `ScanGlyph` (the same corners round a small code, drawn: the art set has no glyph for it) and `GlyphButton`
   (an outlined square action with no word, a screen-reader label, `lit` for a switch that is on), `ShutteredWindow`
@@ -552,14 +552,14 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   The scanner's own words are `ScanCopy`.
 - **Pictures**: the component sheet's screen pages are these pieces in each state (`component_sheet_states_test.dart` checks each page reaches its state);
   a page is a phone of a recorded game (`ComponentPage.viewer`).
-  The end board is not a component page: its own pages are in `test_screens/end_board_pages.dart` (results bodies from `test/helpers/outcome_samples.dart`).
+  The end board is not a component page: its own pages are in `frontend/test_screens/end_board_pages.dart` (results bodies from `frontend/test/helpers/outcome_samples.dart`).
   `just playtest-pack` writes the cold-read pack:
   the host, guest, sleeper and Seer journeys, each ONE phone of recorded game 7, and `host-sets-8`
   (Tia sets her table for eight before anyone comes, builds her own deck, the table fills, she plays with seven, an eighth comes: recorded table D3GL6S, ending before the deal)
-  (`test/helpers/sheet/pack_journeys.dart`: every screen is that phone's own recorded payload, its lobby, look, night, talk and vote `/me/`, then the game's results, at a moment after the screen before, the clocks moving),
-  its own taps, with what it has learned carried from screen to screen, as `build/playtest/<journey>/screen-NN.png` (`test_screens/playtest_pack_test.dart`);
-  the 01 to 03b screens are the app's real screens on the table's recorded lobby bodies (`test_screens/table_fixtures.dart`).
-  `test/playtest/pack_journeys_test.dart` (in `just test`) holds each journey to one game:
+  (`frontend/test/helpers/sheet/pack_journeys.dart`: every screen is that phone's own recorded payload, its lobby, look, night, talk and vote `/me/`, then the game's results, at a moment after the screen before, the clocks moving),
+  its own taps, with what it has learned carried from screen to screen, as `build/playtest/<journey>/screen-NN.png` (`frontend/test_screens/playtest_pack_test.dart`);
+  the 01 to 03b screens are the app's real screens on the table's recorded lobby bodies (`frontend/test_screens/table_fixtures.dart`).
+  `frontend/test/playtest/pack_journeys_test.dart` (in `just flutter-test`) holds each journey to one game:
   one viewer, the same players, names and tokens, the deck in play, a vote that never offers the viewer, a clock that never runs backwards within a stage.
 
 ## The skin: one look, values from the skin
@@ -567,15 +567,15 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
 There is one look today: **Shadow paper** (from `docs/design/mocks/S*.dc.html`).
 A future look is a separate design with its own layouts, components and original art, not a recolouring of these screens.
 The values still come from the skin, so nothing is hard-coded:
-the look lives in a `Skin` (`lib/design_system/skin/`) holding per-ground colour roles and paper shadows (drops: `PaperShadow`)
+the look lives in a `Skin` (`frontend/lib/design_system/skin`) holding per-ground colour roles and paper shadows (drops: `PaperShadow`)
 (`Ground`: night, day, and the paper inside a card), type roles (`SkinType`), shape (`SkinShape`), tilt roles
 (`SkinTilt`, picked with `Tilt.card`, `Tilt.scatter(i)`, ...), the scrim, the dimmed opacity and the art set.
-Spacing and motion are not in it: `Space` and `Motion` in `lib/design_system/layout/space.dart`, read as `Space.md` with no skin in reach.
+Spacing and motion are not in it: `Space` and `Motion` in `frontend/lib/design_system/layout/space.dart`, read as `Space.md` with no skin in reach.
 The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
 
-- Build screens from the primitives in `lib/design_system/primitives/` and read values through `context.skin`, `context.ground` and `Space`/`Motion`, never
+- Build screens from the primitives in `frontend/lib/design_system/primitives` and read values through `context.skin`, `context.ground` and `Space`/`Motion`, never
   literals. `docs/design/mock-to-skin.md` maps every element of every mock to the primitive and role that draws it;
-  `test/helpers/component_sheet.dart` rebuilds each mock that way (the pages `join` to `results`), so copy from there.
+  `frontend/test/helpers/component_sheet.dart` rebuilds each mock that way (the pages `join` to `results`), so copy from there.
   Primitives: `ScreenFrame`
   (`fitsHeight` for a body that never scrolls; with `topArt` + `TopArtLayout` (`fill`: the picture takes the height the body leaves, never taller than its own shape so the scene is never cropped at the sides, the body at its foot; the picture is decoration and gives way first, by rule: a short phone, large text or the keyboard up push it off the top, never the body down past the foot, so 01's buttons are on the first screen at 360 x 640; `actionsFollow` puts the `actions` (01's numbers and "Get the app") in the scroll under the body instead of pinned, at the page's foot when it all fits, reached by scrolling, with the fade as the hint, when it does not; 01), or a full-bleed `topSlot`),
   `Band`, `TimerBand.bar` (the vote's), `SquareSky` (the talk's), `WorldTimer.candle`/`.candleCompact`
@@ -595,7 +595,7 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   `Waiting`/`WaitingSign`
   (the one waiting body: three paper lanterns hung from the header's edge on cords, lit one after another, seen after `Motion.signAfter` so a quick answer shows none, "Still on its way." after `Motion.slowAfter`, "One moment" with "Try again" while a fetch fails; still under reduce motion; laid in the frame of the screen it waits for),
   `Pending`
-  (one control's request: busy in the frame of the tap, never sent twice, busy until the next screen is up, a failure with its own words and "Try again"; its request goes out through `core/requests/player_request.dart`),
+  (one control's request: busy in the frame of the tap, never sent twice, busy until the next screen is up, a failure with its own words and "Try again"; its request goes out through `frontend/lib/core/requests/player_request.dart`),
   `TextAction`
   (a quiet action in words, no fill or outline, 44 to touch, `roomy` 48, `quiet` the lede's size and face in quiet ink: 11's "Leave" for a guest, 01's "Get the app" on the "N at tables" row; `busy`, like `SecondaryButton`'s, keeps the words' ink with a `BusyMark` beside them while the tap is on its way),
   `RoleCard`
@@ -616,14 +616,14 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   today?" drawn at its top (the sky speaks it), every other player as a `VoteSlip` in seat order (this phone's own is never listed), and the same cobbles and
   plaque (`SquareFoot`, moved out of 08's screen code) with the count under the plaque's words ("1 of 5 locked", where the pips were).
   "Pick a name" is the kit's locked form, and a tap on it nudges the slips (the `vote_lock` cue's wave, `CueReplay`).
-  The ground is the night's, so the vote declares `OpenDay` (`feel/haptics.dart`):
+  The ground is the night's, so the vote declares `OpenDay` (`frontend/lib/design_system/feel/haptics.dart`):
   below it `Haptics` still ticks and knocks, because the vote is done openly at the table;
   the night's screens never declare it. A `VoteSlip` measures as a `PlayerRow` of the same size, so `VoteRows` lays both out by one rule;
   plain, a slip IS that row (what follows).
 - **Choosing and locking (09)**: `PlayerRow` with an `onTap` dips 2 px the frame a finger lands
   (`PlayerRow.dip`, through `Pressable` by paint alone, the shadow staying where it was; a slide past the tap's slop or a lift returns it; under reduce motion the shadow tightens, the paper tints and nothing moves; a dressed `VoteSlip` sinks its `PaperPiece` the same way),
   a pick lifts 6 px with the ink outline (`quick`), and `sealed` (the vote locked on this player) stamps a `PaperSeal` inside the token's lower right corner
-  (`primitives/paper_seal.dart`: a scalloped cut disc with a hard shadow and a padlock, tilted a little like a hand-stamped seal; it comes down from `PaperSeal.landFrom` (1.4) times its size over `Motion.quick` on `Motion.land`, `easeOutBack`, under a tenth of overshoot, growing from its lower right corner so it grows up and left, over the token and away from the name; at rest, tilt and shadow included, it is inside the token, so it never hangs below the paper; a screen that opens already locked has it in place, `lands: false`).
+  (`frontend/lib/design_system/primitives/paper_seal.dart`: a scalloped cut disc with a hard shadow and a padlock, tilted a little like a hand-stamped seal; it comes down from `PaperSeal.landFrom` (1.4) times its size over `Motion.quick` on `Motion.land`, `easeOutBack`, under a tenth of overshoot, growing from its lower right corner so it grows up and left, over the token and away from the name; at rest, tilt and shadow included, it is inside the token, so it never hangs below the paper; a screen that opens already locked has it in place, `lands: false`).
   A lock cuts the pick's paper in dried-blood red (`ground.danger`) on the frame of the lock, words and ring in bone, the seal a bone disc with a red padlock
   (owner, 22 Nov 2026: "B: red row and seal"; the count's killed rows stay outline-only).
   The ink is whichever of the paper's own and bone has more contrast on the paper, and the paper only ever changes colour in a cut
@@ -634,7 +634,7 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   The row's tree is one tree whatever it can do (tappable, dimmed, locked) so its tweens survive the change, and its height is a `ConstrainedBox` outside the
   tween
   (`stretch`: the vote shares what room is left between its rows by one rule, `VoteRows`: a row grows by at most 30% of its size's height (`maxStretch`) and never past `maxRowHeight` (96), so two to four rows are never slabs and the rest of the room stays above and below them, the rows standing in the middle; `PlayerRowSize.grand` 88 tall with a 60 token when the room holds it, else `large`, else `compact`, else the fading scroll; the names are measured once per names, width and text size, not on the screen's per-second rebuild).
-  `Haptics` (`feel/haptics.dart`) is the only caller of `HapticFeedback` (`tick`, `light`, `thud`; silent on the night's ground, never throws):
+  `Haptics` (`frontend/lib/design_system/feel/haptics.dart`) is the only caller of `HapticFeedback` (`tick`, `light`, `thud`; silent on the night's ground, never throws):
   the vote ticks on each pick and knocks lightly on the lock tap, called from under the screen's own ground, and neither for a tap the phone declines
   (`VoteView.accepts`, the notifier's `voteDeclined`).
   A `PrimaryButton` that has become `done` is cut in, not blended from its amber.
@@ -647,14 +647,14 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   A selection is lift plus an outline (`ground.selection`), never amber or a fill.
   `amber_rule_test.dart` counts the amber fills on every component-sheet page.
 - Layout code never asks which skin is active:
-  no `SkinId`, no skin comparisons outside `skin/skins/`, the registry, the app theme and `main`
-  (`skin_identity_test.dart` scans `lib/` for every registry name).
+  no `SkinId`, no skin comparisons outside `frontend/lib/design_system/skin/skins`, the registry, the app theme and `main`
+  (`skin_identity_test.dart` scans `frontend/lib` for every registry name).
 - The Material theme comes from the skin (`skinTheme`, `appThemeProvider`, always `SkinId.fallback`);
   `Skin.lerp` never blends. There is no skin switch and no saved skin.
   The debug toolbar's "Reset learned cues" forgets what this device has been taught.
 - Fonts: Gloock and Figtree, under `fonts:` in pubspec.yaml (the engine loads them at start);
   only the weights the type roles use ship.
-  Their OFL licences are registered for the licences page in `lib/main.dart`.
+  Their OFL licences are registered for the licences page in `frontend/lib/main.dart`.
 - **Your card turns over** (`PaperFlip`, the design system's one card turn-over):
   `HoldToReveal(inPlace: true)` puts its cover as the back and the face as the other side of a `PaperFlip`.
   A finger landing dips the back 2% (`pressed`, `press`);
@@ -671,7 +671,7 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   the card on 04 passes none, because **nothing vibrates when a card is held, turned or revealed**
   (the owner, 23 November 2026: "The vibration on the card after I press to reveal it, I don't like it so maybe get rid of it"; `docs/design/feel.md` section 3; `Haptics` has no call for a card, and none may be added).
   `paper_flip_test.dart` holds the turn (never mirrored, never a gap, lifts, lands, mid-turn release, reduce motion, no vibration on the card) and
-  `just card-frames` films it (`test_screens/card_turn_frames_test.dart`).
+  `just card-frames` films it (`frontend/test_screens/card_turn_frames_test.dart`).
   The held face of "You" above the thumb is cut in and out on purpose.
 - **04's card takes the room**: `FaceDownCard(cardHeight:)` is the whole height between the title and the foot
   (the face-down hero keeps its back whole in its own shape, centred), so the face turned over in place is as large as the phone allows:
@@ -711,7 +711,7 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   the old code, which then asks the server for it and is answered with the app's page (the owner saw an empty Werewolf on 03, 23 November 2026).
   A file a screen stops drawing stays as a copy of its successor until no phone runs a build that draws it;
   nothing in `lib` names it. A picture can no longer be missing without a test saying so:
-  `ArtPicture.debugBeforeDraw` and `debugOnError` (set by `test/flutter_test_config.dart`) fail any test that draws a picture that is not a file of the app or
+  `ArtPicture.debugBeforeDraw` and `debugOnError` (set by `frontend/test/flutter_test_config.dart`) fail any test that draws a picture that is not a file of the app or
   whose bytes do not decode, and `skin_contract_test.dart` walks every path the lookups can return
   (every role and portrait, under every scope, with and without a game, the precaches' lists) against the bundle.
 - Art: `assets/skins/shadow_paper/{roles,tokens,scenes}/*.webp` and `layers/<scene>/*.webp` (the layered headers), at the pixel sizes the `ArtSet` declares
@@ -732,19 +732,19 @@ The registry is `SkinId` (`skin_id.dart`), with the one entry `shadowPaper`.
   of `docs/design/art/layers/` to the box it paints (it prints the size and anchor the skin declares; how art gets in: `docs/design/README.md`).
   Deterministic: run it twice and nothing changes.
   The app icon, launch screen and web icons:
-  `just app-icon` (`tool/app_icon.py`, `docs/design/app-icon.md`).
+  `just app-icon` (`frontend/tool/app_icon.py`, `docs/design/app-icon.md`).
 - System bars: the app runs edge to edge under transparent status and navigation bars (`main`);
-  `ScreenFrame` and `SheetScaffold` declare `systemBarsOver(ground)` (`skin/system_bars.dart`) for the ground they paint, so the bars' icons are light on night
+  `ScreenFrame` and `SheetScaffold` declare `systemBarsOver(ground)` (`frontend/lib/design_system/skin/system_bars.dart`) for the ground they paint, so the bars' icons are light on night
   and dark on paper. A screen body keeps clear of them with `MediaQuery.paddingOf`.
 - Tests on the skin: `skin_contract_test.dart` (scale, faces, art sizes, shapes, the accent and selection rules), `amber_rule_test.dart`, `contrast_test.dart`
   (WCAG AA measured on the painted pixels of every component-sheet page on every ground: text against the colour actually behind it, with the opacity above it; disabled controls exempt, busy ones not; on a player screen text below large size needs 7:1, WCAG AAA, `readingContrast`: the cold read found AA's quiet tones too faint, and the size floor of `just screens` cannot see colour),
   `fit_sweep_test.dart`
-  (every page at 320/360/390 wide and text x1/1.3/2: no overflow, no word broken across two lines, no text drawn cut short (`test/helpers/truncated_text.dart`: past a line limit, wider or taller than its own box with an ellipsis, a fade or a clip, or glyphs lost to a clip round it), every board card on screen (`fit_checks.dart`)),
+  (every page at 320/360/390 wide and text x1/1.3/2: no overflow, no word broken across two lines, no text drawn cut short (`frontend/test/helpers/truncated_text.dart`: past a line limit, wider or taller than its own box with an ellipsis, a fade or a clip, or glyphs lost to a clip round it), every board card on screen (`fit_checks.dart`)),
   the goldens.
 
 ### The type scale (the owner's choice, 23 November 2026)
 
-"Tight sizes, but keep the serif names." One scale, in the skin's type roles (`skin/skins/shadow_paper.dart`), and nowhere else:
+"Tight sizes, but keep the serif names." One scale, in the skin's type roles (`frontend/lib/design_system/skin/skins/shadow_paper.dart`), and nowhere else:
 names 16 in the display serif (`name`; `nameSmall` 14 under a board card), screen questions 24 (`screenTitle`, `headline`), headings 20 (`title`, `heading`),
 body 14 (`lede`, `body`, `action`; `bodyLarge` and `bodyStrong` 15, `code` 15, `cue` 16), buttons 15 in the text face, labels 12 (`caption`, `tag`, `badge`),
 the hero lines 36 / 28 / 32 / 32 (`heroTitle`, `heroCode`, `heroVerdict`, `heroWinner`), `display` 28.
@@ -753,10 +753,10 @@ The timers (84, 76, 64: the night board's seconds are `timerSmall` too, the one 
 A mock's bigger number is never copied. The reading floor is body 14, labels 12 (`ReadingFloor.act`, `.caption`; the gallery checks them).
 The layout that follows the type is the plain value on its enum:
 rows 38 (table), 48 (vote's fallback), 52 (vote, count), tokens 26 to 38, buttons 48 (50 the big one), fields 48.
-`test/design_system/skin/skin_contract_test.dart` holds each role to its cap and `type_guard_test.dart` fails any text size, weight or face set by hand in
-`lib/` outside the one file that defines the tokens (`skin/skins/shadow_paper.dart`), and any `fontSizeFactor`/`fontSizeDelta`, `TextScaler.linear`,
+`frontend/test/design_system/skin/skin_contract_test.dart` holds each role to its cap and `type_guard_test.dart` fails any text size, weight or face set by hand in
+`frontend/lib` outside the one file that defines the tokens (`frontend/lib/design_system/skin/skins/shadow_paper.dart`), and any `fontSizeFactor`/`fontSizeDelta`, `TextScaler.linear`,
 `MediaQueryData` text scale or `FittedBox`/`Transform.scale` directly around text
-(the allow-list is the exact named sites, each a role made smaller to fit its room, and a site that goes stale fails too; `features/debug/` is exempt).
+(the allow-list is the exact named sites, each a role made smaller to fit its room, and a site that goes stale fails too; `frontend/lib/features/debug` is exempt).
 The audit and the numbers: `docs/design/type-audit.md`.
 The room the smaller type freed is not used yet:
 a design round follows.
@@ -768,12 +768,12 @@ The three loops (`WaitingSign`, `LanternMark`, `HoldCue`) run on `Ambient`.
 Pressed through `Pressable`: `PrimaryButton`, `SecondaryButton`, `PaperScrap`, `IconAction`, `TextAction` and the card turned in place on 04 (`HoldToReveal` with `inPlace`) (press piece 1);
 `PlayerRow`, `VoteSlip`, `PresetChip`, `DeckPile`, `ValueStepper`'s signs, `OutlinePanel`, `RoleCard` and its minus, `GlyphButton` and the night board's `FaceDownCard`s (press piece 2).
 A row or slip sinks into its shadow; a chip, a sign, the panel and the glyph fill with a hairline, and dressed up their `PaperPiece` sinks;
-a deck pile and a role card settle (`PressSettle`, `feel/press_paint.dart`: 2 px down and 2% smaller, under reduce motion their ink dims to 80% instead); the minus dims.
+a deck pile and a role card settle (`PressSettle`, `frontend/lib/design_system/feel/press_paint.dart`: 2 px down and 2% smaller, under reduce motion their ink dims to 80% instead); the minus dims.
 Left out: the owner's `PerfStrip` (a tool), the layer that puts a night result away (`UntilTouched`), the hidden hold on a stepper's name, and the hold on "My night".
 - **Nested parts**: the innermost enabled `Pressable` under a finger takes the press alone (each listener hears the same down, the innermost first), as its detector takes the tap:
   a role card on the table's `OutlinePanel` presses, not the panel; a part turned off (a chip with nothing to do) leaves it to the part round it (`press_test.dart`).
 
-- **`Pressable`** (`feel/press.dart`): a `Listener` round the part.
+- **`Pressable`** (`frontend/lib/design_system/feel/press.dart`): a `Listener` round the part.
   The press is set in the pointer-down handler itself, one frame of `Motion.press` already in, so the next frame draws it;
   it goes the rest of the way on `Motion.curve`, and comes back up on the lift, a cancel, or a slide past the tap's slop from where it landed, on the screen as
   the tap measures it (just off the part's edge but within the slop it stays down: the tap still fires)
@@ -783,7 +783,7 @@ Left out: the owner's `PerfStrip` (a tool), the layer that puts a night result a
   (`press_test.dart` compares). The builder gets the press as an `Animation<double>` and the child passed through;
   it runs when the part is built, never per frame, so only a paint layer listens.
   `PressSink` is the common paper answer by paint alone (sink by an offset, shrink by a share; hit area and layout stay at rest; `PressSink.dip` is the kit's 2 px).
-  `PressDecoration` (`feel/press_paint.dart`) is its paper: the resting decoration blended toward the pressed one by the press, by paint alone (the shadow that tightens);
+  `PressDecoration` (`frontend/lib/design_system/feel/press_paint.dart`) is its paper: the resting decoration blended toward the pressed one by the press, by paint alone (the shadow that tightens);
   a change that is not a finger's (busy, a rise, a pick) eases over its `duration` as an `AnimatedContainer` does.
   `PaperPiece(press:)` and `TiltedPaper(press:, pressed:)` take a finger's press so; `pressed:` stays for a press that is not a finger's (a busy button).
   The plaque sinks into its backing, an outline fills with a hairline (a main one also dips), a scrap sinks into its shadow, a quiet word or a glyph dims;
@@ -803,8 +803,8 @@ Left out: the owner's `PerfStrip` (a tool), the layer that puts a night result a
   A dim is `PressFade` (an opacity layer only while it dims; a `FadeTransition` is a layer whenever it is visible), and 04's hero holds its art in a `PressLayer`:
   at rest a part has exactly the layers main's had (`press_parts_test.dart` reads them off the render tree). Adopting it:
   `Pressable(builder: (context, press, child) => PressSink(press: press, by: dip, child: child), child: GestureDetector(onTap: onTap, child: paper))`
-- **`Ambient`** (`feel/ambient.dart`): the one owner of a repeating clock
-  (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `lib/`, with no exceptions).
+- **`Ambient`** (`frontend/lib/design_system/feel/ambient.dart`): the one owner of a repeating clock
+  (`loops_only_here_test.dart` fails a `.repeat(` anywhere else in `frontend/lib`, with no exceptions).
   An effect is a small layer over a still picture, and a screen at rest draws nothing most of the time, so it plays in **bursts**:
   `cycles` rounds (1 by default), then a true rest at its `still` (0 or 1; no ticker, no frame asked for, one `Timer` wakes the next burst)
   for a gap between `Motion.restLeast` and `Motion.restMost` (8 to 16 s) taken from its `id` (`Ambient.restFor`: every phone the same).
@@ -832,7 +832,7 @@ Left out: the owner's `PerfStrip` (a tool), the layer that puts a night result a
 
 ## Scene changes (the dusk and the dawn)
 
-`SceneSwitcher<T>` (`primitives/scene_switcher.dart`) is the table shell's one way to change screen.
+`SceneSwitcher<T>` (`frontend/lib/design_system/primitives/scene_switcher.dart`) is the table shell's one way to change screen.
 It holds the arriving screen and, for a change of `stage`, the leaving one, and runs a crossfade
 (`Motion.settle`: the new screen fades in over the old, which stays whole) unless `sceneBetween` names a `SceneKind`, then a scene (`Motion.scene`, 500 ms).
 The shell names two: **dusk** (02 or 03 to 04 or the board) and **dawn** (04 or the board to 08).
@@ -857,7 +857,7 @@ one screen is a sheet of paper that moves on a hard edge
   the hills, the middle roofs and the gallows on them rise from 300 canvas px below as one bank (so no edge of one shows free of what hides it), the near roofs
   12 px further, the birds drift in (there is no sun: the square is lit by its lantern);
   the sky stays and the clock under it does not move.
-The header pictures know the scene by `SceneArrival` (`primitives/scene_arrival.dart`):
+The header pictures know the scene by `SceneArrival` (`frontend/lib/design_system/primitives/scene_arrival.dart`):
 an inherited 0-to-1, eased (`progress`: the sheet's landing), and the scene's own clock (`scene`, linear over `Motion.scene`), only for the arriving screen
 while a scene runs; `ArrivalShift` moves a picture by its own height times what is left of it, and `LayeredArt` moves each layer from its `from` to rest
 (see below). A screen with no scene running is told nothing and sits where it rests.
@@ -875,7 +875,7 @@ While `/me/` loads the shell shows the destination's own frame
 (`_CardWaits`: 04's village and headline, for the night's first screen after the deal; `_TalkWaits`: 08's sky, its dotted path and the headline, and no sun: where the talk is is not known until `/me/` says, and a sun drawn at the start would be seen leaving as the real one came),
 so a scene never lands on an empty ground and the screen then crossfades in on the same header.
 **Layered headers**
-(`LayeredArt`, `primitives/layered_art.dart`; the description is `LayeredScene` in `skin/art_set.dart`, the data in `shadow_paper.dart`; the art and how far each piece may move: `docs/design/art/layers/PROVENANCE.md`).
+(`LayeredArt`, `frontend/lib/design_system/primitives/layered_art.dart`; the description is `LayeredScene` in `frontend/lib/design_system/skin/art_set.dart`, the data in `shadow_paper.dart`; the art and how far each piece may move: `docs/design/art/layers/PROVENANCE.md`).
 A layer is a cut of paper with alpha, laid at its anchor on the canvas the layers were cut from, scaled and cropped exactly as the flat picture was
 (`SceneGeometry.cover`: cover, around the scene's focus), so at rest the layers are that flat picture (`layered_scene_test.dart` holds them to it).
 Brought in by a scene each layer travels from its `from` (canvas px) to rest in `Motion.curve` like everything else, over the sheet's landing, or, with a `span`
@@ -896,19 +896,19 @@ stepped by the clock with no tween; only a scene brings it up from `dip` (458) c
 Nothing is added to a layer by the screen:
 reduce motion shows the layers at rest, instantly (no scene runs).
 
-Weight: the layers are `assets/skins/shadow_paper/layers/night_village/` (8 files, 129 KB) and `assets/skins/shadow_paper/layers/dawn_gallows/`
+Weight: the layers are `frontend/assets/skins/shadow_paper/layers/night_village` (8 files, 129 KB) and `frontend/assets/skins/shadow_paper/layers/dawn_gallows`
 (7 files, 160 KB), each cut to the box it paints (a cloud is a cloud's pixels), 6 MB and 9 MB decoded.
 They replace the two flat pictures (134 KB, 6 MB decoded) and the unused dawn rooftops (44 KB):
 in the web build +110 KB of art and +8 KB of script net, 15 MB decoded instead of 6 MB once both are in use.
 `TableShell` decodes them before the scene that needs them (`LayeredArt.precache`, not awaited, at the sizes the screens draw):
 the night's when the shell first shows, the day's once this phone is at the night, so no one fetches the dawn before the deal.
-Frames of both in motion: `just scene-frames` (`test_screens/scene_frames_test.dart`);
-the browser check: `tool/scene_web_check.sh` (both in `test/README.md`).
+Frames of both in motion: `just scene-frames` (`frontend/test_screens/scene_frames_test.dart`);
+the browser check: `frontend/tool/scene_web_check.sh` (both in `frontend/test/README.md`).
 
-## Sound (`feel/sounds.dart`; the mechanism only, nothing is heard yet)
+## Sound (`frontend/lib/design_system/feel/sounds.dart`; the mechanism only, nothing is heard yet)
 
 `Sounds` is the one place a screen asks for a sound, as `Haptics` is for a vibration
-(`sounds_only_here_test.dart` fails anything else in `lib/` that reaches `core/audio/` or the browser's audio):
+(`sounds_only_here_test.dart` fails anything else in `frontend/lib` that reaches `frontend/lib/core/audio` or the browser's audio):
 `Sounds.play(Sfx.x)` fires a cue in the frame of its tap or drops it (before the first touch, muted, hidden, not decoded, the output not running);
 the theme has ONE owner, the shell that maps the stage to its variant:
 it calls `Sounds.claimTheme()` once and drives the returned `ThemeDriver`
@@ -922,21 +922,21 @@ What plays is data, `Sounds.catalogue`
 It is empty, nothing calls `Sounds`, and with an empty catalogue `Sounds.start` (from `main.dart`, after the skin's art) creates nothing at all.
 
 The logic is `SoundEngine`
-(`lib/core/audio/`, pure Dart, tested over `test/core/audio/fake_audio_backend.dart`, a fake that follows Web Audio's rules, and seeded random runs that check its bounds after every call; the theme's voices and memory are `ThemePlayer`),
+(`frontend/lib/core/audio`, pure Dart, tested over `frontend/test/core/audio/fake_audio_backend.dart`, a fake that follows Web Audio's rules, and seeded random runs that check its bounds after every call; the theme's voices and memory are `ThemePlayer`),
 over a thin `AudioBackend`: `WebAudioBackend` on the web
 (one context, made on the first gesture that is a user activation: a touch's pointerup, not its pointerdown; files decoded by the browser, a cue a new buffer source started in the same call, the theme looping sources crossfaded in phase; suspended when nothing can sound, replaced if the browser closes it),
 `SilentBackend` elsewhere, chosen by conditional import (`backend_stub.dart` / `backend_web.dart`).
 Its lengths are `SoundTiming`. The engine in a real browser, with two candidate mp3s as stand-ins:
-`node tool/audio_proof/run.cjs` (not in CI; a touch phone's profile; what it measures is in its header, its last result in `tool/audio_proof/result.json`).
+`node tool/audio_proof/run.cjs` (not in CI; a touch phone's profile; what it measures is in its header, its last result in `frontend/tool/audio_proof/result.json`).
 The rules and what is still to choose: `docs/design/feel.md`, section 6.
 
 ## The field recorder's strip (`perf/`; only with `?perf=1` on the web address)
 
-Where a tap's time goes on a real phone, measured by the app itself (the recorder is `lib/core/perf/`; how the owner uses it: `docs/dev/owner-feedback.md`, 24 November).
+Where a tap's time goes on a real phone, measured by the app itself (the recorder is `frontend/lib/core/perf`; how the owner uses it: `docs/dev/owner-feedback.md`, 24 November).
 On the live app (a build with a commit) the same recorder also runs quietly, with no strip: a small summary at each game's end, and one of the play before a hidden tab, goes to the server
-(`core/perf/field_summary.dart`, `field_beacon.dart`; the owner reads them with `just field-report`; `docs/dev/deploy-vercel.md`, "Seeing the live app").
-A recorder that is on is reached only through `GuardedRecorder` (`core/perf/perf.dart`): nothing it throws reaches the app;
-`--dart-define=FIELD_QUIET=true` runs the tests with the quiet recorder on (`test/helpers/quiet_field.dart`).
+(`frontend/lib/core/perf/field_summary.dart`, `field_beacon.dart`; the owner reads them with `just field-report`; `docs/dev/deploy-vercel.md`, "Seeing the live app").
+A recorder that is on is reached only through `GuardedRecorder` (`frontend/lib/core/perf/perf.dart`): nothing it throws reaches the app;
+`--dart-define=FIELD_QUIET=true` runs the tests with the quiet recorder on (`frontend/test/helpers/quiet_field.dart`).
 Off (a local run, the tests, unless the tab asked) the app is exactly as it is:
 `perfStripAround` returns the app itself, and every hook (`Perf.recorder`) is the constant `PerfOff`, which holds nothing and returns nothing.
 The quiet mode draws nothing either: `perfStripAround` wraps only for `?perf=1`.
@@ -947,4 +947,4 @@ Tapped, it opens the summary over everything, from the bottom edge (not `showSki
 the short report as it would be pasted, and "Copy report" (plain text, under 4,000 characters), "Copy everything" (the JSON) and "Clear".
 A tap is named by its screen and the KIND of control under the finger (`control_kind.dart`: `main_button`, `player_row`, by the widget's type, never its words),
 so the report holds no name, role, card or vote.
-Its words are a developer's tool the owner reads (`PerfWords` in `core/perf/perf_report.dart`), not the player's copy.
+Its words are a developer's tool the owner reads (`PerfWords` in `frontend/lib/core/perf/perf_report.dart`), not the player's copy.

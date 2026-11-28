@@ -31,7 +31,6 @@ group is a sample diff (and ``test_contract_privacy.py`` refuses it).
 
 from __future__ import annotations
 
-import copy
 import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -46,6 +45,7 @@ from django.test import override_settings
 from asgiref.sync import async_to_sync
 from channels.consumer import get_handler_name
 from channels.layers import BaseChannelLayer, get_channel_layer
+from channels_redis.serializers import registry
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -54,48 +54,17 @@ from apps.core.consumers import LobbyConsumer
 from apps.core.models import Lobby, LobbyMember, ScheduledTimer, User
 from apps.onuw import game_presence, services, turns
 from apps.onuw.consumers import GameConsumer
+from apps.onuw.groups import game_group, player_group
 from apps.onuw.models import Game, PlayerRole
 from apps.onuw.protocol import stage_token
 
+from .pinned import FORCED_SEED, GAME_IDS, LOBBY_CODES
+
 START = datetime(2024, 3, 7, 20, 50, tzinfo=UTC)
-LOBBY_CODES = (
-    "K7QX4M",
-    "M2RV8P",
-    "Q4TW9N",
-    # The choose tables (scenarios.choose_tables) come after.
-    "R5ZD3H",
-    "T8NB6C",
-    "V9YC2J",
-    "W3XF7K",
-    # The results, three-player and ten-player tables (scenarios.results_tables).
-    "X2PG5N",
-    "Y6HM8R",
-    "Z4KQ3T",
-    # The lobby table (scenarios.lobby_table).
-    "B7DH4Q",
-    "C9FJ2K",
-    # The table set for eight (scenarios._seats_table).
-    "D3GL6S",
-    # The account that is gone (scenarios.gone_account) opens no lobby, so the
-    # table of practice players after it (scenarios.practice_table) is given
-    # this code by the generator and takes it from the create's answer.
-    "F5HN2V",
-    # Its run.table() slot (never a lobby's code). The story table
-    # (story_scenarios, after it) is given this one by the generator.
-    "G8JP4W",
-    # The story table's run.table() slot (never a lobby's code). The asked table
-    # (asked_scenarios, after it) is given this one by the generator.
-    "H6KS9X",
-    # The asked table's run.table() slot (never a lobby's code).
-    "J3MU5Z",
-)
-# Stand-ins for the game ids, in the order the games are dealt.
-GAME_IDS = (
-    "7d3f2c1a-5b8e-4c2d-9a6f-1e0b3c4d5e6f",
-    "9a1e5c7b-3d2f-4b6a-8c0e-2f4a6b8c0d1e",
-    *(f"00000000-0000-4000-a000-{n:012d}" for n in range(3, 40)),
-)
-FORCED_SEED = 424242
+# The type a phone hears for a channel message whose handler renames it.
+PHONE_TYPE = {"own.view": "me"}
+# What the live layer packs every message with (`apps/core/channel_layer.py`).
+LIVE_SERIALIZER = registry.get_serializer("msgpack", random_prefix_length=12, expiry=60)
 
 
 class RecordingLayer(BaseChannelLayer):
@@ -111,7 +80,11 @@ class RecordingLayer(BaseChannelLayer):
         self.batches = 0
 
     async def group_send(self, group: str, message: dict[str, Any]) -> None:
-        self.sent.append((group, copy.deepcopy(message)))
+        # Through the live server's own serializer (channels_redis's msgpack),
+        # packed and unpacked: a message Redis could not carry fails here.
+        self.sent.append(
+            (group, LIVE_SERIALIZER.deserialize(LIVE_SERIALIZER.serialize(message)))
+        )
 
     async def group_send_many(self, messages: list[tuple[str, dict[str, Any]]]) -> None:
         self.batches += 1
@@ -141,10 +114,14 @@ class Clock:
         self.now += timedelta(seconds=seconds)
 
 
-def client_event(consumer_cls: type, message: dict[str, Any]) -> dict[str, Any]:
+def client_event(
+    consumer_cls: type, message: dict[str, Any], *, user_id: int | None = None
+) -> dict[str, Any]:
     """What a socket of ``consumer_cls`` sends its phone for a group message,
-    produced by the consumer's own handler for that message type."""
+    produced by the consumer's own handler for that message type. ``user_id``:
+    the signed-in player the socket belongs to."""
     consumer = consumer_cls()
+    consumer.user_id = user_id
     out: list[dict[str, Any]] = []
 
     async def base_send(frame: dict[str, Any]) -> None:
@@ -422,8 +399,7 @@ class Table:
     def _groups(self, name: str, socket: str) -> set[str]:
         if socket == "lobby":
             return {f"lobby_{self.code}"}
-        game = f"game_{self.game_id}"
-        return {game, f"{game}_player_{self.pid(name)}"}
+        return {game_group(self.game_id), player_group(self.game_id, self.pid(name))}
 
     def events(
         self, name: str, socket: str, kind: str
@@ -434,7 +410,7 @@ class Table:
         groups = self._groups(name, socket)
         wanted = kind.replace("_", ".")
         return [
-            (group, client_event(consumer, message))
+            (group, client_event(consumer, message, user_id=self.pid(name)))
             for group, message in self.layer.sent
             if group in groups and message["type"] == wanted
         ]
@@ -471,7 +447,7 @@ class Table:
             {
                 "kind": "ws",
                 "socket": socket,
-                "type": kind,
+                "type": event["type"],
                 "group": "player" if "_player_" in group else "broadcast",
                 "recipients": self._recipients(group, socket),
                 "description": about,
@@ -599,7 +575,7 @@ class Table:
         for who in self.players:
             groups = self._groups(who, "game")
             sequences[who] = [
-                message["type"].replace(".", "_")
+                PHONE_TYPE.get(message["type"], message["type"].replace(".", "_"))
                 for group, message in self.layer.sent[since:]
                 if group in groups
             ]

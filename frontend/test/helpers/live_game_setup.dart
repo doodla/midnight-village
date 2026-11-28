@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:midnight_village/core/api/authenticated_client.dart';
 import 'package:midnight_village/core/healing/healing.dart';
+import 'package:midnight_village/core/websocket/reconnecting_websocket.dart';
 import 'package:midnight_village/core/websocket/websocket_channel.dart';
 import 'package:midnight_village/features/auth/domain/auth_state.dart';
 import 'package:midnight_village/features/auth/domain/user.dart';
@@ -75,9 +76,16 @@ class LiveGameSetup {
   /// The phone of `/me/` [me] (a recorded `/me/`: its
   /// `player_id` is the signed-in player), whose `/me/table/` answers that
   /// game's table.
+  ///
+  /// [socket]: a real [ReconnectingWebSocket] (over mock channels) as the
+  /// game's socket, for a test of what the notifier does with it (a resume
+  /// verifying it); otherwise [ws] is the socket's stream and the connection
+  /// is driven by hand ([drop], [back], ...).
   factory LiveGameSetup.create(
     Map<String, dynamic> me, {
     DateTime Function()? clock,
+    HealTiming timing = testHealTiming,
+    ReconnectingWebSocket? socket,
   }) {
     final userId = me['player_id'] as int;
     final http = MockHttpClient();
@@ -95,13 +103,15 @@ class LiveGameSetup {
           authenticatedClientProvider.overrideWithValue(client),
           gameServiceProvider.overrideWithValue(GameService(client: client)),
           lobbyServiceProvider.overrideWithValue(LobbyService(client: client)),
-          gameWebSocketProvider.overrideWith((ref, id) => null),
-          gameWebSocketStreamProvider.overrideWith((ref, id) => ws.stream),
+          gameWebSocketProvider.overrideWith((ref, id) => socket),
+          gameWebSocketStreamProvider.overrideWith(
+            (ref, id) => socket?.stream ?? ws.stream,
+          ),
           gameConnectionStateProvider.overrideWith(
-            (ref, id) => connection.stream,
+            (ref, id) => socket?.connectionState ?? connection.stream,
           ),
           appResumesProvider.overrideWith((ref) => resumes.stream),
-          healTimingProvider.overrideWithValue(testHealTiming),
+          healTimingProvider.overrideWithValue(timing),
           clockProvider.overrideWithValue(clock ?? () => sampleClockStart),
         ],
       ),

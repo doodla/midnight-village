@@ -39,7 +39,8 @@ through the deployed routing. This one does, against what players are using.
 
 usage: tool/deployed_check.py --api https://<server> [--app https://<app>]
                               [--commit <sha>] [--wait <seconds>] [--sockets]
-                              [--timings <file.json>]
+                              [--timings <file.json>] [--deep]
+With --deep (the watch between merges) it also asks /api/health/?deep=1.
 Without --app the app steps are skipped (a local server, the backend's test).
 Exit 0 when everything holds; 1 with one line per failed step.
 """
@@ -171,6 +172,27 @@ def check_health(api):
     body = json_call("health", "GET", f"{api}/api/health/", 200)
     if body.get("status") != "ok":
         raise Failed(f"health: the server answered {body!r}, wanted status ok")
+
+
+def check_deep(api):
+    """The server reaches its database and its Redis (`/api/health/?deep=1`)."""
+    status, _, raw = call("GET", f"{api}/api/health/?deep=1")
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        body = {}
+    parts = {k: body.get(k) for k in ("database", "redis")}
+    if status == 200 and body.get("status") == "ok" and None not in parts.values():
+        return
+    if status == 200 and None in parts.values():
+        raise Failed(
+            "the server does not answer the deep check (a build from before it?)"
+        )
+    raise Failed(
+        f"the server answered {status}: database {parts['database']}, redis {parts['redis']}."
+        " A failed database: Neon (suspended at the month's limit, or down); a failed"
+        " redis: Upstash (over its monthly commands, or down). Look in their consoles."
+    )
 
 
 def check_join_link(app, code):
@@ -458,6 +480,7 @@ def run(
     app_commit=None,
     sockets=False,
     timings_to=None,
+    deep=False,
 ):
     """Every step in order; returns the list of failures (empty when all hold)."""
     api, app = api.rstrip("/"), (app or "").rstrip("/") or None
@@ -470,6 +493,8 @@ def run(
             )
         )
     steps.append(("the server's health", lambda: check_health(api)))
+    if deep:
+        steps.append(("its database and Redis answer", lambda: check_deep(api)))
     arrived = {"commit": app_commit or commit}  # None once the wait has failed
     if app:
         steps.append(
@@ -544,6 +569,11 @@ def main(argv=None):
         metavar="FILE",
         help="with --sockets: time every request of that step, print the table and write it as JSON",
     )
+    p.add_argument(
+        "--deep",
+        action="store_true",
+        help="also check the server reaches its database and Redis",
+    )
     args = p.parse_args(argv)
     failures = run(
         args.api,
@@ -553,6 +583,7 @@ def main(argv=None):
         args.app_commit,
         sockets=args.sockets,
         timings_to=args.timings,
+        deep=args.deep,
     )
     if failures:
         print(f"\nThe live game is NOT proven working: {len(failures)} step(s) failed.")

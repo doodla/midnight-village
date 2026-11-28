@@ -35,7 +35,7 @@ class Env {
       _apiOrigin.isNotEmpty,
       'Production API_ORIGIN not configured. A build with no ENV is prod: '
       'for dev pass --dart-define=ENV=dev (or use the just recipes: '
-      '`just run`, `just test`).',
+      '`just run`, `just flutter-test`).',
     );
     return _apiOrigin.replaceFirst(RegExp(r'/+$'), '');
   }

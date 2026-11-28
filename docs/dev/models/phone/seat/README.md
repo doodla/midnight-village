@@ -52,11 +52,51 @@ Cost, accepted: a game screen's socket opening reads `/me/` once more (and `/me/
 when the table names the game), on every phone, at every new game: the first `/me/`
 always goes out before the socket listens.
 
+## Branch `ask-less` (27 November 2026): `FIX_ASKLESS`
+
+The phone is told, not asked (contract, sections 1, 4 and 8). In this slice: the end of a
+game reaches the phone with its own view (`me`, then `game_results`, one batch) and moves
+the table it holds to "finished" with no read (`MyTable.inGameAt`); a `/me/` ahead of the
+table does the same; past a deadline the phone reads its `/me/`, not the table. With a
+table read already out, the table is asked again instead (`_compareTable`).
+
+- **`seat_drop`** (`SEED_OVER_READ`, the first try; fixed). The app comes back and asks
+  where it sits; the host plays again while the phone sleeps (the event is lost); the old
+  game's `/me/` then lands at its results, and the seat put from it drops the read that
+  would have said "waiting". The phone stays on the end board, its socket up, and nothing
+  is left to heal it (the slow poll now runs only while the socket is down). Now a seat
+  read out is asked again rather than dropped. Test: `live_game_test.dart`, "a read of the
+  seat out when /me/ moves past the table is asked again".
+- `seat` (this branch) holds both rules (210,114 distinct states); `seat_before` is main's
+  phone (211,762).
+- **`zombie`** (`ZOMBIE` without `FIX_BEAT`: the review's finding, fixed). A socket
+  can die without closing (a phone that slept, a network changed under it): the phone still
+  counts it up, so it neither reads on its return nor runs the slow poll. Shortest trace: at
+  02 the host deals, the dead lobby socket loses `game_started`, and the phone stays at 02
+  while the server plays on. With `FIX_BEAT` (the server's `beat` frame each heartbeat; a
+  socket silent for 2.5 beats is dropped, so `Back` reads as for any drop), `seat_beat`
+  holds both rules with the zombie, drops, resumes and failures (227,182 distinct states).
+  Test: `frontend/test/core/websocket/socket_beat_test.dart`.
+- **`lost`** (`LOSE` without `FIX_TOKEN`: the second reviews' finding, fixed). An event lost
+  on a socket that stays alive: the beat keeps it "up", so nothing reads. Shortest trace: the
+  deal's `game_started` is lost on a live lobby socket and the phone stays at 02. With
+  `FIX_TOKEN` (the beat carries the table's token, the lobby's `rev` or the game's stage and
+  `moved_on`, and a phone showing less reads once: 02 its lobby, judged; elsewhere where it
+  sits), `seat_token` holds both rules with the zombie, a lost event, drops, resumes and
+  failures (234,901 distinct states). Tests: `frontend/test/features/resume_and_beat_test.dart`,
+  `live_game_told_test.dart`.
+
 ## Runs (`TLA2TOOLS=/path/to/tla2tools.jar ./runseat.sh`)
 
 | Run | Constants | Ends |
 |---|---|---|
-| `seat` | the phone of this branch | holds both rules |
+| `seat` | the phone of this branch (`FIX_ASKLESS`) | holds both rules |
+| `seat_before` | main's phone before `ask-less` | holds both rules |
+| `seat_beat` | this branch, with `ZOMBIE` and `FIX_BEAT` | holds both rules |
+| `seat_token` | this branch, with `ZOMBIE`, `LOSE`, `FIX_BEAT` and `FIX_TOKEN` | holds both rules |
+| `seat_drop` | `FIX_ASKLESS` with `SEED_OVER_READ` | breaks `Converges` (finding, fixed) |
+| `zombie` | `ZOMBIE` without `FIX_BEAT` | breaks `Converges` (finding, fixed) |
+| `lost` | `LOSE` without `FIX_TOKEN` | breaks `Converges` (finding, fixed) |
 | `late` | without `FIX_LATE` | breaks `NeverBack` (finding, fixed) |
 | `stale` | without `DROP_STALE` | breaks `NeverBack` (why the seed relies on it) |
 | `noup` | without `FIX_UP` | breaks `Converges` (finding, fixed) |

@@ -36,6 +36,8 @@ void main() {
       viewer: 'Tia',
     );
     await setup.settle(tester);
+    // The poll heals a socket that is down: its socket dropped.
+    setup.lobbySocketDown(tester, 'D3GL6S');
     expect(find.byType(AtTableView), findsOneWidget);
     final asked = setup.http.requests
         .where((r) => r.path.contains('/me/table/'))
@@ -60,6 +62,7 @@ void main() {
       viewer: 'Tia',
     );
     await setup.settle(tester);
+    setup.lobbySocketDown(tester, 'D3GL6S');
     final asked = setup.http.requests
         .where((r) => r.path.contains('/me/table/'))
         .length;
@@ -80,6 +83,32 @@ void main() {
     // nothing draws none (the owner, 24 November 2026: "it felt like I was
     // watching a ppt").
     expect(frames, 0);
+    await setup.close(tester);
+  });
+
+  testWidgets('02 with its socket up: the poll asks nothing (the socket '
+      'hears a deal itself)', (tester) async {
+    final setup = await TableSetup.pump(
+      tester,
+      lobby: v2Lobby('detail_seats_8_four_here'),
+      viewer: 'Tia',
+    );
+    await setup.settle(tester);
+    final asked = setup.http.requests
+        .where((r) => r.path.contains('/me/table/'))
+        .length;
+    await _rebuiltOver(tester, 10);
+    expect(
+      setup.http.requests.where((r) => r.path.contains('/me/table/')).length,
+      asked,
+    );
+    // It drops: from then on the poll is the backstop again.
+    setup.lobbySocketDown(tester, 'D3GL6S');
+    await _rebuiltOver(tester, 10);
+    expect(
+      setup.http.requests.where((r) => r.path.contains('/me/table/')).length,
+      greaterThan(asked + 5),
+    );
     await setup.close(tester);
   });
 

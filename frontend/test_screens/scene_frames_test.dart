@@ -1,7 +1,7 @@
 // The dusk and the dawn in motion: each scene change of the table's shell
 // pumped to fixed times, a PNG per frame and one strip of them side by side.
 // Run it with `just scene-frames` (see frontend/CLAUDE.md); it is not part of
-// `just test`. The same run on a shell that crossfades gives the "before".
+// `just flutter-test`. The same run on a shell that crossfades gives the "before".
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;

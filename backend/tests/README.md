@@ -17,10 +17,10 @@ Every WebSocket send and `timers.schedule` / `cancel` in the night flow goes thr
 (`_send_after_commit`, `_schedule_after_commit`, `_cancel_after_commit`), so a rollback leaves nothing sent or rescheduled.
 Tests that call these services inside pytest's transaction must use `django_capture_on_commit_callbacks(execute=True)` (or `django_db(transaction=True)`).
 The autouse fixture makes `timers.schedule` a no-op;
-`make_night` (`tests/onuw/conftest.py`) records `(key, delay, callback)` instead, where calling the callback runs the job;
+`make_night` (`backend/tests/onuw/conftest.py`) records `(key, delay, callback)` instead, where calling the callback runs the job;
 tests that need real rows/threads use `@pytest.mark.uses_timers` and, for the queue backend, `timers.set_queue_sender(fake)` +
 `queue_worker.handle_message(payload)`. A test with real memory-backend threads waits for the thread itself
-(`tests/timer_threads.py`: `settle(key)` follows re-arms, `join(thread)` for one already cancelled or replaced), never a fixed sleep and never the job's side
+(`backend/tests/timer_threads.py`: `settle(key)` follows re-arms, `join(thread)` for one already cancelled or replaced), never a fixed sleep and never the job's side
 effect: the job runs inside the transaction that claims and deletes the row, so its effect shows before that deletion commits.
 A timer the test must cancel or replace first is scheduled far off (an hour), so a slow machine cannot fire it before the test gets there;
 due times are written with the database clock (`Now()`).
@@ -33,19 +33,20 @@ due times are written with the database clock (`Now()`).
 - **Throttle rates must be configured in test settings.** Guest auth endpoints use DRF throttling.
   If `DEFAULT_THROTTLE_RATES` is missing from test settings, guest creation tests fail with 429s that look like server errors.
 
-## What a tap costs the server (`tests/perf/`)
+## What a tap costs the server (`backend/tests/perf`)
 
 `tap_costs.play` plays one whole game the way the app does (a `v2` table, every phone
 reading `/me/` and `/me/table/`, real access tokens, the queue timer backend the live
 server runs, a forced deal where every seat holds a card that wakes) at 3, 6 and 10 seats,
-on the contract recorder (`tests/contract/recorder.py`), then a second hand by play again
+on the contract recorder (`backend/tests/contract/recorder.py`), then a second hand by play again
 with a Doppelganger who copies the host's Seer and looks in window 1 while the host moves
 every stage on itself (move on in both windows, end the talk, reveal the votes); it
 measures every request, timer
 firing and game socket opening: database round trips, row locks and how long the first is
 held, socket messages and the Redis round trips they cost on the live server before the
-answer leaves (`redis_trips`: 2 per batch, one `send_after_commit` call;
-`apps/core/channel_layer.py`) and timer messages (a queue send each). `test_tap_query_budget.py` holds two rules:
+answer leaves (`redis_trips`: 2 per batch, one `send_after_commit` call; each person's own view as a stage opens is
+counted apart, `own_views`, held to one per person and riding in the same batch;
+`backend/apps/core/channel_layer.py`) and timer messages (a queue send each). `test_tap_query_budget.py` holds two rules:
 nothing costs more at ten seats than at three (a query per player fails, whatever the
 budget), and at ten seats each kind of request costs exactly what `tap_budget.json` says and
 never more than 40 round trips. A change that adds or removes a query fails until
@@ -58,21 +59,21 @@ differ only in what the Doppelganger did carry the same live header (rounded tim
 with the header's detail on they would not.
 
 The live server's channel layer is tested against a real Redis:
-`tests/core/test_channel_layer.py` uses `REDIS_TEST_URL` (GitHub's backend job sets it),
+`backend/tests/core/test_channel_layer.py` uses `REDIS_TEST_URL` (GitHub's backend job sets it),
 else starts a `redis-server` from the PATH on a free port, else is skipped (never on CI,
 where `CI` is set: there it fails instead).
 
 ## Migration tests
 
-`tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds
-old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then back
+`backend/tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds
+old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`backend/tests/old_code.py`, never add columns to them), then back
 and forward again. Add a case per migration.
-`tests/test_migration_rules.py` scans every migration file for app imports and the `lock_timeout` first operation.
+`backend/tests/test_migration_rules.py` scans every migration file for app imports and the `lock_timeout` first operation.
 The rules themselves: `docs/dev/deploy-vercel.md`, "Deploy-safe changes".
 
-## Contract samples (`tests/contract/`)
+## Contract samples (`backend/tests/contract`)
 
-`tests/contract/` records what the server sends, for the app's tests:
+`backend/tests/contract` records what the server sends, for the app's tests:
 `scenarios.py` first plays three tables made without `defaults` (no look stage):
 a classic six-player game with the default timers
 (sign-in, lobby set-up and every lobby event, the deal and its refusals, the night closed by the harness's timer hook, the talk, a vote with a Hunter chain, "where am I" in every state, the night results ack, recent games and online stats, most error bodies);

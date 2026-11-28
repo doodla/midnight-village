@@ -15,6 +15,11 @@
 # that suite even though the file is documentation.
 BACKEND_TEST_INPUTS="docs/specs/onuw/recommended-setups.md"   # tests/onuw/test_auto_deck.py
 
+# GitHub's required checks that `just gate-full` does not run, and why: they need a
+# browser driver or packages set up only there. Every other check's recipes are in the
+# full steps below (guardrails/tests/test_gate_full.py holds both against the workflows).
+GATE_FULL_SKIPS="Integration Tests|Web page smoke"
+
 # The functions a hook needs; a hook that sourced this file checks they exist
 # (gate_require) and blocks if not, so a broken gate never lets a commit through.
 GATE_FUNCTIONS="gate_route gate_staged_paths gate_inputs gate_hash gate_passed gate_block_passed gate_record gate_run_blocks gate_check_commit gate_full"
@@ -142,12 +147,13 @@ gate_run_blocks() {
     (
       local steps dir started=$SECONDS
       case "$block:$mode" in
-        backend:fast) steps="just check" ; dir=backend ;;
-        backend:full) steps="just check && just test" ; dir=backend ;;
-        frontend:fast) steps="just analyze && just format-check" ; dir=frontend ;;
-        # the extras are what GitHub also runs without a browser or a backend:
-        # generated code current, every screen clean at 360 and 390 wide
-        frontend:full) steps="just analyze && just format-check && just test && just gen-check && just screens 360 strict && just screens 390 strict" ; dir=frontend ;;
+        # the root `just check`: every step of GitHub's first backend step, not the
+        # backend's own four (`check-backend`)
+        backend:fast) steps="just check" ; dir=. ;;
+        backend:full) steps="just check && just test-backend && just previous-build-check && just guard-edits" ; dir=. ;;
+        frontend:fast) steps="just analyze && just flutter-format-check" ; dir=frontend ;;
+        # every frontend job of GitHub's but those in GATE_FULL_SKIPS
+        frontend:full) steps="just analyze && just flutter-format-check && just gen-check && just flutter-test && just check-release && just screens 360 strict && just screens 390 strict && just test-harness" ; dir=frontend ;;
         guardrails:*) steps="just test-guardrails" ; dir=. ;;
         *) echo 1 > "$out/$block.status"; exit 0 ;;
       esac
@@ -175,6 +181,11 @@ gate_check_commit() {
   fi
   if ! out=$(tool/check_file_sizes.py --staged 2>&1); then
     echo "BLOCKED: a source file is too long to read whole." >&2
+    echo "$out" | tail -20 >&2
+    failed=1
+  fi
+  if [ -x tool/context_budget.py ] && ! out=$(tool/context_budget.py 2>&1); then
+    echo "BLOCKED: what an agent must read grew past its limit." >&2
     echo "$out" | tail -20 >&2
     failed=1
   fi
@@ -255,5 +266,6 @@ gate_full() {
     fi
   done
   rm -rf "$out"
+  echo "not run here (only GitHub runs them): ${GATE_FULL_SKIPS//|/, }"
   return $failed
 }

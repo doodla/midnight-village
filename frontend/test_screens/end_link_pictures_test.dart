@@ -15,7 +15,7 @@ import '../test/helpers/finger.dart';
 // What happened's links, every step of a few recorded nights, done, on three
 // phones (360, 390 and the owner's 412): one PNG a step, to look at every
 // thread at full size. Run it with `just end-link-pictures`
-// (frontend/test/README.md); not part of `just test`.
+// (frontend/test/README.md); not part of `just flutter-test`.
 
 const _dir = String.fromEnvironment(
   'END_LINKS_DIR',

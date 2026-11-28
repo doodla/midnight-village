@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/env.dart';
+import '../../../core/websocket/pause_while_hidden.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/websocket_channel.dart';
 import '../../auth/presentation/auth_notifier.dart';
@@ -17,6 +18,7 @@ final gameWebSocketProvider = Provider.autoDispose
       final tokenStorage = ref.watch(tokenStorageProvider);
       final url = '${Env.wsBaseUrl}/ws/game/$gameId/';
       final ws = ReconnectingWebSocket(url: url, tokenStorage: tokenStorage);
+      pauseWhileHidden(ws);
       unawaited(ws.connect());
       ref.onDispose(ws.dispose);
       return ws;
