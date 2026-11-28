@@ -139,15 +139,11 @@ TOOLS: tuple[Break, ...] = (
         "test_release_assets.py",
     ),
     _tool(
-        "tidy_takes_every_worktree_as_clean",
+        "tidy_clears_a_worktree_someone_works_in",
         "the-wall",
-        "a worktree with uncommitted work counts as clean, so tidy may remove it",
-        Edit(
-            "tool/tidy.py",
-            'return not git("status", "--porcelain", cwd=folder, check=False).strip()',
-            "return True",
-            within="is_clean",
-        ),
+        "a worktree with a process working in it counts as idle, so tidy clears it",
+        Edit("tool/tidy.py", "            return True\n", "            return False\n",
+             within="busy"),
         "test_tidy.py",
     ),
     _tool(

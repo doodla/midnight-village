@@ -124,7 +124,8 @@ SERVER_AUDIT: tuple[Break, ...] = (
     Break(
         name="B3_no_row_lock_on_the_vote",
         promise="atomicity",
-        why="the vote reads the Game and its PlayerRole without locking them",
+        why="the vote reads the Game and its PlayerRole without locking them (the tap"
+        " budget kills it every time; the race test alone may pass)",
         edits=(
             Edit(
                 VOTING,

@@ -152,8 +152,8 @@ class AGuardIsProvedByARunThatSawItFail(unittest.TestCase):
         m = Break(name="m", promise="atomicity", why="w", edits=(), tests=(KILLER,))
         ran = [{"name": "m", "status": "killed", "failed": set()}]
         self.assertEqual(pg.proved([m], ran), set())
-        self.assertTrue(pg.unproved([m], {"m"}, set()))
-        self.assertEqual(pg.unproved([m], set(), set()), [])  # not run: nothing said
+        self.assertTrue(pg.unproved([m], {"m"}, set(), {KILLER}))
+        self.assertEqual(pg.unproved([m], set(), set(), {KILLER}), [])  # not run: nothing said
 
     def test_a_skipped_flutter_break_fails_on_github(self):
         self.assertTrue(pg.can_run("backend"))

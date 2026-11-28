@@ -329,10 +329,11 @@ def proved(breaks, results, root: Path = ROOT) -> set[str]:
     return seen
 
 
-def unproved(breaks, ran: set[str], seen: set[str]) -> list[str]:
-    """Guards every break of which ran, and none of which saw it bite."""
+def unproved(breaks, ran: set[str], seen: set[str], guards: set[str]) -> list[str]:
+    """Guard files every break of which ran, and none of which saw it bite."""
     out = []
-    for guard in sorted({k for m in breaks if not m.survives for k in m.killers()}):
+    named = {k for m in breaks if not m.survives for k in m.killers()}
+    for guard in sorted(named & guards):
         naming = [m for m in breaks if guard in m.killers() and not m.survives]
         if all(m.name in ran for m in naming) and guard not in seen:
             out.append(f"{guard}: its breaks ran and no test in it was seen to fail")
@@ -443,7 +444,8 @@ def main(argv: list[str]) -> int:
     )
     results = run_all(chosen, jobs) if chosen else []
     failed = [r["problem"] for r in results if r["problem"]]
-    failed += unproved(chosen, {r["name"] for r in results}, proved(chosen, results))
+    ran, seen = {r["name"] for r in results}, proved(chosen, results)
+    failed += unproved(chosen, ran, seen, set(guard_files()))
     kept = [m.name for m in chosen if m.survives]
     print(
         f"prove-guards: {len(chosen)} run in {time.monotonic() - started:.0f} s;"

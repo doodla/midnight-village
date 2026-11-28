@@ -74,7 +74,10 @@ class AnEditLandsWhereItSays(unittest.TestCase):
             for edit in m.edits:
                 text = texts.get(edit.path) or (REPO / edit.path).read_text()
                 with self.subTest(name=m.name):
-                    texts[edit.path] = apply_edit(text, edit)
+                    try:
+                        texts[edit.path] = apply_edit(text, edit)
+                    except NoLongerApplies as problem:
+                        self.fail(f"{m.name} no longer applies: {problem}")
 
 
 class EveryGuardHasABreak(unittest.TestCase):
@@ -95,27 +98,27 @@ class EveryGuardHasABreak(unittest.TestCase):
     def test_a_guard_with_no_break_fails_and_says_what_to_add(self):
         found = self.problems([a_break()], ["backend/tests/t.py", "backend/tests/g.py"])
         self.assertEqual(len(found), 1)
-        self.assertIn("backend/tests/g.py is a guard with no recorded break", found[0])
-        self.assertIn("add a break", found[0])
+        self.assertIn("backend/tests/g.py is a guard with no recorded break", (found or [''])[0])
+        self.assertIn("add a break", (found or [''])[0])
 
     def test_a_break_that_survives_proves_no_bite(self):
         found = self.problems([a_break(survives="later")], ["backend/tests/t.py"])
-        self.assertIn("no recorded break", found[0])
+        self.assertIn("no recorded break", (found or [''])[0])
 
     def test_the_old_guards_are_listed_and_the_list_only_shrinks(self):
         guards = ["backend/tests/t.py", "backend/tests/old.py"]
         debt = frozenset({"backend/tests/old.py"})
         self.assertEqual(self.problems([a_break()], guards, debt, lambda p: True), [])
         found = self.problems([a_break()], guards, debt, lambda p: False)
-        self.assertIn("NOT_YET_PROVED only shrinks", found[0])
+        self.assertIn("NOT_YET_PROVED only shrinks", (found or [''])[0])
         bitten = self.problems(
             [a_break()], ["backend/tests/t.py"], frozenset({"backend/tests/t.py"})
         )
-        self.assertIn("take it off NOT_YET_PROVED", bitten[0])
+        self.assertIn("take it off NOT_YET_PROVED", (bitten or [''])[0])
 
     def test_a_break_naming_no_promise_fails(self):
         found = self.problems([a_break(promise="vibes")], ["backend/tests/t.py"])
-        self.assertIn("no promise named 'vibes'", found[0])
+        self.assertIn("no promise named 'vibes'", (found or [''])[0])
 
     def test_the_real_list_has_no_problem(self):
         base = pg.change_base(pg.ROOT, "origin/main")
