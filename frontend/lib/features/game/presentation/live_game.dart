@@ -26,6 +26,7 @@ import '../data/game_service.dart';
 import '../domain/game_event.dart';
 import '../domain/game_me.dart';
 import '../domain/game_outcome.dart';
+import '../domain/server_clock.dart';
 import '../domain/stage_progress.dart';
 import 'game_socket.dart';
 import 'outbox.dart';
@@ -89,9 +90,12 @@ class LiveGameNotifier extends _$LiveGameNotifier
   @override
   int _sentFetches = 0;
 
-  /// The server's clock at the last applied fetch, and the time since.
-  DateTime? _serverDate;
-  final _sinceFetch = Stopwatch();
+  /// The server's clock: every stage clock counts with it ([untilServer]).
+  // A clock still on screen after the provider is gone (a leaving crossfade)
+  // reads the phone's clock, not a dead ref.
+  late final _serverClock = ServerClock(
+    () => ref.mounted ? ref.read(clockProvider)() : DateTime.now(),
+  );
 
   /// The stage and deadline whose deadline has passed (polling).
   String? _passedKey;
@@ -317,39 +321,29 @@ class LiveGameNotifier extends _$LiveGameNotifier
   }
 
   void _clockFrom(FetchedMe fetched) {
-    // What the clock read until now, against what this answer says: the
-    // clocks on screen read again at once only when they differ (the `Date`
-    // header is whole seconds, so most answers move it by less).
-    final before = _serverDate?.add(_sinceFetch.elapsed);
-    final now = fetched.serverDate;
-    final moved =
-        before == null ||
-        now == null ||
-        now.difference(before).abs() > Countdown.movedBy;
-    _serverDate = fetched.serverDate;
-    _sinceFetch
-      ..reset()
-      ..start();
-    if (moved) clockMoved.value++;
+    final dated = _serverClock.heard(
+      fetched.serverDate,
+      stamp: true,
+      by: Countdown.movedBy,
+    );
+    if (_clockFromView(fetched.me) || dated) clockMoved.value++;
   }
 
-  /// Tells the clocks on screen that the server's clock moved (a new `Date`
-  /// that differs from what they read): they read again now, not at their
-  /// next tick.
+  /// A view's stage had opened before the view was built: a floor for the
+  /// server's clock, true to the moment on a view pushed as it opens.
+  @override
+  bool _clockFromView(GameMe me) =>
+      _serverClock.heard(me.stageStartedAt, by: Countdown.movedBy);
+
+  /// Tells the clocks on screen that the server's clock moved: they read
+  /// again now, not at their next tick.
+  @override
   final clockMoved = ValueNotifier<int>(0);
 
-  /// How long until [time] on the server's clock: from the last answer's
-  /// `Date` and the time since it arrived, so the phone's own clock is never
-  /// compared with the server's. Without a readable `Date`, the phone's
-  /// clock times the fetch (and only the fetch: what it shows decides).
-  Duration _untilServer(DateTime time) {
-    final date = _serverDate;
-    if (date != null) return time.difference(date) - _sinceFetch.elapsed;
-    // A clock still on screen after the provider is gone (a leaving
-    // crossfade) reads the phone's clock, not a dead ref.
-    if (!ref.mounted) return time.difference(DateTime.now());
-    return time.difference(ref.read(clockProvider)());
-  }
+  /// How long until [time] on the server's clock ([ServerClock]: the highest
+  /// floor any answer or view gave it, never moved back by one that knows
+  /// less).
+  Duration _untilServer(DateTime time) => _serverClock.until(time);
 
   /// How long until [time] on the server's clock, as the stage's countdown
   /// reads it (the same clock the deadline fetch is timed by).
