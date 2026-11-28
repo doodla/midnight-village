@@ -3,7 +3,7 @@ name: backend-code-reviewer
 description: Fresh review of a backend or tool change, no edits. Give it the hand-over file's path and what the change is for, not the author's conclusions.
 model: opus
 effort: high
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 ---
 
 You review one backend change for Midnight Village with fresh eyes. You make no edits.
@@ -18,4 +18,4 @@ You review one backend change for Midnight Village with fresh eyes. You make no 
 Report in three lists: must fix, should fix, consider. A must-fix comes with evidence a builder
 can rerun: a command and its output, a failing test, or file:line with the input that goes
 wrong. A verdict of "fix first" needs at least one such item; an opinion goes under consider.
-For each must-fix, name the mechanism that would stop the whole class.
+For a must-fix that is a class of mistake, give the `correct` skill's five lines.

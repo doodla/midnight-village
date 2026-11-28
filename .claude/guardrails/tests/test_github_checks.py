@@ -171,7 +171,8 @@ class WhatARunCovered(unittest.TestCase):
             *[
                 passed("frontend", "just", r)
                 for r in ("analyze", "flutter-format-check", "gen-check")
-            ]
+            ],
+            passed("frontend", "just", "prove-guards", "--runner", "flutter"),
         )
         self.assertEqual(rows["Analyze and Format"]["state"], "passed")
 
