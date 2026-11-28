@@ -25,14 +25,6 @@ effect: the job runs inside the transaction that claims and deletes the row, so 
 A timer the test must cancel or replace first is scheduled far off (an hour), so a slow machine cannot fire it before the test gets there;
 due times are written with the database clock (`Now()`).
 
-## Traps
-
-- **WebSocket connections require JWT auth.** The ASGI middleware validates tokens.
-  Tests need `WebsocketCommunicator` with an authenticated user scope — unauthenticated connections are rejected silently.
-
-- **Throttle rates must be configured in test settings.** Guest auth endpoints use DRF throttling.
-  If `DEFAULT_THROTTLE_RATES` is missing from test settings, guest creation tests fail with 429s that look like server errors.
-
 ## What a tap costs the server (`backend/tests/perf`)
 
 `tap_costs.play` plays one whole game the way the app does (a `v2` table, every phone
@@ -62,6 +54,11 @@ The live server's channel layer is tested against a real Redis:
 `backend/tests/core/test_channel_layer.py` uses `REDIS_TEST_URL` (GitHub's backend job sets it),
 else starts a `redis-server` from the PATH on a free port, else is skipped (never on CI,
 where `CI` is set: there it fails instead).
+
+## What a seat is told (`backend/tests/privacy`)
+
+`test_two_deals.py` (a guard): two seeded games differing only in what the viewer must not
+know tell it the same bytes (rules: its docstring and `two_deals.py`).
 
 ## Migration tests
 
