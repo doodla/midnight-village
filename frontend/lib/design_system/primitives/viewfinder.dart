@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
@@ -149,7 +151,7 @@ class _ScanGlyphPainter extends CustomPainter {
 /// [SecondaryButton], the same height as the button of its [size] beside it,
 /// pressed to a hairline fill. [semanticLabel] is what it is to a screen
 /// reader. [lit] shows a switch that is on (lift and outline, never amber).
-class GlyphButton extends StatefulWidget {
+class GlyphButton extends StatelessWidget {
   const GlyphButton({
     super.key,
     required this.glyph,
@@ -167,90 +169,94 @@ class GlyphButton extends StatefulWidget {
   final bool lit;
 
   @override
-  State<GlyphButton> createState() => _GlyphButtonState();
-}
-
-class _GlyphButtonState extends State<GlyphButton> {
-  var _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final enabled = widget.onPressed != null;
+    final enabled = onPressed != null;
     final radius = BorderRadius.circular(skin.shape.radius);
-    final side = widget.size.secondaryHeight;
+    final side = size.secondaryHeight;
     final ink = enabled ? ground.text : ground.faintText;
+    BoxDecoration outline(bool filled) => BoxDecoration(
+      color: filled ? ground.hairline : Colors.transparent,
+      borderRadius: radius,
+      border: Border.all(
+        color: enabled ? ground.outline : ground.hairline,
+        width: skin.shape.stroke,
+      ),
+    );
     return Semantics(
       button: true,
       enabled: enabled,
-      selected: widget.lit,
-      label: widget.semanticLabel,
-      onTap: widget.onPressed,
+      selected: lit,
+      label: semanticLabel,
+      onTap: onPressed,
       excludeSemantics: true,
-      child: context.dress.isPaper
-          ? _scrap(context, side, enabled)
-          : AnimatedContainer(
-              duration: Motion.press,
-              curve: Motion.curve,
-              width: side,
-              height: side,
-              decoration: BoxDecoration(
-                color: _pressed || widget.lit
-                    ? ground.hairline
-                    : Colors.transparent,
-                borderRadius: radius,
-                border: Border.all(
-                  color: enabled ? ground.outline : ground.hairline,
-                  width: skin.shape.stroke,
+      // Pressed from the frame a finger lands, by paint alone.
+      child: Pressable(
+        enabled: enabled,
+        builder: (context, press, child) => context.dress.isPaper
+            ? _scrap(context, side, enabled, press, child!)
+            : SizedBox.square(
+                dimension: side,
+                child: PressDecoration(
+                  press: press,
+                  rest: outline(lit),
+                  down: outline(true),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      onTap: onPressed,
+                      highlightColor: Colors.transparent,
+                      borderRadius: radius,
+                      child: child,
+                    ),
+                  ),
                 ),
               ),
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  onTap: widget.onPressed,
-                  onHighlightChanged: (value) =>
-                      setState(() => _pressed = value),
-                  highlightColor: Colors.transparent,
-                  borderRadius: radius,
-                  child: Center(child: widget.glyph(ink)),
-                ),
-              ),
-            ),
-    );
-  }
-
-  /// Dressed up: a bone scrap with the glyph on it; a switch that is on is
-  /// lifted and wears the paper mark (never a ring).
-  Widget _scrap(BuildContext context, double side, bool enabled) {
-    final ink = PaperPiece.inkOf(context, PaperPart.scrap, locked: !enabled);
-    return PaperMarkCorner(
-      shown: widget.lit,
-      child: SizedBox.square(
-        dimension: side,
-        child: PaperPiece(
-          part: PaperPart.scrap,
-          id: widget.semanticLabel,
-          pressed: _pressed,
-          lifted: widget.lit,
-          enabled: enabled,
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              onTap: widget.onPressed,
-              onHighlightChanged: (value) => setState(() => _pressed = value),
-              highlightColor: Colors.transparent,
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              borderRadius: BorderRadius.circular(context.skin.shape.radius),
-              child: Center(child: widget.glyph(ink)),
-            ),
+        child: Center(
+          child: glyph(
+            context.dress.isPaper
+                ? PaperPiece.inkOf(context, PaperPart.scrap, locked: !enabled)
+                : ink,
           ),
         ),
       ),
     );
   }
+
+  /// Dressed up: a bone scrap with the glyph on it; a switch that is on is
+  /// lifted and wears the paper mark (never a ring).
+  Widget _scrap(
+    BuildContext context,
+    double side,
+    bool enabled,
+    Animation<double> press,
+    Widget glyph,
+  ) => PaperMarkCorner(
+    shown: lit,
+    child: SizedBox.square(
+      dimension: side,
+      child: PaperPiece(
+        part: PaperPart.scrap,
+        id: semanticLabel,
+        press: press,
+        lifted: lit,
+        enabled: enabled,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onPressed,
+            highlightColor: Colors.transparent,
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            borderRadius: BorderRadius.circular(context.skin.shape.radius),
+            child: glyph,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// The scanner's window: a piece of paper raised off the ground, the

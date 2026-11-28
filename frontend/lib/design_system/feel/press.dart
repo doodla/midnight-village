@@ -115,11 +115,20 @@ class _PressableState extends State<Pressable>
     return math.min(1, frame / Motion.press.inMicroseconds);
   }
 
+  /// The last finger's down a part took: the innermost part under a finger
+  /// hears it first and takes the press alone, as its detector takes the tap
+  /// (a role card on the table's panel presses, not the panel round it).
+  static PointerEvent? _taken;
+
   // A pointer handler can outlive the part: the finger that pressed it is
   // still routed to its listener after a rebuild took it away.
   void _down(PointerDownEvent event) {
     if (!mounted || !widget.enabled || _pointer != null) return;
     if (event.buttons & kPrimaryButton == 0) return;
+    // Each listener hears its own transformed copy of the one down.
+    final down = event.original ?? event;
+    if (identical(down, _taken)) return;
+    _taken = down;
     _pointer = event.pointer;
     _from = event.position;
     if (_reduced) {
