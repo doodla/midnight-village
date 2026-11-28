@@ -468,9 +468,30 @@ with those names older than a day; why that can wait: "The watch between merges"
 **When it fails**: the run "Deployed Check" is red on `main` (the Actions tab; GitHub emails
 whoever's merge started the failed run). The log has one line per step, `ok` or `FAIL`
 with what answered. A failure means players may be looking at a broken game: read the line,
-and roll back in Vercel (the owner's account) or revert the merge. A newer merge cancels an
-older run that is still waiting. By hand: "Run workflow" on `main`, or locally
-`python3 tool/deployed_check.py --api <server origin> --app <app origin>`.
+then go back (below). A newer merge cancels an older run that is still waiting. By hand:
+"Run workflow" on `main`, or locally `python3 tool/deployed_check.py --api <server origin> --app <app origin>`.
+
+### Going back
+
+**The way back is forward:** `just revert-release <PR number or commit>` (`tool/revert_release.py`).
+It makes a branch from `main` that undoes that merge and prints what happens next: which side
+redeploys, whether the change added migrations and what they now need, and that the rollback
+floor is not crossed. It pushes only with `--push`. Its pull request merges like any other; the
+release job then promotes it (main's checks first, the server before the app). Nobody moves a
+live branch back: GitHub refuses it (`docs/dev/rulesets/`) and so does the Bash guard.
+
+- **Migrations stay.** A deploy only migrates forward, so the live database keeps what the
+  change added; the revert keeps those migration files, and undoing their schema is a new,
+  deploy-safe migration (a column or table in two pushes; "Deploy-safe changes" below).
+- **Faster, by the owner only: Vercel's Instant Rollback.** On Hobby it goes back to the
+  immediately previous production deployment only. Afterwards Vercel turns off auto-assignment
+  of production domains: **later merges build but do not go live** until someone promotes a
+  deployment in Vercel (the project's Production tile, Manage, pick one, Confirm; Vercel's docs,
+  "Undo a rollback"). While the server is rolled back, the release job refuses to move the app
+  ("the server is not serving ..."): that red run is the reminder. Never promote a deployment
+  older than the rollback floor (`FLOOR` in `tool/promote_live.py`).
+- **Data**: Neon's Free plan restores up to 6 hours back (at most 1 GB of change history), and
+  keeps one manual snapshot (owner's console; Neon's plans page, 28 November 2026). Take that snapshot before merging a migration that moves data.
 
 ## The watch between merges
 
@@ -489,7 +510,7 @@ month of the 100; it sends a few hundred Redis commands (an estimate, not measur
 already runs the same thing on every merge, several dozen times a day, so the watch adds little.
 **What it leaves behind** is the same as that check's: five guest accounts per run (one user
 row and one refresh-token row each, about 1 KB), no table and no game (the last one out deletes
-the table). At four runs a day that is about 7 MB a year against Neon's 0.5 GB, and real
+the table). At four runs a day that is about 7 MB a year against Neon Free's 1 GB per project, and real
 players' guests are kept the same way, so no clean-up was added; pruning old guests is a server
 clean-up to do for all guests at once.
 

@@ -83,6 +83,10 @@ only the release job's deploy key, kept in the environment `live` that only main
 live branch), rehearsed first on `live-rehearsal` by `live-rehearsal.yml` and
 `tool/rehearse_live_rule.py`. `guardrails/tests/test_release_workflows.py` holds the files to each
 other (the rehearsal is the real rule on a scratch branch; only those two workflows read the key).
+The way back is `just revert-release <PR or commit>` (`tool/revert_release.py`): a branch from
+main that undoes one merge, keeping the migrations the live database ran, refusing a change at
+or below the floor, pushing only with `--push` (`guardrails/tests/test_revert_release.py`
+rehearses it on a throwaway repository).
 
 A second workflow is not part of the wall: `deployed-check.yml` ("Deployed Check") runs after
 every merge to main and proves the live server and app work together
