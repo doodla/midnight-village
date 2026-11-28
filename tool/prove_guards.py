@@ -51,9 +51,9 @@ from breaks_kit import PROMISES, Break, NoLongerApplies, apply_edit  # noqa: E40
 from breaks_rules import (  # noqa: E402
     git,
     guard_files,
-    imports,
     list_problems,
     lists_at,
+    reads,
     shrink_problems,
     was_guard_on,
 )
@@ -317,7 +317,7 @@ def verdict(m: Break, result: dict) -> str | None:
 
 def proved(breaks, results, root: Path = ROOT) -> set[str]:
     """The guard files a run saw bite: a killer test that failed, and the helper guards
-    that test imports."""
+    that test (or a conftest above it) imports."""
     by_name = {m.name: m for m in breaks}
     seen: set[str] = set()
     for result in results:
@@ -326,13 +326,9 @@ def proved(breaks, results, root: Path = ROOT) -> set[str]:
             continue
         seen |= result["failed"]
         for helper in m.guards:
-            readers = [f for f in result["failed"] if (root / f).is_file()]
             if (
                 helper in result["failed"]
-                or any(
-                    imports((root / f).read_text(errors="replace"), helper)
-                    for f in readers
-                )
+                or any(reads(root, f, helper) for f in result["failed"])
                 or (m.command and helper == m.command[0] and result["failed"])
             ):
                 seen.add(helper)
