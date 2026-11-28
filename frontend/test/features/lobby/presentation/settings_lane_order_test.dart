@@ -17,7 +17,6 @@ import 'package:mocktail/mocktail.dart';
 import '../../../helpers/contract/contract_samples.dart';
 import '../../../helpers/contract/from_sample.dart';
 import '../../../helpers/contract/server_json.dart';
-import '../../../helpers/game_events.dart';
 import '../../../helpers/mock_http_client.dart';
 import '../../../helpers/mock_websocket.dart';
 
@@ -514,8 +513,9 @@ void main() {
       t.holdReads = true;
       unawaited(t.notifier.setSeats(5));
       await _drain();
-      // Someone sits down: a read, served before the server applies 5.
-      t.ws.addServerEvent(GameEvents.playerJoined());
+      // A read, served before the server applies 5.
+      // A read of the lobby (what the socket coming back does).
+      unawaited(t.notifier.refreshLobby());
       await _drain();
       expect(t.readsOut, 1);
       await t.take();
@@ -769,7 +769,8 @@ void main() {
       await t.take();
       // Someone else writes the key (no lobby_update of it heard here).
       t.someoneElse(() => t.settings['seats'] = 7);
-      t.ws.addServerEvent(GameEvents.playerJoined());
+      // A read of the lobby (what the socket coming back does).
+      unawaited(t.notifier.refreshLobby());
       await _drain();
       expect(t.shown.table.seats, 7);
 
@@ -780,7 +781,8 @@ void main() {
       await _drain();
       await t.take();
       t.someoneElse(() => t.settings['seats'] = 8);
-      t.ws.addServerEvent(GameEvents.playerJoined());
+      // A read of the lobby (what the socket coming back does).
+      unawaited(t.notifier.refreshLobby());
       await _drain();
       expect(t.shown.table.seats, 8, reason: 'the resend holds nothing');
     });
@@ -851,7 +853,8 @@ void main() {
         'the read (nothing listens to the socket alone any more)', () async {
       final t = await _Lane.open();
       t.holdReads = true;
-      t.ws.addServerEvent(GameEvents.playerJoined());
+      // A read of the lobby (what the socket coming back does).
+      unawaited(t.notifier.refreshLobby());
       await _drain();
       t.someoneElse(() => t.settings['seats'] = 7);
       await t.lobbyUpdate();
@@ -893,7 +896,8 @@ void main() {
       final t = await _Lane.open();
       t.someoneElse(() => t.hostId = 2); // the first handover, numbered 1
       t.someoneElse(() => t.hostId = 1); // and back, numbered 2
-      t.ws.addServerEvent(GameEvents.playerJoined());
+      // A read of the lobby (what the socket coming back does).
+      unawaited(t.notifier.refreshLobby());
       await _drain();
       expect(t.shown.hostId, 1, reason: 'the read');
       await t.hostChanged(2, at: 1); // the first handover's event, late
@@ -1007,7 +1011,8 @@ void main() {
       () async {
         final t = await _Lane.open();
         t.holdReads = true;
-        t.ws.addServerEvent(GameEvents.playerJoined());
+        // A read of the lobby (what the socket coming back does).
+        unawaited(t.notifier.refreshLobby());
         await _drain();
         t.someoneElse(() => t.settings['seats'] = 7);
         await t.failRead();

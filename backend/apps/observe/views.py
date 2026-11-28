@@ -35,7 +35,7 @@ from rest_framework.views import APIView
 
 from apps.core.throttles import ClientAddressThrottle
 
-from . import report
+from . import counts, report
 from .models import FieldSummary
 from .summary import clean
 
@@ -111,4 +111,7 @@ class ReportView(APIView):
         except ValueError:
             return Response({"code": "bad_request"}, status=status.HTTP_400_BAD_REQUEST)
         last = max(1, min(last, MOST_ROWS))
-        return Response(report.build(FieldSummary.objects.all()[:last]))
+        # ``server``: what the server counted of itself over the last 30 days
+        # (``counts.py``: a closed word and a number, no ids).
+        built = report.build(FieldSummary.objects.all()[:last])
+        return Response({**built, "server": counts.totals()})

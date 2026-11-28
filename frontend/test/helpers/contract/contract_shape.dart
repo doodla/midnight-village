@@ -305,6 +305,19 @@ void checkSocketEvent(dynamic event) {
       'the server never sends an event of this type',
     ]);
   }
+  if (type == 'me' && decoded is Map) {
+    // A player's own view: its body IS a `GET /me/`, checked as one, in its
+    // own situation. Nothing rides with it (the results come on the table's
+    // `game_results`).
+    final keys = decoded.keys.toSet();
+    if (keys.length != 2 || !keys.containsAll(const {'type', 'me'})) {
+      throw OffContractPayload('socket event me', [
+        'its keys are type and me: got $keys',
+      ]);
+    }
+    checkHttpBody('GET', '/onuw/games/{game_id}/me/', 200, decoded['me']);
+    return;
+  }
   final problems = _check(
     'ws:$type',
     _samplesOf('ws:$type', infos),

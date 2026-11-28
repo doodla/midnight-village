@@ -34,7 +34,7 @@ Recovery logs one INFO line about it at every start.
 
 `apps.core` is shared infrastructure and imports NO game app (a test scans its source):
 lobbies, `LobbySocket` rows and the lobby consumer, host handover (`core/host.py`), play again (`core/lobbies.py`), the after-commit helpers
-(`core/effects.py`; one `send_after_commit` call is one batch, which the live server's channel layer, `core/channel_layer.py`, sends in two Redis round trips whatever it holds, in order for every socket),
+(`core/effects.py`; one `send_after_commit` call is one batch, which the live server's channel layer, `core/channel_layer.py`, sends in two Redis round trips whatever it holds, in order for every socket; `send_built_after_commit` adds messages built after the commit, first in the same batch: a game's own views; when that build or the send fails, the messages it was given go alone, tried once more),
 a JSON parser that answers a body nested too deep with a 400, not a 500 (`core/parsers.py`, every view's; `tests/core/test_open_routes.py` sends hostile bodies to every route),
 the `Server-Timing` header every answer carries (CORS exposes it to the web app, whose field recorder splits a round trip with it)
 (`core/server_timing.py`: on the live server only how long the request took to get its database connection, when it made one, and the total rounded to 50 ms, because round-trip and message counts can depend on other players' hidden moves (`tests/perf/test_header_hides_play.py`); with `SERVER_TIMING_DETAIL`, on in development, the harness and the tests, also its database round trips, socket and timer messages and each part's time),
@@ -99,7 +99,7 @@ Presence is one row per open socket
 (`SocketPresence` for a game socket, `core.LobbySocket` for a lobby socket: `user`, the game or lobby, unique `channel_name`, `connected_at`, `last_seen`),
 never a counter and never reset at start-up.
 `GameConsumer`/`LobbyConsumer` insert the row on connect, delete it on disconnect and refresh `last_seen` every `ONUW_PRESENCE_HEARTBEAT_SECONDS`
-(15; an asyncio task per consumer; each beat is a short non-thread-sensitive DB call that releases its connection; `disconnect` cancels the task and waits for it, and a beat in flight finishes first, however often the task is cancelled, so it cannot write the row back after `disconnect` deletes it).
+(15; an asyncio task per consumer, `presence.heartbeat_loop(frame, work)`: the `beat` frame (`presence.beat_frame`, with the table's token, contract section 8) goes on its own clock and also right after `accept()`, and the beat's database work runs beside it, never two at once, so a slow database never delays a frame; that work is a short non-thread-sensitive DB call that releases its connection: a lobby socket's row refreshed and the lobby's `rev` read in one statement, `presence.lobby_beat`, then the presence check's timer, 2 queries; `disconnect` cancels the task and waits for it, and work in flight finishes first, however often the task is cancelled, so it cannot write the row back after `disconnect` deletes it).
 A user is *connected* in a scope while a row has `last_seen` newer than `ONUW_PRESENCE_STALE_SECONDS` (40) (`presence.fresh_rows`, `connected_user_ids`).
 **Silent deaths** (instance killed, no `disconnect`):
 when a row is created or refreshed a durable `presence_check` timer (key `presence:<game|lobby>:<id>:<user>`, one pending per scope+user) is ensured, due at

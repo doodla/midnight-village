@@ -1,0 +1,113 @@
+{
+  "game_id": "00000000-0000-4000-a000-000000000034",
+  "lobby_code": "J3MU5Z",
+  "phase": "results",
+  "current_wave": 0,
+  "deadline": null,
+  "your_role": {
+    "original_role": "Werewolf",
+    "current_role": "Werewolf",
+    "night_action_data": {
+      "wave_2_result": {
+        "werewolves": [
+          111
+        ]
+      }
+    }
+  },
+  "is_host": false,
+  "host_id": 108,
+  "players": [
+    {
+      "player_id": 108,
+      "display_name": "Ana",
+      "token": "crow",
+      "seat": 0
+    },
+    {
+      "player_id": 109,
+      "display_name": "Ben",
+      "token": "bell",
+      "seat": 1
+    },
+    {
+      "player_id": 110,
+      "display_name": "Cleo",
+      "token": "scythe",
+      "seat": 2
+    },
+    {
+      "player_id": 111,
+      "display_name": "Dev",
+      "token": "spindle",
+      "seat": 3
+    },
+    {
+      "player_id": 112,
+      "display_name": "Esme",
+      "token": "antler",
+      "seat": 4
+    },
+    {
+      "player_id": 113,
+      "display_name": "Fin",
+      "token": "lantern",
+      "seat": 5
+    }
+  ],
+  "action_prompt": null,
+  "roles_in_game": [
+    {
+      "role": "Seer",
+      "count": 1
+    },
+    {
+      "role": "Drunk",
+      "count": 1
+    },
+    {
+      "role": "Minion",
+      "count": 1
+    },
+    {
+      "role": "Robber",
+      "count": 1
+    },
+    {
+      "role": "Villager",
+      "count": 1
+    },
+    {
+      "role": "Werewolf",
+      "count": 2
+    },
+    {
+      "role": "Insomniac",
+      "count": 1
+    },
+    {
+      "role": "Troublemaker",
+      "count": 1
+    }
+  ],
+  "night_results": [
+    {
+      "wave": 2,
+      "action_type": "see_team",
+      "revealed_info": {
+        "teammate_names": [
+          "Dev"
+        ],
+        "role_acting_as": "Werewolf"
+      }
+    }
+  ],
+  "night_results_seen": 1,
+  "player_id": 112,
+  "my_vote": null,
+  "ready": null,
+  "progress": null,
+  "stage": null,
+  "stage_started_at": null,
+  "vote_targets": null
+}

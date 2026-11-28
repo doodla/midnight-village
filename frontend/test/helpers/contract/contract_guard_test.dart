@@ -34,6 +34,10 @@ void main() {
           case 'ws_sequence':
             // A list of event types per seat, not an event: validated as that.
             _checkSequence(info);
+          case 'ws_stream':
+            // A whole game per seat: every event and every answer in it is
+            // checked as one of its own kind.
+            _checkStream(info);
           default:
             fail(
               '${info.name}: sample kind "${info.kind}" is not known to the '
@@ -363,6 +367,28 @@ void main() {
 
 /// A `ws_sequence` sample is a map of seat -> the event types it heard, each
 /// type one the server sends as a `ws` sample.
+void _checkStream(SampleInfo info) {
+  final stream = ContractSamples.stream(info.name);
+  expect(stream, isNotEmpty, reason: '${info.name}: no seat recorded');
+  for (final MapEntry(key: seat, value: items) in stream.entries) {
+    expect(items, isNotEmpty, reason: '${info.name}: $seat saw nothing');
+    for (final item in items) {
+      if (item['event'] case final Map<String, dynamic> event) {
+        checkSocketEvent(event);
+      } else if (item['answer'] case final Map<String, dynamic> answer) {
+        checkHttpBody(
+          answer['method'] as String,
+          answer['path'] as String,
+          answer['status'] as int,
+          answer['body'],
+        );
+      } else {
+        expect(item.keys, ['request'], reason: '${info.name}: $seat: $item');
+      }
+    }
+  }
+}
+
 void _checkSequence(SampleInfo info) {
   expect(info.socket, isNotNull, reason: '${info.name}: no socket named');
   _checkSequenceBody(ContractSamples.sequence(info.name), info.name);

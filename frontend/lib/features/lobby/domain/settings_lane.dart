@@ -157,6 +157,15 @@ final class SettingsLane {
         rev >= newest.rev;
   }
 
+  /// THE rev this phone holds of [table]: the newest it has shown, from any
+  /// lobby or event that carries one ([admit]); null when none of that table
+  /// carried one. The beat's token is compared with this, never with a
+  /// lobby's own `rev`, so an event that moved it (`host_changed`) counts.
+  int? heldRev({Object? table}) {
+    final newest = _shownRev;
+    return newest == null || newest.table != table ? null : newest.rev;
+  }
+
   /// A server lobby numbered [rev] arrived (an answer, a read, a
   /// `lobby_update`; [table] as in [admits]): whether to show it. Shown, it
   /// is the newest, and no refused value stays on screen over it. A

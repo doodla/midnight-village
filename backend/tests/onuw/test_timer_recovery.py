@@ -598,7 +598,7 @@ class TestIdempotenceAndLazyRepair:
         night.client.force_authenticate(user=night.users["seer"])
         url = reverse("onuw:game-me", kwargs={"game_id": str(night.game.id)})
 
-        with patch("apps.onuw.views.ensure_timers", side_effect=RuntimeError("boom")):
+        with patch("apps.onuw.repair.ensure_timers", side_effect=RuntimeError("boom")):
             response = night.client.get(url)
 
         assert response.status_code == 200

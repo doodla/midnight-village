@@ -30,6 +30,11 @@ and `backend/apps/core/README.md` (tables, presence, timers). Rules: the rest of
   `wrong_stage`, `already_chosen`, ...).
 - **Nothing waits beyond the table's settings.** A stage ends when everyone present has done
   their part, or at its deadline; window 2 never closes before `night_min_window_seconds`.
+- **A phone is told, not asked.** When a stage opens, each person's own `/me/` is sent on
+  that person's own socket group just before the table's event (section 8, `me`); a tap's
+  answer carries what was stored (section 6). A phone reads `/me/` only when what it holds
+  is behind what it hears (an older server, a lost message), and `/me/table/` only when its
+  seat may have changed.
 
 ## 2. Tables (core)
 
@@ -198,6 +203,14 @@ The caller's own view, the same keys in every phase:
 
 `404` for an unknown game, `403` for someone who does not play in it.
 
+**Which of two views is newer.** Within a game the stage only moves forward, phase then
+window (the look, window 1, window 2, the talk, the vote, the results; `protocol.py`), and
+every stage happens once. So of two `/me/` of one game, the one whose (`phase`,
+`current_wave`) is later is the newer; of two at the same stage, a read made after the
+stage opened is as new as the view sent when it opened, or newer. The phone keeps the
+newest by that compare; an older one (a read that crossed a view) changes nothing. The
+same body is what the socket sends as `me` (section 8): one builder (`own_view.me_body`).
+
 ## 5. The night
 
 **The look stage.** With `card_look_seconds > 0` the deal opens no window: the game is in
@@ -208,8 +221,10 @@ way). The night opens when every player not gone past grace has looked, at the d
 when the host sends `advance-wave`. With 0 the deal opens the first window at once.
 
 **Windows.** Window 1 is the Doppelganger's (only when she is in the deck); window 2 is
-everyone else's. A window opens with ONE group event, `night_window {window, deadline}`;
-there is no per-player event at night. Each phone reads its prompt from `/me/`:
+everyone else's. A window opens with ONE group event, `night_window {window, deadline}`,
+the same for every phone; just before it, in the same batch, each person's own group
+carries their own view (`me`, section 8), with their prompt, so no phone asks for it. A
+phone that holds no view of that window when the event comes reads `/me/`:
 
 `action_prompt`: `window`, `kind` (`none`, `seer`, `robber`, `troublemaker`, `drunk`,
 `lone_werewolf`, `doppelganger_look`), `role_acting_as` (the caller's own), `shapes` (which
@@ -286,8 +301,11 @@ see. Every phone acks once after each window's dawn screen.
 
 **Talk.** `phase_change {phase: "discussion", deadline}` and `progress {stage: "talk", done:
 0, needed}`. `POST .../ready/ {"ready": true|false, "stage"}` toggles "ready to vote"
-(`{"status": "ok", "ready": ...}`); when every present player is ready the talk ends, as when
-the host sends `POST .../end-discussion/ {"stage"}` or the deadline passes.
+(`{"status": "ok", "ready": ..., "progress": {stage, done, needed}}`: the stored flag and the
+count the table was sent for this tap, so the tapper's phone reads nothing after it; the
+look's ready answers alike); when every present player is ready the talk ends, as when
+the host sends `POST .../end-discussion/ {"stage"}` or the deadline passes. An answer from a
+server before 27 November 2026 has no `progress`: the phone then reads `/me/` as before.
 
 **Vote.** `phase_change {phase: "voting", deadline}` and `progress {stage: "vote", ...}`.
 
@@ -296,8 +314,9 @@ the host sends `POST .../end-discussion/ {"stage"}` or the deadline passes.
 ```
 
 - `lock` is required. `false` picks or re-picks (`{"status": "picked",
-  "target_player_id": 14}`); `true` picks and locks in one call (`{"status": "submitted"}`).
-  A pick sends no event; a lock sends `progress`.
+  "target_player_id": 14}`); `true` picks and locks in one call (`{"status": "submitted",
+  "target_player_id": 14, "locked": true, "progress": {...}}`: the stored lock and the count
+  the table was sent). A pick sends no event; a lock sends `progress`.
 - After locking: the same lock again is the same 200 (nothing stored or sent); any other pick
   or lock is `409 vote_locked`.
 - `400`: `invalid_target` (yourself, someone not in the game), `bad_request`
@@ -307,7 +326,10 @@ the host sends `POST .../end-discussion/ {"stage"}` or the deadline passes.
 - The votes are revealed when every present player has locked, at the deadline, or when the
   host sends `POST .../reveal-votes/ {"stage"}`. At any reveal every stored pick counts,
   locked or not (an unlocked Hunter pick triggers the Hunter chain); no pick is a non-voter.
-  The table hears `vote_reveal {votes}` and `game_results`.
+  The table hears `vote_reveal {votes}` and `game_results`; each person's own view of the
+  results comes just before them, and `game_results` carries the results body (`data.results`,
+  `GET .../results/`: public at the end, sent once for the table), so nothing is asked for
+  the end board.
 
 ## 7. Results and history
 
@@ -332,13 +354,53 @@ with `connected`.
 ## 8. Socket events
 
 Game socket (`/ws/game/<id>/`): `night_window`, `progress`, `phase_change`, `vote_reveal`,
-`game_results`, `player_presence {player_id, connected}`, `host_changed`, `play_again`.
+`game_results`, `player_presence {player_id, connected}`, `host_changed`, `play_again`,
+`me` and `beat`.
 Lobby socket (`/ws/lobby/<code>/`): `player_joined`, `player_left`, `lobby_update`, `game_started`, `host_changed`.
 `host_changed` is `{host_id, host_name, original_host_id, reason, rev}` on both sockets:
 `rev` is the table's number after the change (section 2; an event from a server instance
 older than `rev` has no key). Every consumer drops an event type it does
-not know, so an older instance never closes a socket over a newer event. Every event is a
-count, a window number, public identity or the end of the game.
+not know, so an older instance never closes a socket over a newer event. Every event the
+table hears is a count, a window number, public identity or the end of the game.
+
+**`me`: a player's own view.** `{"type": "me", "me": <GET /me/ body>}`, sent when a stage
+opens (each night window, the talk, the vote, the results), first in the same batch as the
+table's event, to each person of the game (not to practice players); never within a stage
+(`test_a_view_goes_out_only_when_a_stage_opens`). The views are built from one read-only
+snapshot. A view that cannot be built or packed is left out and the table's events still go
+(the send is tried once more); the phone then reads `/me/` on the event as an older server's
+would. At the end the results ride on `game_results` (`data.results`), not in the views. It goes ONLY to that player's own group
+(`game_<id>_player_<user id>`), the group named from the view's own `player_id`, and the game
+socket forwards it only to a socket signed in as that `player_id`; nothing of one player's is
+ever on the game's group (`tests/onuw/test_own_view.py`, `test_contract_privacy.py`). The
+phone applies it when its stage is later than the `/me/` it holds (section 4), and then the
+table's event asks nothing; a phone that holds no such view when the event comes (a server
+before 27 November 2026, a lost message) reads `/me/` as before. An older app drops the type.
+
+**`beat`: the heartbeat.** Sent by every socket to its own phone as it opens and every
+`every` seconds (15), not through a group, with the table's token: what every seat already
+knows, the same bytes for every socket of one table, nothing about anyone
+(`test_contract_privacy.py` pins the keys):
+
+- game socket: `{"type": "beat", "every": 15.0, "phase", "window", "moved_on"}`: the game's
+  phase and night window (what `phase_change` and `night_window` tell the table), and whether
+  its table has moved past this finished game (play again, or a later deal);
+- lobby socket: `{"type": "beat", "every": 15.0, "rev"}`: the table's number (section 2).
+
+The frame goes on its own clock, whatever the database is doing; the token on it is the one
+the last beat's database work read, so it only ever trails the table's events. A phone that
+has heard a beat counts a socket as up only while frames keep coming: silent for 2.5 beats it
+is closed and opened again (which reads what the screen depends on); when the app comes back,
+one a beat overdue by the wall clock is reopened at once. It forgets the beat after two
+connections in a row that heard none (a rollback). A phone holding less than the token reads
+once: a game behind `phase`/`window` reads `/me/`; one at the results without them reads
+them; an end board whose table `moved_on` reads `/me/table/`; a lobby below `rev` reads the
+lobby. So a frame lost on a socket that stays alive costs one read, never a stuck screen. An
+older app drops the type; on an older server no beat comes and the phone believes its socket
+as before. The same heartbeat runs the game's lazy repair (section 4: practice moves, lost
+timers), from the game's oldest fresh socket, once per beat, until the results.
+`player_joined` and `player_left` carry only their type; the `lobby_update` sent with each
+carries the whole table, so the app reads nothing on them.
 
 ## 9. Sending a request twice
 
@@ -350,7 +412,7 @@ as sending it once did (`backend/tests/onuw/test_resend.py`):
 | `choose` | `chosen` lower than the server's count: the same 200, nothing stored | `409 wrong_stage` |
 | `ready` (look, talk) | sets the same value: same answer | `409 wrong_stage` |
 | `vote` pick | stores the same pick; after its own lock `409 vote_locked` | n/a |
-| `vote` lock | the same 200, nothing stored or sent | `409 wrong_stage` |
+| `vote` lock | the same 200 (the stored lock and the count read again), nothing stored or sent | `409 wrong_stage` |
 | `night-results/seen` | `GREATEST`: same answer | no stage |
 | `advance-wave`, `end-discussion`, `reveal-votes` | end their stage | `409 wrong_stage` |
 | lobby `start` | n/a | `400` "Lobby is not in waiting state." |
@@ -406,7 +468,9 @@ request whose answer was lost that still arrives after the next one was applied.
   the `GET /me/` her phone sends after her look (its answer's `chooses_left` is 1).
 - A choose's answer carries the caller's own results, so its size varies with what they
   learned, as a `/me/` already does; its `Server-Timing` does not (the same work for every
-  caller: `tests/perf/test_header_hides_play.py`).
+  caller: `tests/perf/test_header_hides_play.py`). A player's own view (`me`) is a `/me/`, so
+  its size varies the same way; every person gets one at the same moments, whatever they
+  hold.
 - Human tells (thinking time) are out of the server's reach; phones keep sound and haptics
   identical.
 - At a table with practice players, the request that opens a stage (the last "ready", the

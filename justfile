@@ -96,6 +96,12 @@ prove-guards *args:
 heavy *args:
     @tool/heavy.py {{args}}
 
+# The way back from a bad release: a branch from main that undoes one merge, and what happens
+# next (which side redeploys, its migrations, the floor). Pushes only with --push; never a live branch.
+# Usage: just revert-release <PR number or commit> [--push]
+revert-release *args:
+    @tool/revert_release.py {{args}}
+
 # While building: the fast checks and only the tests this change can reach
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
 # Its heavy steps wait their turn in `just heavy`'s queue.

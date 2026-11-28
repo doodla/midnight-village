@@ -24,11 +24,14 @@ void main() {
     });
 
     test('gameResults carries eliminated player ids', () {
-      expect(decode(GameEvents.gameResults(eliminatedPlayers: [2]))['data'], {
-        'winning_teams': ['village'],
-        'reason': 'A Werewolf was eliminated.',
-        'eliminated_players': [2],
-      });
+      final data = decode(
+        GameEvents.gameResults(eliminatedPlayers: [2]),
+      )['data'];
+      expect(data['winning_teams'], ['village']);
+      expect(data['reason'], 'A Werewolf was eliminated.');
+      expect(data['eliminated_players'], [2]);
+      // The whole results ride with it (public at the end, sent once).
+      expect(data['results'], containsPair('players', isA<List>()));
     });
 
     test('lobby joins and leaves carry nothing but their type', () {

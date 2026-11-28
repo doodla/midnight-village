@@ -39,6 +39,9 @@ class TolerantJsonWebsocketConsumer(AsyncJsonWebsocketConsumer):
 class LobbyConsumer(TolerantJsonWebsocketConsumer):
     """WebSocket consumer for lobby real-time updates."""
 
+    # The lobby's ``rev`` for the next beat frame (None until read).
+    _rev: int | None = None
+
     async def connect(self):
         self.lobby_code = self.scope["url_route"]["kwargs"]["code"]
         self.lobby_group_name = f"lobby_{self.lobby_code}"
@@ -65,15 +68,18 @@ class LobbyConsumer(TolerantJsonWebsocketConsumer):
         )
 
         await self.accept()
+        from apps.core import presence
 
         # Presence, for host handover only (never broadcast). Counted after
         # accept; a rejected connection is never counted.
         await self._count_connection(True)
         self._presence_counted = True
-        from apps.core import presence
 
+        # The first beat at once: the phone learns the pace (and the table's
+        # ``rev``) from the start, so the first interval is watched too.
+        await self._send_beat()
         self._heartbeat_task = asyncio.ensure_future(
-            presence.heartbeat_loop(self._beat)
+            presence.heartbeat_loop(self._send_beat, self._beat_db)
         )
 
     async def disconnect(self, code):
@@ -158,6 +164,7 @@ class LobbyConsumer(TolerantJsonWebsocketConsumer):
                 host.register_lobby_connection(
                     self.lobby_code, self.scope["user"].id, self.channel_name
                 )
+                self._rev = self._read_rev()
             else:
                 host.unregister_lobby_connection(
                     self.lobby_code, self.scope["user"].id, self.channel_name
@@ -167,26 +174,54 @@ class LobbyConsumer(TolerantJsonWebsocketConsumer):
                 "Host handover bookkeeping failed for lobby %s", self.lobby_code
             )
 
-    async def _beat(self):
-        """One heartbeat: refresh this socket's row (its own short DB use)."""
-        # Not thread-sensitive: a pool thread does the beat and releases its
-        # database connection (nothing stays open between beats).
-        await database_sync_to_async(self._refresh_presence, thread_sensitive=False)()
+    async def _send_beat(self):
+        """The beat frame (``presence.beat_frame``) with the lobby's ``rev`` as
+        the last beat read it: the same for every socket of the table. On time,
+        whatever the database is doing."""
+        from apps.core import presence
 
-    def _refresh_presence(self):
-        from apps.core import host
+        token = None if self._rev is None else {"rev": self._rev}
+        await self.send_json(presence.beat_frame(token))
+
+    async def _beat_db(self):
+        """One heartbeat's database work, beside its frame. Not thread-sensitive:
+        a pool thread does it and releases its connection (nothing stays open
+        between beats)."""
+        await database_sync_to_async(self._beat_work, thread_sensitive=False)()
+
+    def _beat_work(self) -> None:
+        """This socket's row refreshed and the lobby's ``rev`` read, in one
+        statement (``presence.lobby_beat``); a row that is gone is registered
+        again. Never fatal; the connection is closed at the end."""
+        import logging
+
+        from apps.core import host, presence, timers
 
         try:
-            return host.refresh_lobby_connection(
-                self.lobby_code, self.scope["user"].id, self.channel_name
-            )
+            beat = presence.lobby_beat(self.channel_name)
+            if beat is not None:
+                lobby_id, self._rev = beat
+                presence.ensure_check_timer("lobby", lobby_id, self.scope["user"].id)
+            else:
+                host.register_lobby_connection(
+                    self.lobby_code, self.scope["user"].id, self.channel_name
+                )
+                self._rev = self._read_rev()
         except Exception:
-            import logging
-
             logging.getLogger(__name__).exception(
                 "Lobby presence heartbeat failed for %s", self.lobby_code
             )
-            return False
+        finally:
+            timers.release_connections()
+
+    def _read_rev(self) -> int | None:
+        from apps.core.models import Lobby
+
+        return (
+            Lobby.objects.filter(code=self.lobby_code)
+            .values_list("rev", flat=True)
+            .first()
+        )
 
     @database_sync_to_async
     def _check_lobby_membership(self, code, user_id):

@@ -15,11 +15,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.practice import is_practice
-from apps.core.wire import public_name, wire_time
+from apps.core.wire import wire_time
 
 from . import presence
 from .models import Game, Phase, PlayerRole
-from .night_results import night_timeline_for
+from .results import results_body
 from .serializers import (
     player_identity,
 )
@@ -206,63 +206,4 @@ class ResultsView(APIView):
             game.player_roles.select_related("user", "vote_target").all()
         )
 
-        # Build eliminated player details
-        eliminated_ids = set(game.results.get("eliminated_players", []))
-        elimination_reasons: dict[str, str] = game.results.get(
-            "elimination_reasons", {}
-        )
-
-        # Build role/team lookup for effective team computation
-        current_roles: dict[int, str] = {}
-        doppelganger_copied: dict[int, str] = {}
-        for pr in player_roles_qs:
-            current_roles[pr.user_id] = pr.current_role
-            if pr.original_role == "Doppelganger" and pr.night_action_data.get(
-                "copied_role"
-            ):
-                doppelganger_copied[pr.user_id] = pr.night_action_data["copied_role"]
-
-        from .engine.win_conditions import get_effective_team
-
-        eliminated_details = []
-        players_data = []
-
-        for pr in player_roles_qs:
-            is_eliminated = pr.user_id in eliminated_ids
-            player_info = {
-                **player_identity(pr),
-                "original_role": pr.original_role,
-                "final_role": pr.current_role,
-                "team": get_effective_team(
-                    pr.user_id, current_roles, doppelganger_copied
-                ),
-                "is_eliminated": is_eliminated,
-                "elimination_reason": elimination_reasons.get(str(pr.user_id)),
-                "outcome": game.results.get("player_outcomes", {}).get(
-                    str(pr.user_id), "lose"
-                ),
-                "vote_target_id": pr.vote_target_id,
-            }
-            players_data.append(player_info)
-
-            if is_eliminated:
-                eliminated_details.append(
-                    {
-                        "player_id": pr.user_id,
-                        "display_name": public_name(pr.user),
-                        "role": pr.current_role,
-                        "elimination_reason": elimination_reasons.get(str(pr.user_id)),
-                    }
-                )
-
-        response_data = {
-            "winning_teams": game.results.get("winning_teams", []),
-            "reason": game.results.get("reason", ""),
-            "eliminated_players": eliminated_details,
-            "players": players_data,
-            "center_cards": list(game.center_cards),
-            "night_actions_log": list(game.night_actions_log),
-            "night_timeline": night_timeline_for(game, player_roles_qs),
-        }
-
-        return Response(response_data)
+        return Response(results_body(game, player_roles_qs))

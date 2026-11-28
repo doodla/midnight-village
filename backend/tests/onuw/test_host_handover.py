@@ -31,6 +31,7 @@ from apps.onuw.engine.validation import validate_timer_settings
 from apps.onuw.models import Game, Phase, PlayerRole
 from tests.onuw.stages import staged
 from tests.onuw.test_night_windows import Night
+from tests.sockets import heard
 
 pytestmark = pytest.mark.integration
 
@@ -992,7 +993,7 @@ async def _next_of(ws: Any, kind: str) -> dict[str, Any]:
     """The next event of ``kind`` on ``ws`` (a lobby socket also hears the table's
     ``lobby_update`` bodies), within 2 s."""
     while True:
-        event = await asyncio.wait_for(ws.receive_json_from(), 2)
+        event = await asyncio.wait_for(heard(ws), 2)
         if event["type"] == kind:
             return event
 
@@ -1029,7 +1030,7 @@ class TestConsumersDriveHandover(TransactionTestCase):
         game_ws = _game_ws(game, guest)
         assert (await lobby_ws.connect())[0]
         assert (await game_ws.connect())[0]
-        await game_ws.receive_json_from(timeout=2)  # its own presence
+        await heard(game_ws)  # its own presence
 
         owner = _lobby_ws(lobby, host_user)
         assert (await owner.connect())[0]
@@ -1041,11 +1042,11 @@ class TestConsumersDriveHandover(TransactionTestCase):
             "original_host_id": host_user.id,
             "reason": "returned",
         }
-        heard = await _next_of(lobby_ws, "host_changed")
+        changed = await _next_of(lobby_ws, "host_changed")
         # The table's number after the change (telling is the bump).
-        expected["rev"] = heard["rev"]
-        assert heard["rev"] >= 1
-        assert heard == expected
+        expected["rev"] = changed["rev"]
+        assert changed["rev"] >= 1
+        assert changed == expected
         assert await _next_of(game_ws, "host_changed") == expected
         for ws in (owner, lobby_ws, game_ws):
             await ws.disconnect()

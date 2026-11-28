@@ -2,15 +2,22 @@
 """Deliberate breaks of the tools that guard the work, and of the guards themselves
 (tool/prove_guards.py): one for each guard file, so each is proved to bite."""
 
-from breaks_kit import Edit, Break
+from breaks_kit import Break, Edit
 
 GUARDRAILS = ".claude/guardrails/tests"
 PROVE_GUARDS_TEST = f"{GUARDRAILS}/test_prove_guards.py"
 # the harness's own files, held by the tests of test_prove_guards.py, which imports each
 HARNESS = tuple(
     f"tool/{name}.py"
-    for name in ("prove_guards", "breaks_kit", "breaks_rules", "breaks_verdict",
-                 "breaks_server", "breaks_tools", "breaks_app")
+    for name in (
+        "prove_guards",
+        "breaks_kit",
+        "breaks_rules",
+        "breaks_verdict",
+        "breaks_server",
+        "breaks_tools",
+        "breaks_app",
+    )
 )
 NIGHT_RESULTS = "backend/apps/onuw/night_results.py"
 
@@ -142,8 +149,12 @@ TOOLS: tuple[Break, ...] = (
         "tidy_clears_a_worktree_someone_works_in",
         "the-wall",
         "a worktree with a process working in it counts as idle, so tidy clears it",
-        Edit("tool/tidy.py", "            return True\n", "            return False\n",
-             within="busy"),
+        Edit(
+            "tool/tidy.py",
+            "            return True\n",
+            "            return False\n",
+            within="busy",
+        ),
         "test_tidy.py",
     ),
     _tool(
@@ -163,6 +174,31 @@ TOOLS: tuple[Break, ...] = (
         "a shell script with a syntax error",
         Edit("tool/previous_build_check.sh", None, '\nif [ -n "$x" ]; then\n'),
         "test_checkout_whole.py::test_every_shell_script_parses",
+    ),
+    _tool(
+        "a_refusal_for_another_reason_passes_the_rehearsal",
+        "the-wall",
+        "the live-rule rehearsal takes any refused push (a bad token, a network"
+        " error) for the rule refusing it, and says PASS",
+        Edit(
+            "tool/rehearse_live_rule.py",
+            "if any(s in said for s in RULE_SAYS):",
+            "if True:",
+            within="judge",
+        ),
+        "test_release_workflows.py",
+    ),
+    _tool(
+        "the_way_back_reverts_the_live_migrations",
+        "the-wall",
+        "undoing a release deletes the migrations the live database has already run",
+        Edit(
+            "tool/revert_release.py",
+            'git("checkout", "origin/main", "--", *migrations)',
+            "pass",
+            within="revert",
+        ),
+        "test_revert_release.py",
     ),
     _tool(
         "spec_names_a_key_that_is_gone",

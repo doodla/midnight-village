@@ -169,69 +169,19 @@ void main() {
     });
 
     group('WebSocket events', () {
-      test('player_joined triggers re-fetch of lobby state', () async {
+      test('player_joined and player_left read nothing: the lobby_update sent '
+          'with each carries the whole table', () async {
         container = createContainer();
-
-        // Keep a listener alive so the auto-dispose provider stays active
         final sub = container.listen(lobbyProvider('ABC123'), (_, _) {});
         addTearDown(sub.close);
-
-        // Wait for initial build
         await container.read(lobbyProvider('ABC123').future);
 
-        // Set up re-fetch with updated players
-        final refetchCompleter = Completer<LobbyState>();
-        final updatedState = _testLobbyState(
-          seats: [
-            (id: 1, name: 'Alice'),
-            (id: 2, name: 'Bob'),
-            (id: 3, name: 'Charlie'),
-          ],
-        );
-        when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
-          final result = updatedState;
-          if (!refetchCompleter.isCompleted) {
-            refetchCompleter.complete(result);
-          }
-          return result;
-        });
-
-        // Simulate player_joined event
         mockWebSocket.addServerEvent(GameEvents.playerJoined());
-
-        // Wait for the re-fetch to complete
-        await refetchCompleter.future;
-        await Future<void>.delayed(Duration.zero);
-
-        final state = container.read(lobbyProvider('ABC123'));
-        expect(state.value?.players, hasLength(3));
-      });
-
-      test('player_left triggers re-fetch of lobby state', () async {
-        container = createContainer();
-
-        final sub = container.listen(lobbyProvider('ABC123'), (_, _) {});
-        addTearDown(sub.close);
-
-        await container.read(lobbyProvider('ABC123').future);
-
-        final refetchCompleter = Completer<LobbyState>();
-        final updatedState = _testLobbyState(seats: [(id: 1, name: 'Alice')]);
-        when(() => mockService.fetchLobby('ABC123')).thenAnswer((_) async {
-          final result = updatedState;
-          if (!refetchCompleter.isCompleted) {
-            refetchCompleter.complete(result);
-          }
-          return result;
-        });
-
         mockWebSocket.addServerEvent(GameEvents.playerLeft());
-
-        await refetchCompleter.future;
+        await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
 
-        final state = container.read(lobbyProvider('ABC123'));
-        expect(state.value?.players, hasLength(1));
+        verify(() => mockService.fetchLobby('ABC123')).called(1);
       });
 
       test('lobby_update updates role configuration', () async {

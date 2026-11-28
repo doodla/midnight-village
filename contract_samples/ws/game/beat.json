@@ -1,0 +1,7 @@
+{
+  "type": "beat",
+  "every": 15.0,
+  "phase": "voting",
+  "window": 0,
+  "moved_on": false
+}

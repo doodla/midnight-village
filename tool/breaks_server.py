@@ -16,8 +16,14 @@ ME_ANCHOR = '        data["vote_targets"] = self._vote_targets(instance)\n'
 
 def _two_deals(name: str, why: str, *edits: Edit) -> Break:
     """A leak the two-deal test must see (the review of 28 November 2026 found each)."""
-    return Break(name=name, promise="hidden-information", why=why, edits=edits,
-                 tests=(TWO_DEALS,), guards=(TWO_DEALS_HELPER,))
+    return Break(
+        name=name,
+        promise="hidden-information",
+        why=why,
+        edits=edits,
+        tests=(TWO_DEALS,),
+        guards=(TWO_DEALS_HELPER,),
+    )
 
 
 def _on_me(name: str, why: str, line: str) -> Break:
@@ -25,48 +31,72 @@ def _on_me(name: str, why: str, line: str) -> Break:
 
 
 LEAKS: tuple[Break, ...] = (
-    _on_me("L1_wolf_count_on_me", "/me/ counts the werewolves seated",
-           '        data["x"] = sum(pr.original_role == "Werewolf"'
-           ' for pr in self.context.get("all_player_roles", []))\n'),
-    _on_me("L2_wolf_in_the_centre_on_me", "/me/ says whether a werewolf is in the centre",
-           '        data["x"] = "Werewolf" in (instance.dealt_center_cards'
-           " or instance.center_cards)\n"),
-    _on_me("L3_your_card_now_while_voting", "/me/ shows the card you hold now, while voting",
-           '        data["x"] = self.context["player_role"].current_role'
-           ' if instance.phase == "voting" else None\n'),
-    _on_me("L4_votes_on_you_before_the_reveal", "/me/ counts the votes on you before the reveal",
-           '        data["x"] = sum(pr.vote_target_id == self.context["player_role"].user_id'
-           ' for pr in self.context.get("all_player_roles", []))\n'),
-    _two_deals(
-        "L5_players_ordered_by_role", "the players list is ordered by role",
-        Edit("backend/apps/onuw/views_read.py",
-             'all_prs = game.player_roles.select_related("user").all()',
-             'all_prs = game.player_roles.select_related("user").order_by("original_role", "user_id")'),
+    _on_me(
+        "L1_wolf_count_on_me",
+        "/me/ counts the werewolves seated",
+        '        data["x"] = sum(pr.original_role == "Werewolf"'
+        ' for pr in self.context.get("all_player_roles", []))\n',
+    ),
+    _on_me(
+        "L2_wolf_in_the_centre_on_me",
+        "/me/ says whether a werewolf is in the centre",
+        '        data["x"] = "Werewolf" in (instance.dealt_center_cards'
+        " or instance.center_cards)\n",
+    ),
+    _on_me(
+        "L3_your_card_now_while_voting",
+        "/me/ shows the card you hold now, while voting",
+        '        data["x"] = self.context["player_role"].current_role'
+        ' if instance.phase == "voting" else None\n',
+    ),
+    _on_me(
+        "L4_votes_on_you_before_the_reveal",
+        "/me/ counts the votes on you before the reveal",
+        '        data["x"] = sum(pr.vote_target_id == self.context["player_role"].user_id'
+        ' for pr in self.context.get("all_player_roles", []))\n',
     ),
     _two_deals(
-        "L6_seen_answers_wolf_ids", "marking the night results seen answers the werewolves' ids",
-        Edit("backend/apps/onuw/views_play.py",
-             '        return Response({"night_results_seen": stored})',
-             '        return Response({"night_results_seen": stored, "w": sorted(game.player_roles'
-             '.filter(original_role="Werewolf").values_list("user_id", flat=True))})'),
+        "L5_players_ordered_by_role",
+        "the players list is ordered by role",
+        Edit(
+            "backend/apps/onuw/views_read.py",
+            'all_prs = game.player_roles.select_related("user").all()',
+            'all_prs = game.player_roles.select_related("user").order_by("original_role", "user_id")',
+        ),
+    ),
+    _two_deals(
+        "L6_seen_answers_wolf_ids",
+        "marking the night results seen answers the werewolves' ids",
+        Edit(
+            "backend/apps/onuw/views_play.py",
+            '        return Response({"night_results_seen": stored})',
+            '        return Response({"night_results_seen": stored, "w": sorted(game.player_roles'
+            '.filter(original_role="Werewolf").values_list("user_id", flat=True))})',
+        ),
     ),
     # The review's own edit set Server-Timing in the view; the timing middleware writes
     # that header last, so it leaked nothing. The same seat in a header that stays:
     _two_deals(
         "L7_a_seat_in_a_header_of_me",
         "/me/ answers with a header carrying the first werewolf's seat",
-        Edit("backend/apps/onuw/views.py",
-             "        return Response(serializer.data)\n\n\nclass SweepTimersView",
-             "        r = Response(serializer.data)\n"
-             '        r["X-Table"] = str(next((i for i, pr in enumerate(all_player_roles)'
-             ' if pr.original_role == "Werewolf"), 0))\n'
-             "        return r\n\n\nclass SweepTimersView"),
+        Edit(
+            "backend/apps/onuw/views.py",
+            "        return Response(me_body(game, player_role, all_player_roles))\n",
+            "        r = Response(me_body(game, player_role, all_player_roles))\n"
+            '        r["X-Table"] = str(next((i for i, pr in enumerate(all_player_roles)'
+            ' if pr.original_role == "Werewolf"), 0))\n'
+            "        return r\n",
+            within="GameMeView.get",
+        ),
     ),
     _two_deals(
         "L8_timing_detail_on_live",
         "the live settings switch the Server-Timing detail on (its counts tell hidden play)",
-        Edit("backend/config/settings/vercel.py", "SERVER_TIMING_DETAIL = False",
-             "SERVER_TIMING_DETAIL = True"),
+        Edit(
+            "backend/config/settings/vercel.py",
+            "SERVER_TIMING_DETAIL = False",
+            "SERVER_TIMING_DETAIL = True",
+        ),
     ),
 )
 LOCKED_READY = (

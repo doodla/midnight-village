@@ -23,3 +23,23 @@ class FieldSummary(models.Model):
 
     def __str__(self) -> str:
         return f"{self.received_at:%Y-%m-%d %H}h {self.device} {self.commit[:7]}"
+
+
+class ServerCount(models.Model):
+    """How often the server itself saw something go wrong, per hour: a word from
+    ``vocabulary.SERVER_COUNTS`` and a count (``counts.add``). No game, no
+    player, no table."""
+
+    word = models.CharField(max_length=32)
+    hour = models.DateTimeField()
+    n = models.PositiveIntegerField(default=0, db_default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["word", "hour"], name="observe_count_word_hour"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.hour:%Y-%m-%d %H}h {self.word} {self.n}"

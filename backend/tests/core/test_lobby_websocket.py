@@ -7,6 +7,7 @@ from channels.db import database_sync_to_async
 from channels.testing import WebsocketCommunicator
 
 from config.asgi import application
+from tests.sockets import heard
 
 pytestmark = pytest.mark.integration
 
@@ -35,7 +36,7 @@ async def _next_event(communicator):
     """The next event that is not the table's own ``lobby_update`` (an ONUW table
     sends its body to the lobby socket when phones come and go)."""
     while True:
-        event = await communicator.receive_json_from()
+        event = await heard(communicator)
         if event["type"] != "lobby_update":
             return event
 

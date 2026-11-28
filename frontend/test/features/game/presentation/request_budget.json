@@ -1,0 +1,534 @@
+{
+  "about": "Requests each phone makes in the six-seat game (requests_per_game_test.dart). Do not edit: re-record with UPDATE_REQUEST_BUDGET=after and review the diff.",
+  "before": {
+    "Ana": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "look -> night": {
+          "GET me": 1,
+          "GET /me/table/": 1
+        },
+        "tap choose": {
+          "POST action": 1
+        },
+        "night -> talk": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "talk -> vote": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap pick": {
+          "POST vote": 1
+        },
+        "tap lock": {
+          "POST vote": 1,
+          "GET me": 2
+        },
+        "vote -> end": {
+          "GET me": 2,
+          "GET /me/table/": 3,
+          "GET results": 1
+        },
+        "tap play again": {
+          "POST play-again": 1
+        },
+        "play again": {
+          "GET me": 1,
+          "GET /me/table/": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 11,
+        "GET me": 14,
+        "POST ready": 2,
+        "POST action": 1,
+        "POST seen": 1,
+        "POST vote": 2,
+        "GET results": 1,
+        "POST play-again": 1
+      }
+    },
+    "Ben": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "look -> night": {
+          "GET me": 1,
+          "GET /me/table/": 1
+        },
+        "tap choose": {
+          "POST action": 1
+        },
+        "night -> talk": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "talk -> vote": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap pick": {
+          "POST vote": 1,
+          "GET me": 1
+        },
+        "tap lock": {
+          "POST vote": 1,
+          "GET me": 2
+        },
+        "vote -> end": {
+          "GET me": 2,
+          "GET /me/table/": 3,
+          "GET results": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 10,
+        "GET me": 14,
+        "POST ready": 2,
+        "POST action": 1,
+        "POST seen": 1,
+        "POST vote": 2,
+        "GET results": 1
+      }
+    },
+    "Cleo": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "look -> night": {
+          "GET me": 1,
+          "GET /me/table/": 1
+        },
+        "tap choose": {
+          "POST action": 1
+        },
+        "night -> talk": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "talk -> vote": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap pick": {
+          "POST vote": 1,
+          "GET me": 1
+        },
+        "tap lock": {
+          "POST vote": 1,
+          "GET me": 2
+        },
+        "vote -> end": {
+          "GET me": 2,
+          "GET /me/table/": 3,
+          "GET results": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 10,
+        "GET me": 14,
+        "POST ready": 2,
+        "POST action": 1,
+        "POST seen": 1,
+        "POST vote": 2,
+        "GET results": 1
+      }
+    },
+    "Dev": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "look -> night": {
+          "GET me": 1,
+          "GET /me/table/": 1
+        },
+        "night -> talk": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "talk -> vote": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap pick": {
+          "POST vote": 1,
+          "GET me": 1
+        },
+        "tap lock": {
+          "POST vote": 1,
+          "GET me": 2
+        },
+        "vote -> end": {
+          "GET me": 2,
+          "GET /me/table/": 3,
+          "GET results": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 10,
+        "GET me": 14,
+        "POST ready": 2,
+        "POST seen": 1,
+        "POST vote": 2,
+        "GET results": 1
+      }
+    },
+    "Esme": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "look -> night": {
+          "GET me": 1,
+          "GET /me/table/": 1
+        },
+        "night -> talk": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1,
+          "GET me": 2
+        },
+        "talk -> vote": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap pick": {
+          "POST vote": 1,
+          "GET me": 1
+        },
+        "tap lock": {
+          "POST vote": 1,
+          "GET me": 2
+        },
+        "vote -> end": {
+          "GET me": 2,
+          "GET /me/table/": 3,
+          "GET results": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 10,
+        "GET me": 14,
+        "POST ready": 2,
+        "POST seen": 1,
+        "POST vote": 2,
+        "GET results": 1
+      }
+    },
+    "Fin": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1,
+          "GET me": 1
+        },
+        "look -> night": {
+          "GET me": 1,
+          "GET /me/table/": 1
+        },
+        "night -> talk": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1,
+          "GET me": 1
+        },
+        "talk -> vote": {
+          "GET me": 1,
+          "GET /me/table/": 2
+        },
+        "tap pick": {
+          "POST vote": 1,
+          "GET me": 1
+        },
+        "tap lock": {
+          "POST vote": 1,
+          "GET me": 1
+        },
+        "vote -> end": {
+          "GET me": 2,
+          "GET /me/table/": 3,
+          "GET results": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 10,
+        "GET me": 11,
+        "POST ready": 2,
+        "POST seen": 1,
+        "POST vote": 2,
+        "GET results": 1
+      }
+    }
+  },
+  "after": {
+    "Ana": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1
+        },
+        "tap choose": {
+          "POST action": 1
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1
+        },
+        "tap pick": {
+          "POST vote": 1
+        },
+        "tap lock": {
+          "POST vote": 1
+        },
+        "tap play again": {
+          "POST play-again": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 2,
+        "GET me": 2,
+        "POST ready": 2,
+        "POST action": 1,
+        "POST seen": 1,
+        "POST vote": 2,
+        "POST play-again": 1
+      }
+    },
+    "Ben": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1
+        },
+        "tap choose": {
+          "POST action": 1
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1
+        },
+        "tap pick": {
+          "POST vote": 1
+        },
+        "tap lock": {
+          "POST vote": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 2,
+        "GET me": 2,
+        "POST ready": 2,
+        "POST action": 1,
+        "POST seen": 1,
+        "POST vote": 2
+      }
+    },
+    "Cleo": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1
+        },
+        "tap choose": {
+          "POST action": 1
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1
+        },
+        "tap pick": {
+          "POST vote": 1
+        },
+        "tap lock": {
+          "POST vote": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 2,
+        "GET me": 2,
+        "POST ready": 2,
+        "POST action": 1,
+        "POST seen": 1,
+        "POST vote": 2
+      }
+    },
+    "Dev": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1
+        },
+        "tap pick": {
+          "POST vote": 1
+        },
+        "tap lock": {
+          "POST vote": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 2,
+        "GET me": 2,
+        "POST ready": 2,
+        "POST seen": 1,
+        "POST vote": 2
+      }
+    },
+    "Esme": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1
+        },
+        "tap pick": {
+          "POST vote": 1
+        },
+        "tap lock": {
+          "POST vote": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 2,
+        "GET me": 2,
+        "POST ready": 2,
+        "POST seen": 1,
+        "POST vote": 2
+      }
+    },
+    "Fin": {
+      "moments": {
+        "open": {
+          "GET /me/table/": 2,
+          "GET me": 2
+        },
+        "tap ready (look)": {
+          "POST ready": 1
+        },
+        "tap My night": {
+          "POST seen": 1
+        },
+        "tap ready (talk)": {
+          "POST ready": 1
+        },
+        "tap pick": {
+          "POST vote": 1
+        },
+        "tap lock": {
+          "POST vote": 1
+        }
+      },
+      "total": {
+        "GET /me/table/": 2,
+        "GET me": 2,
+        "POST ready": 2,
+        "POST seen": 1,
+        "POST vote": 2
+      }
+    }
+  }
+}

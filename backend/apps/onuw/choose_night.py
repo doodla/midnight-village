@@ -279,14 +279,18 @@ def answer_for(game_id: Any, user_id: int) -> dict[str, Any]:
 # ── what a phone reads ──────────────────────────────────────────────────────
 
 
-def prompt_for(game: Game, pr: PlayerRole) -> dict[str, Any] | None:
+def prompt_for(
+    game: Game, pr: PlayerRole, state: GameState | None = None
+) -> dict[str, Any] | None:
     """The prompt the caller reads from ``GET /me/`` in an open window: every player
-    has one, shaped alike (``engine.choose.build_choose_prompt``)."""
+    has one, shaped alike (``engine.choose.build_choose_prompt``). ``state``: the
+    game's engine state when the caller built it already from every row it read
+    (``basics.game_state_from``), else it is read here."""
     window = game.current_wave
     if game.phase != Phase.NIGHT or window not in (1, 2):
         return None
     return build_choose_prompt(
-        basics.build_game_state(game),
+        state if state is not None else basics.build_game_state(game),
         pr.user_id,
         window,
         turns.prompt_role(pr, window),

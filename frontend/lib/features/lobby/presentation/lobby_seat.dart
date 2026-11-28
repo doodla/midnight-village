@@ -8,6 +8,8 @@ mixin _LobbySeat on _$LobbyNotifier {
   // What this half uses of the other, defined in [LobbyNotifier].
   LobbyState? get _current;
   Future<void> refreshLobby();
+  WebSocketChannelInterface? get _webSocket;
+  SettingsLane get _lane;
 
   /// The table status `/me/table/` was last asked again for, from a lobby
   /// that said the table had moved on ([_askWhereIfMoved]): once per change.
@@ -42,8 +44,35 @@ mixin _LobbySeat on _$LobbyNotifier {
   /// Coming back to the app: the lobby is read again (and `/me/table/`,
   /// which listens to the resume itself).
   void _readOnResume() => ref.listen(appResumesProvider, (_, next) {
-    if (next.hasValue) unawaited(refreshLobby());
+    if (!next.hasValue) return;
+    // A socket that missed its beat while the phone was away is opened again
+    // at once, and its "connected" reads the lobby; else it is read now. One
+    // read either way.
+    final ws = _webSocket;
+    if (ws is ReconnectingWebSocket && ws.verify()) return;
+    unawaited(refreshLobby());
   });
+
+  /// The beat's token is the table's `rev` (the same for every seat): a
+  /// lobby this phone holds at a lower one missed a frame on a socket that
+  /// stayed alive (a deal, a change of the table), so it is read once per
+  /// `rev` told; that read moves the phone on if the table did
+  /// ([_askWhereIfMoved]). An older server's beat carries none. "Holds" is
+  /// the lane's one number ([SettingsLane.heldRev]): every lobby and event
+  /// with a `rev` moves it, so a phone that heard each frame never reads.
+  int? _beatAskedRev;
+  void _onBeat(Map<String, dynamic> beat) {
+    final rev = beat['rev'];
+    final current = _current;
+    final held = current == null
+        ? null
+        : _lane.heldRev(table: LobbyNotifier._tableOf(current));
+    if (rev is! int || held == null || rev <= held || _beatAskedRev == rev) {
+      return;
+    }
+    _beatAskedRev = rev;
+    unawaited(refreshLobby());
+  }
 
   /// A start this phone's table already names (a second word of the same
   /// deal, a late `game_started` for a game it is in or past) changes

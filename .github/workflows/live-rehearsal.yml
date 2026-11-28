@@ -1,0 +1,42 @@
+# A rehearsal of the rule that lets only the release job move the live branches.
+#
+# The owner imports docs/dev/rulesets/live-rehearsal.json (the real rule, aimed at a
+# scratch branch `live-rehearsal`), presses "Run workflow" here, and imports the real
+# one (live-branches-step2.json) only when this is green and says PASS three times:
+# the release job's key moves the branch forward; the workflow's own token cannot push
+# an unchecked commit, nor main's own. tool/rehearse_live_rule.py; the steps are in
+# docs/dev/rulesets/README.md.
+#
+# By hand only, from main only (the key's environment `live` allows main alone).
+# Not a check of the merge wall. Held by guardrails/tests/test_release_workflows.py.
+
+name: Live Branches Rehearsal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    name: Rehearse the live branch rule
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.ref == 'refs/heads/main'
+    environment: live
+    permissions:
+      contents: write  # so that only the rule, never a missing permission, can refuse push 2 and 3
+
+    steps:
+      - name: Checkout with the release job's key
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          fetch-depth: 2
+          ssh-key: ${{ secrets.LIVE_DEPLOY_KEY }}
+
+      - name: Push as the release job does, and as anything else would
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_KEY: ${{ secrets.LIVE_DEPLOY_KEY != '' }}
+        run: python3 tool/rehearse_live_rule.py

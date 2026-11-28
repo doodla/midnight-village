@@ -4,6 +4,9 @@ Integration tests for the ONUW GameConsumer WebSocket.
 Tests connection authorization, message routing, and player isolation.
 """
 
+import contextlib
+from unittest.mock import patch
+
 from django.test import TransactionTestCase
 
 import pytest
@@ -12,7 +15,8 @@ from channels.testing import WebsocketCommunicator
 
 from apps.core.models import Lobby, LobbyMember, User
 from apps.onuw.consumers import GameConsumer
-from apps.onuw.models import Game, Phase, PlayerRole
+from apps.onuw.models import Game, Phase, PlayerRole, SocketPresence
+from tests.sockets import heard
 
 pytestmark = pytest.mark.integration
 
@@ -147,7 +151,7 @@ class TestGameConsumerConnect(TransactionTestCase):
         assert connected_a is True
         # Connecting announces the player's own presence to the table; that
         # broadcast is not what this test is about.
-        presence = await comm_a.receive_json_from(timeout=2)
+        presence = await heard(comm_a)
         assert presence["type"] == "player_presence"
 
         channel_layer = get_channel_layer()
@@ -191,11 +195,33 @@ class TestGameConsumerConnect(TransactionTestCase):
         await communicator.disconnect()
 
 
+class TestGameConsumerTokenReadFails(TransactionTestCase):
+    """Reading the token as a socket opens can fail (the database): the socket
+    is then not left counted, so nobody shows present who is not."""
+
+    @pytest.mark.asyncio
+    async def test_a_failing_token_read_leaves_no_presence_row(self):
+        game, users = await _create_game_with_players(player_count=4)
+        communicator = _build_communicator(game.id, users[1])
+
+        with (
+            patch("apps.onuw.beat.token", side_effect=RuntimeError("db gone")),
+            contextlib.suppress(Exception),
+        ):
+            await communicator.connect()
+            await communicator.disconnect()
+
+        rows = await database_sync_to_async(
+            lambda: SocketPresence.objects.filter(game_id=game.id).count()
+        )()
+        assert rows == 0, "the socket stays counted though its connect failed"
+
+
 async def _next_of(communicator, kind: str) -> dict:
     """The next event of ``kind`` (connecting also announces the player's own
     presence, which these tests are not about)."""
     while True:
-        event = await communicator.receive_json_from(timeout=2)
+        event = await heard(communicator)
         if event["type"] == kind:
             return event
 
@@ -205,7 +231,7 @@ async def communicator_is_empty(communicator):
     import asyncio
 
     try:
-        await asyncio.wait_for(communicator.receive_json_from(), timeout=0.5)
+        await asyncio.wait_for(heard(communicator), timeout=0.5)
         return False
     except TimeoutError:
         return True
