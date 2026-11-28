@@ -200,16 +200,9 @@ recipe's own comment, and the steps of a recipe that is only steps), the screens
 they are judged at, the required checks and the agents tables below. A block that is not what
 the code says fails, with the fix.
 
-**The heavy queue.** `tool/heavy.py` (`just heavy <command...>`, `just heavy --status`) is a counting queue
-for every heavy command: 3 at once (by the machine's memory and the measured peak of each kind of job, in
-`docs/dev/running-the-work.md`, "Waiting, and the heavy queue"), the rest in order, saying where they stand at once and
-every 30 seconds. A slot is a file lock no child inherits, released on any exit; the command runs in a session of its own, is
-stopped with its heavy parent, and what it leaves running is stopped; each run's time and peak memory go to its history.
-The recipes that run tests, builds, screens, the harness, phone-frames and phone-timing call it themselves, and
-`just piece-check` and `just handover` queue their heavy steps (`heavy.wrap`); inside a heavy command it runs at once
-(`HEAVY_SLOT`), on GitHub (`CI`) it does nothing. `.claude/guardrails/tests/test_heavy.py` holds the queue (the count, the order, no
-inherited slot, `kill -9`, nesting), that every heavy command in a justfile goes through it, and that every script that
-boots the backend stops its whole process group on any exit (`phone-timing` did not until now).
+**The heavy queue.** `tool/heavy.py` (`just heavy <command...>`, `just heavy --status`): every heavy
+command waits for one of a few slots, so the machine is never asked for more than it has (how,
+and how the count was chosen: its docstring; `.claude/guardrails/tests/test_heavy.py`).
 
 **As GitHub's backend job runs it.** That job has no Flutter, so `just test-guardrails` runs its tests with Flutter and Dart
 off PATH (`tool/path_without.py`; `.claude/guardrails/tests/test_path_without.py`): a test that runs them fails on a builder's
@@ -234,21 +227,10 @@ closes it when main's newest runs have all passed (`.claude/guardrails/tests/tes
 It runs in `just check`. Left alone: front matter, the owner's words (`docs/dev/owner-feedback.md`), recorded samples and the skills under `.claude/skills/`.
 
 **The fast check.** `just piece-check` (`tool/piece_check.py`) is what a builder runs between
-edits: the fast checks, every backend test on every core (about a minute and a half: choosing
-among them does not pay, the modules all lead to each other), and for the app only the test
-files nearest the change, found by following imports from each test (`--far`: every test that
-can see it; `--list`: the plan only). It renders only the screen states that draw what
-changed, strict at 360 and 390 (at 390 only when more than 60 states are reached, unless
-`--both-widths`; `--no-screens` for a change to logic only): `tool/piece_screens.py` walks every catalogue state's widget
-tree (about a minute, reused until the app changes), reads which file declares each widget
-class, and follows a file that draws nothing to the files that use it. Nothing is listed by hand
-(`.claude/guardrails/tests/test_piece_check.py`).
-A change to what the server sends (a recorded sample) or to the harness itself also runs the end-to-end harness, the one test that reads both sides at once;
-a red harness run ends with the failed tests' names (`tool/failed_tests.py`).
-It ends with the lines the pull request's description must carry (a guard file edited, words added), since only GitHub can read the description and fails
-without them. It is never silent: the plan gives each step's rough
-time and the total before anything runs, and a step that prints nothing says it is still
-running every 30 seconds. GitHub still runs everything.
+edits: the fast checks, the backend tests, and only the app's tests and screen states that can
+see the change, found from imports and widget trees, never listed (what it runs: its docstring;
+`.claude/guardrails/tests/test_piece_check.py`). It ends with the lines the pull request's
+description must carry. GitHub still runs everything.
 
 `.claude/guardrails/tests/test_checkout_whole.py` keeps a fresh checkout working as it stands: every
 shell script parses (`bash -n`), the lint and type tools in recipes and hooks are run as
@@ -292,9 +274,9 @@ A Bash guard whose script is missing lets the command run and warns (the git hoo
 | Event | Script | Does |
 |---|---|---|
 | PreToolUse Agent, Task, Workflow | `.claude/guardrails/runner.py` | Blocks a subagent not pinned to `opus`, `sonnet` or `haiku` (on trial) with an effort, and forks. |
-| PreToolUse Bash | `.claude/hooks/git_guard.py` | Stops the mistakes and shortcuts that would skip the commit gate. Its reading of shell text (here-documents, `$(...)`, line ends, the words of each simple command) is `.claude/hooks/shell_text.py`, which knows nothing of git. It is not a wall (the wall is GitHub): it reads one Bash command as text, so a script file, a `just` recipe or another program that calls git is not read. Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify` (and its shortened spellings), `commit -n`, hooksPath changes (by `git config` or `-c`), an alias or include set from the command, `git config --edit`, `git commit-tree`, `GIT_*=` variables that redirect git, HUSKY/SKIP/`GATE_*` switches on a git call, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those). Blocks any push that writes `live-server` or `live-app` (a refspec's destination, `:branch` and `--delete`, a bare branch name, the current branch and its `@{push}` when no refspec or `HEAD` is given, a matching pattern, `:`, `--all`, `--branches`, `--mirror`; `.claude/hooks/push_rules.py`): only the release job moves them. It reads the command as the shell would: only a `git` in command position counts, so a message, a search pattern, a comment or a here-document that merely contains those words goes on (`SKIP=slow pytest` too); and it looks inside `bash -c`, `eval`, `trap`, `$(...)`, backticks, `$'...'`, a here-document fed to a shell, a function body, wrappers such as `env`, `xargs` and `find -exec`, and the clone's git aliases. A shell fed by a pipe in a command that names a committing git call is blocked, since it cannot be read. Tests: `.claude/guardrails/tests/test_git_guard.py` (about 230 commands in both directions, a clone on a live branch and one whose upstream is one, every line of the recipes, workflows and hook scripts that names git, a fuzz for crashes, and counts of the work big input costs, with no clock). |
+| PreToolUse Bash | `.claude/hooks/git_guard.py` | Stops the commands that would skip the commit gate (`--no-verify`, a changed hooks path, a push to `live-server` or `live-app`, and the rest its docstring lists), reading the command as the shell would (`.claude/hooks/shell_text.py`). Not a wall: GitHub is. Tests: `.claude/guardrails/tests/test_git_guard.py`. |
 | SessionStart startup, resume, compact | `.claude/hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; starts Postgres when it is installed and down; warns when the checkout is behind the remote's main (every hook, guard and instruction comes from it) and when a hook script the settings run is missing; otherwise silent, one line if it cannot set the gate, never fails the session. A fresh container's tools come from `tool/bootstrap_container.sh` (`docs/dev/environment.md`), not from this hook. |
-| PreToolUse Bash | `.claude/hooks/poll_guard.py` | Refuses a command whose whole purpose is a sleep loop on another job: an `until`, `while` or `for` with a `sleep` in it that looks at a process (`pgrep`, `ps`, `kill -0`), a log or marker file (`tail`, `grep`, `cat`, `test -f`), the queue (`heavy`, `flock`) or GitHub (`gh`). The message says what to do: start the job once with `run_in_background`, end the turn, and you are woken when it exits. Left alone: a loop that waits for a service just started (`curl`, `wget`, `nc`), a loop without a sleep, a sleep alone, and words that only mention it (a commit message, a search, a here-document), read as the shell reads them (`shell_text.py`; `bash -c '...'` is read inside). It is a reminder, not a wall, and fails open. Tests, both ways: `.claude/guardrails/tests/test_poll_guard.py`. |
+| PreToolUse Bash | `.claude/hooks/poll_guard.py` | Refuses a sleep loop that waits on another job and says what to do instead: start it once with `run_in_background` (what counts: its docstring). A reminder, not a wall; fails open. Tests: `.claude/guardrails/tests/test_poll_guard.py`. |
 | PostToolUse Edit, Write | `.claude/hooks/post-edit-format.sh` | Formats the edited `.py` (the ruff in `uv.lock`: `uv run --group lint`, never one from PATH) or `.dart` file. |
 | Stop | `.claude/hooks/verify-done.sh` | With uncommitted `.py`/`.dart` work, runs the fast checks it touches (as the commit gate does), unless they already passed on the same inputs. No test suite. |
 
@@ -330,6 +312,9 @@ Every agent lists its tools: one defined with all tools starts at about 78k toke
 "Lean helpers".
 
 ## Skills (`.claude/skills/`)
+
+Our own: `correct` turns a mistake that happened into a check that would have caught it (or
+says no honest one exists). Adapted from pstack, MIT: `.claude/skills/NOTICE`.
 
 Seven third-party `flutter-*` skills (Flutter's generic guides on animation, layout,
 concurrency, HTTP and JSON, accessibility, testing, theming). Nothing here depends on them, and
