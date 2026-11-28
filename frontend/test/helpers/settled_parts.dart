@@ -182,7 +182,9 @@ Future<List<String>> touchProblems(WidgetTester tester) async {
         focused != null &&
         focused.findRenderObject() is RenderBox &&
         _drawnRect(focused.findRenderObject()! as RenderBox).contains(point);
-    if (focused?.widget is EditableText && !inField) {
+    final inText =
+        focused?.findAncestorWidgetOfExactType<EditableText>() != null;
+    if (inText && !inField) {
       FocusManager.instance.primaryFocus?.unfocus();
     }
     await frames();

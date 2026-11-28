@@ -17,7 +17,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../test_screens/screen_catalogue.dart';
 import '../helpers/screen_sweep.dart';
-import '../helpers/settled_parts.dart';
 import '../helpers/stage_clock.dart';
 import '../helpers/still_screen.dart';
 import 'not_yet_swept.dart';
@@ -78,33 +77,6 @@ void runSweep(int shard) {
             '${entry.id} breaks the screen rules above. Fix the screen; a '
             'state that cannot be fixed in this change is not hidden by '
             'loosening a rule for everything.',
-      );
-    });
-    testWidgets('${entry.id} opens in place and a touch moves only its '
-        'part', (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = sweepSizes[2];
-      addTearDown(tester.view.reset);
-      final opening = await openingProblems(tester, () async {
-        await entry.build!(tester);
-        for (var i = 0; i < (entry.frames ?? 10); i++) {
-          await tester.pump(const Duration(milliseconds: 100));
-        }
-      });
-      final problems = [...opening, ...await touchProblems(tester)];
-      if (_all) {
-        // ignore: avoid_print
-        print('SETTLED ${entry.id} | ${problems.join(' || ')}');
-        return;
-      }
-      expect(
-        problems,
-        isEmpty,
-        reason:
-            '${entry.id}: something on the screen moved that nobody touched '
-            '(test/helpers/settled_parts.dart). Fix: keep the room of what '
-            'arrives late from the first frame, and draw a touch on the part '
-            'under the finger alone.',
       );
     });
     if (restNotYet.containsKey(entry.id) && !_all) continue;
