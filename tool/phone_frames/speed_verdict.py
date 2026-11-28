@@ -10,7 +10,10 @@ once (as phone-frames builds it) and its own server. The game is played by THIS 
 phone-frames (one instrument for both sides): first a map pass per side, then the
 measured runs, alternated A B B A A B ..., N a side, so a machine that slows down over
 the hour slows both sides alike. The whole command holds every slot of the heavy queue
-(`tool/heavy.py --alone`): no test suite or build runs beside it.
+(`tool/heavy.py --alone`): no test suite or build runs beside it. So a default verdict
+stops every other builder's heavy work for about 34 minutes: run it when the machine is
+free, never as a routine step of a piece. Without `--alone` its numbers are not proved
+honest: other jobs' load lands on random runs, and no same-code runs were taken that way.
 
 Per moment it prints better / level / worse, the median and range of each side and
 the gap, under one rule (verdict.RULE); "level" says no measurable difference. Then
@@ -39,9 +42,10 @@ sys.path.insert(0, str(HERE))
 import script  # noqa: E402
 import verdict  # noqa: E402
 
-# Same code on both sides, interleaved: at 3 a side the rule called something in about
-# 1 of 7 such comparisons in simulation, at 4 in 1 of 70 (docs/dev/speed-verdict.md has
-# the runs that chose it).
+# Same code on both sides (13 runs of main, every split): at 3 a side a verdict called
+# something in 33% of them, at 4 in 5.2%, at 5 in 0.8% (verdict.py's docstring). A
+# default verdict is about 34 min of the whole heavy queue (8 runs of 4 min, a build and
+# a map pass); `--moments` of a few, the cheapest that holds, ends each run early.
 DEFAULT_RUNS = 4
 DEFAULT_GAMES = 1
 

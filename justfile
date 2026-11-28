@@ -156,7 +156,7 @@ test-contract:
 phone-frames *args:
     tool/heavy.py --alone --name phone-frames -- tool/phone_frames/run.sh "$@"
 
-# Is a change faster or slower on a phone? <base> against <head> (default: this tree), alternated, N runs a side, one command holding every slot of the heavy queue: per moment better / level / worse with each side's median and range, a sentence for the owner, verdict.json beside it. Exit 0 when measured, whatever the verdict. Usage: just speed-verdict origin/main [<head>] [--moments a,b] [--runs N] | just speed-verdict --list
+# Is a change faster or slower on a phone? <base> against <head> (default: this tree), alternated, N runs a side, one command holding every slot of the heavy queue: per moment better / level / worse with each side's median and range, a sentence for the owner, verdict.json beside it. Exit 0 when measured, whatever the verdict. It holds the whole machine about 34 min (no other heavy job runs): run it when nothing else does, never as a routine step. Usage: just speed-verdict origin/main [<head>] [--moments a,b] [--runs N] | just speed-verdict --list
 [positional-arguments]
 speed-verdict *args:
     @python3 tool/phone_frames/speed_verdict.py "$@"

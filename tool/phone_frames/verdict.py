@@ -6,12 +6,16 @@ medians is wider than the spread either side's own runs show, and at least
 FLOOR_SHARE of the base's median and FLOOR_MS. Anything else is level: "no measurable
 difference". Why this and not a test of means: run-to-run noise on the slowed phone
 is heavy-tailed (one run in ten is 30% off; one row is bimodal), so a mean or a t-test
-is moved by one run. Order and the runs' own spread are not. With 25 moments a
-verdict, plain non-overlap of ranges called a difference in 93% of same-code
-comparisons at 3 runs a side (simulated with the lab's own noise); this rule in 14%
-at 3 and 1.4% at 4, and still finds a 20% change 73-80% of the time. The floor is also
-the owner's test: under 10% (50 ms) of a tap, friends at the table do not notice.
-`docs/dev/speed-verdict.md` has the data, and the same-code runs that prove it.
+is moved by one run. Order and the runs' own spread are not. The floor is also the
+owner's test: under 10% (50 ms) of a tap, friends at the table do not notice.
+
+The proof is same-code runs (`just speed-verdict origin/main origin/main`), which
+must come out level on every moment. 13 such runs of main (28 Nov 2026, 23 moments,
+CPU 4x, the heavy queue held alone), judged on every split into two sides: at 2 runs
+a side a verdict called something in 87% of them, at 3 in 33%, at 4 (the default) in
+5.2% (0.24% of moments), at 5 in 0.8%, at 6 in 0.1%. The one whole A/A verdict at 4
+called every moment level. Plain non-overlap of ranges, simulated on the lab's own
+noise, called something in 93% at 3 runs a side.
 
 Pure: no browser, no files. `speed_verdict.py` feeds it the runs.
 """
