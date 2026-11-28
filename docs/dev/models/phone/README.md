@@ -88,7 +88,7 @@ the end board stays for good; a lost `game_results` would leave the wait screen)
 is the fix: the beat carries the table's token (`phase`, `window`, `moved_on`), read beside the
 beat so it only trails the events, and a phone holding less reads once (`TokenBeat`: `/me/`,
 the results, or `/me/table/`). `day_token` (every fix, the zombie, a lost frame, two faults and
-two taps) holds both rules (TOKEN_STATES distinct states).
+two taps) holds both rules (10,206,620 distinct states).
 
 **A result at the choose (branch `night-result-now`, 25 November 2026).** `ANSWER_CARRIES`
 models the phone of that branch: a taken choose's answer carries the caller's results and its
