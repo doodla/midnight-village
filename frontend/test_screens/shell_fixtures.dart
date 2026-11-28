@@ -367,42 +367,42 @@ Future<void> pumpTalkNotSent(WidgetTester tester) async {
   await setup.settle(tester);
 }
 
+/// 08 on a recorded talk [me], every cue learned, My night put away.
+Future<void> pumpTalkAt(WidgetTester tester, Map<String, dynamic> me) async =>
+    _putAway(tester, await _shell(tester, me, learned: Cue.values.toSet()));
+
 /// 08 at game 8's nine-seat table, on the Drunk's phone (put away).
-Future<void> pumpTalkNine(WidgetTester tester) async {
-  final setup = await _shell(
-    tester,
-    sheet.recordedMe('me_discussion_choose_drunk'),
-    learned: Cue.values.toSet(),
-  );
-  await _putAway(tester, setup);
-}
+Future<void> pumpTalkNine(WidgetTester tester) =>
+    pumpTalkAt(tester, sheet.recordedMe('me_discussion_choose_drunk'));
+
+/// 08 at seven with eight roles, as the owner's table had (put away).
+Future<void> pumpTalkEightRoles(WidgetTester tester) =>
+    pumpTalkAt(tester, sheet.recordedMe('me_discussion_choose_hunter'));
+
+/// 08 with six roles as the mock has, their words the widest (put away).
+Future<void> pumpTalkSixRoles(WidgetTester tester) => pumpTalkAt(
+  tester,
+  sheet.recordedMe('me_discussion_choose_doppelganger_hunter'),
+);
 
 /// 08 at three: game 7 without Dev and Esme (put away).
-Future<void> pumpTalkThree(WidgetTester tester) async {
-  final setup = await _shell(
-    tester,
-    sheet.tableOf(
-      sheet.recordedMe('me_discussion_choose_seer'),
-      leave: {sheet.dev.name, sheet.esme.name},
-    ),
-    learned: Cue.values.toSet(),
-  );
-  await _putAway(tester, setup);
-}
+Future<void> pumpTalkThree(WidgetTester tester) => pumpTalkAt(
+  tester,
+  sheet.tableOf(
+    sheet.recordedMe('me_discussion_choose_seer'),
+    leave: {sheet.dev.name, sheet.esme.name},
+  ),
+);
 
 /// 08 at ten, with long names (game 8 and one more seat; put away).
-Future<void> pumpTalkTenLong(WidgetTester tester) async {
-  final setup = await _shell(
-    tester,
-    sheet.tableOf(
-      sheet.recordedMe('me_discussion_choose_drunk'),
-      add: 1,
-      rename: sheet.longNames,
-    ),
-    learned: Cue.values.toSet(),
-  );
-  await _putAway(tester, setup);
-}
+Future<void> pumpTalkTenLong(WidgetTester tester) => pumpTalkAt(
+  tester,
+  sheet.tableOf(
+    sheet.recordedMe('me_discussion_choose_drunk'),
+    add: 1,
+    rename: sheet.longNames,
+  ),
+);
 
 // ---------------------------------------------------------------------------
 // 09 Vote

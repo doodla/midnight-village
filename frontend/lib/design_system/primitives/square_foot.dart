@@ -6,7 +6,8 @@ import 'board_pieces.dart';
 
 /// The foot of a day board (08's square, 09's vote): the cobbles under the
 /// board ([BoardFoot]) and on them the screen's one action, [action], no
-/// wider than the skin's `squareButtonWidest`, with a failed send's quiet
+/// wider than the skin's `squareButtonWidest` and centred under the board on
+/// any width of phone, with a failed send's quiet
 /// line ([notice], a `Notice`) above it. It keeps clear of the system bar
 /// itself. Plain, it is the same column with no cobbles under it.
 class SquareFoot extends StatelessWidget {
@@ -20,6 +21,7 @@ class SquareFoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Stack(
+    alignment: Alignment.topCenter,
     children: [
       const Positioned.fill(child: BoardFoot(height: double.infinity)),
       SafeArea(
