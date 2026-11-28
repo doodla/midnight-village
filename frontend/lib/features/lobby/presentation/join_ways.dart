@@ -123,27 +123,32 @@ extension _JoinWays on _JoinViewState {
 /// 01's quiet foot: "{n} at tables", how the last game went, and in an
 /// Android browser "Get the app" (on the numbers' row, at its end; alone at
 /// the end with no numbers). None of it from a table's link.
+///
+/// The numbers come from the server after the first frame, so their room is
+/// kept from the first frame (the rule, the "{n} at tables" line, and for a
+/// signed-in player the last game's line) and they appear in it: the form
+/// above never moves when they land (the owner, 28 November 2026). Room for a
+/// line that never comes is blank at the page's foot.
 class _JoinFoot extends StatelessWidget {
   const _JoinFoot({
     required this.online,
     required this.lastWon,
+    required this.lastMayCome,
     required this.link,
     required this.onGetApp,
   });
 
   final int? online;
   final bool? lastWon;
+
+  /// A signed-in player: a last game's line may come.
+  final bool lastMayCome;
   final String? link;
   final VoidCallback? onGetApp;
 
-  /// Whether there is anything to show.
-  static bool shows({
-    required int? online,
-    required bool? lastWon,
-    required String? link,
-    required VoidCallback? onGetApp,
-  }) =>
-      (link == null && (online != null || lastWon != null)) || onGetApp != null;
+  /// Whether there is anything to show, or room to keep for it.
+  static bool shows({required String? link, required VoidCallback? onGetApp}) =>
+      link == null || onGetApp != null;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +157,7 @@ class _JoinFoot extends StatelessWidget {
     );
     final online = this.online;
     final won = lastWon;
-    final showStats = link == null && (online != null || won != null);
+    final stats = link == null;
     // The target's side padding overhangs the column, so the words end on
     // its edge; the 48 px target stays whole.
     final getApp = onGetApp == null
@@ -166,14 +171,24 @@ class _JoinFoot extends StatelessWidget {
               quiet: true,
             ),
           );
-    final onlineLine = showStats && online != null
-        ? FitWords(JoinCopy.online.fill({'n': online}), style: style)
+    final onlineLine = stats
+        ? _Arrives(
+            here: online != null,
+            child: FitWords(
+              JoinCopy.online.fill({'n': online ?? 0}),
+              style: style,
+            ),
+          )
         : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: Space.xs,
       children: [
-        if (showStats) const Rule.divider(height: Space.mdPlus),
+        if (stats)
+          _Arrives(
+            here: online != null || won != null,
+            child: const Rule.divider(height: Space.mdPlus),
+          ),
         if (onlineLine != null && getApp != null)
           Row(
             spacing: Space.sm,
@@ -186,9 +201,37 @@ class _JoinFoot extends StatelessWidget {
           onlineLine
         else if (getApp != null)
           Align(alignment: AlignmentDirectional.centerEnd, child: getApp),
-        if (showStats && won != null)
-          FitWords(won ? JoinCopy.lastWon : JoinCopy.lastLost, style: style),
+        if (stats && (lastMayCome || won != null))
+          _Arrives(
+            here: won != null,
+            child: FitWords(
+              won ?? false ? JoinCopy.lastWon : JoinCopy.lastLost,
+              style: style,
+            ),
+          ),
       ],
     );
   }
+}
+
+/// A piece of 01's foot that comes from the server: its room is kept before
+/// it is [here], and it fades in where it stands.
+class _Arrives extends StatelessWidget {
+  const _Arrives({required this.here, required this.child});
+
+  final bool here;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AnimatedOpacity(
+    opacity: here ? 1 : 0,
+    duration: Motion.quick,
+    child: Visibility(
+      visible: here,
+      maintainSize: true,
+      maintainAnimation: true,
+      maintainState: true,
+      child: child,
+    ),
+  );
 }

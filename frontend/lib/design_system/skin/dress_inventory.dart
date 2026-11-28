@@ -250,8 +250,7 @@ const inventory = <PartEntry>[
     'primitives/skin_field.dart',
     part: PaperPart.scrap,
     plain: 'name: raised paper tile; code: 2 px outline',
-    paper:
-        'name: a bone scrap; code: a panel of paper; lifted while it has the focus',
+    paper: 'name: a bone scrap; code: a panel of paper',
   ),
   PartEntry(
     'SheetScaffold',

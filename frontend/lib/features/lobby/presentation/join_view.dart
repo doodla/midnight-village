@@ -407,15 +407,11 @@ class _JoinViewState extends State<JoinView> {
                 ),
               ),
               actions: [
-                if (_JoinFoot.shows(
-                  online: widget.online,
-                  lastWon: widget.lastWon,
-                  link: link,
-                  onGetApp: widget.onGetApp,
-                ))
+                if (_JoinFoot.shows(link: link, onGetApp: widget.onGetApp))
                   _JoinFoot(
                     online: widget.online,
                     lastWon: widget.lastWon,
+                    lastMayCome: widget.name.isNotEmpty,
                     link: link,
                     onGetApp: widget.onGetApp,
                   ),
