@@ -14,7 +14,9 @@ would skip them:
   from the command, no `git config --edit`, no `GIT_*=` variable that redirects
   git, no HUSKY / SKIP / GATE_* switch on a git call, no `git commit-tree`;
 - cherry-pick and revert only with `--no-commit` and no rebase or am: git runs
-  no commit hooks for the commits they make (merge, or commit the result).
+  no commit hooks for the commits they make (merge, or commit the result);
+- no push that writes `live-server` or `live-app`, however spelled (push_rules.py):
+  only the release job moves the branches Vercel deploys from.
 
 WHAT IT IS NOT. It is not a wall. It reads one Bash command as text, and a
 reader of shell text can always be got round by someone who means to (a script
@@ -66,6 +68,7 @@ from shell_text import (  # noqa: E402
     simple_commands,
     strip_heredocs,
 )
+from push_rules import live_pushes  # noqa: E402
 
 
 HOOKS_PATH = ".claude/hooks/git"
@@ -348,6 +351,9 @@ def check_git(tokens, found, depth, switches=()):
         )
     if sub == "config":
         check_config(args, found)
+    if sub == "push":
+        for reason in live_pushes(args, found.cwd, LIFTED):
+            found.add(reason)
     if sub == "commit-tree":
         found.add("`git commit-tree` makes a commit no hook sees: use `git commit`.")
     stopping = {"--abort", "--quit"} & set(args)

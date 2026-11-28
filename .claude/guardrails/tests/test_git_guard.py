@@ -117,6 +117,19 @@ ALLOWED = [
     "function deploy { echo hi; }; deploy",
     "find . -name '*.py' -exec grep -l git {} +",
     "trap 'rm -f /tmp/x' EXIT; git status",
+    # pushes that write no live branch, and reads of the live ones
+    "git push -u origin release-safety",
+    "git push origin HEAD:refs/heads/fix-live-server-docs",
+    "git push origin live-server-notes",
+    "git push origin --delete old-branch",
+    "git push origin 'refs/tags/*:refs/tags/*'",
+    'git push origin "$BRANCH"',
+    "git push origin HEAD:live-rehearsal",
+    "git fetch origin live-server",
+    "git log -1 origin/live-app",
+    "git ls-remote origin refs/heads/live-server",
+    "echo git push origin HEAD:live-server",
+    "grep -rn 'git push origin HEAD:live-app' docs",
 ]
 
 # Real attempts to commit past the gate, however they are wrapped. All are blocked.
@@ -233,6 +246,37 @@ BLOCKED = [
     "git update-ref HEAD $(git commit-tree $(git write-tree) -p HEAD -m x)",
     "GIT_EDITOR='sed -i /hooksPath/d' git config --edit; git commit -m x",
     "git config -e",
+    # a push that writes a live branch, however it is spelled or wrapped
+    "git push origin HEAD:live-server",
+    "git push origin main:refs/heads/live-app",
+    "git push origin main:heads/live-app",
+    "git push origin :live-server",
+    "git push origin --delete live-app",
+    "git push origin -d live-server",
+    "git push origin live-server",
+    "git push --force origin main:live-app",
+    "git push -f origin HEAD:refs/heads/live-server",
+    "git push --force-with-lease origin HEAD:live-server",
+    "git push --force-with-lease=live-app:abc123 origin main:live-app",
+    "git push origin +main:live-app",
+    "git push origin '+HEAD:live-server'",
+    "git push -o ci.skip origin main:live-server",
+    "git push origin -- main:live-server",
+    "git push --mirror origin",
+    "git push --all origin",
+    "git push --branches origin",
+    "git push origin 'refs/heads/*:refs/heads/*'",
+    "git push origin 'main:live-*'",
+    "git push origin :",
+    "git -C /tmp/x push origin main:live-app",
+    "cd x && git push --no-verify origin HEAD:live-server",
+    "bash -c 'git push origin HEAD:live-server'",
+    "sh -c \"bash -c 'git push -f origin +HEAD:live-app'\"",
+    "eval 'git push origin main:live-server'",
+    "echo $(git push origin HEAD:live-app)",
+    'x="$(git push origin main:live-server)"',
+    "env GIT_TERMINAL_PROMPT=0 git push origin main:live-app",
+    "timeout 60 git push origin HEAD:live-server",
 ]
 
 
@@ -274,6 +318,32 @@ class GitGuard(unittest.TestCase):
             self.assertTrue(git_guard.problems_with("git ci -m x", repo)[0])
             self.assertTrue(git_guard.problems_with("git sh -m x", repo)[0])
             self.assertEqual(git_guard.problems_with("git st", repo), ([], False))
+
+    def test_a_push_from_a_live_branch_or_to_one_by_its_upstream_is_blocked(self):
+        """No refspec (or HEAD) pushes the current branch where git would send it."""
+        with tempfile.TemporaryDirectory() as base:
+            remote, work = f"{base}/r.git", f"{base}/w"
+            run = lambda *a: subprocess.run(["git", "-C", work, *a], check=True, capture_output=True)
+            subprocess.run(["git", "init", "-q", "--bare", remote], check=True)
+            subprocess.run(["git", "clone", "-q", remote, work], check=True, capture_output=True)
+            run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x")
+            run("push", "-q", "origin", "HEAD:live-app")
+            run("fetch", "-q", "origin")
+            run("checkout", "-q", "-b", "live-server")
+            for command in ("git push", "git push origin", "git push origin HEAD", "git push -u origin @"):
+                with self.subTest(branch="live-server", command=command):
+                    self.assertTrue(git_guard.problems_with(command, work)[0])
+            run("checkout", "-q", "-b", "fix", "--track", "origin/live-app")
+            run("config", "push.default", "upstream")
+            self.assertTrue(git_guard.problems_with("git push", work)[0])
+            run("config", "push.default", "simple")
+            run("branch", "--unset-upstream")
+            self.assertEqual(git_guard.problems_with("git push origin HEAD", work), ([], False))
+
+    def test_a_live_push_is_told_who_moves_the_live_branches(self):
+        (reason,) = self.problems("git push origin HEAD:live-server")
+        self.assertIn("only the release job", reason)
+        self.assertIn("just revert-release", reason)
 
     def test_it_knows_which_commands_commit(self):
         for command, commits in (
