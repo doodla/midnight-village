@@ -55,7 +55,7 @@ HANDLED (branch `reload-when-quiet`): the app reloads to a new version only at t
 
 > there's no timer in some stages, even though there's one under the hood
 
-HANDLED (branch `your-card-clock`): the one stage the server timed with no clock on the phone was 04 Your card (the look stage, `card_look_seconds`); it jumped to the night when time ran out. Now 04 shows the time left in every state (before Ready, the card held open, after Ready, a restart): the night's candle and number, quiet, on the headline's banner, where the night board's clock stands. So it cannot happen again, every screen state the gallery draws is checked: a game screen whose `/me/` carries a deadline must draw a clock (`test/helpers/stage_clock.dart`, run by the screen sweep), and every timer the table can set is either a stage clock or on a short list of timers no phone counts down, each with why (the night's minimum window, a dropped phone's grace, the host's handover).
+HANDLED (branch `your-card-clock`): the one stage the server timed with no clock on the phone was 04 Your card (the look stage, `card_look_seconds`); it jumped to the night when time ran out. Now 04 shows the time left in every state (before Ready, the card held open, after Ready, a restart): the night's candle and number, quiet, on the headline's banner, where the night board's clock stands. So it cannot happen again, every screen state the gallery draws is checked: a game screen whose `/me/` carries a deadline must draw a clock (`frontend/test/helpers/stage_clock.dart`, run by the screen sweep), and every timer the table can set is either a stage clock or on a short list of timers no phone counts down, each with why (the night's minimum window, a dropped phone's grace, the host's handover).
 
 ## 24 November 2026, 04 Your card in the live game (a screenshot of the Werewolf, verbatim)
 
@@ -108,7 +108,7 @@ DONE by the end board (piece 5a): the count, "See who won" and the results are o
 
 > The links are not at all polished there are breaks.
 
-DONE (branch `end-links`): a step's thread was tied between the corners of the box a tilted card fills, so on a turned card it began and ended in mid-air, and a pair side by side got a diagonal from one card's top to the other's bottom, with no heads. Now every link is one part, `CardLink` (`design_system/primitives/card_link.dart`): tied on the real card edges that face each other, a head at both ends of a take or a swap, a dot at the card seen (a look) or at both ends (a team), bent gently round every other card, seal and the lantern; a middle card is lifted onto the board beside the one who acted for its step (no thread down to the foot), and a card no clean thread can reach is lifted beside the other end the same way. `end_night_sweep_test.dart` holds the rule on every recorded night, at 360, 390 and 412 wide and text 1.0, 1.3 and 1.6.
+DONE (branch `end-links`): a step's thread was tied between the corners of the box a tilted card fills, so on a turned card it began and ended in mid-air, and a pair side by side got a diagonal from one card's top to the other's bottom, with no heads. Now every link is one part, `CardLink` (`frontend/lib/design_system/primitives/card_link.dart`): tied on the real card edges that face each other, a head at both ends of a take or a swap, a dot at the card seen (a look) or at both ends (a team), bent gently round every other card, seal and the lantern; a middle card is lifted onto the board beside the one who acted for its step (no thread down to the foot), and a card no clean thread can reach is lifted beside the other end the same way. `end_night_sweep_test.dart` holds the rule on every recorded night, at 360, 390 and 412 wide and text 1.0, 1.3 and 1.6.
 
 > I think, yes, our design is still a bit weak. I'd like to see a few more mocks or a few more designs to see if we can show up all these issues.
 
@@ -151,11 +151,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   private browser windows. Proposed next: practice players (computer-filled seats).
 - Unclear, asked back: "Start making polish puzzles" (read as: start polish passes).
 
-## How they want the work run
-
-`docs/dev/running-the-work.md`.
-
-## In flight (as of 24 November 2026; what is next is `docs/dev/status.md`)
+## 22 November 2026, a card's details after Back, on 03 (live app; open)
 
 - The owner, live app: "After I back after viewing a card's details. Can't see another cards
   details till I remove/add a card from the deck." Then a recording (web, Chrome on Android,
@@ -172,48 +168,6 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
     short presses, so a long hold that opens nothing after backing out of a card's details is
     NOT ruled out: not reproduced, not fixed. Open until a new recording or a hunt settles it.
   Both shown before and after in a real Chromium with touches, against a release build.
-
-- Speed, the last of the audit's three (back is #9, loading is #10, both merged): open as
-  [#11](https://github.com/doodla/midnight-village/issues/11). Keeping the server warm and moving
-  the database are proposals for the owner (they change the owner's accounts): on the owner's
-  board, not here.
-
-## Done
-
-- Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
-  the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
-  (same files), as small pull requests: back, then loading, then speed. Back is merged (#49 and #52):
-  one policy for the phone's and the browser's Back. Keeping the server
-  warm and moving the database are proposals for the owner (they change the owner's accounts).
-
-- Loading, failing and busy states (issue 10), merged (#56): every
-  player request goes through one door and the tapped control shows busy until the next screen is up;
-  one waiting body (three paper lanterns, "Still on its way." after 5 s, "One moment" with
-  "Try again") in the frame of every screen that waits; a picture for every loading and error state
-  (`just screens`) and four looping clips (`just loading-clips`). Still open: 02's and 03's own waiting
-  and busy lines (held with the practice-players session), the first paint before Flutter (white page,
-  Android launch), the 10 s request timeout.
-
-- Practice players (issue 26): on the set-up page, press and hold the word "Players". A
-  "Practice" stepper then seats village things (Scarecrow, Teapot, ...) with their own tokens
-  and the word "Practice"; the server plays them. Set it to 0 and hold again to hide it. A
-  person has practice players at one table at a time; closing the table removes them.
-- Back (issue 9): one policy for the phone's Back and the browser's. 01 leaves the app; a
-  waiting table asks Stay / Leave; the set-up page returns to the table; in a game Back does
-  nothing, only Leave exits; whatever is open on top closes first, and any sheet closes when
-  the screen under it changes. Not tested on a real Android phone or a real phone browser.
-- A seated player is never stranded, and the app opens with fewer requests (audit items 4
-  and 6): the saved account is restored by itself until the server answers, no new account
-  is made over a saved one, a deleted account gets a clean fresh start, a lost renewal answer
-  no longer costs the seat (the old refresh token is no longer cancelled on renewal), and
-  opening in a game is 2 requests at once where it was 4 in a row.
-- Set-up page (issue 7): the host picks the number of players, every timer has its own
-  stepper (the Doppelganger's only while the card is in the deck), the deck is face up for
-  everyone, a "picked / needed" counter, "Scan to join" only on a QR code, and leaving no
-  longer says "Not sent." Practice-players proposal: `docs/specs/onuw/solo-play-proposal.md`.
-  Still weak: "Play with 3" shows as soon as three are here.
-- Android and web first impression (icon, name, launch screen): pull request 6, merged
-  (06d0468). The Android install file is now built by the "Android App Download" workflow on every merge.
 
 ## Relayed by the coordinating session, 22 November 2026 (not heard directly; confirm with the owner)
 
@@ -238,7 +192,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   being reworked by the coordinating session); sounds: none for now; "The text sizes on the
   main screen feel a bit too big" (first screen and table; options going to the board).
 - Haiku workers: "Use haiku where you can trust it. It's much faster and cheaper." (said
-  directly, 22 November). What it can be trusted with: `docs/dev/haiku-trial.md`.
+  directly, 22 November).
 - 22 Nov, same-address API trial (#66): it BROKE the live web app for about 30 minutes (23:15 to
   23:49 UTC) and was reverted (#68). Cause: Vercel's rewrite `/api/:path*` does not match a path
   ending in a slash, and every API path does, so calls got `index.html`. No local check can see

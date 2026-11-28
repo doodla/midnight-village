@@ -44,7 +44,7 @@ count has no wipe); **no pass** is missing and no pass owns it yet.
 Static: nothing here moves, so reduced motion is unaffected. All of it is in the design system,
 so every screen has it; no screen asks.
 
-**Paper is a material.** Tokens in `skin/elevation.dart`, `skin/skins/shadow_paper.dart`.
+**Paper is a material.** Tokens in `frontend/lib/design_system/skin/elevation.dart`, `frontend/lib/design_system/skin/skins/shadow_paper.dart`.
 
 | Token | Value | What it does |
 |---|---|---|
@@ -54,7 +54,7 @@ so every screen has it; no screen asks.
 | `SkinShape.radius` | 5 for every cut of paper (`radiusSmall`, `radiusTiny` are the same) | One corner |
 | `PaperGrain` | a 96 px tile of speckle and fibre, drawn once from a fixed seed, tiled at alpha .5 over a paper fill | `cutPaper` puts it on every paper surface (a `BoxDecoration.image`; the image is there on the first frame, so no golden or screen ever shows a bare paper) |
 
-**Torn edges and pins** (`primitives/deckle.dart`). `DeckleBorder`: the four sides of a piece of
+**Torn edges and pins** (`frontend/lib/design_system/primitives/deckle.dart`). `DeckleBorder`: the four sides of a piece of
 paper step in by up to `depth` (2.4 px for cards, rows, scraps, the field; 3.2 for the plaque;
 4.5 and long bites, `torn`, for a banner; 9 for the talk's sky) in nibbles of `step` px, seeded from
 the piece's own id (`deckleSeed`), so the same piece is torn the same on every phone. Only the paint
@@ -76,14 +76,14 @@ inside it): the vote's and the talk's `TimerBand`, the night board's title with 
 card's title. The timer and the question keep their type roles (the timer styles, 24). The talk's
 sky window is torn off along a seeded line instead of fading to a straight edge.
 
-**One mark for picked and done.** `PaperMark` (`primitives/paper_mark.dart`): a drop of wax in
+**One mark for picked and done.** `PaperMark` (`frontend/lib/design_system/primitives/paper_mark.dart`): a drop of wax in
 the ground's `mark` colour (bone on night, ink on day and paper; never amber), its edge uneven, a
 ring stamped in it and a brush tick across it, in `onMark`. A picked vote row and a picked night
 card wear it on the upper corner (`PaperMarkCorner`, 22 px, hanging 8 px over the edge, no touch);
 a button that is done (`done`, "Ready ✓") wears it before its word. Picking is still lift plus the
 selection outline; the mark is what says "this one".
 
-**Light and ground per phase: `Mood`** (`primitives/mood.dart`), the layer under every
+**Light and ground per phase: `Mood`** (`frontend/lib/design_system/primitives/mood.dart`), the layer under every
 `ScreenFrame` (the screen's `mood:` overrides what its ground gives: the results take dawn). One
 picture painted once (a repaint boundary: nothing per frame): a ground, the game's own village as
 the scene art already in the app (`LayeredArt`: a few image layers), one light and a heavy
@@ -132,9 +132,9 @@ their scatter tilts).
 | `breathe` | easeInOutSine | `Ambient`'s default curve: a breath, slow at both ends |
 | `restLeast`, `restMost` | 8 s, 16 s | How long something that idles rests, still, between bursts: a length in this range taken from its own id, the same on every phone |
 
-Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`).
+Every tappable part is to press through `Pressable` (`frontend/lib/design_system/feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`).
 The main and secondary buttons, the scraps, the icon and text actions and your card on 04 do (press piece 1); the rest move onto it in a later piece.
-Everything that loops goes through `Ambient` (`feel/ambient.dart`), and a screen at rest is idle most of the time:
+Everything that loops goes through `Ambient` (`frontend/lib/design_system/feel/ambient.dart`), and a screen at rest is idle most of the time:
 an effect is a small layer over a still picture, never a reason to draw the screen again.
 - **Burst and rest**: it plays one round (or a few), then truly rests at its still look (no frame at all) for `restLeast` to `restMost`, then plays again.
   Only something whose job is to show a wait loops without rest (`Ambient.continuous`: the waiting sign's lanterns, a busy button's lantern).
@@ -147,7 +147,7 @@ an effect is a small layer over a still picture, never a reason to draw the scre
 - It runs only with the app in front, its screen not covered, and motion allowed (reduce motion: its still look).
 Both are in `frontend/lib/design_system/README.md`, "Press and Ambient".
 
-Their own constants (not `Motion`): `PaperFlip` (`primitives/paper_flip.dart`, the one card
+Their own constants (not `Motion`): `PaperFlip` (`frontend/lib/design_system/primitives/paper_flip.dart`, the one card
 turn-over: turning to the face `PaperFlip.turn` = `quick` 160 ms, back to the cover
 `PaperFlip.turnBack` = `press` 90 ms, lift 8 px, grow 3%, the shadow falling 4 px further, a
 2% dip under a finger, a settle of 3% of the turn, the paper's edge 3 px, perspective 0.001;

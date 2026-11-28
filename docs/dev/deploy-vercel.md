@@ -14,7 +14,7 @@ and stopped at any time. Three things assumed one long-lived process and were re
 |---|---|
 | `threading.Timer`s in memory (`timers.py`) | **Durable timers**: a `ScheduledTimer` row per timer, fired by a Vercel Queue message |
 | Socket **counts** zeroed at every process start | **Socket rows** with heartbeats; nothing is reset at start-up |
-| `config/asgi.py` ran start-up recovery on import | Skipped for the queue backend (and `ONUW_RECOVER_TIMERS_ON_START = False`) |
+| `backend/config/asgi.py` ran start-up recovery on import | Skipped for the queue backend (and `ONUW_RECOVER_TIMERS_ON_START = False`) |
 
 Local development, the tests and the debug harness keep the `memory` backend
 (`ONUW_TIMER_BACKEND = "memory"`, the default) and need no Vercel account.
@@ -134,7 +134,7 @@ A timer is a named job with JSON params (`night_window`, `discussion_deadline`,
 5. **Lost publications.** The row stores `published_at`, set only after the send returned.
    A row unpublished for more than 5 s (the instance died between the row and the send, or
    the send failed) does not count as scheduled, so the lazy repair re-publishes it
-   (`apps/onuw/repair.py`: `ensure_timers` and then `timers.sweep` for that game's keys,
+   (`backend/apps/onuw/repair.py`: `ensure_timers` and then `timers.sweep` for that game's keys,
    and a practice seat's lost move). It runs on every `GET /me/`, and on the socket's
    heartbeat: every 15 s the game's oldest open socket runs it once for its game (until
    the results), so an untimed stage whose timer was lost moves on even when no phone
@@ -201,7 +201,7 @@ phones' speed summaries (`field_summary`, 600 an hour) and the owner's report of
 Nothing a table does in a game is limited. They are there to stop one runaway script
 filling the database with guests, not to police players: friends at a table share one
 address, so the allowance is several tables all retrying at once
-(`tests/core/test_request_limits.py` seats them). The count is per address, and the
+(`backend/tests/core/test_request_limits.py` seats them). The count is per address, and the
 address is the one Vercel writes itself (`x-vercel-forwarded-for`). It counts only when it
 is exactly one valid address; anything else shares one allowance, so a made-up header
 buys nothing. An IPv6 caller is counted by network (/64). The count lives in each server
@@ -251,12 +251,12 @@ before real players can use it.
 ## The app (web and Android)
 
 * **Web**: its own Vercel project `midnight-village-app`
-  (root `frontend`, build `bash tool/vercel_build.sh`, output `build/web`, `frontend/vercel.json` sends app routes (any path that is not under `/assets/` and has no file extension) to `index.html`, so a table's link, `<origin>/join/<code>`, opens the app on a cold load, while a file that is not there (`/assets/...`, anything with an extension) is a real 404, never the app's page; the app uses the path URL strategy, no `#`).
+  (root `frontend`, build `bash tool/vercel_build.sh`, output `frontend/build/web`, `frontend/vercel.json` sends app routes (any path that is not under `/assets/` and has no file extension) to `index.html`, so a table's link, `<origin>/join/<code>`, opens the app on a cold load, while a file that is not there (`/assets/...`, anything with an extension) is a real 404, never the app's page; the app uses the path URL strategy, no `#`).
   Vercel's builders have no Flutter, so the script fetches the pinned version and builds with `--dart-define=ENV=prod --dart-define=API_ORIGIN=<server origin>`.
   Flutter's service worker (offline-first, Flutter 3.38's default) serves repeat visits from its cache.
   `web/flutter_bootstrap.js` is inlined in `index.html`, which the worker always fetches from the network first, so the page always knows the deployed build.
   A first visit loads at once and registers the worker only once the app's own start is in
-  (01's picture and the secrets' art, `lib/core/web/start_done_web.dart`), never waiting for it;
+  (01's picture and the secrets' art, `frontend/lib/core/web/start_done_web.dart`), never waiting for it;
   that visit is not cached by it, so the first return still revalidates its files.
   A returning phone after a deploy has Flutter's loader update the worker before the app loads, for at most 4 s:
   if the new worker is in within that, the phone runs the new build on that first open;
@@ -264,7 +264,7 @@ before real players can use it.
   `just web-smoke` (`frontend/tool/web_smoke/`, CI job "Web page smoke") builds the page twice and checks a first visit, a return and a deploy in Chrome.
   **Removing or renaming a file the app draws.** The new worker drops from its cache every file the new build does not list, the moment the new build arrives,
   but a tab or installed app left open keeps running the old code, which asks the server for it and is answered with the app's page (no picture).
-  So a picture a screen stops drawing stays in `assets/` as a copy of its successor (`ArtSet.retired`, `frontend/lib/design_system/skin/art_set.dart`) until no
+  So a picture a screen stops drawing stays in `frontend/assets` as a copy of its successor (`ArtSet.retired`, `frontend/lib/design_system/skin/art_set.dart`) until no
   phone runs a build that draws it. 23 November 2026:
   the single `werewolf.webp` replaced by three portraits left an open app with an empty Werewolf;
   a reload fixes one, the kept copy prevents it.
@@ -282,7 +282,7 @@ before real players can use it.
   both are set for the address above. A new app address needs both, then a server redeploy.
 * **The toolbar**: a build with no `ENV` is prod and has no `/debug` toolbar;
   dev is explicit (`--dart-define=ENV=dev`, which the just recipes, the harness and CI pass).
-  `tool/vercel_build.sh` also runs `tool/check_release_has_no_debug.sh` on `build/web` and fails the deploy if the toolbar is in it.
+  `frontend/tool/vercel_build.sh` also runs `frontend/tool/check_release_has_no_debug.sh` on `frontend/build/web` and fails the deploy if the toolbar is in it.
 * **Android** (sideloaded APK): `API_ORIGIN=<server origin> PUBLIC_ORIGIN=<web app origin> tool/build_android.sh` (`just build-android` in `frontend/`), which
   runs `flutter build apk --release --split-per-abi --dart-define=ENV=prod --dart-define=API_ORIGIN=... --dart-define=PUBLIC_ORIGIN=...` with the Android SDK
   (platform 36, build-tools 36.0.0) installed and `ANDROID_HOME` set.
@@ -308,7 +308,7 @@ before real players can use it.
   * **Table links open the installed app** (Android App Links):
     the manifest's `https://<PUBLIC_ORIGIN host>/join/` intent filter
     (`autoVerify`; the host comes from the same `PUBLIC_ORIGIN`, never written in the manifest) and the web app's `/.well-known/assetlinks.json`
-    (`frontend/web/.well-known/`, served as application/json by `vercel.json`) naming the package and the key's SHA-256
+    (`frontend/web/.well-known/`, served as application/json by vercel.json) naming the package and the key's SHA-256
     (`09:0C:3F:15:6B:0D:B8:95:43:A1:FB:8C:80:AD:45:07:27:34:C5:2B:CB:B6:7B:89:68:A6:4D:2F:F7:E6:3B:A7`; a test fails if the file and the key disagree).
     The file holds no origin: it is the same for any host that serves it.
     Android checks it when the app is installed;
@@ -319,7 +319,7 @@ before real players can use it.
     through the browser's `getUserMedia`, which needs https (localhost counts) and the player's permission.
     Browsers with a built-in barcode detector (Chrome on Android, Safari 17 and later) decode natively.
     The others (Firefox, Safari before 17, desktop Chrome on Windows and Linux) load a decoder, zxing-wasm 3.1.6
-    (MIT; about 40 KB of script and a 947 KB .wasm), **from the app's own files** `web/zxing/` the first time the scanner opens:
+    (MIT; about 40 KB of script and a 947 KB .wasm), **from the app's own files** `frontend/web/zxing` the first time the scanner opens:
     nothing from a CDN, no third-party request.
     The pin, the licence and how it was made:
     `frontend/tool/zxing_wasm.sh` (`--check` verifies it).
@@ -340,9 +340,9 @@ build removed (`werewolf.webp`, 23 November 2026) got a page of HTML: a blank bo
 tab with a fresh page load is fine (the page's loader updates the worker, up to 4 s; see "The
 app" above); an open one was never updated.
 
-**Now (`frontend/lib/core/update/`, the rule in `lib/features/game/domain/reload_rule.dart`).**
+**Now (`frontend/lib/core/update/`, the rule in `frontend/lib/features/game/domain/reload_rule.dart`).**
 - The app knows its own build: the commit, `--dart-define=BUILD_COMMIT=<sha>` from
-  `tool/vercel_build.sh` (a local run, a test and the installed app are `local` and never look).
+  `frontend/tool/vercel_build.sh` (a local run, a test and the installed app are `local` and never look).
   The live build is `/commit.txt` (the same script writes it), read with `cache: no-store`; the
   worker lists no such file, so it always reaches the network. The server's `/api/health/`
   `commit` is not used: the page's own host is the one that must agree.
@@ -376,18 +376,18 @@ app" above); an open one was never updated.
   another tab, still on the old build, reloads for it on its own). If the live build still differs
   after a reload (a shell the network did not replace), the tab does not reload again for that
   build; only a still newer one reloads it again.
-- `vercel.json` sends `Cache-Control: no-cache` for the page, `flutter_bootstrap.js`,
+- vercel.json sends `Cache-Control: no-cache` for the page, `flutter_bootstrap.js`,
   `main.dart.js`, `flutter_service_worker.js` and /commit.txt (every path outside
   `/assets/`, `/canvaskit/`, `/icons/`, `/zxing/`), so the shell is revalidated, never kept.
 - **A file removed from the bundle** is still asked for by an app left open on the last release
-  (it reloads soon, but not at once, in a game). `tool/release_assets.json` lists the files of the
+  (it reloads soon, but not at once, in a game). `frontend/tool/release_assets.json` lists the files of the
   last release (a fallback; `just record-assets` in `frontend/` writes it and REFUSES while a
-  removal is uncovered); `test/design_system/asset_release_test.dart` compares the bundle with the
+  removal is uncovered); `frontend/test/design_system/asset_release_test.dart` compares the bundle with the
   files at the main branch (origin/main) (CI fetches it) and fails when one is gone from the bundle unless it is a retired alias that stays as a copy (`ArtSet.retired`) or is in the file's
   `removedOnPurpose` with a date and a reason.
-- **Checks**: "Web page smoke" first runs `tool/web_smoke/routes.test.cjs`, which compiles
-  `vercel.json` with Vercel's own `@vercel/routing-utils` (installed in that job only, by
-  `just web-smoke-setup`) and walks its routes; then `tool/web_smoke/smoke.cjs` serves the build
+- **Checks**: "Web page smoke" first runs `frontend/tool/web_smoke/routes.test.cjs`, which compiles
+  vercel.json with Vercel's own `@vercel/routing-utils` (installed in that job only, by
+  `just web-smoke-setup`) and walks its routes; then `frontend/tool/web_smoke/smoke.cjs` serves the build
   through the same walk: a made-up picture is a 404, `/commit.txt` is the commit built,
   `/app` still redirects, app routes still get the page, an old tab reloads itself for the new
   build when resumed, and a shell that stays old is reloaded for once, never in a loop. After a
@@ -424,7 +424,7 @@ Friends get the app from one stable address; nobody builds or hands out a file b
   "Publish Android APK", the one job with `contents: write` (a release asset is repository contents), which runs only `gh`.
   Every action in a job with a write token is pinned by commit, its version beside it (`WriteTokens` in the test below).
   A failed build does not block anything; the previous file stays.
-  `guardrails/tests/test_workflows.py` holds it to those rules.
+  `.claude/guardrails/tests/test_workflows.py` holds it to those rules.
 * **Untested until the first run on `main`:** the workflow itself (it cannot run off GitHub);
   check the Actions tab after the first merge that touches `frontend/`, and that the asset downloads.
   Anyone with an older APK signed with another key uninstalls once (above).
@@ -560,10 +560,10 @@ What Vercel offers was read from its docs on 27 November 2026 (both projects are
   `/join/<code>` is `/join/[code]`, `/game/<id>` is `/game/[id]`, anything else the app does not route is
   `/[other]`, and the query goes. Speed Insights reads `data-route`/`data-path` on its tag (kept current through the
   Navigation API, else the app's own `pushState`/`replaceState`); both scripts' `beforeSend` rewrite the address again.
-  The page's referrer policy is `strict-origin` (`web/index.html`), so no request's `Referer` names the address either.
+  The page's referrer policy is `strict-origin` (`frontend/web/index.html`), so no request's `Referer` names the address either.
   `just web-smoke` checks what the two scripts really send for a table's link (recorded copies of them,
   `frontend/tool/web_smoke/vercel/`). Vercel's host itself still serves, and logs, `/join/<code>` when a phone opens
-  a link, like any page. Their intake (`/_vercel/...`) is Vercel's own and is not caught by `vercel.json`'s rewrite;
+  a link, like any page. Their intake (`/_vercel/...`) is Vercel's own and is not caught by vercel.json's rewrite;
   the service worker passes it to the network (it is not in the worker's file list). There is no CSP.
 - **The phones' own numbers (our server)**: the field recorder of `?perf=1` runs quietly on the live app (no strip). It
   sends a summary of a few KB with `navigator.sendBeacon` at each game's end (once the end board has been at rest a
@@ -588,7 +588,7 @@ What Vercel offers was read from its docs on 27 November 2026 (both projects are
   changes, each request split into the server's own time and the time outside it, and cold starts seen in play
   (`boot`: far slower outside the server than the summary's other requests, an instance starting; `db_wake`: the
   database connection was, Neon waking), each with how long the phone had asked nothing before it.
-  `tests/core/test_open_routes.py` checks every route: no 5xx for a hostile body, and nothing a caller sends comes back
+  `backend/tests/core/test_open_routes.py` checks every route: no 5xx for a hostile body, and nothing a caller sends comes back
   to anyone without an account.
 - **Not free, so not on** (each needs Pro, $20 a month with $20 of usage included):
   Speed Insights Plus ($10 per project a month plus $0.65 per 10,000 events: the vitals' numbers, Poor entries, 30 days),
@@ -602,7 +602,7 @@ The previous code serves while `migrate` runs on every deploy (every deployment 
 - **Migrations are frozen once pushed.** Every push migrates the live database;
   to change the schema again, add a NEW migration, never edit a pushed one.
   `just check` runs `makemigrations --check --dry-run` (a model change without its migration fails the gate and CI).
-- **No application code in a migration** (no `from apps...`): copy what it needs, frozen. `tests/test_migration_rules.py` scans every migration file.
+- **No application code in a migration** (no `from apps...`): copy what it needs, frozen. `backend/tests/test_migration_rules.py` scans every migration file.
 - **`SET LOCAL lock_timeout = '5s'` is the first operation** of every migration from 0010 on (same test), so an ALTER that cannot get its lock fails the build
   instead of blocking the live site behind it.
 - **Every new NOT NULL column has a `db_default`** (and a Python `default`), because the old code's INSERTs omit it.
@@ -611,9 +611,9 @@ The previous code serves while `migrate` runs on every deploy (every deployment 
 - **A column is removed in two pushes.** The previous code's model still has the field, so every INSERT it makes names the column:
   drop it in one push and those INSERTs fail from the migration until the new build is promoted (every join, for `LobbyMember`).
   Push 1: take the field out of the model with `SeparateDatabaseAndState` (state only) and give the column a database default, so both builds can write
-  (`core/migrations/0011_lobbymember_is_ready_left_to_the_database.py` is the pattern, with its test).
+  (`backend/apps/core/migrations/0011_lobbymember_is_ready_left_to_the_database.py` is the pattern, with its test).
   Push 2, once push 1 is live: drop the column
-  (`core/migrations/0012_lobbymember_drop_is_ready.py`, database only, with its test and a frozen INSERT in push 1's shape).
+  (`backend/apps/core/migrations/0012_lobbymember_drop_is_ready.py`, database only, with its test and a frozen INSERT in push 1's shape).
   After push 2 a build from before push 1 can neither read nor write that table
   (its model still selects the column, so every lobby page fails, not only a join):
   roll forward instead. The rollback floor is code: `FLOOR` in `tool/promote_live.py` (today #81, where `is_ready`
@@ -626,13 +626,13 @@ The previous code serves while `migrate` runs on every deploy (every deployment 
   a rollback further back is a decision, not a check.
 - **A migration that moves or fills data gains a case in the migration test**
   (that the previous build can still read and write is the previous-build check's job, above; no new frozen INSERT is needed for it).
-  `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds
-  old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`tests/old_code.py`, never add columns to them), then
+  `backend/tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds
+  old-shape rows through the historical models, migrates forward, asserts, runs the old code's INSERTs (`backend/tests/old_code.py`, never add columns to them), then
   back and forward again. `just test` runs it as a second pass (`just test-migrations`, about 5 s);
   CI runs `just test`.
 - **A new socket event type reaches instances that have no handler:** consumers extend `core.consumers.TolerantJsonWebsocketConsumer`, which logs an unknown
   type at WARNING and drops it
   (and raises when `ONUW_STRICT_SOCKET_EVENTS` is true: test, development and harness settings, so a misspelled type in new code still fails the suite).
-- **Rolling back past practice players** (code without `apps/core/practice.py`) while practice tables exist:
+- **Rolling back past practice players** (code without `backend/apps/core/practice.py`) while practice tables exist:
   the old handover and owner-leaving code does not skip them, so it could hand a table to a practice account (and the old app would show them as people).
   Before such a rollback, close those tables (every `LobbyMember` whose username starts with `practice-`).

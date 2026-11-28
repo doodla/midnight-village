@@ -2,7 +2,7 @@
 // paper dress, in every state it has (rest, pressed, picked, locked, focused),
 // on the night ground and on the lantern ground, for an art director to judge
 // the paper's consistency at a glance. Run it with `just paper-parts [folder]`;
-// it is not part of `just test`.
+// it is not part of `just flutter-test`.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;

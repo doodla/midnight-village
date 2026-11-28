@@ -1,6 +1,6 @@
 // What a wait and a failed send look like in motion (issue 10): four short
 // scenes of the real app, a PNG per frame, put together as looping WebPs by
-// `tool/loading_clips.sh` (`just loading-clips`). Not part of `just test`.
+// `tool/loading_clips.sh` (`just loading-clips`). Not part of `just flutter-test`.
 //
 // The frames are drawn on the test's clock (so the same every run): a step
 // is 83 ms (12 per second); a long wait is stepped wider, and each frame

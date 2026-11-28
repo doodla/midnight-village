@@ -48,9 +48,8 @@ the end-to-end harness.
 - A red check is read, not re-run: find the cause (the job's log, the uploaded pictures) and
   fix it. A job is re-run at most once, and only after saying why it is believed flaky; a
   second red is a cause to find.
-- To know before you push: `just gate-full` runs the local part (backend, frontend, hook
-  tests, generated code, screens) in parallel, in minutes. It skips the browser, build and
-  harness jobs, which only GitHub runs.
+- To know before you push: `just gate-full` runs every check GitHub runs that can run here, in
+  minutes, and names the ones it cannot.
 - The ruleset `docs/dev/main-ruleset.json` is the wall: it makes a squash-merged pull request
   and every check required on main. It is on (`docs/claude-architecture.md`, "GitHub: the wall").
 - Add, rename or remove a check: change the job and `docs/dev/main-ruleset.json` in the same
@@ -88,7 +87,7 @@ process of the job, shared pages counted once; Postgres is not in it, it is smal
 | Job | Time alone | Peak memory |
 |---|---|---|
 | backend `just test` (all cores) | 4 min 48 s | 0.8 GB |
-| frontend `just test` (the whole suite) | 8 min 27 s | 2.1 GB |
+| frontend `just flutter-test` (the whole suite) | 8 min 27 s | 2.1 GB |
 | `flutter build web --release` | 49 s | 2.5 GB |
 | `just screens 390 strict` | 1 min 30 s | 3.2 GB |
 | `just phone-frames` (build, backend, Chrome, 3 bots) | 11 min 48 s | 2.6 GB |
@@ -109,7 +108,9 @@ A hook refuses any worker that is not on an allowed model with an effort set
 - Haiku is allowed on trial at the owner's request (22 Nov 2026: "Haiku will go a long way and
   it's faster"), for now only for work whose result is checked by something else (a test, a
   check script, or a reviewer).
-- What haiku can be trusted with: `docs/dev/haiku-trial.md`.
+- What haiku proved it can be trusted with (trial of 22 Nov 2026): lookups, running checks,
+  fact-checks, bookkeeping from given facts, exact edits; a small fix only with a reviewer after
+  it; not yet design, anything players see, the server or the game's rules.
 - Opus for design-heavy or tricky work and for reviews. Sonnet for well-specified work and
   lookups.
 - Effort: `low` for lookups, `medium` for routine edits, `high` for design and review.
@@ -134,22 +135,14 @@ Three builders made 300-600 calls each because one agent was resumed for every f
 - Small jobs (a lookup, running checks, a fact-check, bookkeeping, an exact edit) go to `worker`.
 - A brief points at files and stays short; it does not paste them.
 - This session still judges the screens by eye, as before and after pictures.
-- Log each finished piece in `docs/dev/agent-ledger.md` so these numbers keep being measured.
 
 ## The two critics
 
 Every piece a player can see, and every mock, goes to both critics as pictures (a contact sheet
 first) before it goes to the owner's board: `critic-editor` (what to cut or merge) and
 `critic-art-director` (type, hierarchy, density, consistency). Their top issues are fixed or
-answered in one line each. They do not replace the code reviewer.
-
-The blind test that chose them (23 Nov 2026): six personas critiqued the live game's screens
-and were scored against the owner's own 15 points. Scores were close: 0.61 to 0.44 weighted
-recall on 9 points, one grader, and the walk-through mixed several games. The editor was the
-only one to catch the merge of count and results; the art director read stills best.
-The next test must fix: one clean recorded game, the missing states rendered, three runs each,
-two graders, scored against the owner's next play-through. Method and brief:
-`docs/dev/critic-test/`.
+answered in one line each. They do not replace the code reviewer. (A blind test of six personas
+against the owner's own points chose them, 23 Nov 2026; its method is in git history.)
 
 ## Outside this repository
 

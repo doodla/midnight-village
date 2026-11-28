@@ -1,7 +1,7 @@
 // My night held (08), every night's picture story, for a look beside the
 // mock's frames: each night of story_samples.dart at 360 x 780 (the mocks'
 // size), and again at 360 x 640 and at text 1.6, at 2x. Run it with `just
-// story-pictures`; it is not part of `just test`. `just contact-sheet
+// story-pictures`; it is not part of `just flutter-test`. `just contact-sheet
 // <folder>` makes one sheet.
 
 import 'dart:io';

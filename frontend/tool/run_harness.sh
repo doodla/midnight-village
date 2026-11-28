@@ -100,7 +100,7 @@ find "$SCREENSHOTS_DIR" -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {}
 echo "[harness] running the e2e suite headless (flutter test, --tags e2e)..."
 cd "$FRONTEND_DIR"
 # The runner suites live under test_e2e/ — NOT under test/ (so the default
-# `flutter test` / `just test`, which only scans test/, never runs these
+# `flutter test` / `just flutter-test`, which only scans test/, never runs these
 # live-backend suites with no backend up) and NOT under integration_test/ (whose
 # device-bound binding falls back to a web device and dies, "Web devices are not
 # supported for integration tests yet"). They run on the host Dart VM under the

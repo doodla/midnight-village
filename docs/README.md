@@ -6,10 +6,10 @@ the code is described by a README where it lives. This folder holds the rest.
 | Where | What |
 |---|---|
 | `docs/specs/index.md` | Game rules and the server API: what the game must do. |
-| `docs/specs/frontend/first-time-play.md` | Screens and copy (sections 7 and 8 win). |
+| `docs/specs/frontend/first-time-play.md` | Screens and copy (the end board: `end-board.md`). |
 | `docs/design/README.md` | The look: mocks, art, feel. |
 | `docs/dev/status.md` | Where the work stands. |
-| `docs/dev/owner-feedback.md` | What the owner hit in the live app. Read before touching a screen. |
+| `docs/dev/owner-feedback.md` | What the owner hit in the live app (`just brief <screen>` quotes the lines about a screen). |
 | `docs/dev/environment.md` | Setting up a machine or a cloud container. |
 | `docs/dev/running-the-work.md` | Who builds, who reviews, pull requests, models. |
 | `docs/dev/deploy-vercel.md` | The live server. |

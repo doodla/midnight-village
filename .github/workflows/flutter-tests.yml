@@ -77,7 +77,7 @@ jobs:
         run: just analyze
 
       - name: Format check
-        run: just format-check
+        run: just flutter-format-check
 
       # The committed *.g.dart / *.freezed.dart are what `just gen` makes now
       # (about 50 s, so GitHub and `just gate-full` only, not the commit gate).

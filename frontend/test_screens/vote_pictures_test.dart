@@ -1,6 +1,6 @@
 // The vote's locked row in pictures, for a look: the locked state, the moment
 // of the lock as four frames, and the vote at several table sizes (one long name, a large text
-// size). Run it with `just vote-pictures`; it is not part of `just test`.
+// size). Run it with `just vote-pictures`; it is not part of `just flutter-test`.
 // `just contact-sheet <folder>` makes one sheet of a folder.
 import '../test/helpers/finger.dart';
 import 'dart:io';

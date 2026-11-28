@@ -69,7 +69,7 @@ freeze:
   Doppelganger games). The old nine-scenario matrix (§3) and its `nightScript` DSL (§D4)
   are replaced by that file.
 - **Runners** (`frontend/test_e2e/`, run with `just test-harness` from the repo root or
-  `frontend/`): the API runner (`api_runner_test.dart`, `harness/scenario_runner.dart`)
+  `frontend/`): the API runner (`api_runner_test.dart`, `frontend/test_e2e/harness/scenario_runner.dart`)
   replays all 29 reference games: everyone looks, then each phone with `chooses_left`
   answers its prompt by `kind` from the game's choices (`picks()`; a player who must not
   answer sends no picks), the day is driven with `stagedAs` (locked votes), and it checks
@@ -185,8 +185,8 @@ Two deliverables share one core:
 | # | Decision |
 |---|----------|
 | Perspective | **Switch one player at a time** (not simultaneous multi-screen), backed by a god panel showing all players' truth as data. |
-| **Surface** | **Headless `flutter test` on the host Dart VM** — NOT a built macOS `.app` (so no App Sandbox, no `macos/` target needed) and NOT `flutter drive`/Chrome. Real Dio + real WebSocket work here **only after `HttpOverrides.global = null`** — `flutter_test` installs an override that returns HTTP 400 and makes no real request. `[SPIKE]` |
-| Visual capture | Wrap the app root in `RepaintBoundary(GlobalKey)`; capture `boundary.toImage()` → PNG **inside `tester.runAsync()`** (raw `toImage` hangs the test clock — flutter#50783). `[SPIKE: no hang, real PNG]` **Load real fonts** (reuse the repo's golden font-loading path in `test/flutter_test_config.dart` / `font_loading_smoke_test.dart`) or text renders as Ahem boxes. `[SPIKE: confirmed boxes without fonts]` |
+| **Surface** | **Headless `flutter test` on the host Dart VM** — NOT a built macOS `.app` (so no App Sandbox, no macos/ target needed) and NOT `flutter drive`/Chrome. Real Dio + real WebSocket work here **only after `HttpOverrides.global = null`** — `flutter_test` installs an override that returns HTTP 400 and makes no real request. `[SPIKE]` |
+| Visual capture | Wrap the app root in `RepaintBoundary(GlobalKey)`; capture `boundary.toImage()` → PNG **inside `tester.runAsync()`** (raw `toImage` hangs the test clock — flutter#50783). `[SPIKE: no hang, real PNG]` **Load real fonts** (reuse the repo's golden font-loading path in `frontend/test/flutter_test_config.dart` / font_loading_smoke_test.dart) or text renders as Ahem boxes. `[SPIKE: confirmed boxes without fonts]` |
 | Switch mechanism | A debug-only `AuthNotifier.adoptSession(User)` that writes the target's token+user to storage and sets `AuthState.authenticated(user)` **from the access token directly — NO refresh round-trip.** The production restore path (`tryRestoreSession`) refreshes an expired access token, and the backend rotates refresh tokens (`ROTATE_REFRESH_TOKENS = True`; since 22 November 2026 `BLACKLIST_AFTER_ROTATION = False`, so a token used twice is no longer refused), so a refresh would hand the switch a new token pair it does not need. After `adoptSession`, invalidate the game providers named in §C. `[SPIKE: reusing a player's original access token after switching away and back returns 200 — adoptSession avoids rotation entirely]` |
 | WebSocket from harness | The harness WS client (`dart:io`) **must set an `Origin` header matching `ALLOWED_HOSTS`** (e.g. `http://127.0.0.1:8001`). channels' `OriginValidator` 403s any handshake with no Origin (`security/websocket.py:52`); browsers always send one, `dart:io` does not. `[SPIKE: no Origin → 403 REJECT; with Origin → CONNECT]` |
 | Identity model | App identity is a single global JWT in `TokenStorage`, injected per-request by `AuthInterceptor`. Driving other players without switching the visible perspective uses an explicit-per-player-token client (§D2). |
@@ -197,7 +197,7 @@ Two deliverables share one core:
 
 ## 3. Scenario matrix (v1)
 
-From `docs/specs/frontend/validation/scenarios.md`. **In scope:** scenarios
+From the former validation scenarios (deleted in #2; git keeps them). **In scope:** scenarios
 **1, 2, 3, 4, 5, 6, 8, 10**, plus **Scenario 7 Sub-Case A only** (Doppelganger-as-
 Minion team assignment + each seer's recorded peek result; NOT narrator-cue timing,
 NOT Sub-Case B). Nine total.
@@ -219,10 +219,10 @@ All endpoints **DEBUG-gated**: when `settings.DEBUG is False`, return 403 and do
 nothing; each MUST have a `DEBUG=False`-rejection test. All new code tested to the
 project bar (`just check` + `just test` green, coverage ≥80% holds).
 
-Read before changing: `apps/onuw/views.py` (`GameStartView`), `apps/onuw/views_read.py`
-(`ResultsView`), `apps/onuw/engine/assignment.py`, `apps/onuw/timers.py`,
-`apps/onuw/night_window.py` (`persist_wave_results`), `apps/onuw/models.py` (`night_actions_log`),
-`apps/onuw/engine/win_conditions.py` (`get_effective_team` ~82), `config/settings/harness.py` (already created).
+Read before changing: `backend/apps/onuw/views.py` (`GameStartView`), `backend/apps/onuw/views_read.py`
+(`ResultsView`), `backend/apps/onuw/engine/assignment.py`, `backend/apps/core/timers.py`,
+`backend/apps/onuw/night_window.py` (`persist_wave_results`), `backend/apps/onuw/models.py` (`night_actions_log`),
+`backend/apps/onuw/engine/win_conditions.py` (`get_effective_team` ~82), `backend/config/settings/harness.py` (already created).
 
 ### B1. Forced-assignment / seed override on game start
 
@@ -303,8 +303,8 @@ auto-finalize); happy-path
 transitions use existing host endpoints (`advance-wave`, `end-discussion`,
 `reveal-votes`). DEBUG-only. Mechanism (the review corrected the draft):
 
-(Superseded: timers are now `ScheduledTimer` rows, `apps/core/timers.py`; the in-process `_registry` only holds the memory backend's threads and `debug-fire-timer` claims the row, see the "durable rows" note above.)
-It used to read: `apps/onuw/timers.py` `_registry` stores **`threading.Timer` objects, not callbacks**.
+(Superseded: timers are now `ScheduledTimer` rows, `backend/apps/core/timers.py`; the in-process `_registry` only holds the memory backend's threads and `debug-fire-timer` claims the row, see the "durable rows" note above.)
+It used to read: `backend/apps/core/timers.py` `_registry` stores **`threading.Timer` objects, not callbacks**.
 To fire synchronously: look up `f"{game_id}:{suffix}"`, then `timer.cancel()` (so the
 wall-clock copy doesn't also fire) and call `timer.function(*timer.args)`. This
 composes safely — there's no `ATOMIC_REQUESTS`, and `make_idempotent_callback` opens
@@ -345,7 +345,7 @@ serializes to the `key` string above, and the runner reads `fired` to distinguis
 real fire from a no-op (a no-op on a timeout assertion means the timer wasn't armed —
 the harness should treat that as a setup error, not a pass).
 
-### B4. Guest throttle — DONE in `config/settings/harness.py`
+### B4. Guest throttle — DONE in `backend/config/settings/harness.py`
 
 `harness.py` raises the `sign_up` rate to 1,000,000/min (the guest view sets its own
 throttle, `SignUpThrottle`, so raising the rate is the right lever, not
@@ -364,14 +364,14 @@ running tests.
 
 # Part C — Frontend wiring the harness depends on (read first; corrected per review)
 
-- Identity = single global JWT in `lib/core/storage/token_storage.dart`, injected by
-  `lib/core/api/auth_interceptor.dart`. The shared HTTP client auto-uses whatever
+- Identity = single global JWT in `frontend/lib/core/storage/token_storage.dart`, injected by
+  `frontend/lib/core/api/auth_interceptor.dart`. The shared HTTP client auto-uses whatever
   token is stored — no per-switch rebuild.
 - **Perspective switch** uses a NEW debug-only `AuthNotifier.adoptSession(User)` (see
   §2). Do NOT route switching through `tryRestoreSession` (`auth_repository.dart`) — it
   may refresh, and the backend rotates the refresh token.
 - **Game WebSocket providers:** the game uses its own providers in
-  `lib/features/game/presentation/game_socket.dart`: `gameWebSocketProvider`,
+  `frontend/lib/features/game/presentation/game_socket.dart`: `gameWebSocketProvider`,
   `gameWebSocketStreamProvider`, `gameConnectionStateProvider`. `switchTo` invalidates
   `liveGameProvider(gameId)` (`live_game.dart`) **and** these three so the old player's
   socket is disposed and the new player's attaches.
@@ -384,20 +384,20 @@ running tests.
   `.../end-discussion/`, `.../reveal-votes/`; `GET .../results/`, `GET .../debug-state/`.
 - WS routes: `ws://127.0.0.1:8001/ws/lobby/<code>/?token=<access>` and
   `/ws/game/<id>/?token=<access>` — set the `Origin` header (§2).
-- `lib/core/config/env.dart` — change `isDev` to a `const bool` (§2). Harness
+- `frontend/lib/core/config/env.dart` — change `isDev` to a `const bool` (§2). Harness
   integration tests target `127.0.0.1:8001` via their own constants (not `Env`, which
   points at the dev `:8000`).
-- Golden font-loading lives in `test/flutter_test_config.dart` + `test/helpers/font_loading_smoke_test.dart`.
+- Golden font-loading lives in `frontend/test/flutter_test_config.dart` + test/helpers/font_loading_smoke_test.dart.
 
 ---
 
 # Part D — Frontend contract (frontend agent owns)
 
-Debug/harness code reachable ONLY behind const `Env.isDev`. Shared core in `lib/`;
-scenario runners in `integration_test/` (never ships). `just analyze` clean; `just gen`
+Debug/harness code reachable ONLY behind const `Env.isDev`. Shared core in `frontend/lib`;
+scenario runners in `frontend/integration_test` (never ships). `just analyze` clean; `just gen`
 after provider changes; widget/unit tests for the controller + toolbar.
 
-### D1. `DebugTableController` (shared core, `lib/.../debug/`)
+### D1. `DebugTableController` (shared core, frontend/lib/.../debug/)
 
 - `createTable({ required int playerCount, required Map<String,int> roleCounts /* TitleCase role name → count, as PATCHed */, ForcedAssignment? assignment, String? hostName })`
   → create N guests (the **first guest is the host / lobby creator**), capture each
@@ -440,14 +440,14 @@ log, votes, center); auto-drive for everyone but the phone shown, through `stage
 end discussion, reveal votes, fire the pending timer via fireTimer); disconnect toggle; replay
 (show/edit seed/assignment). Toolbar uses real wall-clock time.
 
-### D4. Integration harness (`integration_test/`, never ships)
+### D4. Integration harness (`frontend/integration_test`, never ships)
 
 **Scenarios as data**: the reference games (`backend/tests/onuw/data/reference_games.json`,
-read by `test_e2e/harness/scenarios.dart`): players, dealt cards, centre, each player's night
+read by `frontend/test_e2e/harness/scenarios.dart`): players, dealt cards, centre, each player's night
 choices and votes, and the expected outcome.
 
 Encoding rules:
-- **A night choice is a `choose`** (`harness/scenario_runner.dart`, `picks()`): every phone
+- **A night choice is a `choose`** (`frontend/test_e2e/harness/scenario_runner.dart`, `picks()`): every phone
   with `chooses_left` sends the picks its prompt's `kind` takes from the game's choices
   (`seer`: one other player, or two centre cards; `robber`: one other player;
   `troublemaker`: two other players; `drunk` and `lone_werewolf`: one centre card;
@@ -478,7 +478,7 @@ rendered==oracle.current_role can never pass and would tempt leaking it); assert
 post-swap truth against the **oracle**.
 
 **Lifecycle scenarios** (`frontend/test_e2e/api_lifecycle_test.dart`, run by
-`just test-harness`; helpers `harness/live_table.dart`, `harness/time_budget.dart`,
+`just test-harness`; helpers `frontend/test_e2e/harness/live_table.dart`, `frontend/test_e2e/harness/time_budget.dart`,
 `PlayerWire.connectLobby` / `connectToGame` / `waitForEvent`): real HTTP + real sockets,
 asserting what clients are told AND the oracle.
 - *Play again* (on both URLs): 409 before results, 403 non-host, `play_again` +
@@ -569,5 +569,5 @@ A throwaway spike (since deleted) validated the load-bearing claims before freez
    token is no longer blacklisted). ✅
 4. **Real authenticated WebSocket** — `dart:io` WS with no Origin → 403 REJECT
    (`OriginValidator`); with `Origin: http://127.0.0.1:8001` → CONNECT. ✅
-5. **Backend lifecycle** — `config/settings/harness.py` + `createdb midnight_village_harness`
+5. **Backend lifecycle** — `backend/config/settings/harness.py` + `createdb midnight_village_harness`
    + `migrate` + Daphne `runserver 127.0.0.1:8001` all worked; health 200. ✅

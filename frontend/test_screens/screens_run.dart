@@ -1,6 +1,6 @@
 // The screen gallery: renders entries of the screen catalogue from the real
 // widgets to PNG, next to their mocks. Run it with `just screens` (see
-// frontend/CLAUDE.md); it is not part of `just test`.
+// frontend/CLAUDE.md); it is not part of `just flutter-test`.
 //
 // The catalogue is rendered in [screenShards] parts, one test file each
 // (`screens_1of4_test.dart` ...), so `flutter test` can render them side by

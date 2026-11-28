@@ -12,7 +12,7 @@ edits. The brief gives PNG paths (or a folder) and what to judge; open each pict
 Per picture, give the file name and what is wrong, one line each:
 - clipping or overflow; overlap; a player's name truncated;
 - empty space that looks like a mistake; misalignment;
-- colour off the palette (`docs/design/`), or text too small or low in contrast.
+- colour off the palette (`docs/specs/frontend/design-brief.md`, "2. The look"), or text too small or low in contrast.
 
 Judge only what the brief asks, plus anything plainly broken. If a picture has nothing wrong,
 say "<file>: nothing wrong". Do not guess at code; describe what you see and where.

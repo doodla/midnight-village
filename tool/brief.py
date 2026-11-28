@@ -28,6 +28,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from brief_docs import DOCS, app_rules, capped
+
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = "docs/specs/frontend/first-time-play.md"
 SPECS = "docs/specs/frontend"
@@ -97,14 +100,18 @@ def which_screens(asked: str, states: list[str], sections) -> list[str]:
     if not found:
         phrase = asked.lower().replace("-", " ")
         named = {
-            n for n, (_, block) in sections.items() if phrase in block.splitlines()[0].lower()
+            n
+            for n, (_, block) in sections.items()
+            if phrase in block.splitlines()[0].lower().replace("-", " ")
         }
         if named:
             words = [w for w in phrase.split() if len(w) > 2]
             # the states are found by the name's first word ("end"), not by a
             # common one ("board" is also the night's)
             found = named | {
-                screen_of(s) for s in numbered if words and words[0] in s.lower().split("-")
+                screen_of(s)
+                for s in numbered
+                if words and words[0] in s.lower().split("-")
             }
     return sorted(found)
 
@@ -128,7 +135,9 @@ def quoted(lines: list[str], index: int) -> tuple[str, int]:
     while first > 0 and lines[first - 1].strip() and not starts_block(first):
         first -= 1
     last = index
-    while last + 1 < len(lines) and lines[last + 1].strip() and not starts_block(last + 1):
+    while (
+        last + 1 < len(lines) and lines[last + 1].strip() and not starts_block(last + 1)
+    ):
         last += 1
     if last - first + 1 > WHOLE:
         cut_first, cut_last = max(first, index - 1), min(last, index + AFTER)
@@ -146,7 +155,9 @@ def said_by_owner(
     wanted = [
         # a number that ends a sentence ("... on 09.") is the screen; one inside a
         # figure ("0.9", "09.5", "9:41") is not
-        re.compile(rf"(?<![\w.:-]){re.escape(n)}(?![\w:-]|\.\w|\s*(?:November|px|s\b|%))")
+        re.compile(
+            rf"(?<![\w.:-]){re.escape(n)}(?![\w:-]|\.\w|\s*(?:November|px|s\b|%))"
+        )
         for n in numbers
     ]
     wanted += [re.compile(re.escape(name), re.I) for name in names if len(name) > 3]
@@ -180,12 +191,17 @@ def state_line(state: str, mine: list[str], widgets: dict, kit: set[str]) -> str
     if scale:
         said.append(f"text x{scale.group(1)}")
     grows_from = max(
-        (other for other in mine if state.startswith(other + "-")), key=len, default=None
+        (other for other in mine if state.startswith(other + "-")),
+        key=len,
+        default=None,
     )
     if grows_from:
         more = sorted((names - set(widgets[grows_from])) & kit)
         if more:
-            said.append(f"beyond {grows_from}: {', '.join(more[:8])}" + (" ..." if len(more) > 8 else ""))
+            said.append(
+                f"beyond {grows_from}: {', '.join(more[:8])}"
+                + (" ..." if len(more) > 8 else "")
+            )
     return state + ("   <- " + "; ".join(said) if said else "")
 
 
@@ -203,17 +219,26 @@ def parked_faults(text: str, mine: list[str]) -> list[str]:
             entry.append(lines[j].rstrip())
         named = re.search(r":\s*(_\w+),", " ".join(entry))
         if named:
-            start = next((k for k, l in enumerate(lines) if l.startswith(f"const {named.group(1)} =")), None)
+            start = next(
+                (
+                    k
+                    for k, l in enumerate(lines)
+                    if l.startswith(f"const {named.group(1)} =")
+                ),
+                None,
+            )
             if start is not None:
                 k = start
                 while not lines[k].rstrip().endswith(";"):
                     k += 1
-                entry.append("    where " + " ".join(l.strip() for l in lines[start : k + 1]))
+                entry.append(
+                    "    where " + " ".join(l.strip() for l in lines[start : k + 1])
+                )
         found.append("\n".join(entry))
     return found
 
 
-def part_rules(name: str, documents: list[Path]) -> list[tuple[str, str]]:
+def part_rules(name: str, documents: list[str]) -> list[tuple[str, str]]:
     """(file:line, the line) for each line that names the part `name`, as its class
     name or as its words ("HeldFace": "held face", "held-face")."""
     words = re.sub(r"(?<!^)(?=[A-Z])", " ", name).lower().split()
@@ -223,7 +248,7 @@ def part_rules(name: str, documents: list[Path]) -> list[tuple[str, str]]:
     )
     found = []
     for document in documents:
-        lines = document.read_text().splitlines()
+        lines = DOCS.text(document).splitlines()
         done = -1
         for number, line in enumerate(lines, 1):
             if number - 1 <= done or not wanted.search(line):
@@ -233,10 +258,12 @@ def part_rules(name: str, documents: list[Path]) -> list[tuple[str, str]]:
             # rule in the list under it: that list is the rule
             if text.startswith("**") or text.endswith(":"):
                 under = done + 1
-                while under < len(lines) and lines[under].lstrip().startswith(("- ", "* ")):
+                while under < len(lines) and lines[under].lstrip().startswith(
+                    ("- ", "* ")
+                ):
                     text += "\n      " + lines[under].strip()
                     under += 1
-            found.append((f"{document.relative_to(ROOT)}:{number}", text))
+            found.append((f"{document}:{number}", text))
     return found
 
 
@@ -282,41 +309,104 @@ def others_in(files: set[str]) -> dict[str, list[str]]:
     return found
 
 
-def main(argv: list[str]) -> int:
-    areas = tool("brief_areas")
-    if len(argv) == 1 and argv[0] in areas.AREAS:
-        print(areas.brief(argv[0], others_in))
-        return 0
-    sections = spec_sections((ROOT / SPEC).read_text())
+# What each list a screen's brief makes from code may cost, in tokens: the budget
+# (tool/context_budget.py) counts these caps, since it measures without building
+# the widget trees.
+CODE_CAPS = {
+    "states": 400,
+    "parked": 500,
+    "parts": 1500,
+    "files": 500,
+    "tests": 400,
+    "others": 200,
+}
 
-    def every(known: list[str]) -> str:
-        return (
-            f"Screens (just brief 09):\n  {' '.join(known)}\n"
-            "  or a word from a state's id (`just screens` lists them), e.g. end-board\n\n"
-            f"Areas that are not a screen (just brief copy):\n{areas.listing()}"
+
+def the_names(numbers: list[str], sections) -> list[str]:
+    """The screens' names, from their spec sections' first lines."""
+    names = []
+    for number in numbers:
+        if number in sections:
+            first = sections[number][1].splitlines()[0]
+            names.append(
+                re.sub(r"^\*\*\d\d[a-z]?(?: and \d\d)?:? ?|\*\*.*$", "", first).strip()
+            )
+    return names
+
+
+def doc_part(asked: str, numbers: list[str], sections) -> list[str]:
+    """The part of a screen's brief quoted from documents: the spec, the owner."""
+    out = [f"# Brief: screen {' and '.join(numbers)}\n"]
+    out.append(
+        "Everything below is copied from the sources named. "
+        "Read the source before changing what it says.\n"
+    )
+    whole = f"{SPECS}/{asked}.md"
+    if DOCS.read(whole) is not None:
+        out.append(
+            f"This has a spec file of its own: {whole}"
+            f" ({len(DOCS.text(whole).splitlines())} lines). Read it whole.\n"
+        )
+    out.append(f"## The spec ({SPEC})\n")
+    for number in numbers:
+        if number in sections:
+            line, block = sections[number]
+            out.append(f"(line {line})\n\n{block}\n")
+        else:
+            out.append(f"No per-screen section for {number} in {SPEC}.\n")
+    elsewhere = []
+    for spec in DOCS.glob(f"{SPECS}/*.md"):
+        for n, line in enumerate(DOCS.text(spec).splitlines(), 1):
+            if line.startswith("#") and any(
+                re.search(rf"(?<!\d){re.escape(x)}(?!\d)", line) for x in numbers
+            ):
+                elsewhere.append(f"  {spec}:{n}  {line.strip()}")
+    if elsewhere:
+        out.append(
+            "Headings elsewhere in the specs that name it:\n"
+            + "\n".join(elsewhere)
+            + "\n"
         )
 
-    if len(argv) != 1:
-        # no argument is a question, not a mistake: what briefs are there? (at once:
-        # the screens the spec names, without reading every state's widgets)
-        print("usage: just brief <screen or area>\n\n" + every(sorted(sections)))
-        return 0 if not argv else 2
+    out.append(f"## What the owner said ({FEEDBACK})\n")
+    out.append(
+        "Every line that names the screen by number or by name"
+        " (so some are about another screen: read them)."
+    )
+    said = said_by_owner(DOCS.text(FEEDBACK), numbers, the_names(numbers, sections))
+    if not said:
+        out.append("Nothing names this screen.\n")
+    heading = None
+    for under, number, line in said:
+        if under != heading:
+            out.append(f"\n### {under}")
+            heading = under
+        out.append(f"  {number}: {line}")
+    out.append("")
+    out.append(f"## The design system's README about this screen ({DESIGN_README})\n")
+    noted = said_by_owner(DOCS.text(DESIGN_README), numbers, [])
+    out.append(
+        "\n".join(f"  {number}: {line}" for _, number, line in noted)
+        or "Nothing names it by number."
+    )
+    out.append("")
+    return out + app_rules()
+
+
+def tail_part() -> list[str]:
+    return [
+        "## Commands\n\n" + COMMANDS,
+        "## Waiting\n\n" + tool("brief_areas").WAITING + "\n",
+        "## Handing back\n\n" + tool("brief_areas").HANDBACK + "\n",
+    ]
+
+
+def code_part(numbers: list[str], widgets: dict, states: list[str]) -> list[str]:
+    """The part of a screen's brief made from code: states, parts, files, tests.
+    Each list is capped (CODE_CAPS)."""
     screens, piece = tool("piece_screens"), tool("piece_check")
-    widgets = screens.state_widgets()
-    states = sorted(widgets)
-    numbers = which_screens(argv[0], states, sections)
-    if not numbers:
-        known = sorted(
-            {screen_of(s) for s in states if re.match(r"\d\d", s)} | set(sections)
-        )
-        print(
-            f"brief: no screen or area '{argv[0]}'.\n\n{every(known)}", file=sys.stderr
-        )
-        return 1
     mine = [s for s in states if screen_of(s) in numbers]
     owner = screens.owners()
-
-    # the files whose widgets these states draw, and how many OTHER screens draw each
     drawn_by: dict[str, set[str]] = defaultdict(set)
     for state, names in widgets.items():
         for name in names:
@@ -331,7 +421,9 @@ def main(argv: list[str]) -> int:
 
     def also(path: str) -> str:
         others = sorted(n for n in drawn_by[path] - set(numbers) if n[:1].isdigit())
-        return f"  (also drawn by {', '.join(others)})" if others else "  (this screen only)"
+        if others:
+            return f"  (also drawn by {', '.join(others)})"
+        return "  (this screen only)"
 
     def size(path: str) -> str:
         lines = len((ROOT / path).read_text().splitlines())
@@ -342,144 +434,147 @@ def main(argv: list[str]) -> int:
         )
         return f"{lines:4d} lines  {path}{flag}"
 
-    print(f"# Brief: screen {' and '.join(numbers)}\n")
-    print(
-        "Everything below is copied from the sources named. Read the source before changing what it says.\n"
+    out = [f"## Catalogue states ({len(mine)})\n"]
+    out.append(
+        "What a state draws beyond the plain one it grows from says what its fixture did.\n"
     )
-    whole = ROOT / SPECS / f"{argv[0]}.md"
-    if whole.is_file():
-        print(
-            f"This has a spec file of its own: {whole.relative_to(ROOT)}"
-            f" ({len(whole.read_text().splitlines())} lines). Read it whole.\n"
-        )
-
-    print(f"## The spec ({SPEC})\n")
-    names = []
-    for number in numbers:
-        if number in sections:
-            line, block = sections[number]
-            names.append(
-                re.sub(
-                    r"^\*\*\d\d[a-z]?(?: and \d\d)?:? ?|\*\*.*$",
-                    "",
-                    block.splitlines()[0],
-                ).strip()
-            )
-            print(f"(line {line})\n\n{block}\n")
-        else:
-            print(f"No per-screen section for {number} in {SPEC}.\n")
-    elsewhere = []
-    for spec in sorted((ROOT / SPECS).glob("*.md")):
-        for n, line in enumerate(spec.read_text().splitlines(), 1):
-            if line.startswith("#") and any(
-                re.search(rf"(?<!\d){re.escape(x)}(?!\d)", line) for x in numbers
-            ):
-                elsewhere.append(f"  {spec.relative_to(ROOT)}:{n}  {line.strip()}")
-    if elsewhere:
-        print(
-            "Headings elsewhere in the specs that name it:\n"
-            + "\n".join(elsewhere)
-            + "\n"
-        )
-
-    print(f"## What the owner said ({FEEDBACK})\n")
-    print("Every line that names the screen by number or by name (so some are about another screen: read them).")
-    said = said_by_owner((ROOT / FEEDBACK).read_text(), numbers, names)
-    if not said:
-        print("Nothing names this screen.\n")
-    heading = None
-    for under, number, line in said:
-        if under != heading:
-            print(f"\n### {under}")
-            heading = under
-        print(f"  {number}: {line}")
-    print()
-
-    print(f"## Catalogue states ({len(mine)})\n")
-    print("What a state draws beyond the plain one it grows from says what its fixture did.\n")
     kit = {name for name, paths in owner.items() if not name.startswith("_")}
-    for state in mine:
-        print("  " + state_line(state, mine, widgets, kit))
-    print()
+    out += capped(
+        ["  " + state_line(s, mine, widgets, kit) for s in mine],
+        CODE_CAPS["states"],
+        "`just screens` lists them",
+    )
+    out.append("")
     parked = ROOT / PARKED
     if parked.is_file():
         held = parked_faults(parked.read_text(), mine)
-        print(f"Parked faults ({PARKED}): " + (f"{len(held)}" if held else "none"))
-        print("".join(f"\n{entry}\n" for entry in held))
+        out.append(f"Parked faults ({PARKED}): " + (f"{len(held)}" if held else "none"))
+        out += capped(
+            [f"\n{entry}\n" for entry in held], CODE_CAPS["parked"], f"read {PARKED}"
+        )
 
-    print("## Rules about the parts it draws\n")
+    out.append("## Rules about the parts it draws\n")
     special = sorted(
         name
         for name in {n for state in mine for n in widgets[state]} & kit
         if any("/design_system/" in path for path in owner[name])
-        and len({screen_of(s) for s in states if name in widgets[s]}) <= max(3, every // 2)
+        and len({screen_of(s) for s in states if name in widgets[s]})
+        <= max(3, every // 2)
     )
-    print(
+    out.append(
         "Lines of the specs and of the design system's README that name a part this"
         " screen draws and most screens do not (so a rule written in a general section"
         " is not missed). Word for word; read around them.\n"
     )
-    documents = [*sorted((ROOT / SPECS).glob("*.md")), ROOT / DESIGN_README]
+    documents = [*DOCS.glob(f"{SPECS}/*.md"), DESIGN_README]
+    rules = []
     for name in special:
         found = part_rules(name, documents)
         if not found:
             continue
-        print(f"### {name}")
-        for where, line in found[:PART_LINES]:
-            print(f"  {where}  {line}")
+        rules.append(f"### {name}")
+        rules += [f"  {where}  {line}" for where, line in found[:PART_LINES]]
         if len(found) > PART_LINES:
-            print(f"  ... and {len(found) - PART_LINES} more lines name it (search for it).")
-        print()
+            rules.append(
+                f"  ... and {len(found) - PART_LINES} more lines name it (search for it)."
+            )
+        rules.append("")
+    out += capped(rules, CODE_CAPS["parts"], "search the specs for the part's name")
 
-    print(f"## The design system's README about this screen ({DESIGN_README})\n")
-    noted = said_by_owner((ROOT / DESIGN_README).read_text(), numbers, [])
-    print("\n".join(f"  {number}: {line}" for _, number, line in noted) or "Nothing names it by number.")
-    print()
-
-    print("## App files\n")
-    print("Feature files that draw it:")
-    print("\n".join("  " + size(p) + also(p) for p in features) or "  (none)")
-    print(f"\nDesign-system parts it uses ({len(parts)}):")
-    print("\n".join(f"  {p}" for p in parts))
-    copy = sorted(
-        {
-            m
-            for p in own
-            for m in COPY_CLASS.findall((ROOT / p).read_text())
-        }
-    )
-    print(
+    out.append("## App files\n")
+    files = ["Feature files that draw it:"]
+    files += ["  " + size(p) + also(p) for p in features] or ["  (none)"]
+    files.append(f"\nDesign-system parts it uses ({len(parts)}):")
+    files += [f"  {p}" for p in parts]
+    copy = sorted({m for p in own for m in COPY_CLASS.findall((ROOT / p).read_text())})
+    files.append(
         "\nCopy classes its own files read: "
         + (", ".join(copy) or "none")
         + "  (the words: `just copy-page`)\n"
     )
+    out += capped(files, CODE_CAPS["files"])
 
-    print("## Tests\n")
+    out.append("## Tests\n")
     top = ROOT / "frontend"
     targets = {(ROOT / p).resolve() for p in own}
-    package = "midnight_village"
-    near = []
-    for test in sorted((top / "test").rglob("*_test.dart")):
+    near = [
+        str(test.relative_to(ROOT))
+        for test in sorted((top / "test").rglob("*_test.dart"))
         if {
-            p.resolve() for p in piece.dart_imports(test, top / "lib", package)
-        } & targets:
-            near.append(str(test.relative_to(ROOT)))
-    print(
-        "Import this screen's files directly:\n"
-        + ("\n".join(f"  {t}" for t in near) or "  (none)")
-    )
-    print(
+            p.resolve()
+            for p in piece.dart_imports(test, top / "lib", "midnight_village")
+        }
+        & targets
+    ]
+    out.append("Import this screen's files directly:")
+    out += capped([f"  {t}" for t in near] or ["  (none)"], CODE_CAPS["tests"])
+    out.append(
         "Every state is also swept (frontend/test/screen_cases/) and drawn (`just screens`).\n"
     )
 
-    print("## Who else is in these files (branches on the remote, not merged)\n")
+    out.append("## Who else is in these files (branches on the remote, not merged)\n")
     others = others_in(set(own))
-    if not others:
-        print("Nobody.\n")
-    for branch, files in others.items():
-        print(f"  {branch}: " + ", ".join(files))
-    print("\n## Commands\n\n" + COMMANDS)
-    print("## Waiting\n\n" + tool("brief_areas").WAITING + "\n")
+    out += capped(
+        [f"  {branch}: " + ", ".join(files) for branch, files in others.items()]
+        or ["Nobody.\n"],
+        CODE_CAPS["others"],
+    )
+    return out
+
+
+def screen_brief(asked: str, numbers: list[str], widgets: dict | None) -> str:
+    """The brief of the screens `numbers`. With no widget trees (the budget's
+    measure) only the parts quoted from documents are built."""
+    sections = spec_sections(DOCS.text(SPEC))
+    out = doc_part(asked, numbers, sections)
+    if widgets is not None:
+        out += code_part(numbers, widgets, sorted(widgets))
+    out += tail_part()
+    return "\n".join(out)
+
+
+def screen_names() -> list[str]:
+    """Every brief of a screen, read from the documents alone (no widget trees):
+    each screen the spec has a section for, and each spec file of its own."""
+    sections = spec_sections(DOCS.text(SPEC))
+    own = [p.rsplit("/", 1)[1][:-3] for p in DOCS.glob(f"{SPECS}/*.md")]
+    return sorted(sections) + [n for n in own if which_screens(n, [], sections)]
+
+
+def main(argv: list[str]) -> int:
+    areas = tool("brief_areas")
+    if len(argv) == 1 and argv[0] in areas.AREAS:
+        print(areas.brief(argv[0], others_in))
+        return 0
+    sections = spec_sections(DOCS.text(SPEC))
+
+    def every() -> str:
+        # the spec's screens and the catalogue's state numbers, read as text (no widget trees)
+        catalogue = (ROOT / "frontend/test_screens/catalogue").glob("*.dart")
+        ids = {
+            n for f in catalogue for n in re.findall(r"'(\d\d[a-z]?)-", f.read_text())
+        }
+        return (
+            f"Screens (just brief 09):\n  {' '.join(sorted(ids | set(sections)))}\n"
+            "  or a word from a state's id (`just screens` lists them), e.g. end-board\n\n"
+            f"Areas that are not a screen (just brief copy):\n{areas.listing()}"
+        )
+
+    if len(argv) != 1:
+        # no argument is a question, not a mistake: what briefs are there? (at once:
+        # the screens the spec names, without reading every state's widgets)
+        print("usage: just brief <screen or area>\n\n" + every())
+        return 0 if not argv else 2
+    widgets = tool("piece_screens").state_widgets()
+    states = sorted(widgets)
+    # an everyday name ("lobby", "your card"): the app's own names, a feature folder
+    numbers = which_screens(argv[0], states, sections) or tool("brief_names").lookup(
+        argv[0], widgets, tool("piece_screens").owners(), screen_of
+    )
+    if not numbers:
+        print(f"brief: no screen or area '{argv[0]}'.\n\n{every()}", file=sys.stderr)
+        return 1
+    print(screen_brief(argv[0], numbers, widgets))
     return 0
 
 

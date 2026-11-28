@@ -22,14 +22,14 @@ smaller "What happened" and "Edit deck" scraps, and more air between the scraps,
 
 | Today | File (under `frontend/lib/`) | Goes |
 |---|---|---|
-| 10 The count | `features/game/presentation/shell/count_screen.dart` (`CountScreen`, `CountView`) | deleted (`EndWaiting` is in `shell/waits.dart`) |
-| 11 Results | `features/game/presentation/shell/results_screen.dart` (`ResultsScreen`, `ResultsView`, `ResultsAct`) | deleted; its Play again / Edit deck / Leave logic is the end board's |
+| 10 The count | features/game/presentation/shell/count_screen.dart (`CountScreen`, `CountView`) | deleted (`EndWaiting` is in `frontend/lib/features/game/presentation/shell/waits.dart`) |
+| 11 Results | features/game/presentation/shell/results_screen.dart (`ResultsScreen`, `ResultsView`, `ResultsAct`) | deleted; its Play again / Edit deck / Leave logic is the end board's |
 | "See who won" | the step, its device flag and `AppScreen.count` / `AppScreen.results` | removed; one `AppScreen.end` |
 
 The tests and harness words that go with them are in TICKETS.md, piece 5.
 
-Pictures: the design round's `sheet-final.png`, `sheet-motion.png`, `compare-final.png` and single phones in
-`png/` (not in the repo). The build's own: `just end-pictures` (every outcome at 360 x 780, a 360 x 640 phone, text at
+Pictures: the design round's sheet-final.png, sheet-motion.png, compare-final.png and single phones in
+png/ (not in the repo). The build's own: `just end-pictures` (every outcome at 360 x 780, a 360 x 640 phone, text at
 1.3 and 1.6) and `just screens`.
 
 ## 1. Rules that hold everywhere
@@ -41,11 +41,11 @@ Pictures: the design round's `sheet-final.png`, `sheet-motion.png`, `compare-fin
 - **Names are 16 Gloock and are never cut.** A card is always as wide as its name needs (section 3). The audit
   checks this.
 - **Contrast:** at least 4.5:1, measured on what is really behind the letters. The lowest on any final phone is
-  4.71 (`audit.txt`). The one flag is in 1d: there, the labels of the cards that have scrolled under the bottom band
+  4.71 (audit.txt). The one flag is in 1d: there, the labels of the cards that have scrolled under the bottom band
   are measured although they are hidden.
 - **One amber control: Play again.** It shows only on the host's phone. A guest's phone has none.
 - **Touch targets:** each is at least 48 pt tall, even where the scrap looks 40 pt. The extra is invisible padding
-  (the dashed boxes in `0-anatomy.png`).
+  (the dashed boxes in 0-anatomy.png).
 - **One light: the lantern.** Every shadow falls away from it. Cards further from it are a little darker. While What
   happened plays, the moon is the light and the lantern is out.
 - **One death mark: the black ribbon.** HANGED is a stamp seen only during the reveal (beats 3 and 4b), then it lifts off.
@@ -59,7 +59,7 @@ Pictures: the design round's `sheet-final.png`, `sheet-motion.png`, `compare-fin
 
 ## 2. Anatomy
 
-The numbers match `png/0-anatomy.png`. Positions are in pt on a 360 x 780 phone. Data comes from
+The numbers match png/0-anatomy.png. Positions are in pt on a 360 x 780 phone. Data comes from
 `GET /onuw/games/<id>/results/` (fields in `code`), plus `GET .../me/` for who you are and who hosts.
 
 | # | Element | Role | Size, type token | Data |
@@ -68,7 +68,7 @@ The numbers match `png/0-anatomy.png`. Positions are in pt on a 360 x 780 phone.
 | 15 | Banner | the result in one sentence, in two lines | three-piece slice, 128 tall for two lines at 24, and as much taller as its words measure past that (a third line, a larger text size): the paper round the words stays as drawn and the middle stretches, so it never clips (`BannerSlice.heightOf`). Top 36 on a phone 780 tall, 10 on one 640 tall, in between by the height (`EndMetrics.bannerTopFor`); the board starts 4 under it. Tilted -1.2°. Its width is the text plus both ends, and it may run past the screen's edges. Text 24 Gloock, centred: ink `#14172f` on bone, or `#f6ecd6` on the red banner | line 1 from `eliminated_players` (in death order, below); line 2 from `winning_teams` and the caller's own `outcome` and `team`. Red when the Werewolf team wins, or the Tanner (and not the village too); bone otherwise, whoever you are (the build's rule: the round's 1h mock shows red for a guest who lost to the village, and is wrong there). Copy: section 4 |
 | — | Roof | the board's top | `roof4` three-piece, x 120 to 509 stretches, 30 tall above the board | — |
 | 16 | Board: frame and felt | where everything is pinned | x 2 to 358, top 168, bottom 632. `frame4` nine-slice; the frame is about 19 pt. Felt `#20234a` (night `#191b3a`) with grain, and three dim torn notices behind the cards | — |
-| — | Posts | the board stands on the cobbles | `post4-l/-r`, 15 wide, 18 showing | — |
+| — | Posts | the board stands on the cobbles | post4-l/-r, 15 wide, 18 showing | — |
 | 2 | Lantern | the one light | `lantern` 88 wide (152 tall), flipped, hung from the board's top-right at x 272, y 162. Light point = the centre of its panes. Warm glow: radial, 180 across, screen blend | lit, except while What happened plays |
 | 6 | Pool of light | warmth on the winners | radial amber `255,184,96` at 25%, screen blend, over the living winners' cards, pulled 25% toward the lantern | the cards with `outcome == "win"` and `is_eliminated == false` |
 | — | Vignette | one light, falling off | two radial darkenings: 60% around the lantern, 32% at the edges | — |
@@ -134,7 +134,7 @@ left between the banner and the foot.
      coordinates, so nothing is recomputed while scrolling.
    - **Six or fewer fit one screen, as far as the hard rule lets them** (the owner's wish: up to six players fit a
      360 x 780 phone with no scrolling; cards never shrink; bigger tables scroll). A board of six or fewer that would
-     scroll closes up in steps (`EndFit`, `features/game/domain/end_board_metrics.dart`), loosest first:
+     scroll closes up in steps (`EndFit`, `frontend/lib/features/game/domain/end_board_metrics.dart`), loosest first:
      - *loose*: the board as rules 1 to 8 lay it;
      - *close*: a long strand of tags may take the row beside the Hunter's pick too (the slip hangs between the two
        cards), strands of two or more hang side by side where they fit, and a hanged card slides along its slot so
@@ -148,7 +148,7 @@ left between the banner and the foot.
      360 x 780 phone at text size 1 at some step, for every viewer; a three-and-three tie or names too long to share
      a row may scroll. The Hunter's slip looks for its place anywhere between the two cards (and 40 round them),
      against the ribbon as drawn (turned).
-   - **Where it opens** (`openingOf`, `features/game/domain/end_board_open.dart`). Opened down the board at all, the
+   - **Where it opens** (`openingOf`, `frontend/lib/features/game/domain/end_board_open.dart`). Opened down the board at all, the
      eave cuts a card, at least 14 pt of it showing, as the lip cuts one below: it is plain there is more above.
      Within that, it shows whole above the lip the most of: the hanged with all that hangs on them and your own card;
      else the hanged with all that hangs on them; else the hanged's cards (their tags go under the lip); else the
@@ -188,27 +188,27 @@ Two lines, at most, at 24. They come from the payload, and every phone builds it
 **Already in the repo (`frontend/assets/`), used as they are:**
 - `skins/shadow_paper/roles/*.webp`: portraits for every role, the dealt cards and the middle cards.
 - `skins/shadow_paper/tokens/*.webp`: sigils, on tags, the seal and the gallows.
-- `skins/shadow_paper/layers/dawn_gallows/`: `sky_plate`, `gallows`, `roofs_mid` and `roofs_near`, through
+- `frontend/assets/skins/shadow_paper/layers/dawn_gallows/`: `sky_plate`, `gallows`, `roofs_mid` and `roofs_near`, through
   `LayeredArt` / `SceneLayer`.
-- `skins/shadow_paper/layers/night_village/moon.webp`: the night of What happened.
+- `frontend/assets/skins/shadow_paper/layers/night_village/moon.webp`: the night of What happened.
 - The table's card back, through `CardBackScope`. The mocks show `card_back_moon`.
 - Fonts: Gloock and Figtree Bold.
 
-**Mock ornaments, generated in rounds 3 and 4.** They are in `final-end/assets/` (PNG with alpha). Each must be
+**Mock ornaments, generated in rounds 3 and 4.** They are in final-end/assets/ (PNG with alpha). Each must be
 accepted by the owner as final art, or redrawn.
 
 | File | Made | Used as | Displayed | Proposed in-app file (webp, @3x max) |
 |---|---|---|---|---|
-| `banner.png` 1460 x 477 | round 3, generated (cut-paper swallowtail with laurels) | banner, three-piece | 128 tall | `end/banner.webp` |
-| `banner-red.png` 1460 x 477 | **generated 23 Nov 2026 with the owner's yes**: `banner.png`'s original edited into dried-blood red paper (one image, first try; same silhouette, folds and laurels; `PROVENANCE.md`) | banner when you lost | 128 tall | `end/banner_red.webp` |
-| `frame4.png` 666 x 863 | round 4, generated | board frame, nine-slice `Rect.fromLTRB(99, 102, 570, 761)` at scale 0.19 | about 19 pt frame | `end/frame.webp` |
-| `roof4.png` 629 x 140 | same image as the frame | roof, three-piece x 120 to 509 | 30 tall | `end/roof.webp` |
-| `post4-l.png` 79 x 147, `post4-r.png` 81 x 148 | same image as the frame | the posts | 15 wide | `end/post_l.webp`, `end/post_r.webp` |
-| `lantern.png` 677 x 1170 | round 3, generated | the lantern | 88 x 152 | `end/lantern.webp` (264 x 456) |
-| `crow4-1.png` to `crow4-6.png` | round 4, generated (flat single-layer crows) | crows in the sky; five lift in reveal beat 4 | 22 to 104 wide | `end/crow_1.webp` to `end/crow_6.webp` |
-| `cobbles.png` 1467 x 816 | round 3, generated | the ground | full width | `end/cobbles.webp` |
-| `marks-1.png` 430 x 430 | round 3, generated (blank wax seal) | "you" seal | 30 | `end/seal.webp` (90 x 90) |
-| `marks-4.png` 382 x 482 | round 3, generated (mourning ribbon) | death mark | 24 to 34 | `end/ribbon.webp` |
+| `banner.png` 1460 x 477 | round 3, generated (cut-paper swallowtail with laurels) | banner, three-piece | 128 tall | `frontend/assets/skins/shadow_paper/end/banner.webp` |
+| `banner-red.png` 1460 x 477 | **generated 23 Nov 2026 with the owner's yes**: `banner.png`'s original edited into dried-blood red paper (one image, first try; same silhouette, folds and laurels; PROVENANCE.md) | banner when you lost | 128 tall | `frontend/assets/skins/shadow_paper/end/banner_red.webp` |
+| `frame4.png` 666 x 863 | round 4, generated | board frame, nine-slice `Rect.fromLTRB(99, 102, 570, 761)` at scale 0.19 | about 19 pt frame | `frontend/assets/skins/shadow_paper/end/frame.webp` |
+| `roof4.png` 629 x 140 | same image as the frame | roof, three-piece x 120 to 509 | 30 tall | `frontend/assets/skins/shadow_paper/end/roof.webp` |
+| `post4-l.png` 79 x 147, `post4-r.png` 81 x 148 | same image as the frame | the posts | 15 wide | `frontend/assets/skins/shadow_paper/end/post_l.webp`, `frontend/assets/skins/shadow_paper/end/post_r.webp` |
+| `lantern.png` 677 x 1170 | round 3, generated | the lantern | 88 x 152 | `frontend/assets/skins/shadow_paper/end/lantern.webp` (264 x 456) |
+| `crow4-1.png` to `crow4-6.png` | round 4, generated (flat single-layer crows) | crows in the sky; five lift in reveal beat 4 | 22 to 104 wide | `frontend/assets/skins/shadow_paper/end/crow_1.webp` to `frontend/assets/skins/shadow_paper/end/crow_6.webp` |
+| `cobbles.png` 1467 x 816 | round 3, generated | the ground | full width | `frontend/assets/skins/shadow_paper/end/cobbles.webp` |
+| `marks-1.png` 430 x 430 | round 3, generated (blank wax seal) | "you" seal | 30 | `frontend/assets/skins/shadow_paper/end/seal.webp` (90 x 90) |
+| `marks-4.png` 382 x 482 | round 3, generated (mourning ribbon) | death mark | 24 to 34 | `frontend/assets/skins/shadow_paper/end/ribbon.webp` |
 
 **Drawn in code (no art):**
 - felt, grain and notices;
@@ -218,22 +218,22 @@ accepted by the owner as final art, or redrawn.
 The paper grain should be one small tileable texture made in code (a noise PNG), not generated.
 
 **The owner's rule: "ask before generating large batches of art."** The smallest set is **no new generation at
-all**: accept the nine kinds above as final art, shown to the owner on `sheet-final.png`. The one honest exception is
+all**: accept the nine kinds above as final art, shown to the owner on sheet-final.png. The one honest exception is
 `banner-red.png`. It was a recolour, and "a look is never a recolour or filter", so it became one new generated
 image: the same ribbon cut from dried-blood red paper. **Done: generated 23 Nov 2026 with the owner's yes, one
-image** (`PROVENANCE.md`); the old recolour is kept only for the record as `gen/banner-red-round4-recolour.png`. Folder
+image** (PROVENANCE.md); the old recolour is kept only for the record as gen/banner-red-round4-recolour.png. Folder
 `frontend/assets/skins/shadow_paper/end/`, listed in `pubspec.yaml`. The art contract test checks the sizes.
 
 ## 6. How each piece maps to a widget
 
-New code lives in `features/game/presentation/end/` (the screen), `features/game/domain/end_board.dart`
+New code lives in `frontend/lib/features/game/presentation/end` (the screen), `frontend/lib/features/game/domain/end_board.dart`
 (layout, pure Dart, no Flutter), `end_banner.dart` (copy) and `end_story.dart` (What happened, from `NightTimeline`).
 Reuse the existing domain where it already does the job: `GameOutcome`, `outcome_view.dart` (`EndSeat`,
 `Winners`, `NightLine`) and `night_timeline.dart`.
 
 | Piece | Widget |
 |---|---|
-| Sky (dawn and night) | `LayeredArt` with `LayeredSceneId.dawnGallows`. At night, cross-fade a night tint and lay `night_village/moon` over it (`SceneLayer`) |
+| Sky (dawn and night) | `LayeredArt` with `LayeredSceneId.dawnGallows`. At night, cross-fade a night tint and lay night_village/moon over it (`SceneLayer`) |
 | Banner | `OverflowBox` + `Image.asset(centerSlice: …)` (a three-piece slice is a nine-slice whose middle runs the full height) + `Text` 24 |
 | Board frame, roof | `Image.asset(centerSlice: …)` over a felt `DecoratedBox` (colour + tiled grain `ImageShader`) |
 | Lantern, glow, pool, vignette | `Image` + `DecoratedBox(RadialGradient)`. The pool is a `CustomPaint` with `BlendMode.screen` |
@@ -267,16 +267,16 @@ deaths and why, every vote, the middle cards, the night and every sigil. No serv
 
 ## 8. Motion
 
-Tokens are from `docs/design/feel.md` section 2 (`Motion` in `design_system/layout/space.dart`). No literal
+Tokens are from `docs/design/feel.md` section 2 (`Motion` in `frontend/lib/design_system/layout/space.dart`). No literal
 durations.
 
-### The reveal, in place (`png/2-reveal-1` to `-5`)
+### The reveal, in place (png/2-reveal-1 to `-5`)
 
 It plays once, when the results arrive while this phone is in the game (the phase change to `results`). A phone that
 opens or restarts in the results phase shows the settled board at once. Nothing is kept on the device: this replaces
 `StepRecord.wonPrefix`.
 
-As built (piece 3 and its fixing pass): the timeline is `revealOf` in `features/game/domain/end_reveal.dart`, pure and
+As built (piece 3 and its fixing pass): the timeline is `revealOf` in `frontend/lib/features/game/domain/end_reveal.dart`, pure and
 tested on every recorded sample; the widgets read it off one clock.
 
 | Beat | What moves | Tokens |
@@ -307,9 +307,9 @@ tested on every recorded sample; the widgets read it off one clock.
   first frame (the owner's ruling), where the mock moved them to their rows at the end.
 
 
-### What happened, on the board (`png/3-what-1` to `-5`)
+### What happened, on the board (png/3-what-1 to `-5`)
 
-As built (piece 4 and its fixing pass): the steps are `endStoryOf` in `features/game/domain/end_story.dart`, pure and
+As built (piece 4 and its fixing pass): the steps are `endStoryOf` in `frontend/lib/features/game/domain/end_story.dart`, pure and
 tested on every recorded sample; `EndNight` steps through them. Calm, one thing at a time. Where the build differs from
 the round's mock, on purpose (the owner rejected busier designs; the fixing pass's decisions win):
 
@@ -324,7 +324,7 @@ the round's mock, on purpose (the owner rejected busier designs; the fixing pass
   scrap is still offered (the deal against the result shows who ended up with what).
 - **Every card the step is about is whole on screen before it plays** (name included), on every board, phone and text
   size. On a board that scrolls the step's cards are centred in the window (`nightViewOf`,
-  `features/game/domain/end_night_view.dart`, pure); the deal brings the board to its top with "you" in view. Where
+  `frontend/lib/features/game/domain/end_night_view.dart`, pure); the deal brings the board to its top with "you" in view. Where
   the step's cards cannot all be in the window together (a tall board, large text), the one who acted is, and each
   other card is lifted from its seat to the window's nearest edge, in front, for that step. At night the board may
   scroll a little further, so its lowest card stands above the foot's lip. `end_night_sweep_test.dart` fails when any
@@ -341,13 +341,13 @@ the round's mock, on purpose (the owner rejected busier designs; the fixing pass
   that crosses no card or name (`end_night_foot.dart`); the board stands with the one who acted as the lowest card in
   view where the window allows (`nightStandOf`). The step's banner line is the same in every form.
 - **Links** (owner, 24 Nov 2026: "The links are not at all polished there are breaks."): one part, `CardLink`
-  (`design_system/primitives/card_link.dart`), given the two cards as they lie (turned, lifted). It is tied ON each
+  (`frontend/lib/design_system/primitives/card_link.dart`), given the two cards as they lie (turned, lifted). It is tied ON each
   card's edge where the two face each other, never under a seal, and bends gently, more only as needed to clear every
   other card, seal and the lantern, inside the board's window. A take and a swap are solid with a head at both ends
   (each card received the other's); a look (a copy too) is gapped with a dot at the card seen; a team is gapped with a
   dot at each end. A move's link too short for its two heads bows out. Where no clean link exists, the far card is
   lifted beside the near one for the step (`nightStepOf`). It draws in on the step's clock (a tap finishes it). The
-  sweep (`end_night_sweep_test.dart`, `test/helpers/end_links.dart`) holds it on every recorded night and ten players
+  sweep (`end_night_sweep_test.dart`, `frontend/test/helpers/end_links.dart`) holds it on every recorded night and ten players
   at 360 x 640, 360 x 780, 390 x 844 and 412 x 915, text 1.0, 1.3, 1.6: both ends on the right cards' edges (within a
   point), the path in the window (down over the foot to a middle card kept there), off its own cards, across no other card or seal (a card the step lifted a card over
   is under the step; where the step's cards cannot lie apart at all, only the ends are judged), the ends right for
@@ -369,7 +369,7 @@ the round's mock, on purpose (the owner rejected busier designs; the fixing pass
   the sky plate and the hills and roofs (the dawn sky's slot), over the night's ground; a lighter veil lies over the
   whole sky; the felt takes the moon's cool wash (`PaperParts.nightFeltReach`); the lantern goes dark.
 
-**The lines** (one function, `StoryCopy.line` in `design_system/copy/end_copy.dart`, a part of `copy.dart`; every form
+**The lines** (one function, `StoryCopy.line` in `frontend/lib/design_system/copy/end_copy.dart`, a part of `copy.dart`; every form
 tested in `story_copy_test.dart`): each leads with the role and ends with what came of it.
 
 - "The cards as dealt."
@@ -440,7 +440,7 @@ up to the point where a name would no longer fit a slot; past it, rows of one ca
   - `2-reveal-1` to `-5`;
   - `3-what-1` to `-5`;
   - `0-anatomy`.
-- `audit.txt`, per phone:
+- audit.txt, per phone:
   - only sizes 12, 16 and 24;
   - one amber control on the host's phones and none on the guest's;
   - lowest contrast 4.71 on what is really behind the text;

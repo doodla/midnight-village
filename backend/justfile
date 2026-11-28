@@ -12,7 +12,19 @@ set fallback := true
 set dotenv-load
 
 # Default recipe: run all quality checks
-default: check
+default: check-backend
+
+# --- Renamed: one name means one thing everywhere ---
+# An old name fails here, never falls back to the root's recipe of that name.
+# The group is the rename table: test_gate_full.py reads it.
+
+[private, no-exit-message, group('renamed')]
+check *args:
+    @echo "renamed: just check-backend" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+test *args:
+    @echo "renamed: just test-backend" >&2; exit 1
 
 # --- Setup ---
 
@@ -86,10 +98,12 @@ _env:
 # has its own database (config/test_database.py). With arguments it runs as given, in
 # one process.
 
-# Run all tests (and the migration tests when no arguments are given)
-test *args: _env
-    ../tool/heavy.py -- uv run pytest {{ if args == "" { "-n auto" } else { args } }}
-    {{ if args == "" { "just test-migrations" } else { "true" } }}
+# The backend's tests (and the migration tests when no arguments are given). With
+# arguments (one file, -k, -v) only those, without the 80% coverage floor, which a part
+# of the suite can never reach: `just test-backend tests/onuw/test_x.py`.
+test-backend *args: _env
+    ../tool/heavy.py -- uv run pytest {{ if args == "" { "-n auto" } else { "--no-cov " + args } }}
+    @{{ if args == "" { "just test-migrations" } else { "true" } }}
 
 # Every test on every core, no coverage report: the quick answer while building
 # (`just piece-check` at the root uses it)
@@ -177,8 +191,9 @@ typecheck:
 migrations-check:
     DJANGO_SETTINGS_MODULE=config.settings.test uv run python manage.py makemigrations --check --dry-run
 
-# Run all quality checks (lint, format check, typecheck, migrations match models)
-check: lint format-check typecheck migrations-check
+# The backend's own quality checks (lint, format check, typecheck, migrations match
+# models): the first step of the root `just check`, which is what `just check` runs here too.
+check-backend: lint format-check typecheck migrations-check
 
 # Run all quality checks and fix what can be fixed
 fix: lint-fix format

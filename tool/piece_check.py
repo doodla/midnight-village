@@ -232,11 +232,11 @@ def plan(
     if frontend or samples:
         if frontend:
             steps.append(("analyze", "frontend", ["just", "analyze"]))
-            steps.append(("format", "frontend", ["just", "format-check"]))
+            steps.append(("format", "frontend", ["just", "flutter-format-check"]))
         tests, why_all = frontend_tests(changed, everything)
         if why_all:
             steps.append(
-                (f"all frontend tests ({why_all})", "frontend", ["just", "test"])
+                (f"all frontend tests ({why_all})", "frontend", ["just", "flutter-test"])
             )
         elif tests:
             steps.append(

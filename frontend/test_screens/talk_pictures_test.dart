@@ -2,7 +2,7 @@
 // players with none, some and this phone ready, My night held, three and ten
 // players, a short phone, text 1.6 and the host's phone, each a recorded
 // `/me/` at 360 x 780 (the mocks' size) at 2x. Run it with `just
-// talk-pictures`; it is not part of `just test`. `just contact-sheet
+// talk-pictures`; it is not part of `just flutter-test`. `just contact-sheet
 // <folder>` makes one sheet.
 
 import 'dart:io';
