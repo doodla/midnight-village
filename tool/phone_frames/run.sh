@@ -14,6 +14,10 @@
 # Not in the required checks: it needs Chrome, a web build and a few minutes.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
+case " $* " in
+  # The moments, from the script itself: nothing to build or serve.
+  *" --list "*) exec python3 "$root/tool/phone_frames/script.py" ;;
+esac
 front=${PHONE_FRAMES_FRONTEND:-$root/frontend}
 free() { python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'; }
 # The backend's own port, a free one, so two runs never meet on one backend

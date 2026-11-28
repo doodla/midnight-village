@@ -151,9 +151,15 @@ test-integration:
 test-contract:
     {{backend_just}} test-contract
 
-# A whole game on a slowed phone (release web build, Chrome, CPU 4x): every screen, transition and tap against budgets; own backend. About 15 minutes. Usage: just phone-frames [--cpu 1|2|4] [--out f.json] [--perf dir] (the app's own ?perf=1 readout beside it: strip.png, sheet.png, report.txt, compare.txt)
+# A whole game on a slowed phone (release web build, Chrome, CPU 4x): every screen, transition and tap, budgets reported; own backend; every slot of the heavy queue. About 4 minutes a game. Exit 0 measured, 3 a step lost (said), 2 not played. Usage: just phone-frames [--cpu 1|2|4] [--games 1-3] [--moments a,b] [--out f.json] [--perf dir] (the app's own ?perf=1 readout beside it) | --list
+[positional-arguments]
 phone-frames *args:
-    tool/heavy.py -- tool/phone_frames/run.sh {{args}}
+    tool/heavy.py --alone --name phone-frames -- tool/phone_frames/run.sh "$@"
+
+# Is a change faster or slower on a phone? <base> against <head> (default: this tree), alternated, N runs a side, one command holding every slot of the heavy queue: per moment better / level / worse with each side's median and range, a sentence for the owner, verdict.json beside it. Exit 0 when measured, whatever the verdict. Usage: just speed-verdict origin/main [<head>] [--moments a,b] [--runs N] | just speed-verdict --list
+[positional-arguments]
+speed-verdict *args:
+    @python3 tool/phone_frames/speed_verdict.py "$@"
 
 # The live server's round trips and socket events, with three throwaway guests at one throwaway table (read-mostly, no load)
 phone-frames-live *args:

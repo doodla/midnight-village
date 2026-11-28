@@ -19,8 +19,6 @@ import base64
 import io
 import time
 
-from PIL import Image, ImageChops
-
 RECORDER = r"""
 (() => {
   const R = window.__pf = {frames: [], loaf: [], lt: [], first: null, want: null,
@@ -124,10 +122,12 @@ class Page:
             self.requests.append((req.url, req.method, start, end))
 
         self.inflight = 0
+        self.sent = []  # (url, method, epoch s) as each request leaves
 
         def sent(req):
             if "/api/" in req.url:
                 self.inflight += 1
+                self.sent.append((req.url, req.method, time.time()))
 
         def over(req):
             if "/api/" in req.url:
@@ -188,8 +188,10 @@ class Page:
             if before and after:
                 base, cur = _img(before[-1][1]), _img(after[-1][1])
                 if base.size == cur.size:
-                    diff = ImageChops.difference(base, cur).point(
-                        lambda v: 255 if v > 24 else 0
+                    diff = (
+                        _chops()
+                        .difference(base, cur)
+                        .point(lambda v: 255 if v > 24 else 0)
                     )
                     if diff.histogram()[255] / (cur.size[0] * cur.size[1]) > share:
                         return True
@@ -206,6 +208,18 @@ class Page:
             "Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []}
         )
 
+    async def base(self):
+        """A picture of the screen before the finger, when the screencast sent none: a
+        still screen sends no frame, and without one every change after the touch was
+        measured from the first change on (the second visible change was reported as
+        the first), and a wait for a new screen could never end. Returns which it is."""
+        if self.shots:
+            return "screencast"
+        t = time.time()
+        shot = await self.page.screenshot(type="jpeg", quality=60, scale="css")
+        self.shots.append((t, shot))
+        return "screenshot"
+
     async def screencast(self, on):
         if on:
             self.shots = []
@@ -218,7 +232,15 @@ class Page:
 
 
 def _img(jpeg):
+    from PIL import Image  # here: the rest of the tool runs without Pillow
+
     return Image.open(io.BytesIO(jpeg)).convert("L")
+
+
+def _chops():
+    from PIL import ImageChops
+
+    return ImageChops
 
 
 def changes(shots, since, box=None, scale=1.0, threshold=24):
@@ -238,7 +260,7 @@ def changes(shots, since, box=None, scale=1.0, threshold=24):
         cur = _img(jpeg)
         if cur.size != prev.size:
             prev = prev.resize(cur.size)
-        diff = ImageChops.difference(cur, prev)
+        diff = _chops().difference(cur, prev)
         if box:
             k = cur.size[0] / 412 * scale
             diff = diff.crop(

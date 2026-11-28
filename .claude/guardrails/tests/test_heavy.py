@@ -372,7 +372,11 @@ class EveryHeavyRecipeUsesIt(unittest.TestCase):
             self.assertIn("heavy.wrap(", (ROOT / "tool" / tool).read_text(), tool)
         root = (ROOT / "justfile").read_text()
         self.assertRegex(root, r"(?m)^heavy \*args:\n    @tool/heavy\.py \{\{args\}\}")
-        self.assertIn("tool/heavy.py -- tool/phone_frames/run.sh", root)
+        # A speed measurement holds every slot: a test suite beside it skews its numbers.
+        self.assertIn(
+            "tool/heavy.py --alone --name phone-frames -- tool/phone_frames/run.sh",
+            root,
+        )
 
 
 class NothingStartsABackendItDoesNotStop(unittest.TestCase):
