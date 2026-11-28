@@ -95,7 +95,7 @@ There is one game flow: the screens read one model and one table.
   What each phone asks in a whole game is counted by `requests_per_game_test.dart` against `request_budget.json` (main's numbers kept as `before`).
   The game's socket opening (its first "connected": nothing said before it listened was heard) or coming back, and app resume (`appResumesProvider`), fetch
   both; after a stage's deadline, by the server's clock
-  (the last answer's `Date` plus the time since; the phone's clock only when no `Date` is readable, and then only to time a fetch), one fetch, then one every
+  (`ServerClock`: the highest `Date` or `stage_started_at` heard, never moved back), one fetch, then one every
   `HealTiming.poll` while the stage is unchanged;
   `/me/table/` and `/me/` are each fetched again when the other is ahead.
   The state is set only when it differs (`LiveGameNotifier._set`; `LiveGame`, `GameMe` (by the body it was read from) and `Outbox` compare by value):
