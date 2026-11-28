@@ -80,6 +80,10 @@ SOCKET_EVENTS = frozenset(
         "player_presence",
         "progress",
         "vote_reveal",
+        # a player's own view as a stage opens, and the heartbeat's frame
+        # (which the phone swallows: it never names it, but the server sends it)
+        "me",
+        "beat",
         # the recorder's word for a message with no type it knows
         "message",
     }
