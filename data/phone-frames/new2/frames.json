@@ -1,0 +1,1118 @@
+{
+ "cpu": 4,
+ "net": {
+  "latency": 150,
+  "down": 1125000.0,
+  "up": 375000.0
+ },
+ "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+ "budgets": {
+  "tap_first_ms": 100,
+  "tap_final_ms": 1000,
+  "worst_frame_ms": 100,
+  "over16_share": 0.1,
+  "rest_longtask_ms_per_s": 100,
+  "content_ms": 1500,
+  "first_content_ms": 4000
+ },
+ "rows": [
+  {
+   "name": "first screen by a link (join)",
+   "kind": "transition",
+   "seconds": 28.64,
+   "frames": 362,
+   "over16": 48,
+   "over50": 48,
+   "worst_ms": 2567.7,
+   "frame_ms_median": 0.5,
+   "longtasks": 50,
+   "longtask_ms": 11373,
+   "loaf": 49,
+   "loaf_worst_ms": 2532,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 7930,
+    "user-callback:TimerHandler:setTimeout": 2283,
+    "classic-script:http://127.0.0.1:45839/main.dart.js": 297
+   },
+   "content_ms": 10438,
+   "note": {
+    "first_frame": 8385,
+    "main_js": 5018,
+    "canvaskit_wasm": 3559,
+    "loaf": "on"
+   }
+  },
+  {
+   "name": "join screen",
+   "kind": "screen",
+   "seconds": 3.01,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 200.6,
+   "frame_ms_median": 185.6,
+   "longtasks": 6,
+   "longtask_ms": 1116,
+   "loaf": 6,
+   "loaf_worst_ms": 193,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1059
+   }
+  },
+  {
+   "name": "Join (by link) -> 02",
+   "kind": "tap",
+   "seconds": 27.26,
+   "frames": 58,
+   "over16": 58,
+   "over50": 58,
+   "worst_ms": 635.6,
+   "frame_ms_median": 177.8,
+   "longtasks": 58,
+   "longtask_ms": 10483,
+   "loaf": 58,
+   "loaf_worst_ms": 259,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 9997,
+    "event-listener:DOMWindow.onpointerup": 38,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 22
+   },
+   "tap": {
+    "control": "Join",
+    "held_ms": 70,
+    "first_ms": 262,
+    "first_anywhere_ms": 262,
+    "final_ms": 896,
+    "server_ms": null,
+    "requests": [],
+    "steps": [
+     [
+      896,
+      0.032
+     ]
+    ],
+    "before_server": "no request"
+   }
+  },
+  {
+   "name": "02 table as a guest",
+   "kind": "screen",
+   "seconds": 3.01,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 214.1,
+   "frame_ms_median": 185.5,
+   "longtasks": 6,
+   "longtask_ms": 1106,
+   "loaf": 6,
+   "loaf_worst_ms": 204,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1046
+   }
+  },
+  {
+   "name": "first screen 01 (cold)",
+   "kind": "transition",
+   "seconds": 28.67,
+   "frames": 366,
+   "over16": 47,
+   "over50": 47,
+   "worst_ms": 2880.3,
+   "frame_ms_median": 0.5,
+   "longtasks": 48,
+   "longtask_ms": 12643,
+   "loaf": 47,
+   "loaf_worst_ms": 2488,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 9459,
+    "user-callback:TimerHandler:setTimeout": 2001,
+    "classic-script:http://127.0.0.1:45839/main.dart.js": 321
+   },
+   "content_ms": 10402,
+   "note": {
+    "first_frame": 8260,
+    "main_js": 5014,
+    "canvaskit_wasm": 3559,
+    "loaf": "on"
+   }
+  },
+  {
+   "name": "01 first screen",
+   "kind": "screen",
+   "seconds": 3.01,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 271.6,
+   "frame_ms_median": 224.8,
+   "longtasks": 6,
+   "longtask_ms": 1384,
+   "loaf": 6,
+   "loaf_worst_ms": 264,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1328
+   }
+  },
+  {
+   "name": "Start a table -> 02",
+   "kind": "tap",
+   "seconds": 3.79,
+   "frames": 11,
+   "over16": 11,
+   "over50": 11,
+   "worst_ms": 857.1,
+   "frame_ms_median": 282.7,
+   "longtasks": 11,
+   "longtask_ms": 3479,
+   "loaf": 12,
+   "loaf_worst_ms": 848,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 4013,
+    "user-callback:TimerHandler:setTimeout": 68,
+    "event-listener:DOMWindow.onpointerup": 43
+   },
+   "tap": {
+    "control": "Start a table",
+    "held_ms": 70,
+    "first_ms": 335,
+    "first_anywhere_ms": 335,
+    "final_ms": 3702,
+    "server_ms": 768,
+    "requests": [
+     "POST /auth/guest/ 601+166 ms",
+     "POST /lobbies/ 1443+165 ms",
+     "GET /onuw/me/recent-games/ 1725+171 ms",
+     "GET /me/table/ 1725+172 ms"
+    ],
+    "steps": [
+     [
+      1202,
+      0.065
+     ],
+     [
+      3702,
+      0.61
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "02 table, alone",
+   "kind": "screen",
+   "seconds": 3.01,
+   "frames": 0,
+   "over16": 0,
+   "over50": 0,
+   "worst_ms": 0,
+   "frame_ms_median": 0,
+   "longtasks": 0,
+   "longtask_ms": 0,
+   "loaf": 0,
+   "loaf_worst_ms": 0,
+   "loaf_scripts": {}
+  },
+  {
+   "name": "02 Bea joins (socket)",
+   "kind": "transition",
+   "seconds": 30.08,
+   "frames": 2,
+   "over16": 2,
+   "over50": 2,
+   "worst_ms": 617.2,
+   "frame_ms_median": 617.2,
+   "longtasks": 2,
+   "longtask_ms": 923,
+   "loaf": 2,
+   "loaf_worst_ms": 604,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 905,
+    "event-listener:DOMWebSocket.onmessage": 6
+   },
+   "content_ms": 683
+  },
+  {
+   "name": "02 Cal joins (socket)",
+   "kind": "transition",
+   "seconds": 1.6,
+   "frames": 3,
+   "over16": 3,
+   "over50": 3,
+   "worst_ms": 669.8,
+   "frame_ms_median": 423.8,
+   "longtasks": 3,
+   "longtask_ms": 1484,
+   "loaf": 3,
+   "loaf_worst_ms": 649,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1446,
+    "event-listener:DOMWebSocket.onmessage": 14
+   },
+   "content_ms": 1149
+  },
+  {
+   "name": "02 Dan joins (socket)",
+   "kind": "transition",
+   "seconds": 30.12,
+   "frames": 2,
+   "over16": 2,
+   "over50": 2,
+   "worst_ms": 635.1,
+   "frame_ms_median": 635.1,
+   "longtasks": 2,
+   "longtask_ms": 1100,
+   "loaf": 2,
+   "loaf_worst_ms": 619,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1076
+   },
+   "content_ms": 715
+  },
+  {
+   "name": "02 table, four seated",
+   "kind": "screen",
+   "seconds": 3.01,
+   "frames": 0,
+   "over16": 0,
+   "over50": 0,
+   "worst_ms": 0,
+   "frame_ms_median": 0,
+   "longtasks": 0,
+   "longtask_ms": 0,
+   "loaf": 0,
+   "loaf_worst_ms": 0,
+   "loaf_scripts": {}
+  },
+  {
+   "name": "Edit -> 03 set-up",
+   "kind": "tap",
+   "seconds": 4.3,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 1183.2,
+   "frame_ms_median": 944,
+   "longtasks": 6,
+   "longtask_ms": 4046,
+   "loaf": 6,
+   "loaf_worst_ms": 1188,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3990,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 11,
+    "event-listener:DOMWindow.onpointerup": 7
+   },
+   "tap": {
+    "control": "Edit\nTalk 5 min\nEdit",
+    "held_ms": 70,
+    "first_ms": 506,
+    "first_anywhere_ms": 506,
+    "final_ms": 4089,
+    "server_ms": 4256,
+    "requests": [
+     "GET /me/table/ 4096+159 ms"
+    ],
+    "steps": [
+     [
+      4089,
+      0.466
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "03 set-up",
+   "kind": "screen",
+   "seconds": 3.01,
+   "frames": 0,
+   "over16": 0,
+   "over50": 0,
+   "worst_ms": 0,
+   "frame_ms_median": 0,
+   "longtasks": 0,
+   "longtask_ms": 0,
+   "loaf": 0,
+   "loaf_worst_ms": 0,
+   "loaf_scripts": {}
+  },
+  {
+   "name": "03 add a Minion",
+   "kind": "tap",
+   "seconds": 3.07,
+   "frames": 5,
+   "over16": 5,
+   "over50": 5,
+   "worst_ms": 1822.5,
+   "frame_ms_median": 695.9,
+   "longtasks": 5,
+   "longtask_ms": 2996,
+   "loaf": 6,
+   "loaf_worst_ms": 797,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3659,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 19,
+    "event-listener:DOMWindow.onpointerup": 13
+   },
+   "tap": {
+    "control": "Minion",
+    "held_ms": 70,
+    "first_ms": 537,
+    "first_anywhere_ms": 1871,
+    "final_ms": 1871,
+    "server_ms": 1244,
+    "requests": [
+     "PATCH /lobbies/S3YYYH/ 1076+167 ms"
+    ],
+    "steps": [
+     [
+      1871,
+      0.282
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "03 take it out",
+   "kind": "tap",
+   "seconds": 2.25,
+   "frames": 4,
+   "over16": 4,
+   "over50": 4,
+   "worst_ms": 1205.3,
+   "frame_ms_median": 736,
+   "longtasks": 4,
+   "longtask_ms": 2198,
+   "loaf": 5,
+   "loaf_worst_ms": 898,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3048,
+    "event-listener:DOMWindow.onpointerup": 11,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 8
+   },
+   "tap": {
+    "control": "Take one Minion out",
+    "held_ms": 70,
+    "first_ms": 492,
+    "first_anywhere_ms": 1709,
+    "final_ms": 1709,
+    "server_ms": 1127,
+    "requests": [
+     "PATCH /lobbies/S3YYYH/ 959+168 ms"
+    ],
+    "steps": [],
+    "before_server": true
+   }
+  },
+  {
+   "name": "Done -> 02",
+   "kind": "tap",
+   "seconds": 4.0,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 1555.9,
+   "frame_ms_median": 949.4,
+   "longtasks": 6,
+   "longtask_ms": 3740,
+   "loaf": 6,
+   "loaf_worst_ms": 1075,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3676,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 9,
+    "event-listener:DOMWindow.onpointerup": 7
+   },
+   "tap": {
+    "control": "Done",
+    "held_ms": 70,
+    "first_ms": 571,
+    "first_anywhere_ms": 571,
+    "final_ms": 3787,
+    "server_ms": 3970,
+    "requests": [
+     "GET /me/table/ 3804+166 ms"
+    ],
+    "steps": [
+     [
+      3787,
+      0.472
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: Start the game -> deal -> 04",
+   "kind": "tap",
+   "seconds": 6.64,
+   "frames": 11,
+   "over16": 11,
+   "over50": 11,
+   "worst_ms": 910.1,
+   "frame_ms_median": 635,
+   "longtasks": 11,
+   "longtask_ms": 6430,
+   "loaf": 12,
+   "loaf_worst_ms": 897,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 6921,
+    "event-listener:DOMWindow.onpointerup": 25,
+    "event-listener:DOMWebSocket.onmessage": 25
+   },
+   "tap": {
+    "control": "Start the game",
+    "held_ms": 70,
+    "first_ms": 529,
+    "first_anywhere_ms": 12,
+    "final_ms": 5228,
+    "server_ms": 1183,
+    "requests": [
+     "POST /onuw/lobbies/S3YYYH/start/ 1014+169 ms",
+     "GET /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/me/ 1738+161 ms",
+     "GET /me/table/ 3014+161 ms",
+     "GET /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/me/ 4332+159 ms"
+    ],
+    "steps": [
+     [
+      3912,
+      0.406
+     ],
+     [
+      5228,
+      0.304
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: 04 your card",
+   "kind": "screen",
+   "seconds": 3.19,
+   "frames": 5,
+   "over16": 5,
+   "over50": 5,
+   "worst_ms": 665.9,
+   "frame_ms_median": 634.7,
+   "longtasks": 5,
+   "longtask_ms": 3168,
+   "loaf": 5,
+   "loaf_worst_ms": 658,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3153
+   }
+  },
+  {
+   "name": "g1 Drunk: 04 hold the card",
+   "kind": "tap",
+   "seconds": 6.55,
+   "frames": 12,
+   "over16": 12,
+   "over50": 12,
+   "worst_ms": 953.8,
+   "frame_ms_median": 559.6,
+   "longtasks": 12,
+   "longtask_ms": 6460,
+   "loaf": 11,
+   "loaf_worst_ms": 780,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 5856,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 12,
+    "event-listener:DOMWindow.onpointerup": 7
+   },
+   "tap": {
+    "control": "Your card, hidden. Activate to show. Hol",
+    "held_ms": 3500,
+    "first_ms": 1303,
+    "first_anywhere_ms": 1303,
+    "final_ms": 6003,
+    "server_ms": null,
+    "requests": [],
+    "steps": [
+     [
+      1303,
+      0.068
+     ],
+     [
+      1936,
+      0.071
+     ],
+     [
+      3136,
+      0.396
+     ],
+     [
+      4353,
+      0.05
+     ],
+     [
+      6003,
+      0.374
+     ]
+    ],
+    "before_server": "no request"
+   }
+  },
+  {
+   "name": "g1 Drunk: 04 Ready",
+   "kind": "tap",
+   "seconds": 3.45,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 1090.8,
+   "frame_ms_median": 618.1,
+   "longtasks": 6,
+   "longtask_ms": 3356,
+   "loaf": 6,
+   "loaf_worst_ms": 678,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3302,
+    "event-listener:DOMWindow.onpointerup": 15,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 9
+   },
+   "tap": {
+    "control": "Ready",
+    "held_ms": 70,
+    "first_ms": 596,
+    "first_anywhere_ms": 596,
+    "final_ms": 1679,
+    "server_ms": 1238,
+    "requests": [
+     "POST /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/ready/ 1074+164 ms",
+     "GET /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/me/ 1692+160 ms"
+    ],
+    "steps": [
+     [
+      1679,
+      0.049
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: 04 -> night (others ready)",
+   "kind": "transition",
+   "seconds": 3.87,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 870.4,
+   "frame_ms_median": 605.2,
+   "longtasks": 6,
+   "longtask_ms": 3564,
+   "loaf": 7,
+   "loaf_worst_ms": 862,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3981,
+    "user-callback:TimerHandler:setTimeout": 12
+   },
+   "content_ms": 3408
+  },
+  {
+   "name": "g1 Drunk: night Drunk",
+   "kind": "screen",
+   "seconds": 2.51,
+   "frames": 3,
+   "over16": 3,
+   "over50": 3,
+   "worst_ms": 581.3,
+   "frame_ms_median": 540.7,
+   "longtasks": 3,
+   "longtask_ms": 1653,
+   "loaf": 2,
+   "loaf_worst_ms": 574,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1094
+   }
+  },
+  {
+   "name": "g1 Drunk: night pick Left",
+   "kind": "tap",
+   "seconds": 3.4,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 1679.3,
+   "frame_ms_median": 653.5,
+   "longtasks": 6,
+   "longtask_ms": 3338,
+   "loaf": 6,
+   "loaf_worst_ms": 675,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3280
+   },
+   "tap": {
+    "control": "Left",
+    "held_ms": 70,
+    "first_ms": 491,
+    "first_anywhere_ms": 8,
+    "final_ms": 2158,
+    "server_ms": null,
+    "requests": [],
+    "steps": [
+     [
+      1608,
+      0.056
+     ],
+     [
+      2158,
+      0.064
+     ]
+    ],
+    "before_server": "no request"
+   }
+  },
+  {
+   "name": "g1 Drunk: night Swap",
+   "kind": "tap",
+   "seconds": 2.6,
+   "frames": 4,
+   "over16": 4,
+   "over50": 4,
+   "worst_ms": 1358.9,
+   "frame_ms_median": 717.7,
+   "longtasks": 4,
+   "longtask_ms": 2529,
+   "loaf": 5,
+   "loaf_worst_ms": 727,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 3000,
+    "event-listener:DOMWindow.onpointerup": 14,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 6
+   },
+   "tap": {
+    "control": "Swap with Left",
+    "held_ms": 70,
+    "first_ms": 605,
+    "first_anywhere_ms": 5,
+    "final_ms": 1972,
+    "server_ms": 1409,
+    "requests": [
+     "POST /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/action/ 1246+163 ms",
+     "GET /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/me/ 1982+164 ms",
+     "GET /me/table/ 2599+157 ms"
+    ],
+    "steps": [
+     [
+      1972,
+      0.046
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: night -> talk (window closes)",
+   "kind": "transition",
+   "seconds": 1.37,
+   "frames": 3,
+   "over16": 3,
+   "over50": 3,
+   "worst_ms": 480.9,
+   "frame_ms_median": 462.9,
+   "longtasks": 3,
+   "longtask_ms": 1308,
+   "loaf": 2,
+   "loaf_worst_ms": 480,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 845
+   },
+   "content_ms": 460
+  },
+  {
+   "name": "g1 Drunk: 08 talk",
+   "kind": "screen",
+   "seconds": 4.01,
+   "frames": 4,
+   "over16": 4,
+   "over50": 4,
+   "worst_ms": 384.9,
+   "frame_ms_median": 363.9,
+   "longtasks": 4,
+   "longtask_ms": 1393,
+   "loaf": 4,
+   "loaf_worst_ms": 375,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1354
+   }
+  },
+  {
+   "name": "g1 Drunk: 08 hold My night",
+   "kind": "tap",
+   "seconds": 2.36,
+   "frames": 4,
+   "over16": 4,
+   "over50": 4,
+   "worst_ms": 550,
+   "frame_ms_median": 348.2,
+   "longtasks": 4,
+   "longtask_ms": 1449,
+   "loaf": 4,
+   "loaf_worst_ms": 552,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 1411,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 7
+   },
+   "tap": {
+    "control": "My night, hidden. Activate to show.",
+    "held_ms": 1500,
+    "first_ms": 573,
+    "first_anywhere_ms": 6,
+    "final_ms": 1006,
+    "server_ms": null,
+    "requests": [],
+    "steps": [
+     [
+      573,
+      0.229
+     ],
+     [
+      1006,
+      0.058
+     ]
+    ],
+    "before_server": "no request"
+   }
+  },
+  {
+   "name": "g1 Drunk: 08 Ready to vote",
+   "kind": "tap",
+   "seconds": 2.59,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 1180.2,
+   "frame_ms_median": 408.3,
+   "longtasks": 6,
+   "longtask_ms": 2286,
+   "loaf": 6,
+   "loaf_worst_ms": 441,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 2228,
+    "event-listener:FLUTTER-VIEW.onpointerdown": 15,
+    "event-listener:DOMWindow.onpointerup": 14
+   },
+   "tap": {
+    "control": "Ready to vote 0 of 4 ready",
+    "held_ms": 70,
+    "first_ms": 467,
+    "first_anywhere_ms": 467,
+    "final_ms": 1550,
+    "server_ms": 963,
+    "requests": [
+     "POST /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/ready/ 801+162 ms",
+     "GET /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/me/ 1220+158 ms"
+    ],
+    "steps": [
+     [
+      1217,
+      0.098
+     ],
+     [
+      1550,
+      0.035
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: 08 -> 09 vote (others ready)",
+   "kind": "transition",
+   "seconds": 3.02,
+   "frames": 7,
+   "over16": 7,
+   "over50": 7,
+   "worst_ms": 529,
+   "frame_ms_median": 327.2,
+   "longtasks": 7,
+   "longtask_ms": 2487,
+   "loaf": 7,
+   "loaf_worst_ms": 522,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 2418,
+    "user-callback:TimerHandler:setTimeout": 15
+   },
+   "content_ms": 1882
+  },
+  {
+   "name": "g1 Drunk: 09 vote",
+   "kind": "screen",
+   "seconds": 3.0,
+   "frames": 3,
+   "over16": 3,
+   "over50": 3,
+   "worst_ms": 324.7,
+   "frame_ms_median": 299.1,
+   "longtasks": 3,
+   "longtask_ms": 898,
+   "loaf": 3,
+   "loaf_worst_ms": 317,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 868
+   }
+  },
+  {
+   "name": "g1 Drunk: 09 pick Bea",
+   "kind": "tap",
+   "seconds": 2.47,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 770.8,
+   "frame_ms_median": 401.4,
+   "longtasks": 6,
+   "longtask_ms": 2067,
+   "loaf": 6,
+   "loaf_worst_ms": 447,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 2006,
+    "event-listener:DOMWindow.onpointerup": 27
+   },
+   "tap": {
+    "control": "Bea",
+    "held_ms": 70,
+    "first_ms": 331,
+    "first_anywhere_ms": 331,
+    "final_ms": 1414,
+    "server_ms": 833,
+    "requests": [
+     "POST /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/vote/ 668+165 ms"
+    ],
+    "steps": [
+     [
+      1098,
+      0.055
+     ],
+     [
+      1414,
+      0.033
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: 09 Lock in",
+   "kind": "tap",
+   "seconds": 3.37,
+   "frames": 7,
+   "over16": 7,
+   "over50": 7,
+   "worst_ms": 789.7,
+   "frame_ms_median": 449.6,
+   "longtasks": 7,
+   "longtask_ms": 2849,
+   "loaf": 7,
+   "loaf_worst_ms": 472,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 2781,
+    "event-listener:DOMWindow.onpointerup": 16,
+    "event-listener:DOMWebSocket.onmessage": 9
+   },
+   "tap": {
+    "control": "Lock in Bea 0 of 4 locked",
+    "held_ms": 70,
+    "first_ms": 393,
+    "first_anywhere_ms": 10,
+    "final_ms": 1660,
+    "server_ms": 893,
+    "requests": [
+     "POST /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/vote/ 730+162 ms",
+     "GET /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/me/ 1195+159 ms"
+    ],
+    "steps": [
+     [
+      1193,
+      0.172
+     ],
+     [
+      1660,
+      0.038
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: 09 -> end board reveal",
+   "kind": "transition",
+   "seconds": 2.45,
+   "frames": 7,
+   "over16": 7,
+   "over50": 7,
+   "worst_ms": 503.2,
+   "frame_ms_median": 340.5,
+   "longtasks": 7,
+   "longtask_ms": 2109,
+   "loaf": 8,
+   "loaf_worst_ms": 769,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 2789,
+    "user-callback:TimerHandler:setTimeout": 43
+   },
+   "content_ms": 1735
+  },
+  {
+   "name": "g1 Drunk: 12 end board",
+   "kind": "screen",
+   "seconds": 3.01,
+   "frames": 6,
+   "over16": 6,
+   "over50": 6,
+   "worst_ms": 593.8,
+   "frame_ms_median": 555.7,
+   "longtasks": 6,
+   "longtask_ms": 2851,
+   "loaf": 5,
+   "loaf_worst_ms": 562,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 2248
+   }
+  },
+  {
+   "name": "g1 Drunk: Play again -> 02",
+   "kind": "tap",
+   "seconds": 5.2,
+   "frames": 11,
+   "over16": 11,
+   "over50": 11,
+   "worst_ms": 822,
+   "frame_ms_median": 430.2,
+   "longtasks": 11,
+   "longtask_ms": 4806,
+   "loaf": 11,
+   "loaf_worst_ms": 634,
+   "loaf_scripts": {
+    "user-callback:FrameRequestCallback": 4696,
+    "user-callback:TimerHandler:setTimeout": 16,
+    "event-listener:DOMWindow.onpointerup": 13
+   },
+   "tap": {
+    "control": "Play again",
+    "held_ms": 70,
+    "first_ms": 456,
+    "first_anywhere_ms": 456,
+    "final_ms": 4340,
+    "server_ms": 980,
+    "requests": [
+     "POST /lobbies/S3YYYH/play-again/ 808+172 ms",
+     "GET /onuw/games/bb84ed19-d084-4d2d-bbad-7b4226d33613/me/ 1281+163 ms",
+     "GET /me/table/ 1962+160 ms",
+     "GET /lobbies/S3YYYH/ 4356+163 ms"
+    ],
+    "steps": [
+     [
+      4340,
+      0.56
+     ]
+    ],
+    "before_server": true
+   }
+  },
+  {
+   "name": "g1 Drunk: 02 table again",
+   "kind": "screen",
+   "seconds": 2.01,
+   "frames": 0,
+   "over16": 0,
+   "over50": 0,
+   "worst_ms": 0,
+   "frame_ms_median": 0,
+   "longtasks": 0,
+   "longtask_ms": 0,
+   "loaf": 0,
+   "loaf_worst_ms": 0,
+   "loaf_scripts": {}
+  }
+ ],
+ "over": [
+  "transition first screen by a link (join): worst frame 2567.7 ms",
+  "transition first screen by a link (join): 48 of 362 frames over 16 ms",
+  "transition first screen by a link (join): content after 10438 ms",
+  "screen join screen: worst frame 200.6 ms",
+  "screen join screen: 371 ms of long tasks a second at rest",
+  "tap Join (by link) -> 02: worst frame 635.6 ms",
+  "tap Join (by link) -> 02: 58 of 58 frames over 16 ms",
+  "tap Join (by link) -> 02: first answer to the finger 262 ms",
+  "screen 02 table as a guest: worst frame 214.1 ms",
+  "screen 02 table as a guest: 367 ms of long tasks a second at rest",
+  "transition first screen 01 (cold): worst frame 2880.3 ms",
+  "transition first screen 01 (cold): 47 of 366 frames over 16 ms",
+  "transition first screen 01 (cold): content after 10402 ms",
+  "screen 01 first screen: worst frame 271.6 ms",
+  "screen 01 first screen: 460 ms of long tasks a second at rest",
+  "tap Start a table -> 02: worst frame 857.1 ms",
+  "tap Start a table -> 02: 11 of 11 frames over 16 ms",
+  "tap Start a table -> 02: first answer to the finger 335 ms",
+  "tap Start a table -> 02: final state 3702 ms",
+  "transition 02 Bea joins (socket): worst frame 617.2 ms",
+  "transition 02 Cal joins (socket): worst frame 669.8 ms",
+  "transition 02 Dan joins (socket): worst frame 635.1 ms",
+  "tap Edit -> 03 set-up: worst frame 1183.2 ms",
+  "tap Edit -> 03 set-up: first answer to the finger 506 ms",
+  "tap Edit -> 03 set-up: final state 4089 ms",
+  "tap 03 add a Minion: worst frame 1822.5 ms",
+  "tap 03 add a Minion: first answer to the finger 537 ms",
+  "tap 03 add a Minion: final state 1871 ms",
+  "tap 03 take it out: worst frame 1205.3 ms",
+  "tap 03 take it out: first answer to the finger 492 ms",
+  "tap 03 take it out: final state 1709 ms",
+  "tap Done -> 02: worst frame 1555.9 ms",
+  "tap Done -> 02: first answer to the finger 571 ms",
+  "tap Done -> 02: final state 3787 ms",
+  "tap g1 Drunk: Start the game -> deal -> 04: worst frame 910.1 ms",
+  "tap g1 Drunk: Start the game -> deal -> 04: 11 of 11 frames over 16 ms",
+  "tap g1 Drunk: Start the game -> deal -> 04: first answer to the finger 529 ms",
+  "tap g1 Drunk: Start the game -> deal -> 04: final state 5228 ms",
+  "screen g1 Drunk: 04 your card: worst frame 665.9 ms",
+  "screen g1 Drunk: 04 your card: 993 ms of long tasks a second at rest",
+  "tap g1 Drunk: 04 hold the card: worst frame 953.8 ms",
+  "tap g1 Drunk: 04 hold the card: 12 of 12 frames over 16 ms",
+  "tap g1 Drunk: 04 hold the card: first answer to the finger 1303 ms",
+  "tap g1 Drunk: 04 hold the card: final state 6003 ms",
+  "tap g1 Drunk: 04 Ready: worst frame 1090.8 ms",
+  "tap g1 Drunk: 04 Ready: first answer to the finger 596 ms",
+  "tap g1 Drunk: 04 Ready: final state 1679 ms",
+  "transition g1 Drunk: 04 -> night (others ready): worst frame 870.4 ms",
+  "transition g1 Drunk: 04 -> night (others ready): content after 3408 ms",
+  "screen g1 Drunk: night Drunk: worst frame 581.3 ms",
+  "screen g1 Drunk: night Drunk: 659 ms of long tasks a second at rest",
+  "tap g1 Drunk: night pick Left: worst frame 1679.3 ms",
+  "tap g1 Drunk: night pick Left: first answer to the finger 491 ms",
+  "tap g1 Drunk: night pick Left: final state 2158 ms",
+  "tap g1 Drunk: night Swap: worst frame 1358.9 ms",
+  "tap g1 Drunk: night Swap: first answer to the finger 605 ms",
+  "tap g1 Drunk: night Swap: final state 1972 ms",
+  "transition g1 Drunk: night -> talk (window closes): worst frame 480.9 ms",
+  "screen g1 Drunk: 08 talk: worst frame 384.9 ms",
+  "screen g1 Drunk: 08 talk: 347 ms of long tasks a second at rest",
+  "tap g1 Drunk: 08 hold My night: worst frame 550 ms",
+  "tap g1 Drunk: 08 hold My night: first answer to the finger 573 ms",
+  "tap g1 Drunk: 08 hold My night: final state 1006 ms",
+  "tap g1 Drunk: 08 Ready to vote: worst frame 1180.2 ms",
+  "tap g1 Drunk: 08 Ready to vote: first answer to the finger 467 ms",
+  "tap g1 Drunk: 08 Ready to vote: final state 1550 ms",
+  "transition g1 Drunk: 08 -> 09 vote (others ready): worst frame 529 ms",
+  "transition g1 Drunk: 08 -> 09 vote (others ready): content after 1882 ms",
+  "screen g1 Drunk: 09 vote: worst frame 324.7 ms",
+  "screen g1 Drunk: 09 vote: 299 ms of long tasks a second at rest",
+  "tap g1 Drunk: 09 pick Bea: worst frame 770.8 ms",
+  "tap g1 Drunk: 09 pick Bea: first answer to the finger 331 ms",
+  "tap g1 Drunk: 09 pick Bea: final state 1414 ms",
+  "tap g1 Drunk: 09 Lock in: worst frame 789.7 ms",
+  "tap g1 Drunk: 09 Lock in: first answer to the finger 393 ms",
+  "tap g1 Drunk: 09 Lock in: final state 1660 ms",
+  "transition g1 Drunk: 09 -> end board reveal: worst frame 503.2 ms",
+  "transition g1 Drunk: 09 -> end board reveal: content after 1735 ms",
+  "screen g1 Drunk: 12 end board: worst frame 593.8 ms",
+  "screen g1 Drunk: 12 end board: 947 ms of long tasks a second at rest",
+  "tap g1 Drunk: Play again -> 02: worst frame 822 ms",
+  "tap g1 Drunk: Play again -> 02: 11 of 11 frames over 16 ms",
+  "tap g1 Drunk: Play again -> 02: first answer to the finger 456 ms",
+  "tap g1 Drunk: Play again -> 02: final state 4340 ms"
+ ]
+}
