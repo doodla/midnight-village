@@ -457,6 +457,22 @@ SERVER_AUDIT: tuple[Break, ...] = (
         ),
     ),
     Break(
+        name="B9d_observe_imports_the_game_relatively",
+        promise="separate-game-apps",
+        why="the observe app imports the game's models by a relative import",
+        edits=(
+            Edit(
+                "backend/apps/observe/report.py",
+                "from .summary import ",
+                "from ..onuw.models import PlayerRole  # noqa: F401\nfrom .summary import ",
+            ),
+        ),
+        tests=(
+            "backend/tests/core/test_core_stays_game_agnostic.py::test_no_app_imports_a_game_app_but_its_own_game",
+        ),
+        expect="apps.observe imports apps.onuw.models",
+    ),
+    Break(
         name="B9c_a_low_layer_imports_up",
         promise="separate-game-apps",
         why="a low layer of the game imports the service, inside a function",
