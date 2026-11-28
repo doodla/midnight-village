@@ -127,6 +127,18 @@ class Plan(unittest.TestCase):
                 any("end-to-end harness" in s for s in self.names(path)), path
             )
 
+    def test_a_change_that_reaches_a_hold_runs_the_tap_hold_check(self):
+        """A quick touch taken for a hold shows only in a real browser: no widget
+        test sees Chrome keep a lift back. The parts' files come from the code."""
+        for path in (
+            "frontend/lib/design_system/primitives/finger_hold.dart",
+            "frontend/lib/features/lobby/presentation/deck_parts.dart",
+            "tool/tap_hold/check.py",
+        ):
+            self.assertTrue(any("tap/hold check" in s for s in self.names(path)), path)
+        for path in ("frontend/lib/x.dart", "docs/x.md"):
+            self.assertFalse(any("tap/hold check" in s for s in self.names(path)), path)
+
     def test_the_lines_the_description_needs_are_said_and_nothing_when_none_are(self):
         import importlib.util
 

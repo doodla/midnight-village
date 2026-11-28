@@ -32,6 +32,23 @@ class _Part {
 
 const _hold = Duration(milliseconds: 300);
 
+const _frame = Duration(milliseconds: 16);
+
+/// A finger down (10 s by its own clock) on a page then kept busy past the
+/// hold: the hold's timer runs 100 ms late, then the first frame after it.
+Future<TestPointer> _blockedPast(WidgetTester tester) async {
+  final finger = TestPointer(5);
+  final at = tester.getCenter(find.byType(RawGestureDetector));
+  await tester.sendEventToBinding(
+    finger.down(at, timeStamp: const Duration(seconds: 10)),
+  );
+  (tester.binding as AutomatedTestWidgetsFlutterBinding).elapseBlocking(
+    _hold + const Duration(milliseconds: 100),
+  );
+  await tester.pump(Duration.zero);
+  return finger;
+}
+
 /// A finger down at [downAt] and up at [upAt] by its own clock, handled by
 /// a phone too busy to run a timer in between: one late frame, and no time
 /// passes for the app.
@@ -113,6 +130,57 @@ void main() {
       await tester.pump();
 
       expect(part.taps, ['tap']);
+    });
+
+    testWidgets('on a page blocked across the hold a lift Chrome hands over '
+        'up to four frames after the block still makes a quick touch a tap', (
+      tester,
+    ) async {
+      // Measured in Chrome (`just tap-hold`, the busy rows): the lift reaches
+      // the page after at most three frames began after the block; one more
+      // for headroom.
+      final part = _Part();
+      await tester.pumpWidget(part.build());
+      final finger = await _blockedPast(tester);
+      for (var i = 1; i < FingerTimedLongPress.liftFrames; i++) {
+        await tester.pump(_frame);
+      }
+      expect(part.taps, isEmpty, reason: 'the timer has run, four frames too');
+      await tester.sendEventToBinding(
+        finger.up(timeStamp: const Duration(seconds: 10, milliseconds: 80)),
+      );
+      await tester.pump(_frame);
+
+      expect(part.taps, ['tap']);
+    });
+
+    testWidgets('on a page blocked across the hold a finger still down holds '
+        'four frames after the timer, never more', (tester) async {
+      final part = _Part();
+      await tester.pumpWidget(part.build());
+      final finger = await _blockedPast(tester);
+      for (var i = 0; i < FingerTimedLongPress.liftFrames; i++) {
+        expect(part.taps, isEmpty, reason: 'frame $i waits for a lift');
+        await tester.pump(_frame);
+      }
+      expect(part.taps, ['hold']);
+      await tester.sendEventToBinding(
+        finger.up(timeStamp: const Duration(seconds: 11)),
+      );
+      await tester.pump();
+      expect(part.taps, ['hold'], reason: 'once');
+    });
+
+    testWidgets('on a page blocked across the hold a lift stamped past it is '
+        'a hold at once, no frame waited', (tester) async {
+      final part = _Part();
+      await tester.pumpWidget(part.build());
+      final finger = await _blockedPast(tester);
+      await tester.sendEventToBinding(
+        finger.up(timeStamp: const Duration(seconds: 10, milliseconds: 350)),
+      );
+
+      expect(part.taps, ['hold']);
     });
 
     testWidgets('a lift with no times after the timer has run stays a hold, '

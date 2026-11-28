@@ -161,6 +161,10 @@ phone-frames *args:
 speed-verdict *args:
     @python3 tool/phone_frames/speed_verdict.py "$@"
 
+# On the real game in Chrome, CPU 1x and 4x, idle and busy: quick touches tap, held ones hold, on every part with a hold (tool/tap_hold/parts.py); own backend. Usage: just tap-hold [part,...] [--touches n]; TAP_HOLD_BREAK=1 builds the break
+tap-hold *args:
+    tool/heavy.py -- tool/tap_hold/run.sh {{args}}
+
 # The live server's round trips and socket events, with three throwaway guests at one throwaway table (read-mostly, no load)
 phone-frames-live *args:
     python3 tool/phone_frames/live_rtt.py {{args}}

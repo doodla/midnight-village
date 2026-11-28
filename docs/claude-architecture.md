@@ -176,7 +176,8 @@ one issue, "main is red", naming the check and the merge, adds to it while it is
 closes it when main's newest runs have all passed (`.claude/guardrails/tests/test_workflows.py`).
 
 **The built web app, once.** `frontend/tool/web_build_cached.sh` gives a tool the folder of a finished web build and builds again only when what goes into it changed.
-`.claude/guardrails/tests/test_web_build_cached.py` holds that with a stand-in for the build: built once, again on a changed source or argument, nothing left by a failed build, the newest four kept.
+`.claude/guardrails/tests/test_web_build_cached.py` holds that with a stand-in for the build.
+`test_tap_hold_parts.py` fails a hold in `frontend/lib` that `tool/tap_hold/parts.py` does not touch.
 
 **Lines of the notes.** `tool/doc_lines.py` (in `just check`) fails a prose line over 200
 characters in a tracked note (two branches that add a word to it clash) and `--fix` reflows it,
