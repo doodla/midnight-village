@@ -12,6 +12,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "tool"))
 
+import breaks_app  # noqa: E402,F401  (each file of the harness is a guard this file holds)
+import breaks_rules  # noqa: E402,F401
+import breaks_server  # noqa: E402,F401
+import breaks_tools  # noqa: E402,F401
+import breaks_verdict  # noqa: E402,F401
 import prove_guards as pg  # noqa: E402
 from breaks_kit import Break, Edit, NoLongerApplies, apply_edit  # noqa: E402
 
@@ -82,7 +87,7 @@ class EveryGuardHasABreak(unittest.TestCase):
             }:
                 (root / path).parent.mkdir(parents=True, exist_ok=True)
                 (root / path).write_text("")
-            return pg.list_problems(breaks, list(guards), debt, was_guard, root)
+            return breaks_rules.list_problems(breaks, list(guards), debt, was_guard, root)
 
     def test_a_guard_that_kills_a_break_passes(self):
         self.assertEqual(self.problems([a_break()], ["backend/tests/t.py"]), [])
@@ -114,11 +119,11 @@ class EveryGuardHasABreak(unittest.TestCase):
 
     def test_the_real_list_has_no_problem(self):
         base = pg.change_base(pg.ROOT, "origin/main")
-        found = pg.list_problems(
+        found = breaks_rules.list_problems(
             pg.BREAKS,
-            pg.guard_files(),
+            breaks_rules.guard_files(),
             pg.NOT_YET_PROVED,
-            pg.was_guard_on(base),
+            breaks_rules.was_guard_on(base),
         )
         self.assertEqual(found, [])
 

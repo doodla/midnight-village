@@ -60,7 +60,6 @@ APP_CODE = ("frontend/lib/", "frontend/assets/")
 GOLDEN_SECONDS = 120
 SPEC_FOR = ("frontend/lib/features/", "frontend/lib/design_system/copy/")
 OWNER_FEEDBACK = "docs/dev/owner-feedback.md"
-TEETH = ("the deliberate breaks this change reaches", ".", ["tool/prove_guards.py", "--reached"])
 
 
 def tool(name: str):
@@ -141,10 +140,7 @@ def steps_for(changed: list[str], piece) -> list[tuple[str, str, list[str]]]:
     steps = piece.plan(changed, screens=True, both_widths=True)
     if any(name.startswith(HARNESS_FOR) for name in changed):
         steps.append(("the end-to-end harness", ".", ["just", "test-harness"]))
-    # The deliberate breaks of the promises this change touches (tool/prove_guards.py).
-    proving = tool("prove_guards")
-    if proving.reached(proving.BREAKS, changed):
-        steps.append(TEETH)
+    steps += tool("prove_guards").handover_steps(changed)  # breaks the change reaches
     # The nearest test files never reach a picture test or a scan of all of lib/, and
     # GitHub runs both: a change to the app's code or assets runs them here too.
     all_tests = ("frontend", ["just", "test"])
@@ -348,13 +344,7 @@ def write(
     failed = [r for r in results if not r["ok"]]
     ready = not failed and not shots["missing"]
     cell = lambda text: (text or "(none)").replace("|", "\\|").replace("\n", " ")  # noqa: E731
-    said = (
-        tool("github_checks").headline(rows, ready)
-        if rows
-        else "READY"
-        if ready
-        else "NOT READY"
-    )
+    said = tool("github_checks").headline(rows, ready) if rows else "READY" if ready else "NOT READY"
     out = [
         f"**{said}**: "
         + (
@@ -573,11 +563,7 @@ def main(argv: list[str]) -> int:
     print(f"\nhandover: wrote {target}")
     for sheet in shots["sheets"]:
         print(f"handover: look at {sheet}")
-    print(
-        f"handover: {gh.headline(rows, ready)}."
-        if ready
-        else "handover: NOT READY (the file says what failed)."
-    )
+    print(f"handover: {gh.headline(rows, ready)}." if ready else "handover: NOT READY (the file says what failed).")
     return 0 if ready else 1
 
 

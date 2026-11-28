@@ -115,11 +115,18 @@ errors swallowed in silence (`just lint-tools` in `backend/`).
 `breaks_app.py`): each a small realistic mistake, the CLAUDE.md promise it breaks, and the
 focused tests that must fail on it. Each is put into a throwaway copy of the tree, anchored on
 a function or a marker line (an anchor that moved fails "break no longer applies: update
-it"). It fails when a break survives, when a known survivor (`survives=`) is killed, and when
-a `Guard file` kills no break (the guards older than the rule are in `NOT_YET_PROVED`, which
-only shrinks). GitHub runs the server's and tools' breaks in "Backend Checks" and the app's in
-"Analyze and Format"; `just handover` runs those whose promise the change touches
-(`guardrails/tests/test_prove_guards.py`, which also applies every break to the tree as it stands).
+it"). A break is killed only when a named killer test fails an assertion
+(`tool/breaks_verdict.py`): an import error, a test that errors, a crash in the code under
+test, a command that fails without printing what its guard prints, a failed sample re-record
+or a Flutter file that does not build is "broken" and fails the run. It also fails when a
+known survivor (`survives=`) is killed, and when a `Guard file` kills no break or its breaks
+ran and none saw a test in it fail (`tool/breaks_rules.py`; a helper guard counts through the
+tests that import it). Against main, `NOT_YET_PROVED` (the guards older than the rule) and the
+known survivors only shrink and no break disappears, unless the pull request names it under
+"Guards changed". GitHub runs the server's and tools' breaks in "Backend Checks" and the
+app's in "Analyze and Format" (a Flutter break that cannot run there fails); `just handover`
+runs those whose promise the change touches (`guardrails/tests/test_prove_guards.py` and
+`test_prove_guards_runs.py`; the first also applies every break to the tree as it stands).
 
 **Disk.** Each worktree fills about a gigabyte of build output. `tool/tidy.py` clears it for
 a worktree that has gone quiet: no source file changed for three hours and no process is

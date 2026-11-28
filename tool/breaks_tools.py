@@ -1,9 +1,17 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """Deliberate breaks of the tools that guard the work, and of the guards themselves
 (tool/prove_guards.py): one for each guard file, so each is proved to bite."""
 
 from breaks_kit import Edit, Break
 
 GUARDRAILS = ".claude/guardrails/tests"
+PROVE_GUARDS_TEST = f"{GUARDRAILS}/test_prove_guards.py"
+# the harness's own files, held by the tests of test_prove_guards.py, which imports each
+HARNESS = tuple(
+    f"tool/{name}.py"
+    for name in ("prove_guards", "breaks_kit", "breaks_rules", "breaks_verdict",
+                 "breaks_server", "breaks_tools", "breaks_app")
+)
 NIGHT_RESULTS = "backend/apps/onuw/night_results.py"
 
 # The guards that came before `just prove-guards` and have no recorded break yet. This list only
@@ -172,16 +180,40 @@ TOOLS: tuple[Break, ...] = (
         ),
         "test_copy_page.py",
     ),
-    _tool(
-        "a_guard_may_arrive_unproved",
-        "guards-hold",
-        "a guard with no recorded break passes `just prove-guards`",
-        Edit(
-            "tool/prove_guards.py",
-            "if guard not in bitten and guard not in debt:",
-            "if False:",
-            within="list_problems",
+    Break(
+        name="a_guard_may_arrive_unproved",
+        promise="guards-hold",
+        why="a guard with no recorded break passes `just prove-guards`",
+        edits=(
+            Edit(
+                "tool/breaks_rules.py",
+                "if guard not in bitten and guard not in debt:",
+                "if False:",
+                within="list_problems",
+            ),
         ),
-        "test_prove_guards.py",
+        tests=(PROVE_GUARDS_TEST, f"{GUARDRAILS}/test_prove_guards_runs.py"),
+        guards=HARNESS,
+    ),
+    Break(
+        name="a_crash_counts_as_a_catch",
+        promise="guards-hold",
+        why="a killer test that errors (an import error, a crash) counts as killing a break",
+        edits=(
+            Edit(
+                "tool/breaks_verdict.py",
+                'if kind == "error":',
+                "if False:",
+                within="backend",
+            ),
+            Edit(
+                "tool/breaks_verdict.py",
+                "if CRASH.match(message) or not JUDGED.match(message):",
+                "if False:",
+                within="backend",
+            ),
+        ),
+        tests=(PROVE_GUARDS_TEST, f"{GUARDRAILS}/test_prove_guards_runs.py"),
+        guards=HARNESS,
     ),
 )

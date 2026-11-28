@@ -65,13 +65,20 @@ where `CI` is set: there it fails instead).
 ## What a seat is told (`tests/privacy/`)
 
 `test_two_deals.py` (a guard) plays one scripted game twice, seat for seat, through the real
-API: the second deal swaps two other seats' cards, or one other seat's first vote goes
-elsewhere. Everything the viewer is told must be byte-identical: each answer it gets
-(status, headers, body, errors), each frame its lobby and game sockets would deliver, and an
-answer from every GET route of the urlconf at every stage. The cases come from
-`ROLE_REGISTRY` (each role a viewer once, at six or eight seats); the script is in
-`two_deals.py`. Each game runs in a savepoint that is undone, so both start from the same ids.
-The Server-Timing detail is off, as live.
+API, the second game changing one thing the viewer must not know: two other seats' cards, the
+cards of the seat whose pick lands on the viewer (a Robber takes the viewer's card in one game
+only), a seat's card against a centre card, the centre's order, or another seat's first vote
+(onto the viewer, or off it). Everything the viewer is told must be byte-identical: each
+answer it gets (status, headers, body, errors), each frame of the groups its sockets join
+(worked out from the consumers' own `connect`), and an answer from every route of the
+urlconf at every stage (GET; while voting also POST, PATCH and DELETE, each undone after).
+What a seat may rightly learn is stated once in `two_deals.py`, from its role's own action.
+Every scripted move must succeed, and each case checks from the database that its two games
+differed in exactly what it claims. Cases come from `ROLE_REGISTRY` (each role a viewer and a
+changed card, at seven and nine seats). Each game runs in a savepoint that is undone, so both
+start from the same ids; the Server-Timing detail is read from the live settings
+(`config/settings/vercel.py`). Its breaks (`tool/breaks_server.py`, L1 to L8) are the leaks a
+review found it missed.
 
 ## Migration tests
 

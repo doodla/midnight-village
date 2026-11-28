@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """What a deliberate break is, and how one is put into a copy of the tree (tool/prove_guards.py).
 
 A break is a small, realistic mistake, the promise it breaks, and the tests that must
@@ -25,6 +26,7 @@ PROMISES: dict[str, tuple[str, tuple[str, ...]]] = {
             "backend/apps/",
             "backend/tests/contract/",
             "backend/tests/privacy/",
+            "backend/config/",
             "contract_samples/",
         ),
     ),
@@ -129,9 +131,12 @@ class Break:
     # guardrails: `path::Class.test`; frontend: `path::plain name`)
     tests: tuple[str, ...] = ()
     # instead of tests: a command run from the copy's root, which must exit non-zero
+    # and print `expect` (what its guard says), or the run proves nothing
     command: tuple[str, ...] = ()
+    expect: str = ""
     env: tuple[tuple[str, str], ...] = ()
-    # the guard files whose bite this proves; by default the files in `tests`
+    # guard files proved besides the test files: a helper those tests import, or a
+    # command break's own file (breaks_rules.helper_problems)
     guards: tuple[str, ...] = ()
     # a break nothing kills yet: why, and what will. `just prove-guards` reports it and
     # fails the day it is killed (take the line off then).
@@ -151,7 +156,8 @@ class Break:
         return "guardrails"
 
     def killers(self) -> tuple[str, ...]:
-        return self.guards or tuple(dict.fromkeys(t.split("::")[0] for t in self.tests))
+        tests = (t.split("::")[0] for t in self.tests)
+        return tuple(dict.fromkeys([*tests, *self.guards]))
 
     def files(self) -> set[str]:
         return {e.path for e in self.edits} | set(self.killers())

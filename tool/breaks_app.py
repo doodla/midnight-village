@@ -1,3 +1,4 @@
+# Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
 """The app's deliberate breaks (tool/prove_guards.py). They run where Flutter is: on GitHub in
 "Analyze and Format"; locally when `flutter` is on PATH."""
 

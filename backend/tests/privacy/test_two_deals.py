@@ -1,16 +1,23 @@
 # Guard file: a change here needs its line in the pull request (tool/guard_edits.py).
-"""Two deals that differ only in what one seat must not know tell that seat the same bytes.
+"""Two games that differ only in what one seat must not know tell that seat the same bytes.
 
 Principle 2, tested as the property (non-interference), not as words to look for: the
-same seeded game is played twice, seat for seat, and the second deal swaps the cards of
-two other seats (or one other seat's first vote, before any reveal, goes elsewhere).
-Everything the viewer is told until the vote's last lock must be byte-identical: every
-answer it gets (status, headers, body; errors included), every frame its lobby and game
-sockets would deliver, and an answer from every GET route at every stage.
+same seeded game is played twice, seat for seat, and the second game changes one hidden
+thing. What can be hidden from a seat is every other seat's card, every centre card and
+every other seat's vote before the reveal, so the second game:
 
-The cases come from the engine's role table (``ROLE_REGISTRY``): each role is a viewer
-once, at six or eight seats, and every role is dealt somewhere; the routes come from the
-urlconf. A new role or endpoint is covered without a line here. Detail: two_deals.py.
+- swaps two other seats' cards (a werewolf's seat moves);
+- swaps the cards of the seat whose pick lands on the viewer, so a Robber or a
+  Troublemaker takes or moves the viewer's card in one game only;
+- exchanges a seat's card with a centre card (the count at the table changes);
+- reorders the centre;
+- moves another seat's first vote onto the viewer, or off it.
+
+Everything the viewer is told until the vote's last lock must be byte-identical (what it
+is told, and what it may rightly learn: two_deals.py). Each case also checks, from the
+database, that its two games really differed in exactly what it claims to change: a case
+whose games are the same proves nothing and fails. The cases come from the engine's role
+table (each role a viewer, each role a changed card); the routes from the urlconf.
 """
 
 from __future__ import annotations
@@ -19,20 +26,15 @@ from typing import Any
 
 import pytest
 
-from apps.onuw.engine.roles import ROLE_REGISTRY
-from tests.privacy.two_deals import (
-    CENTRE,
-    Plan,
-    deck_pool,
-    first_difference,
-    sees_others,
-    told,
-)
+from apps.onuw.engine.roles import ROLE_REGISTRY, ActionType
+from tests.privacy.two_deals import CENTRE, Plan, deck_pool, first_difference, told
 
 pytestmark = [pytest.mark.django_db, pytest.mark.uses_timers]
 
 VIEWER = 1  # never the host (seat 0), never the last to lock its vote
-PAIRED = ("Mason",)  # cards a deck holds two of or none
+PAIRED = ("Mason",)  # cards a deck holds two of or none (engine/validation.py)
+MOVES = {ActionType.SWAP_WITH_PLAYER, ActionType.SWAP_OTHERS}
+OWN_MOVES = {ActionType.SWAP_WITH_PLAYER, ActionType.SWAP_WITH_CENTER}
 
 
 def _deal(role: str, seats: int, turn: int) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -46,125 +48,226 @@ def _deal(role: str, seats: int, turn: int) -> tuple[tuple[str, ...], tuple[str,
     if "Werewolf" not in others:  # a werewolf among the others, so its seat can leak
         wolf = pool.index("Werewolf")
         others[-1], pool[wolf] = pool[wolf], others[-1]
-        centre = [c for c in pool[seats - 1 :] if c != "Werewolf"][:CENTRE]
-        if len(centre) < CENTRE:
-            centre = pool[seats - 1 : seats - 1 + CENTRE]
+        centre = pool[seats - 1 : seats - 1 + CENTRE]
     dealt = [*others[:VIEWER], role, *others[VIEWER:]]
     used = dealt + list(centre)
     spare = [c for c in pool if c not in PAIRED and c not in used]
-    for paired in PAIRED:  # the deck holds two or none (engine/validation.py)
-        cards = dealt + list(centre)
-        if cards.count(paired) == 1:
-            where = dealt if role == paired else (dealt if paired in dealt else centre)
+    for paired in PAIRED:
+        if (dealt + list(centre)).count(paired) == 1:
             if role == paired:
                 seat = max(
                     s for s, c in enumerate(dealt) if c != "Werewolf" and s != VIEWER
                 )
                 dealt[seat] = paired
             else:
+                where = dealt if paired in dealt else centre
                 where[where.index(paired)] = spare.pop(0)
     return tuple(dealt), tuple(centre)
 
 
-def _swaps(dealt: tuple[str, ...]) -> list[tuple[int, int]]:
-    """Two other seats with different cards the viewer's own night cannot show it: a
-    werewolf and a seat that is not one, and two seats that act at night."""
-    viewer = dealt[VIEWER]
-    open_seats = [
-        s
-        for s, role in enumerate(dealt)
-        if s != VIEWER and not (sees_others(viewer) and sees_others(role))
-    ]
-    pairs = []
-    wolves = [s for s in open_seats if dealt[s] == "Werewolf"]
-    plain = [s for s in open_seats if dealt[s] != "Werewolf"]
-    if wolves and plain:
-        pairs.append((wolves[0], plain[0]))
-    acting = [s for s in plain if ROLE_REGISTRY[dealt[s]].wave is not None]
-    used = {s for pair in pairs for s in pair}
-    acting = [s for s in acting if s not in used] or acting
-    for x in acting:
-        y = next((s for s in acting if dealt[s] != dealt[x] and s != x), None)
-        if y is not None:
-            pairs.append((x, y))
-            break
-    return pairs
+def _moves(role: str) -> bool:
+    return bool(MOVES & set(ROLE_REGISTRY[role].action_types))
+
+
+def _hits_viewer(dealt, role: str) -> bool:
+    """A mover at the seat whose first pick is the viewer changes the viewer's card: a
+    taker takes it; a swapper swaps it with the viewer's other neighbour, if that differs.
+    Not for a viewer that moves its own card afterwards (it ends with what it takes)."""
+    if OWN_MOVES & set(ROLE_REGISTRY[dealt[VIEWER]].action_types):
+        return False
+    if ActionType.SWAP_WITH_PLAYER in ROLE_REGISTRY[role].action_types:
+        return True
+    return _moves(role) and dealt[VIEWER - 1] != dealt[VIEWER]
+
+
+def _variations(dealt, centre) -> dict[str, Plan]:
+    """One plan of each kind the deal allows, kept only if it hides the change (the rule
+    in two_deals.py)."""
+    seats = [s for s in range(len(dealt)) if s != VIEWER]
+    left = (VIEWER + 1) % len(dealt)  # the seat whose first pick is the viewer
+    pairs = {
+        "seat-swap": [
+            (a, b)
+            for a in seats
+            for b in seats
+            if dealt[a] == "Werewolf" and dealt[b] != "Werewolf"
+        ],
+        "hit": [
+            (m, left)
+            for m in seats
+            if _hits_viewer(dealt, dealt[m]) and m != left and not _moves(dealt[left])
+        ]
+        + [
+            (left, b)
+            for b in seats
+            if _hits_viewer(dealt, dealt[left]) and not _moves(dealt[b])
+        ],
+        "seat-centre": [
+            (a, f"c{i}")
+            for a in seats
+            for i in range(CENTRE)
+            if dealt[a] != centre[i] and "Werewolf" in (dealt[a], centre[i])
+        ]
+        + [(a, f"c{i}") for a in seats for i in range(CENTRE) if dealt[a] != centre[i]],
+        "centre-reorder": [
+            (f"c{i}", f"c{j}")
+            for i in range(CENTRE)
+            for j in range(i + 1, CENTRE)
+            if centre[i] != centre[j]
+        ],
+    }
+    out = {}
+    for kind, candidates in pairs.items():
+        for swap in candidates:
+            plan = Plan(dealt, centre, VIEWER, swap=swap)
+            if plan.hidden_from_viewer() and (kind != "hit" or not plan.protected()):
+                out[kind] = plan
+                break
+    return out
 
 
 def _cases() -> list[Any]:
-    cases = []
+    cases, changed = [], set()
+    deals = []
     for turn, role in enumerate(sorted(ROLE_REGISTRY)):
-        seats = 6 if turn % 2 == 0 else 8
-        dealt, centre = _deal(role, seats, turn)
-        for swap in _swaps(dealt):
-            plan = Plan(dealt, centre, VIEWER, swap=swap)
-            label = f"{role}-at-{seats}-swap-{dealt[swap[0]]}-{dealt[swap[1]]}"
-            cases.append(pytest.param(plan, id=label))
+        deals.append(_deal(role, 7 if turn % 2 == 0 else 9, turn))
+    for dealt, centre in deals:
+        for kind, plan in _variations(dealt, centre).items():
+            cards = {plan.card(p) for p in plan.changed()} | {
+                plan.other().card(p) for p in plan.changed()
+            }
+            changed |= cards
+            cases.append(
+                pytest.param(
+                    kind,
+                    plan,
+                    id=f"{dealt[VIEWER]}-{len(dealt)}-{kind}-{'-'.join(sorted(cards))}",
+                )
+            )
+    for role in sorted(
+        set(ROLE_REGISTRY) - changed
+    ):  # every role is a changed card once
+        for dealt, centre in deals:
+            seats = [s for s in range(len(dealt)) if s != VIEWER]
+            found = next(
+                (
+                    Plan(dealt, centre, VIEWER, swap=(a, b))
+                    for a in seats
+                    for b in seats
+                    if dealt[a] == role
+                    and dealt[b] != role
+                    and Plan(dealt, centre, VIEWER, swap=(a, b)).hidden_from_viewer()
+                ),
+                None,
+            )
+            if found:
+                changed.add(role)
+                cases.append(
+                    pytest.param(
+                        "seat-swap",
+                        found,
+                        id=f"{dealt[VIEWER]}-{len(dealt)}-changes-{role}",
+                    )
+                )
+                break
     return cases
 
 
 CASES = _cases()
-
-
-def test_the_cases_cover_every_role_as_viewer_and_dealt() -> None:
-    viewers = {case.values[0].dealt[VIEWER] for case in CASES}
-    dealt = {role for case in CASES for role in case.values[0].dealt}
-    assert viewers == set(ROLE_REGISTRY)
-    assert dealt == set(ROLE_REGISTRY)
-    assert {len(case.values[0].dealt) for case in CASES} == {6, 8}
-
-
-@pytest.mark.parametrize("plan", CASES)
-def test_another_seats_card_never_changes_what_a_seat_is_told(
-    plan: Plan, django_capture_on_commit_callbacks: Any
-) -> None:
-    first = told(django_capture_on_commit_callbacks, plan)
-    second = told(django_capture_on_commit_callbacks, plan.swapped())
-
-    assert first, "the viewer was told nothing: the script did not play"
-    assert any(item[0] == "ws" for item in first), "no socket frame reached the viewer"
-    difference = first_difference(first, second)
-    assert difference is None, (
-        f"seat {VIEWER} learns the swap of seats {plan.swap}: {difference}"
-    )
-
-
 VOTE_CASES = [
     pytest.param(
-        Plan(*_deal("Villager", 6, 0), VIEWER, wavering=3), id="villager-at-6"
+        Plan(*_deal("Villager", 7, 0), VIEWER, wavering=4), id="villager-at-7"
     ),
     pytest.param(
-        Plan(*_deal("Werewolf", 8, 5), VIEWER, wavering=5), id="werewolf-at-8"
+        Plan(*_deal("Werewolf", 9, 5), VIEWER, wavering=5), id="werewolf-at-9"
     ),
 ]
+
+
+def _places(facts: dict[str, Any]) -> dict[Any, str]:
+    return {
+        **dict(enumerate(facts["dealt"])),
+        **{f"c{i}": card for i, card in enumerate(facts["centre"])},
+    }
+
+
+def test_the_cases_cover_every_role_every_kind_and_two_table_sizes() -> None:
+    plans = [case.values[1] for case in CASES]
+    changed = {p.card(x) for p in plans for x in p.changed()} | {
+        p.other().card(x) for p in plans for x in p.changed()
+    }
+    assert {p.dealt[VIEWER] for p in plans} == set(ROLE_REGISTRY)
+    assert changed == set(ROLE_REGISTRY), (
+        f"never a changed card: {set(ROLE_REGISTRY) - changed}"
+    )
+    assert {case.values[0] for case in CASES} == {
+        "seat-swap",
+        "hit",
+        "seat-centre",
+        "centre-reorder",
+    }
+    assert {len(p.dealt) for p in plans} == {7, 9}
 
 
 @pytest.mark.parametrize("plan", VOTE_CASES)
 def test_another_seats_vote_before_the_reveal_never_changes_what_a_seat_is_told(
     plan: Plan, django_capture_on_commit_callbacks: Any
 ) -> None:
-    straight = told(
-        django_capture_on_commit_callbacks, Plan(plan.dealt, plan.centre, VIEWER)
-    )
-    wavered = told(django_capture_on_commit_callbacks, plan)
+    off, off_facts = told(django_capture_on_commit_callbacks, plan.first())
+    onto, onto_facts = told(django_capture_on_commit_callbacks, plan.other())
 
-    difference = first_difference(straight, wavered)
+    votes = list(zip(off_facts["first_votes"], onto_facts["first_votes"], strict=True))
+    differ = [seat for seat, (a, b) in enumerate(votes) if a != b]
+    assert differ == [plan.wavering], (
+        f"the votes did not differ as the case says: {differ}"
+    )
+    viewer = off_facts["ids"][VIEWER]
+    assert onto_facts["first_votes"][plan.wavering] == viewer, (
+        "the vote never landed on the viewer"
+    )
+    assert off_facts["first_votes"][plan.wavering] != viewer
+    difference = first_difference(off, onto)
     assert difference is None, (
         f"seat {VIEWER} learns seat {plan.wavering}'s vote: {difference}"
     )
 
 
-def test_the_sweep_would_see_a_seat_given_away(
+@pytest.mark.parametrize(("kind", "plan"), CASES)
+def test_a_hidden_card_never_changes_what_a_seat_is_told(
+    kind: str, plan: Plan, django_capture_on_commit_callbacks: Any
+) -> None:
+    first, first_facts = told(django_capture_on_commit_callbacks, plan.first())
+    second, second_facts = told(django_capture_on_commit_callbacks, plan.other())
+
+    one, two = _places(first_facts), _places(second_facts)
+    moved = {place for place in one if one[place] != two[place]}
+    assert moved == plan.changed(), (
+        f"the games did not differ as the case says: {moved}"
+    )
+    if kind == "hit":
+        assert first_facts["now"][VIEWER] != second_facts["now"][VIEWER], (
+            "the viewer's card was not moved in one game only: the case proves nothing"
+        )
+    assert any(item[0] == "ws" for item in first), "no socket frame reached the viewer"
+    difference = first_difference(first, second)
+    assert difference is None, (
+        f"seat {VIEWER} learns the {kind} of {plan.changed()}: {difference}"
+    )
+
+
+def test_the_comparison_sees_what_the_viewer_may_know(
     django_capture_on_commit_callbacks,
 ) -> None:
-    """The comparison is not blind: the viewer's own card, which it may know, shows."""
-    plan = CASES[0].values[0]
+    """Not blind: the viewer's own card, which it may know, shows."""
+    plan = CASES[0].values[1]
     mine = list(plan.dealt)
     taken = mine + list(plan.centre) + list(PAIRED)
-    other = next(r for r in ROLE_REGISTRY if r not in taken)
-    mine[VIEWER] = other
-    changed = Plan(tuple(mine), plan.centre, VIEWER)
+    mine[VIEWER] = next(r for r in ROLE_REGISTRY if r not in taken)
     assert first_difference(
-        told(django_capture_on_commit_callbacks, Plan(plan.dealt, plan.centre, VIEWER)),
-        told(django_capture_on_commit_callbacks, changed),
+        told(django_capture_on_commit_callbacks, Plan(plan.dealt, plan.centre, VIEWER))[
+            0
+        ],
+        told(
+            django_capture_on_commit_callbacks, Plan(tuple(mine), plan.centre, VIEWER)
+        )[0],
     )
