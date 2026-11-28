@@ -140,6 +140,7 @@ def steps_for(changed: list[str], piece) -> list[tuple[str, str, list[str]]]:
     steps = piece.plan(changed, screens=True, both_widths=True)
     if any(name.startswith(HARNESS_FOR) for name in changed):
         steps.append(("the end-to-end harness", ".", ["just", "test-harness"]))
+    steps += tool("prove_guards").handover_steps(changed)  # breaks the change reaches
     # The nearest test files never reach a picture test or a scan of all of lib/, and
     # GitHub runs both: a change to the app's code or assets runs them here too.
     all_tests = ("frontend", ["just", "flutter-test"])
