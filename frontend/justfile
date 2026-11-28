@@ -90,7 +90,7 @@ test-harness:
 # Renders the catalogue in test_screens/ at 390x844 (2x) to build/screens/,
 # each next to its mock in build/screens/compare/, and prints a summary of the
 # layout overflows, exceptions and (on player screens) reading-floor breaches
-# found. No backend; not part of `just test`.
+# found. No backend; not part of `just flutter-test`.
 # Usage: just screens [width] [report|strict]
 #   just screens             390 wide, findings reported
 #   just screens 360         360 wide, into build/screens/w360/

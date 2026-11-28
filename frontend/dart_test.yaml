@@ -4,10 +4,10 @@
 # suites). They need the harness backend `just test-harness` boots (its own free port).
 #
 # PRIMARY exclusion is STRUCTURAL: the suites live in test_e2e/, not test/, so
-# the default `flutter test` / `just test` (which only scans test/) never
+# the default `flutter test` / `just flutter-test` (which only scans test/) never
 # discovers them — bare `flutter test` from an IDE/CI/pre-commit stays green with
 # no backend. `frontend/tool/run_harness.sh` runs them by explicit path with `--tags e2e`.
-# `just test` also passes `--exclude-tags e2e` as belt-and-suspenders. (A
+# `just flutter-test` also passes `--exclude-tags e2e` as belt-and-suspenders. (A
 # config-level `exclude_tags: e2e` is NOT used: it would AND with an explicit
 # `--tags e2e` and make the suites unrunnable.)
 #

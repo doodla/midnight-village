@@ -1,7 +1,7 @@
 # Frontend tests
 
-`just test` runs `flutter test --dart-define=ENV=dev --exclude-tags e2e` (everything under `frontend/test`). Two suites live
-outside `frontend/test` on purpose and are not part of `just test`: `frontend/test_e2e` (the live-backend
+`just flutter-test` runs `flutter test --dart-define=ENV=dev --exclude-tags e2e` (everything under `frontend/test`). Two suites live
+outside `frontend/test` on purpose and are not part of `just flutter-test`: `frontend/test_e2e` (the live-backend
 harness, `just test-harness`) and `frontend/test_screens` (the screen gallery and the cold-read pack,
 `just screens`, `just playtest-pack`). Server payloads in tests: `frontend/test/helpers/contract/README.md`.
 
@@ -28,7 +28,7 @@ harness, `just test-harness`) and `frontend/test_screens` (the screen gallery an
   the oracle's `pending_timers` shows which timers are armed.
   Rules for harness tests: `DebugTableController.stagedAs` is strict (a refusal throws; `lenient: true` is for the toolbar), wall-clock checks use `TimeBox`,
   waits take explicit timeouts, and nothing is slept on.
-  It is intentionally NOT under `frontend/test` and NOT part of `just test`.
+  It is intentionally NOT under `frontend/test` and NOT part of `just flutter-test`.
   Where a harness test asserts words, it reads them from the app's own copy (`NightCopy` templates, `board.prompt.kind.go`/`.pass`), never a typed copy of them;
   a literal stays only where the test means to pin that wording.
   GitHub runs the harness (the "End-to-end Harness" job in `.github/workflows/flutter-tests.yml`, the same `just test-harness`);
@@ -114,7 +114,7 @@ screen any text drawn cut short (`frontend/test/helpers/truncated_text.dart`, th
 `just screens 360` renders 360 wide into `frontend/build/screens/w360/`;
 `just screens 390 strict` exits non-zero on findings.
 A screen whose builder throws is reported as BUILD FAILED and always fails the run, with no PNG.
-It needs no backend and lives in `frontend/test_screens`, outside `frontend/test`, so `just test` never runs it (the same structural exclusion as `frontend/test_e2e`);
+It needs no backend and lives in `frontend/test_screens`, outside `frontend/test`, so `just flutter-test` never runs it (the same structural exclusion as `frontend/test_e2e`);
 `frontend/test_screens/flutter_test_config.dart` reuses the test config and pins the Werewolf's portrait to the lunge
 (`ShellSetup.pinnedWerewolf`; so no portrait hides behind the pin, `03b-deck-role-werewolf-no-game` draws the sheet before any game and `06-night-board-lone-werewolf-<lunge|stare|snarl>` draws a game with each of the three)
 and the card back to the moon

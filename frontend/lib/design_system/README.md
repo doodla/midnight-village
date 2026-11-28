@@ -556,7 +556,7 @@ The rebuilt screens follow `docs/specs/frontend/first-time-play.md` (teach once,
   (`frontend/test/helpers/sheet/pack_journeys.dart`: every screen is that phone's own recorded payload, its lobby, look, night, talk and vote `/me/`, then the game's results, at a moment after the screen before, the clocks moving),
   its own taps, with what it has learned carried from screen to screen, as `build/playtest/<journey>/screen-NN.png` (`frontend/test_screens/playtest_pack_test.dart`);
   the 01 to 03b screens are the app's real screens on the table's recorded lobby bodies (`frontend/test_screens/table_fixtures.dart`).
-  `frontend/test/playtest/pack_journeys_test.dart` (in `just test`) holds each journey to one game:
+  `frontend/test/playtest/pack_journeys_test.dart` (in `just flutter-test`) holds each journey to one game:
   one viewer, the same players, names and tokens, the deck in play, a vote that never offers the viewer, a clock that never runs backwards within a stage.
 
 ## The skin: one look, values from the skin
