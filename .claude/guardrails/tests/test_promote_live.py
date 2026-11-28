@@ -392,6 +392,15 @@ class PromoteLive(unittest.TestCase):
         ancestor = subprocess.run(
             ["git", "-C", str(REPO), "merge-base", "--is-ancestor", floor, "HEAD"]
         )
+        shallow = subprocess.run(
+            ["git", "-C", str(REPO), "rev-parse", "--is-shallow-repository"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if ancestor.returncode != 0 and shallow == "true":
+            # GitHub's checkout is one commit deep: the floor can be there (a later fetch)
+            # with the history between it and HEAD cut, so ancestry cannot be proved
+            self.skipTest("a shallow checkout that cannot link the floor to HEAD")
         self.assertEqual(ancestor.returncode, 0)
 
     def test_the_docs_point_at_the_floor_in_the_code_and_repeat_no_commit(self):
