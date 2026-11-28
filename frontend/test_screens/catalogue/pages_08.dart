@@ -19,6 +19,7 @@ final _pages08 = <ScreenEntry>[
     '-ready': pumpTalkReady,
     '-not-sent': pumpTalkNotSent,
     '-3': pumpTalkThree,
+    '-6-roles': pumpTalkSixRoles,
     '-8-roles': pumpTalkEightRoles,
     '-9': pumpTalkNine,
     '-10-long': pumpTalkTenLong,

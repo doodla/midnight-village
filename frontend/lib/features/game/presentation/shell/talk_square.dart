@@ -239,16 +239,22 @@ class _Plan {
         ? parts.squarePortraitMany
         : parts.squarePortraitFew;
     // Name-only cards are as wide as their words: as many to a row as fit,
-    // then as even as those rows let them be.
-    double wordsWide(Pile pile) => DeckPile.sizeOf(
+    // then as even as those rows let them be where that is no taller (each
+    // row is as tall as its tallest pile).
+    Size words(Pile pile) => DeckPile.sizeOf(
       DeckPile.cardSize(0, labels[pile.label]!, strip),
       pile.count,
       nameOnly: true,
-    ).width;
+    );
+    double wordsWide(Pile pile) => words(pile).width;
     bool rowFits(List<Pile> row) =>
         row.fold(0.0, (w, pile) => w + wordsWide(pile)) +
             (row.length - 1) * Space.xs <=
         width;
+    double tall(List<List<Pile>> rows) => rows.fold(
+      0.0,
+      (h, row) => h + row.map((p) => words(p).height).reduce(math.max),
+    );
     var packed = <List<Pile>>[];
     var rowWidth = 0.0;
     for (final pile in piles) {
@@ -262,7 +268,7 @@ class _Plan {
       }
     }
     final even = rowsOf(piles, packed.length);
-    if (even.every(rowFits)) packed = even;
+    if (even.every(rowFits) && tall(even) <= tall(packed)) packed = even;
     _Plan at_(
       double portrait, {
       required bool fits,

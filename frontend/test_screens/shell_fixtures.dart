@@ -375,10 +375,15 @@ Future<void> pumpTalkAt(WidgetTester tester, Map<String, dynamic> me) async =>
 Future<void> pumpTalkNine(WidgetTester tester) =>
     pumpTalkAt(tester, sheet.recordedMe('me_discussion_choose_drunk'));
 
-/// 08 at seven with eight roles in the deck, as the owner's table had (the
-/// Hunter's phone, put away): the portraits, not the words alone.
+/// 08 at seven with eight roles, as the owner's table had (put away).
 Future<void> pumpTalkEightRoles(WidgetTester tester) =>
     pumpTalkAt(tester, sheet.recordedMe('me_discussion_choose_hunter'));
+
+/// 08 with six roles as the mock has, their words the widest (put away).
+Future<void> pumpTalkSixRoles(WidgetTester tester) => pumpTalkAt(
+  tester,
+  sheet.recordedMe('me_discussion_choose_doppelganger_hunter'),
+);
 
 /// 08 at three: game 7 without Dev and Esme (put away).
 Future<void> pumpTalkThree(WidgetTester tester) => pumpTalkAt(
