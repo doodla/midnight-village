@@ -62,6 +62,17 @@ The live server's channel layer is tested against a real Redis:
 else starts a `redis-server` from the PATH on a free port, else is skipped (never on CI,
 where `CI` is set: there it fails instead).
 
+## What a seat is told (`tests/privacy/`)
+
+`test_two_deals.py` (a guard) plays one scripted game twice, seat for seat, through the real
+API: the second deal swaps two other seats' cards, or one other seat's first vote goes
+elsewhere. Everything the viewer is told must be byte-identical: each answer it gets
+(status, headers, body, errors), each frame its lobby and game sockets would deliver, and an
+answer from every GET route of the urlconf at every stage. The cases come from
+`ROLE_REGISTRY` (each role a viewer once, at six or eight seats); the script is in
+`two_deals.py`. Each game runs in a savepoint that is undone, so both start from the same ids.
+The Server-Timing detail is off, as live.
+
 ## Migration tests
 
 `tests/test_migrations.py` (marker `migration`) applies the REAL migrations (the rest of the suite uses `--nomigrations`, where these tests skip), seeds

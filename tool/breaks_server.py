@@ -2,11 +2,12 @@
 audit's of 28 November 2026 (B1 to B12 here, F1 and F3 in breaks_app.py), kept under their
 audit names."""
 
-from breaks_kit import Edit, Break
+from breaks_kit import Break, Edit
 
 VOTING = "backend/apps/onuw/voting.py"
 CONSUMER = "backend/apps/onuw/consumers.py"
 NIGHT_WINDOW = "backend/apps/onuw/night_window.py"
+TWO_DEALS = "backend/tests/privacy/test_two_deals.py"
 LOCKED_READY = (
     "        game = Game.objects.select_for_update().get(id=game.id)\n"
     "        require_stage(game, stage, expected=(LOOK, TALK))"
@@ -45,8 +46,8 @@ SERVER: tuple[Break, ...] = (
             '.values_list("user_id", flat=True))'
         ),
         resample=True,
-        tests=("backend/tests/contract/test_contract_privacy.py",),
-        survives="the privacy guard looks for role words only (the two-deal test comes next)",
+        # the privacy guard looks for role words only and passes on this
+        tests=(TWO_DEALS,),
     ),
     Break(
         name="B2_role_words_on_the_table_socket",
