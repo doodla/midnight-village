@@ -45,7 +45,7 @@ set +m
 defines=(--dart-define=ENV=prod "--dart-define=API_ORIGIN=http://127.0.0.1:$api_port" --dart-define=BUILD_COMMIT=)
 if [ "${TAP_HOLD_BREAK:-}" = 1 ]; then
   echo "[tap-hold] TAP_HOLD_BREAK=1: the build waits for no lift on a slow page"
-  defines+=(--dart-define=TAP_HOLD_BREAK=true)
+  defines+=(--dart-define=tap_hold_break=true)
 fi
 echo "[tap-hold] the release web app (built once per change: web_build_cached.sh)"
 web=$(cd "$root/frontend" && tool/web_build_cached.sh --release "${defines[@]}" 2> "$work/build.log") ||

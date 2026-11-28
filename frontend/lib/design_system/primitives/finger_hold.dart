@@ -115,9 +115,9 @@ class FingerTimedLongPress extends LongPressGestureRecognizer {
 }
 
 /// Off only in the browser check's recorded break (`tool/tap_hold/`): a
-/// build with `--dart-define=TAP_HOLD_BREAK=true` takes a hold at the first
+/// build with `--dart-define=tap_hold_break=true` takes a hold at the first
 /// frame after its timer, slow page or not.
-const _waitOnSlowPage = !bool.fromEnvironment('TAP_HOLD_BREAK');
+const _waitOnSlowPage = !bool.fromEnvironment('tap_hold_break');
 
 /// The frames the page draws, to tell a phone that is keeping up from one
 /// that is not: a frame that began more than two of the display's frames
