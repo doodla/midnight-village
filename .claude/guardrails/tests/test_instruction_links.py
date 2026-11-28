@@ -79,15 +79,28 @@ class WhereTheDocumentSays(unittest.TestCase):
         self.assertEqual(len(bad), 1, bad)
         self.assertIn("path `docs/dev/gone-a.md` does not exist", bad[0])
 
-    def test_every_instruction_file_is_read_and_the_skills_are_not(self):
+    def test_every_instruction_file_is_read_and_only_third_party_skills_are_not(self):
         files = self.tool.instruction_files(self.tree)
         for must in (
             "docs/specs/onuw/index.md",
             "docs/design/feel.md",
             "frontend/dart_test.yaml",
+            ".claude/skills/correct/SKILL.md",
+            ".claude/skills/no-comments/sorter.md",
         ):
             self.assertIn(must, files)
-        self.assertFalse([f for f in files if f.startswith(".claude/skills/")])
+        self.assertFalse([f for f in files if f.startswith(".claude/skills/flutter-")])
+
+    def test_a_skill_is_ours_unless_it_carries_its_vendors_metadata(self):
+        texts = {
+            ".claude/skills/mine/SKILL.md": "---\nname: mine\ndescription: x\n---\n",
+            ".claude/skills/mine/prompt.md": "the helper's prompt",
+            ".claude/skills/theirs/SKILL.md": "---\nname: t\nmetadata:\n  model: m\n---\n",
+        }
+        self.assertEqual(
+            self.tool.skills.ours(sorted(texts), texts.get),
+            [".claude/skills/mine/SKILL.md", ".claude/skills/mine/prompt.md"],
+        )
 
 
 if __name__ == "__main__":
