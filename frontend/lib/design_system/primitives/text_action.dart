@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
+import '../feel/press.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/skin.dart';
@@ -12,7 +13,8 @@ import 'secondary_button.dart' show BusyMark;
 /// is never the loudest thing on a screen yet reads at a glance (a guest's
 /// "Leave" on 02, at the foot, and on 11, beside "{host} deals next.";
 /// playtest: a 16 px "Leave" read as tiny). At least [minTap] square to
-/// touch; dims while pressed; faint and inert with no [onPressed].
+/// touch; dims while pressed, from the frame the finger lands (`Pressable`,
+/// by paint alone); faint and inert with no [onPressed].
 class TextAction extends StatefulWidget {
   const TextAction({
     super.key,
@@ -47,14 +49,6 @@ class TextAction extends StatefulWidget {
 }
 
 class _TextActionState extends State<TextAction> {
-  var _pressed = false;
-
-  void _press(bool down) {
-    if (widget.onPressed != null && _pressed != down) {
-      setState(() => _pressed = down);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final ground = context.ground;
@@ -81,37 +75,38 @@ class _TextActionState extends State<TextAction> {
       // is left out with its words): a screen reader can press it.
       onTap: busy ? null : widget.onPressed,
       excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: busy ? null : widget.onPressed,
-        onTapDown: (_) => _press(true),
-        onTapUp: (_) => _press(false),
-        onTapCancel: () => _press(false),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: TextAction.minTap,
-            minHeight: widget.roomy ? TextAction.roomyTap : TextAction.minTap,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.sm),
-            child: Center(
-              widthFactor: 1,
-              child: AnimatedOpacity(
-                opacity: _pressed ? context.skin.dimmed : 1,
-                duration: Motion.press,
-                // Busy: the lantern hangs off the end of the word, outside
-                // its box, so the word does not move.
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    FitWords(widget.label, maxLines: 1, style: style),
-                    if (busy)
-                      PositionedDirectional(
-                        end: -(Space.xl + Space.xs),
-                        child: BusyMark(size: Space.xl, color: style.color),
-                      ),
-                  ],
+      child: Pressable(
+        enabled: widget.onPressed != null,
+        builder: (context, press, _) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: busy ? null : widget.onPressed,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: TextAction.minTap,
+              minHeight: widget.roomy ? TextAction.roomyTap : TextAction.minTap,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+              child: Center(
+                widthFactor: 1,
+                child: FadeTransition(
+                  opacity: press.drive(
+                    Tween(begin: 1, end: context.skin.dimmed),
+                  ),
+                  // Busy: the lantern hangs off the end of the word, outside
+                  // its box, so the word does not move.
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      FitWords(widget.label, maxLines: 1, style: style),
+                      if (busy)
+                        PositionedDirectional(
+                          end: -(Space.xl + Space.xs),
+                          child: BusyMark(size: Space.xl, color: style.color),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
@@ -87,8 +89,10 @@ class SecondaryButton extends StatefulWidget {
   State<SecondaryButton> createState() => _SecondaryButtonState();
 }
 
+/// A finger presses it from the frame it lands (`Pressable`), whether it
+/// acts, is locked or waits: the outline fills with a hairline, the paper's
+/// shadow tightens, the scrap sinks into its shadow; by paint alone.
 class _SecondaryButtonState extends State<SecondaryButton> {
-  var _pressed = false;
   var _focused = false;
 
   VoidCallback? get _onTap => widget.onPressed ?? widget.onLockedTap;
@@ -104,15 +108,15 @@ class _SecondaryButtonState extends State<SecondaryButton> {
     final radius = BorderRadius.circular(skin.shape.radius);
     final paper = widget._paper;
 
-    final Decoration decoration;
+    final Decoration Function(bool pressed) decoration;
     final TextStyle style;
     if (paper) {
       final rest = ground.elevation.raised;
-      decoration = cutPaper(
+      decoration = (pressed) => cutPaper(
         context,
         fill: enabled ? ground.paper : ground.disabled,
         radius: radius,
-        elevation: enabled && !_pressed
+        elevation: enabled && !pressed
             ? rest
             : rest.pressed(skin.shape.pressKeep),
       );
@@ -120,8 +124,8 @@ class _SecondaryButtonState extends State<SecondaryButton> {
           .label(skin.typography)
           .copyWith(color: enabled ? skin.paper.text : ground.onDisabled);
     } else {
-      decoration = BoxDecoration(
-        color: _pressed ? ground.hairline : Colors.transparent,
+      decoration = (pressed) => BoxDecoration(
+        color: pressed ? ground.hairline : Colors.transparent,
         borderRadius: radius,
         border: Border.all(
           color: enabled ? ground.outline : ground.hairline,
@@ -144,48 +148,53 @@ class _SecondaryButtonState extends State<SecondaryButton> {
       // left out with its words): a screen reader can press it.
       onTap: busy ? null : _onTap,
       excludeSemantics: true,
-      child: AnimatedContainer(
-        duration: Motion.press,
-        curve: Motion.curve,
+      child: ConstrainedBox(
         constraints: BoxConstraints(
           minHeight: widget.size.secondaryHeight,
           minWidth: widget.size.minWidth,
         ),
-        decoration: decoration,
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: busy ? null : _onTap,
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            highlightColor: Colors.transparent,
-            borderRadius: radius,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.lg,
-                    vertical: Space.sm,
-                  ),
-                  child: Center(
-                    heightFactor: 1,
-                    widthFactor: 1,
-                    child: FitWords(
-                      widget.label,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      style: style,
+        child: Pressable(
+          builder: (context, press, child) => PressDecoration(
+            press: press,
+            rest: decoration(false),
+            down: decoration(true),
+            duration: Motion.within(context, Motion.press),
+            child: child,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: busy ? null : _onTap,
+              highlightColor: Colors.transparent,
+              borderRadius: radius,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.lg,
+                      vertical: Space.sm,
+                    ),
+                    child: Center(
+                      heightFactor: 1,
+                      widthFactor: 1,
+                      child: FitWords(
+                        widget.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: style,
+                      ),
                     ),
                   ),
-                ),
-                // Busy: the lantern burns in the button's own end padding,
-                // so the words stay where they are.
-                if (busy)
-                  PositionedDirectional(
-                    end: Space.smPlus,
-                    child: BusyMark(size: Space.xl, color: style.color),
-                  ),
-              ],
+                  // Busy: the lantern burns in the button's own end padding,
+                  // so the words stay where they are.
+                  if (busy)
+                    PositionedDirectional(
+                      end: Space.smPlus,
+                      child: BusyMark(size: Space.xl, color: style.color),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -221,17 +230,19 @@ class _SecondaryButtonState extends State<SecondaryButton> {
           minHeight: widget.size.secondaryHeight,
           minWidth: widget.size.minWidth,
         ),
-        child: PaperPiece(
-          part: PaperPart.scrap,
-          id: widget.label,
-          pressed: _pressed,
-          lifted: _focused && !_pressed,
-          enabled: enabled,
+        child: Pressable(
+          builder: (context, press, child) => PaperPiece(
+            part: PaperPart.scrap,
+            id: widget.label,
+            press: press,
+            lifted: _focused,
+            enabled: enabled,
+            child: child!,
+          ),
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
               onTap: busy ? null : _onTap,
-              onHighlightChanged: (value) => setState(() => _pressed = value),
               onFocusChange: (value) => setState(() => _focused = value),
               focusColor: Colors.transparent,
               hoverColor: Colors.transparent,
