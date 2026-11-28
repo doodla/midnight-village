@@ -29,7 +29,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from brief_docs import DOCS, capped, tokens  # noqa: E402
+from brief_docs import DOCS, capped
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = "docs/specs/frontend/first-time-play.md"
@@ -102,7 +102,7 @@ def which_screens(asked: str, states: list[str], sections) -> list[str]:
         named = {
             n
             for n, (_, block) in sections.items()
-            if phrase in block.splitlines()[0].lower()
+            if phrase in block.splitlines()[0].lower().replace("-", " ")
         }
         if named:
             words = [w for w in phrase.split() if len(w) > 2]
@@ -307,6 +307,8 @@ def others_in(files: set[str]) -> dict[str, list[str]]:
         if both:
             found[ref.removeprefix("origin/")] = both
     return found
+
+
 # What each list a screen's brief makes from code may cost, in tokens: the budget
 # (tool/context_budget.py) counts these caps, since it measures without building
 # the widget trees.
@@ -395,6 +397,7 @@ def tail_part() -> list[str]:
     return [
         "## Commands\n\n" + COMMANDS,
         "## Waiting\n\n" + tool("brief_areas").WAITING + "\n",
+        "## Handing back\n\n" + tool("brief_areas").HANDBACK + "\n",
     ]
 
 
@@ -559,7 +562,10 @@ def main(argv: list[str]) -> int:
         return 0 if not argv else 2
     widgets = tool("piece_screens").state_widgets()
     states = sorted(widgets)
-    numbers = which_screens(argv[0], states, sections)
+    # an everyday name ("lobby", "your card"): the app's own names, a feature folder
+    numbers = which_screens(argv[0], states, sections) or tool("brief_names").lookup(
+        argv[0], widgets, tool("piece_screens").owners(), screen_of
+    )
     if not numbers:
         known = sorted(
             {screen_of(s) for s in states if re.match(r"\d\d", s)} | set(sections)

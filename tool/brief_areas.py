@@ -14,6 +14,7 @@ A rule is (document, kind, start):
 - "see": the heading only, with its line, for a section too long to print.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -31,6 +32,7 @@ SERVER = "backend/CLAUDE.md"
 MODELS = "docs/dev/models/README.md"
 LOBBY_MODEL = "docs/dev/models/phone/lobby/README.md"
 ARCH = "docs/claude-architecture.md"
+DEPLOY = "docs/dev/deploy-vercel.md"
 
 AREAS: dict[str, dict] = {
     "lobby-queue": {
@@ -55,10 +57,6 @@ AREAS: dict[str, dict] = {
         ],
         "model": "docs/dev/models/phone/lobby",
         "rules": [
-            (APP, "bullet", "Taps change what others can see at once"),
-            (APP, "bullet", "Every request a player's tap makes"),
-            (APP, "bullet", "Every fetch a screen depends on heals"),
-            (APP, "bullet", "No waits."),
             (APP_RULES, "section", "Requests"),
             (MODELS, "section", "When"),
             (LOBBY_MODEL, "section", "Files"),
@@ -88,11 +86,7 @@ AREAS: dict[str, dict] = {
         ],
         "model": "docs/dev/models/phone",
         "rules": [
-            (APP, "bullet", "The server decides."),
-            (APP, "bullet", "Taps change what others can see at once"),
-            (APP, "bullet", "Every request a player's tap makes"),
-            (APP, "bullet", "Every fetch a screen depends on heals"),
-            (APP, "bullet", "No waits."),
+            (APP_RULES, "bullet", "Taps change what others can see at once"),
             (APP_RULES, "section", "Requests"),
             (MODELS, "section", "When"),
         ],
@@ -111,15 +105,11 @@ AREAS: dict[str, dict] = {
         ],
         "model": None,
         "rules": [
-            (APP, "bullet", "Values from the skin"),
-            (APP, "bullet", "One look, two dresses"),
-            (APP, "bullet", "Names are never cut"),
-            (APP, "bullet", "Reading floor"),
-            (APP, "bullet", "A screen's main action never sits silently disabled"),
-            (APP, "bullet", "Every place the app waits is `Waiting`"),
-            (KIT, "see", "Every component, in both dresses"),
+            (APP_RULES, "bullet", "Values from the skin"),
+            (APP_RULES, "bullet", "Reading floor"),
+            (APP_RULES, "section", "Main buttons"),
+            (APP_RULES, "section", "The dress"),
             (KIT, "see", "The skin: one look, values from the skin"),
-            (KIT, "see", "The dress: plain, or paper"),
         ],
     },
     "copy": {
@@ -133,8 +123,7 @@ AREAS: dict[str, dict] = {
         "tests": ["frontend/test/design_system/copy/*.dart"],
         "model": None,
         "rules": [
-            (APP, "bullet", "Words"),
-            (APP, "bullet", "Names are never cut"),
+            (APP_RULES, "bullet", "Words"),
             ("docs/specs/frontend/first-time-play.md", "see", "1."),
         ],
     },
@@ -178,6 +167,7 @@ AREAS: dict[str, dict] = {
             (ARCH, "paragraph", "File sizes."),
             (ARCH, "paragraph", "Guards."),
             (ARCH, "paragraph", "As GitHub's backend job runs it."),
+            (ARCH, "section", "Adding a check"),
             (ARCH, "see", "The commit gate"),
             (ARCH, "see", "Claude Code hooks"),
         ],
@@ -192,11 +182,9 @@ AREAS: dict[str, dict] = {
         ],
         "tests": ["backend/tests/**/test_*.py"],
         "model": "docs/dev/models/night2",
+        "endpoints": True,
         "rules": [
-            (SERVER, "section", "Deploy-safe changes"),
-            (SERVER, "section", "Rules that have bitten"),
-            (SERVER, "section", "Contract samples"),
-            (SERVER, "see", "Adding things"),
+            (DEPLOY, "section", "Deploy-safe changes"),
         ],
     },
 }
@@ -207,6 +195,12 @@ COMMANDS = """\
   just brief                every brief there is (screens and areas)
   just heavy --status       who holds a slot of the heavy queue, since when, who waits
 """
+
+# Said in every brief, once: the shape a builder hands back in (no narrative).
+HANDBACK = """\
+Hand over with `just handover <file>`, then reply in five short lists, nothing else:
+done / not done / decided on my own / follow-ups / guard files edited (each with why).
+A new check: docs/claude-architecture.md, "Adding a check" says when one is accepted."""
 
 # Said in every brief: helpers burned half their steps polling a queued job.
 WAITING = """\
@@ -299,7 +293,7 @@ def listed(paths: list[str], line) -> str:
 
 # What each list an area's brief makes from code may cost, in tokens (counted by
 # tool/context_budget.py, which measures without listing files).
-CODE_CAPS = {"files": 700, "model": 150, "tests": 500, "others": 200}
+CODE_CAPS = {"files": 700, "model": 150, "endpoints": 900, "tests": 500, "others": 200}
 
 
 def brief(name: str, others_in, code: bool = True) -> str:
@@ -310,6 +304,7 @@ def brief(name: str, others_in, code: bool = True) -> str:
         out += code_part(name, others_in)
     out.append("\n## Commands\n\n" + COMMANDS)
     out.append("## Waiting\n\n" + WAITING + "\n")
+    out.append("## Handing back\n\n" + HANDBACK + "\n")
     return "\n".join(out)
 
 
@@ -360,6 +355,9 @@ def code_part(name: str, others_in) -> list[str]:
             " (docs/dev/models/README.md says when and how).\n"
         )
         out += capped([f"  {p}" for p in slices], CODE_CAPS["model"]) + [""]
+    if area.get("endpoints"):
+        out.append("## Where each endpoint is built (from the URL files)\n")
+        out += capped(endpoints(), CODE_CAPS["endpoints"], "read backend/apps/*/urls.py") + [""]
     tests = files_of(area["tests"])
     out.append(f"## Tests ({len(tests)})\n")
     listing = listed(tests, lambda p: p) or "  (none of its own)"
@@ -368,4 +366,21 @@ def code_part(name: str, others_in) -> list[str]:
     others = others_in(set(files))
     lines = [f"  {branch}: " + ", ".join(theirs) for branch, theirs in others.items()]
     out += capped(lines or ["Nobody."], CODE_CAPS["others"])
+    return out
+
+
+def endpoints() -> list[str]:
+    """`  /api/onuw/me/  views_read.MeView  backend/apps/onuw/views_read.py`, one an endpoint."""
+    mounts = dict(
+        (app, prefix)
+        for prefix, app in re.findall(
+            r'path\("([^"]*)", include\("apps\.(\w+)\.urls"\)', (ROOT / "backend/config/urls.py").read_text()
+        )
+    )
+    out = []
+    for app, prefix in mounts.items():
+        text = (ROOT / f"backend/apps/{app}/urls.py").read_text()
+        for route, module, view in re.findall(r'path\(\s*"([^"]*)",\s*(\w+)\.(\w+)\.as_view\(', text):
+            where = f"backend/apps/{app}/{module}.py" if module != "LobbyPlayAgainView" else ""
+            out.append(f"  /{prefix}{route}  {module}.{view}  {where}")
     return out

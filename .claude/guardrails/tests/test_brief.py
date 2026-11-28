@@ -162,6 +162,42 @@ class FromTheSources(unittest.TestCase):
             self.assertIn(number, sections, f"no per-screen section for {number}")
 
 
+class EverydayNames(unittest.TestCase):
+    """`just brief lobby` once found nothing: a builder says what the owner says."""
+
+    def setUp(self):
+        self.names = load().tool("brief_names")
+
+    def test_the_apps_own_name_of_a_screen_finds_it(self):
+        table = (
+            "enum AppScreen {\n  join('01', 'Join'),\n  yourCard('04', 'Your card'),\n"
+        )
+        for asked in ("your card", "your-card", "yourCard", "Your Card"):
+            self.assertEqual(self.names.by_app_name(asked, table), ["04"], asked)
+        self.assertEqual(self.names.by_app_name("card", table), [])
+
+    def test_a_feature_folder_finds_the_screens_that_draw_its_widgets(self):
+        widgets = {
+            "01-join": ["JoinPage"],
+            "02-table": ["TablePage"],
+            "09-vote": ["VoteBoard"],
+        }
+        owners = {
+            "JoinPage": {"frontend/lib/features/lobby/presentation/join.dart"},
+            "TablePage": {"frontend/lib/features/lobby/presentation/table.dart"},
+            "VoteBoard": {"frontend/lib/features/game/presentation/vote.dart"},
+        }
+        found = self.names.by_feature("lobby", widgets, owners, lambda s: s[:2])
+        self.assertEqual(found, ["01", "02"])
+
+    def test_a_spec_sections_own_words_find_it(self):
+        tool = load()
+        sections = tool.spec_sections(
+            "**03 Tonight's game** (host; the set-up page)\n- x\n"
+        )
+        self.assertEqual(tool.which_screens("set-up page", [], sections), ["03"])
+
+
 class Quoted(unittest.TestCase):
     """A line that names a screen is quoted with the paragraph or list item it
     sits in: the sentence after it is often the rule."""

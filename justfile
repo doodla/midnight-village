@@ -83,20 +83,20 @@ tidy *args:
 copy-page *args:
     @tool/copy_page.py {{args}}
 
-# The queue every heavy command goes through (tool/heavy.py): a few at once, the rest wait their
+# The queue every heavy command goes through. (tool/heavy.py: a few at once, the rest wait their
 # turn and say where they are. The recipes that are heavy (tests, builds, screens, phone-frames,
 # the harness) use it themselves. `just heavy --status`: who holds a slot, since when, who waits.
 # Usage: just heavy <command...>   |   just heavy --status
 heavy *args:
     @tool/heavy.py {{args}}
 
-# While building: the fast checks and only the tests this change can reach
+# While building: the fast checks and only the tests this change can reach.
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
 # Its heavy steps wait their turn in `just heavy`'s queue.
 piece-check *args:
     @tool/piece_check.py {{args}}
 
-# LAST, before a piece is handed over, and the only way to hand one over: refuses work
+# LAST, and the only way to hand a piece over. It refuses work
 # that is not committed and pushed, runs the checks the change reaches, draws every
 # screen state it reaches beside main, and writes the hand-over file (tool/handover.py).
 # `just handover <file> --plan` says what it would run and what that costs. It also runs the
@@ -105,8 +105,8 @@ piece-check *args:
 handover *args:
     @tool/handover.py {{args}}
 
-# FIRST, before starting on a screen: its spec section and the owner's words about it
-# (word for word), its states, files, tests, and who else is in them (tool/brief.py).
+# FIRST: everything a piece needs, copied from the sources (tool/brief.py). On a screen:
+# its spec section and the owner's words about it (word for word), its states, files, tests, and who else is in them.
 # Work that is not a screen has an area brief (the lobby's queue, the outbox, the kit, the
 # words, the models, the server: tool/brief_areas.py). Alone, it lists every brief.
 # Usage: just brief 09   |   just brief end-board   |   just brief copy   |   just brief
@@ -181,10 +181,11 @@ format-check:
 typecheck:
     {{backend_just}} typecheck
 
-# Run all backend quality checks, check the instruction files' paths and recipes,
+# Every fast check GitHub's Backend Checks runs first. The backend's quality checks, the instruction files' paths and recipes,
 # that no source file has grown past what can be read whole (tool/check_file_sizes.py),
 # that no line of the notes is so long that two branches clash on it (tool/doc_lines.py),
-# and that what each agent must read stays within its limit (tool/context_budget.py)
+# that what each agent must read stays within its limit (tool/context_budget.py),
+# and that the facts the notes state about the code are what the code says (tool/gen_docs.py)
 check:
     {{backend_just}} check-backend
     {{backend_just}} lint-tools
@@ -194,6 +195,7 @@ check:
     tool/doc_lines.py
     tool/root_recipes.py
     tool/context_budget.py
+    tool/gen_docs.py
 
 # Fix all auto-fixable issues
 fix:

@@ -58,3 +58,58 @@ session reads; this page is for when you are about to touch the thing a rule is 
   (`paper_components_test.dart` fails one), and is listed in the inventory with both dresses (`skin/dress_inventory.dart`);
   a screen never builds a raw Material button, chip, divider or border;
   sizes, angles and colours are the skin's (`skin.parts`, `skin.mood`), never a number in a screen (`lib/design_system/README.md`, "The dress").
+
+## An app left open
+
+- **The app renews itself for a new build** (`lib/core/update/`, the rule `mayReloadNow` in
+  `features/game/domain/reload_rule.dart`, `docs/dev/deploy-vercel.md`): it knows its commit
+  (`BUILD_COMMIT`), reads `/commit.txt`, and reloads at a safe moment through the cold opening, so
+  a seated player lands in their seat. Only on 01 at once; at the table and in a running game it
+  never reloads on a screen change, a phase change or the timer, only when the tab comes back after
+  a while away (owner, 24 November 2026: "Reload only when nobody waits"). It updates the service worker and waits
+  for it to take over before reloading; it never deletes the worker or its caches. Nothing is
+  shown. A build with no commit (local, tests, the
+  installed app) never looks. A new place that shows a screen or starts a request must not break
+  the rule: a screen is an `AppScreen` or one of `HomeGate`'s names, a write goes through
+  `playerRequest`.
+- **A file removed or renamed in `assets/`** fails `asset_release_test.dart` (compared with the
+  bundle at the main branch (origin/main), else `tool/release_assets.json`) until it is an `ArtSet.retired` copy or
+  a dated `removedOnPurpose` line in `tool/release_assets.json`; `just record-assets` refuses
+  while one is uncovered, so regenerating cannot hide a removal.
+- **A tool that needs the built web app asks for it**: `out=$(tool/web_build_cached.sh <flutter build web arguments>)`,
+  never its own `flutter build web`: the build is made again only when what goes into it changed (a minute, else a blink).
+- **`vercel.json` is judged as Vercel compiles it**: `tool/web_smoke/routes.test.cjs` (run by
+  `just web-smoke`, which needs `@vercel/routing-utils` from `just web-smoke-setup`), never by
+  reading a `source` as a plain pattern.
+
+## The other rules in full
+
+The rules `frontend/CLAUDE.md` gives in one line, whole.
+
+- **Taps change what others can see at once, never on the response.** All taps go
+  through the one `Outbox`; a choose is never sent twice for a turn; a taken choose's answer
+  carries the results (the board opens one by itself, once), and `/me/` is re-read only when a turn follows. A phone with nothing to
+  choose sends no choose at all; its board has no button.
+- **Words**: every player-facing string is in `lib/design_system/copy/` (the library `copy.dart`, one part file per screen's words: `vote_copy.dart`, `table_copy.dart`, ...; read them
+  all on one page with `just copy-page` at the repo root; a spec names a copy class or key in
+  backticks, never the words, and `just check` fails a name that does not exist), held to the
+  spec's copy rules by `copy_budget_test.dart`; a change that adds words says why in its pull
+  request (`tool/words_added.py`: no screen has a pinned number of words); none in widgets.
+- **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
+  for anything that says something true; no uppercase micro-labels;
+  one amber fill per screen (08's "Ready to vote" is its one, the owner's choice of 23 November 2026);
+  a selection is lift plus outline, never amber.
+- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks
+  `ScreenFrame(dress: Dress.paper)`; sizes, angles and colours are the skin's, never a number
+  in a screen. Detail: `docs/app-rules.md`, "The dress", and `lib/design_system/README.md`.
+- **Values from the skin**: build screens from `lib/design_system/primitives/`, read
+  `context.skin`, `context.ground`, `Space`, `Motion`; no literals (a text size, weight or face is a
+  type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
+  layout code. One look, Shadow paper; a new look is a whole design, not a recolour.
+- **Secrets are held, not tapped**: `HoldToReveal` and `HeldFace`; art for secrets is
+  precached at start so a reveal fetches nothing. "My night" on 08 is held too, and shows on the
+  board, from its top, only while held. Nothing vibrates on a card (owner, 23 November 2026).
+- **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
+  the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
+  at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is
+  (`frontend/lib/design_system/README.md`, "Where information a player asks for appears").
