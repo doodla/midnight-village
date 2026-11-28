@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../models/role.dart';
 import '../skin/dress.dart';
@@ -19,6 +21,7 @@ import 'paper_mark.dart';
 import 'text_backing.dart';
 import '../skin/dress_style.dart';
 import 'finger_hold.dart';
+import 'icon_action.dart';
 import 'fit_line.dart';
 
 /// [RoleCard]'s sizes. The thumbnails are at most their mock size and
@@ -51,7 +54,9 @@ enum RoleCardSize {
 /// [removeLabel] is what a screen reader says for it.
 ///
 /// A hold is a press of [holdDelay], timed from the finger
-/// ([FingerTimedLongPress]): shorter is a tap.
+/// ([FingerTimedLongPress]): shorter is a tap. From the frame a finger lands
+/// the card settles toward the table ([PressSettle]) and the minus dims, by
+/// paint alone ([Pressable]).
 class RoleCard extends StatelessWidget {
   const RoleCard({
     super.key,
@@ -98,29 +103,34 @@ class RoleCard extends StatelessWidget {
       button: onTap != null,
       selected: size == RoleCardSize.small && onTap != null ? lit : null,
       excludeSemantics: true,
-      child: RawGestureDetector(
-        behavior: HitTestBehavior.opaque,
-        gestures: {
-          if (onTap case final onTap?)
-            TapGestureRecognizer:
-                GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                  () => TapGestureRecognizer(debugOwner: this),
-                  (recognizer) => recognizer.onTap = onTap,
-                ),
-          if (onLongPress case final onLongPress?)
-            FingerTimedLongPress:
-                GestureRecognizerFactoryWithHandlers<FingerTimedLongPress>(
-                  () => FingerTimedLongPress(
-                    duration: holdDelay,
-                    debugOwner: this,
+      child: Pressable(
+        enabled: onTap != null || onLongPress != null,
+        builder: (context, press, child) =>
+            PressSettle(press: press, child: child!),
+        child: RawGestureDetector(
+          behavior: HitTestBehavior.opaque,
+          gestures: {
+            if (onTap case final onTap?)
+              TapGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                    () => TapGestureRecognizer(debugOwner: this),
+                    (recognizer) => recognizer.onTap = onTap,
                   ),
-                  (recognizer) => recognizer.onLongPress = onLongPress,
-                ),
-        },
-        child: switch (size.thumbnail) {
-          final thumbnail? => _thumbnail(context, thumbnail),
-          null => _small(context),
-        },
+            if (onLongPress case final onLongPress?)
+              FingerTimedLongPress:
+                  GestureRecognizerFactoryWithHandlers<FingerTimedLongPress>(
+                    () => FingerTimedLongPress(
+                      duration: holdDelay,
+                      debugOwner: this,
+                    ),
+                    (recognizer) => recognizer.onLongPress = onLongPress,
+                  ),
+          },
+          child: switch (size.thumbnail) {
+            final thumbnail? => _thumbnail(context, thumbnail),
+            null => _small(context),
+          },
+        ),
       ),
     );
     final remove = onRemove;
@@ -321,25 +331,29 @@ class _Minus extends StatelessWidget {
       button: true,
       label: label,
       excludeSemantics: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Padding(
-            padding: const EdgeInsets.all(Space.xs),
-            child: Container(
-              width: side,
-              height: side,
-              decoration: BoxDecoration(
-                color: ground.mark,
-                shape: BoxShape.circle,
-                boxShadow: ground.elevation.badge.litBy(context),
-              ),
-              child: Icon(
-                Icons.remove,
-                size: side * Sizes.glyphInDisc,
-                color: ground.onMark,
+      child: Pressable(
+        builder: (context, press, child) =>
+            PressFade(press: press, to: IconAction.pressedInk, child: child),
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Padding(
+              padding: const EdgeInsets.all(Space.xs),
+              child: Container(
+                width: side,
+                height: side,
+                decoration: BoxDecoration(
+                  color: ground.mark,
+                  shape: BoxShape.circle,
+                  boxShadow: ground.elevation.badge.litBy(context),
+                ),
+                child: Icon(
+                  Icons.remove,
+                  size: side * Sizes.glyphInDisc,
+                  color: ground.onMark,
+                ),
               ),
             ),
           ),

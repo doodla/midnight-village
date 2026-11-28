@@ -160,15 +160,14 @@ void main() {
     ) async {
       await _pump(tester, const Center(child: FaceDownCard()));
       expect(tester.getSize(find.byType(FaceDownCard)), const Size(78, 106));
-      final card = tester
-          .widgetList<Container>(
-            find.descendant(
-              of: find.byType(FaceDownCard),
-              matching: find.byType(Container),
-            ),
-          )
-          .firstWhere((c) => c.decoration is BoxDecoration);
-      final shadows = (card.decoration! as BoxDecoration).boxShadow!;
+      // Its paper at rest (a finger's press blends it toward a lower one).
+      final card = tester.widget<PressDecoration>(
+        find.descendant(
+          of: find.byType(FaceDownCard),
+          matching: find.byType(PressDecoration),
+        ),
+      );
+      final shadows = (card.rest as BoxDecoration).boxShadow!;
       expect(shadows.last.offset, const Offset(0, 4));
       expect(shadows.last.blurRadius, 0, reason: 'the shadow stays hard');
       // The picked card's light is in the list, unlit, so it fades with the

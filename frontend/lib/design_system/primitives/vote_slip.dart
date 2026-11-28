@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../copy/copy.dart';
+import '../feel/press.dart';
 import '../layout/space.dart';
 import '../skin/art_set.dart';
 import '../skin/dress.dart';
@@ -21,7 +22,8 @@ import 'you_tag.dart';
 /// out exactly as a [PlayerRow] of the same [size] (the vote measures its
 /// rows by that), and plain it IS that row.
 ///
-/// - [onTap]: it is a button; a finger sinks the paper the frame it lands.
+/// - [onTap]: it is a button; a finger sinks the paper into its shadow the
+///   frame it lands ([Pressable], by paint alone).
 /// - [picked]: lifted, with the paper mark on its corner (in a picked tag's
 ///   navy wax, so it stands off the bone): chosen, not yet final (the amber
 ///   plaque under the board still asks to lock it).
@@ -67,9 +69,6 @@ class VoteSlip extends StatefulWidget {
 }
 
 class _VoteSlipState extends State<VoteSlip> {
-  /// A finger is on the slip.
-  var _down = false;
-
   /// The slip opened already sealed: no stamp to play (read as it opens,
   /// not when the seal is first drawn).
   late final bool _openedSealed;
@@ -78,10 +77,6 @@ class _VoteSlipState extends State<VoteSlip> {
   void initState() {
     super.initState();
     _openedSealed = widget.sealed;
-  }
-
-  void _touch(bool down) {
-    if (_down != down && mounted) setState(() => _down = down);
   }
 
   bool get _tappable => widget.onTap != null && !widget.dimmed;
@@ -149,7 +144,7 @@ class _VoteSlipState extends State<VoteSlip> {
         ],
       ),
     );
-    final paper = PaperPiece(
+    Widget paper(Animation<double> press) => PaperPiece(
       // The red is cut in on the frame of the lock, never blended from bone
       // (a grey between them that neither ink reads on).
       key: ValueKey(w.sealed),
@@ -157,10 +152,11 @@ class _VoteSlipState extends State<VoteSlip> {
       id: (w.token, w.name),
       // Once locked, the others lie down into the felt: solid paper, never
       // a see-through ghost of it.
-      pressed: (_down && _tappable) || w.dimmed,
+      pressed: w.dimmed,
+      press: press,
       lifted: w.picked,
       fill: w.sealed ? ground.danger : null,
-      duration: Motion.within(context, _down ? Motion.press : Motion.quick),
+      duration: Motion.within(context, Motion.quick),
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: w.size.height + w.stretch),
         child: AnimatedOpacity(
@@ -171,10 +167,10 @@ class _VoteSlipState extends State<VoteSlip> {
       ),
     );
     // The navy wax of a picked tag, so the mark stands off the bone.
-    final shown = PaperMarkCorner(
+    Widget shown(Animation<double> press) => PaperMarkCorner(
       shown: w.picked && !w.sealed,
       seal: true,
-      child: paper,
+      child: paper(press),
     );
     return Semantics(
       label: w.name,
@@ -184,23 +180,14 @@ class _VoteSlipState extends State<VoteSlip> {
       enabled: w.dimmed ? false : null,
       excludeSemantics: true,
       onTap: _tappable ? w.onTap : null,
-      child: Listener(
-        // The press answers the frame the finger lands.
-        onPointerDown: (_) => _tappable ? _touch(true) : null,
-        onPointerMove: (event) {
-          final box = context.size ?? Size.zero;
-          if (_down && !(Offset.zero & box).contains(event.localPosition)) {
-            _touch(false);
-          }
-        },
-        onPointerUp: (_) => _touch(false),
-        onPointerCancel: (_) => _touch(false),
-        child: GestureDetector(
+      // The press answers the frame the finger lands.
+      child: Pressable(
+        enabled: _tappable,
+        builder: (context, press, _) => GestureDetector(
           behavior: HitTestBehavior.opaque,
           excludeFromSemantics: true,
           onTap: _tappable ? w.onTap : null,
-          onTapCancel: () => _touch(false),
-          child: shown,
+          child: shown(press),
         ),
       ),
     );

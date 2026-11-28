@@ -95,6 +95,40 @@ void main() {
       expect(part.taps, ['hold'], reason: 'once');
     });
 
+    testWidgets('a lift that waits behind a long frame wins over the '
+        "hold's timer: a quick touch is a tap", (tester) async {
+      // A browser busy drawing a press hands the app its timer and the lift
+      // together: the timer runs first, the lift (80 ms by the finger) next.
+      final part = _Part();
+      await tester.pumpWidget(part.build());
+      final finger = TestPointer(5);
+      final at = tester.getCenter(find.byType(RawGestureDetector));
+      await tester.sendEventToBinding(
+        finger.down(at, timeStamp: const Duration(seconds: 10)),
+      );
+      await tester.binding.delayed(_hold);
+      await tester.sendEventToBinding(
+        finger.up(timeStamp: const Duration(seconds: 10, milliseconds: 80)),
+      );
+      await tester.pump();
+
+      expect(part.taps, ['tap']);
+    });
+
+    testWidgets('a lift with no times after the timer has run stays a hold, '
+        'as before', (tester) async {
+      final part = _Part();
+      await tester.pumpWidget(part.build());
+      final finger = TestPointer(5);
+      final at = tester.getCenter(find.byType(RawGestureDetector));
+      await tester.sendEventToBinding(finger.down(at));
+      await tester.binding.delayed(_hold);
+      await tester.sendEventToBinding(finger.up());
+      await tester.pump();
+
+      expect(part.taps, ['hold']);
+    });
+
     test('times out of order or missing say nothing', () {
       expect(
         fingerTime(const Duration(seconds: 2), const Duration(seconds: 1)),

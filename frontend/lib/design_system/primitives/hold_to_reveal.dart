@@ -277,8 +277,11 @@ class _HoldToRevealState extends State<HoldToReveal>
   }
 
   /// [touch], in the cover's own box, as a share of its size.
+  /// Where [touch] is on the card, as a share of its size where it was last
+  /// laid out (a hold is taken at the start of a frame, before its layout).
   Offset _shareOf(Offset touch) {
-    final size = context.size;
+    final box = context.findRenderObject();
+    final size = box is RenderBox && box.hasSize ? box.size : null;
     if (size == null || size.isEmpty) return const Offset(0.5, 0.5);
     return Offset(touch.dx / size.width, touch.dy / size.height);
   }
