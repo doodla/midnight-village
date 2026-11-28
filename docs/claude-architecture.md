@@ -314,7 +314,10 @@ Every agent lists its tools: one defined with all tools starts at about 78k toke
 ## Skills (`.claude/skills/`)
 
 Our own: `correct` turns a mistake that happened into a check that would have caught it (or
-says no honest one exists). Adapted from pstack, MIT: `.claude/skills/NOTICE`.
+says no honest one exists). `no-comments` sorts the comments a change adds with one haiku per
+file (`sorter.md`), and `tool/comment_rows.py` checks their answers: a quote not at its line is
+dropped, a comment nobody judged is missing, an always-kept line is never deleted
+(`.claude/guardrails/tests/test_comment_rows.py`). Adapted from pstack, MIT: `.claude/skills/NOTICE`.
 
 Seven third-party `flutter-*` skills (Flutter's generic guides on animation, layout,
 concurrency, HTTP and JSON, accessibility, testing, theming). Nothing here depends on them, and
