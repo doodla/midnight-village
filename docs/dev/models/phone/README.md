@@ -80,10 +80,15 @@ fix, `day_zombie` breaks `ScreenConverges` (the screen stays behind for good; it
 `BREAKS`). `FIX_BEAT` is the fix: the server sends every socket a `beat` frame each heartbeat
 and the phone drops one silent for 2.5 beats, so it comes back and reads. `day_beat` (every
 fix, the zombie, two faults and two taps) holds `OutcomeLoads` and `ScreenConverges`
-(9,322,705 distinct states). The seat model has the same pair (`seat/README.md`). Not
-modelled: one frame lost on a socket that stays alive (TCP does not lose frames; a full
-channel-layer queue could); the next event or tap of the table, a deadline or a resume
-heals it, and the beat does not.
+(9,322,705 distinct states). The seat model has the same pair (`seat/README.md`).
+The second reviews found the other half: the beat proves the link, not delivery. `LOSE` loses
+an event on a socket that stays alive (a full or expired channel-layer queue can): without
+the fix `day_lost` breaks `ScreenConverges` (shortest trace: play again's event is lost and
+the end board stays for good; a lost `game_results` would leave the wait screen). `FIX_TOKEN`
+is the fix: the beat carries the table's token (`phase`, `window`, `moved_on`), read beside the
+beat so it only trails the events, and a phone holding less reads once (`TokenBeat`: `/me/`,
+the results, or `/me/table/`). `day_token` (every fix, the zombie, a lost frame, two faults and
+two taps) holds both rules (TOKEN_STATES distinct states).
 
 **A result at the choose (branch `night-result-now`, 25 November 2026).** `ANSWER_CARRIES`
 models the phone of that branch: a taken choose's answer carries the caller's results and its

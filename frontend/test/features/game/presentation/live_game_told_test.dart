@@ -90,6 +90,65 @@ void main() {
     expect(setup.meFetches, 1);
   });
 
+  group('a frame lost on a socket that stays alive: the beat reads once', () {
+    int results(LiveGameSetup setup) =>
+        setup.http.requests.where((r) => r.path.endsWith('/results/')).length;
+
+    test('a beat at the stage it holds reads nothing', () async {
+      final setup = await phone('me_voting_picked');
+      for (var i = 0; i < 3; i++) {
+        setup.ws.addServerEvent(GameEvents.beat(phase: 'voting'));
+        await setup.settle();
+      }
+      expect(setup.meFetches, 1);
+    });
+
+    test('the vote opened and its frames were lost: the beat says voting, '
+        'and /me/ is read once, however many beats follow', () async {
+      final setup = await phone('me_talk_ready');
+      setup.answerMe(recordedMe('me_voting_picked'));
+      for (var i = 0; i < 3; i++) {
+        setup.ws.addServerEvent(GameEvents.beat(phase: 'voting'));
+        await setup.settle();
+      }
+      expect(setup.meFetches, 2);
+      expect(setup.game.me.phase, GamePhase.voting);
+    });
+
+    test('the end board waits on a game_results that was lost: the beat at '
+        'the results reads them once (no wait screen for good)', () async {
+      final setup = await phone('me_voting_picked');
+      setup.ws.addServerEvent(GameEvents.ownView(recordedMe('me_results')));
+      await setup.settle();
+      expect(setup.game.outcome, isNull, reason: 'its game_results was lost');
+      setup.answerResults();
+      for (var i = 0; i < 3; i++) {
+        setup.ws.addServerEvent(GameEvents.beat(phase: 'results'));
+        await setup.settle();
+      }
+      expect(setup.game.outcome, isNotNull);
+      expect(results(setup), 1);
+      expect(setup.meFetches, 1);
+    });
+
+    test('play again was lost at the end board: the beat says the table '
+        'moved on, and where it sits is read once', () async {
+      final setup = await phone('me_voting_picked');
+      setup.ws.addServerEvent(GameEvents.ownView(recordedMe('me_results')));
+      setup.ws.addServerEvent(GameEvents.gameResults());
+      await setup.settle();
+      final tables = setup.tableFetches;
+      for (var i = 0; i < 3; i++) {
+        setup.ws.addServerEvent(
+          GameEvents.beat(phase: 'results', movedOn: true),
+        );
+        await setup.settle();
+      }
+      expect(setup.tableFetches, tables + 1);
+      expect(setup.meFetches, 1);
+    });
+  });
+
   test('an older server: game_results with no results, at the results, '
       'reads them', () async {
     final setup = await phone('me_voting_picked');

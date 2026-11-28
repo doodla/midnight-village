@@ -77,7 +77,11 @@ There is one game flow: the screens read one model and one table.
   (`HealTiming.tablePoll`) for a lost deal or play-again event, only while the socket that would hear it is down
   (`SocketHealth`, `core/websocket/socket_health.dart`: a socket that is up hears it, one that comes back reads).
   "Up" is believed only while the server's `beat` frames keep coming (`ReconnectingWebSocket`: silent for 2.5 beats it is closed and opened
-  again; `verify()` on app resume opens one a beat overdue at once; a server that never beat is believed as before; the frame is not passed on).
+  again; nothing watches while the app is hidden (`pauseWhileHidden`); on resume `verify()` compares the wall clock and reopens one a beat
+  overdue at once, with no backoff, and that reconnect is the resume's one read of each kind; two connections in a row with no beat forget it;
+  a server that never beat is believed as before). The beat is passed on: its token (`BeatEvent`: the game's place, `moved_on`; the lobby's
+  `rev`) makes a phone that holds less read once (`_beatSays`, lobby `_onBeat`), so a frame lost on a live socket costs one read
+  (`live_game_told_test.dart`, `requests_per_game_test.dart`; models `day_token`, `seat_token`).
   Riverpod's own retry is off on the notifier (`noRetry`):
   it retries itself, and a rebuild would drop the taps in flight.
   A phone is told, not asked (contract, sections 1, 4, 8): as a stage opens the socket brings this player's own `/me/` first (`me`, `OwnViewEvent`),

@@ -139,8 +139,12 @@ class LiveGameNotifier extends _$LiveGameNotifier
     ref.listen(appResumesProvider, (_, next) {
       if (!next.hasValue) return;
       // A socket that missed its beat while the phone was away is opened
-      // again (opening reads everything), then everything is read.
-      ref.read(gameWebSocketProvider(gameId))?.verify();
+      // again at once, and its "connected" reads everything; else everything
+      // is read now. One read of each kind either way.
+      if (ref.read(gameWebSocketProvider(gameId))?.verify() ?? false) {
+        _reopenedOnResume = true;
+        return;
+      }
       _healEverything();
     });
     ref.listen(myTableProvider, (_, next) => _compareTable(next.value));
@@ -271,9 +275,12 @@ class LiveGameNotifier extends _$LiveGameNotifier
   /// The results are read now, unless they are held or on their way.
   @override
   void _loadOutcomeSoon() {
-    if (state.value?.outcome != null) return;
+    if (state.value?.outcome != null || _outcomeOut) return;
     _outcomeTimer ??= Timer(Duration.zero, _loadOutcome);
   }
+
+  /// A read of the results is out (a beat asking again waits for it).
+  bool _outcomeOut = false;
 
   /// A view answered what a failed read was tried again for: the retry and
   /// its count stop.
@@ -288,11 +295,14 @@ class LiveGameNotifier extends _$LiveGameNotifier
   Future<void> _loadOutcome() async {
     _outcomeTimer = null;
     if (!ref.mounted) return;
+    _outcomeOut = true;
     try {
       final outcome = await _service.fetchOutcome(gameId);
+      _outcomeOut = false;
       _failedOutcomes = 0;
       _update((s) => s.copyWith(outcome: outcome, outcomeFailing: false));
     } catch (e) {
+      _outcomeOut = false;
       logger.w('LiveGame: results not fetched', error: e);
       if (!ref.mounted) return;
       final atResults = state.value?.server.phase == GamePhase.results;

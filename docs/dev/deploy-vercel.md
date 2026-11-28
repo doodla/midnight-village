@@ -125,8 +125,10 @@ A timer is a named job with JSON params (`night_window`, `discussion_deadline`,
    the send failed) does not count as scheduled, so the lazy repair re-publishes it
    (`apps/onuw/repair.py`: `ensure_timers` and then `timers.sweep` for that game's keys,
    and a practice seat's lost move). It runs on every `GET /me/`, and on the socket's
-   heartbeat: every 15 s the game's oldest open socket runs it once for its game, so an
-   untimed stage whose timer was lost moves on even when no phone reads. The sweep
+   heartbeat: every 15 s the game's oldest open socket runs it once for its game (until
+   the results), so an untimed stage whose timer was lost moves on even when no phone
+   reads. A repair that fails is counted in the owner's report (`repair_failed`, the
+   report's `server`), since the runtime logs keep only an hour. The sweep
    also re-sends, with the SAME token (a duplicate is harmless: only one claim runs), rows
    more than 5 s past due whose message evidently never ran, at most every 30 s per row.
 6. **Cron.** `GET` or `POST /api/onuw/internal/sweep-timers/` sweeps every timer. It

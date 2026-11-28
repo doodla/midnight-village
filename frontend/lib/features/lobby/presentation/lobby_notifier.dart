@@ -9,6 +9,7 @@ import '../../../core/healing/healing.dart';
 import '../../../core/host/host_change.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/requests/player_request.dart';
+import '../../../core/websocket/pause_while_hidden.dart';
 import '../../../core/websocket/reconnecting_websocket.dart';
 import '../../../core/websocket/socket_health.dart';
 import '../../../core/websocket/websocket_channel.dart';
@@ -87,6 +88,7 @@ LobbyWebSocketFactory lobbyWebSocketFactory(Ref ref) {
   return (String lobbyCode) {
     final url = '${Env.wsBaseUrl}/ws/lobby/$lobbyCode/';
     final ws = ReconnectingWebSocket(url: url, tokenStorage: tokenStorage);
+    pauseWhileHidden(ws);
     unawaited(ws.connect());
     return ws;
   };
@@ -327,6 +329,8 @@ class LobbyNotifier extends _$LobbyNotifier with _LobbyTaps, _LobbySeat {
           _onGameStarted(message);
         case 'host_changed':
           _onHostChanged(message);
+        case 'beat':
+          _onBeat(message);
         default:
           logger.d('Unhandled lobby WS event type: $type');
       }

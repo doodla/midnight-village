@@ -15,8 +15,10 @@ import 'stage_progress.dart';
 /// there), or carries what `/me/` (or the player list, the results) also
 /// holds, in the same absolute form, so applying it twice, late, or never,
 /// and then fetching, ends in the same state:
-/// - [OwnViewEvent]: this phone's own `/me/`, whole, as a stage opens (and the
-///   results with it at the end), sent to this player alone;
+/// - [OwnViewEvent]: this phone's own `/me/`, whole, as a stage opens, sent
+///   to this player alone;
+/// - [BeatEvent]: the table's token on the socket's heartbeat (read when the
+///   phone holds less);
 /// - [ProgressEvent]: `/me/`'s `progress` counts;
 /// - [PresenceEvent]: the player list's `connected` flag (not on any screen
 ///   decision);
@@ -70,6 +72,14 @@ sealed class GameEvent {
         },
       ),
       'play_again' => const TableMovedEvent(),
+      'beat' => switch ((event['phase'], event['window'])) {
+        (final String phase, final int window) => BeatEvent(
+          place: GameMe.placeOf(GamePhase.fromServer(phase), window),
+          phase: GamePhase.fromServer(phase),
+          movedOn: event['moved_on'] == true,
+        ),
+        _ => const BeatEvent(),
+      },
       final other => IgnoredEvent(other is String ? other : null),
     };
   }
@@ -83,9 +93,18 @@ sealed class GameEvent {
   }
 }
 
-/// A stage opened that `/me/` shows: fetch it, unless the `/me/` held is
-/// already at that stage or past it ([GameMe.place]: the server sends each
-/// player's own view of the stage just before this event).
+/// The socket's heartbeat frame, with the table's token: where the game is
+/// ([place], from `phase` and `window`, the same for every seat) and whether
+/// its table has [movedOn] (play again, or a later deal). A phone holding less
+/// reads once: so a frame lost on a socket that stays alive costs one read.
+/// [place] is null from an older server (a beat with no token).
+final class BeatEvent extends GameEvent {
+  const BeatEvent({this.place, this.phase, this.movedOn = false});
+
+  final int? place;
+  final GamePhase? phase;
+  final bool movedOn;
+}
 
 /// A stage opened that `/me/` shows: fetch it, unless the `/me/` held is
 /// already at that stage or past it ([GameMe.place]: the server sends each

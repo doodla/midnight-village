@@ -4,6 +4,7 @@ import 'package:midnight_village/core/healing/healing.dart';
 import 'package:midnight_village/design_system/night/night_pick.dart';
 
 import 'contract/contract_samples.dart';
+import 'game_events.dart';
 import 'live_game_setup.dart';
 import 'mock_http_client.dart';
 
@@ -32,14 +33,24 @@ const replayTiming = HealTiming(
 /// `play again`, from the view or the event that brings it) and each tap
 /// (`tap ...`: its own request and whatever it led the phone to ask).
 class SeatReplay {
-  SeatReplay(this.seat, this.items);
+  SeatReplay(this.seat, this.items, {this.lose});
 
-  /// [seat] of the stream sample [name].
-  factory SeatReplay.of(String name, String seat) =>
-      SeatReplay(seat, ContractSamples.stream(name)[seat]!);
+  /// [seat] of the stream sample [name]; [lose]: see the field.
+  factory SeatReplay.of(
+    String name,
+    String seat, {
+    bool Function(Map<String, dynamic> event)? lose,
+  }) => SeatReplay(seat, ContractSamples.stream(name)[seat]!, lose: lose);
 
   final String seat;
   final List<Map<String, dynamic>> items;
+
+  /// The events lost on a socket that stays alive: never delivered (the
+  /// server's `/me/` moves on all the same). After them comes the socket's
+  /// beat with the table's token (where the lost view put the table), and
+  /// what it makes the phone ask is counted under `beat`.
+  final bool Function(Map<String, dynamic> event)? lose;
+  String? _beatAfterLost;
 
   /// Moment -> request (`GET /me/`, `POST ready`, ...) -> how many.
   final Map<String, Map<String, int>> asked = {};
@@ -75,6 +86,26 @@ class SeatReplay {
     Future<void>? tap;
     HeldReplies? held;
     for (final item in items) {
+      final event = item['event'];
+      if (opened &&
+          event is Map<String, dynamic> &&
+          (lose?.call(event) ?? false)) {
+        if (event['me'] case final Map<String, dynamic> me) {
+          setup.answerMe(me);
+          _beatAfterLost = GameEvents.beat(
+            phase: me['phase'] as String,
+            window: me['current_wave'] as int,
+          );
+        }
+        continue;
+      }
+      if (_beatAfterLost case final beat?) {
+        _beatAfterLost = null;
+        _count();
+        _moment = 'beat';
+        setup.ws.addServerEvent(beat);
+        await _settle();
+      }
       if (item['event'] case final Map<String, dynamic> event) {
         if (!opened) continue; // heard before the game's own first read
         _count();

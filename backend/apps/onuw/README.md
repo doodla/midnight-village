@@ -23,7 +23,7 @@ imports only the ones before it (`tests/onuw/test_module_directions.py`).
 | `services.py` | the top: the timer jobs (registered from it by name), the game's presence check and the lobby's current game |
 | `night_results.py` | what a player is shown of the night afterwards |
 | `recovery.py` | rebuilding timers that were lost |
-| `repair.py` | the lazy repair (a lost practice move, lost timers, the sweep), run by `GET /me/` and by the socket's heartbeat |
+| `repair.py`, `beat.py` | the lazy repair (a lost practice move, lost timers, the sweep), run by `GET /me/` and by the socket's heartbeat; the heartbeat's one statement (row, election, the table's token) |
 | `own_view.py`, `groups.py` | each player's own view as a stage opens; the socket group names (the table's, a player's own) |
 | `choose_night.py` | the night's requests: storing a choice, the prompt |
 | `views.py` | HTTP: dealing a game, a player's own page (`GET /me/`), the timer sweep |
@@ -206,8 +206,12 @@ the phase or window timer
 the night's deferred "everyone acted, minimum length not passed" close (due at the minimum, not the deadline), and dropped players' grace timers.
 The Doppelganger window only ever gets its fixed deadline.
 The game also repairs lazily (`repair.lazy_repair`: a practice seat's lost move, `ensure_timers`, then `timers.sweep` of the game's keys): on every
-`GET /me/`, and on the socket's heartbeat (`repair.repair_on_beat`, every 15 s, run only by the game's oldest fresh socket, so once per game per beat;
-never raises), so an untimed stage whose timer was lost moves on with nobody reading. The same heartbeat sends each socket its `beat` frame (contract, section 8).
+`GET /me/`, and on the socket's heartbeat (`repair.repair_on_beat`, every 15 s, run only by the game's oldest fresh socket, so once per game per beat,
+until the results; never raises), so an untimed stage whose timer was lost moves on with nobody reading. A repair that fails is counted for the owner's
+report (`repair_failed`, `apps/observe/counts.py`, no ids) and logged at ERROR, the first time for a game and then at most every 10 minutes.
+A game socket's beat (`GameConsumer._beat_work`, `beat.py`) is one statement: its row refreshed, whether it is the oldest fresh socket, and the table's
+token for the next `beat` frame (`phase`, `window`, `moved_on`: contract, section 8); then the presence check's timer, then the repair (the presence
+first, so a failing repair never leaves a socket counted away). 2 queries a socket a beat, as before; the repairing socket about 6 more.
 Safe in several workers: every callback locks the Game row and checks the phase, and the night callbacks check the window number (`_auto_advance_wave`), so a
 stale window-1 timer cannot close window 2.
 A minimum-length (deferred) close re-checks readiness under the lock when it fires (a player treated as gone may have come back);

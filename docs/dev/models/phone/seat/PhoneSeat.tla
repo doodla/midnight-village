@@ -41,6 +41,11 @@ CONSTANTS
                \* under it): the phone counts it up, the server reaches nobody
   FIX_BEAT,    \* the server's beat: a socket silent for 2.5 beats is dropped
                \* by the phone (then Back, as any drop)
+  LOSE,        \* an event lost on a socket that stays alive (a full or expired
+               \* channel queue): the beat proves the link, not delivery
+  FIX_TOKEN,   \* the beat carries the table's token (the lobby's rev; a game's
+               \* stage and whether its table moved on): a phone showing less
+               \* reads once (02 its lobby, judged; elsewhere where it sits)
   MaxDrops, MaxResumes, MaxFails
 
 NoTable == 50
@@ -260,6 +265,22 @@ Zombie == /\ ZOMBIE /\ up /\ ~dead /\ drops < MaxDrops /\ drops' = drops + 1
 Beat == /\ FIX_BEAT /\ dead /\ dead' = FALSE /\ up' = FALSE
         /\ UNCHANGED <<srv, member, left, opening, chan, tab, reads, judge, lq, lwhy, lmem, mq,
                        drops, resumes, fails>>
+\* LOSE: the next event on its way is lost, the socket alive and up
+Lose == /\ LOSE /\ up /\ ~dead /\ chan # <<>> /\ drops < MaxDrops /\ drops' = drops + 1
+        /\ chan' = Tail(chan)
+        /\ UNCHANGED <<srv, member, left, up, opening, tab, reads, judge, lq, lwhy, lmem, mq,
+                       resumes, fails, dead>>
+\* FIX_TOKEN: a beat on a live socket, once what was on its way arrived or was lost
+\* (its token is read beside the beat, never ahead of the events), says the table
+\* is ahead of what the phone shows: 02 reads its lobby (judged: it asks where the
+\* phone sits if the table moved on); anywhere else the phone asks where it sits.
+TokenBeat ==
+  /\ FIX_TOKEN /\ up /\ ~dead /\ ~opening /\ chan = <<>> /\ member /\ srv > tab
+  /\ IF Kind(tab) = "waiting"
+     THEN lq = LNone /\ lq' = LSent /\ lwhy' = "again" /\ UNCHANGED <<reads, judge>>
+     ELSE ~ReadOut /\ Ask /\ UNCHANGED <<lq, lwhy>>
+  /\ UNCHANGED <<srv, member, left, up, opening, chan, tab, lmem, mq, drops, resumes, fails,
+                 dead>>
 \* every other move: a dead socket stays dead while it is the one shown up (a
 \* new screen opening its own socket replaces it)
 M(A) == A /\ dead' = (dead /\ up')
@@ -268,7 +289,7 @@ Next == \/ M(Deal \/ End \/ PlayAgain \/ Leave
              \/ Deliver \/ ServeTable \/ ApplyTable \/ ServeLobby \/ LobbyFails \/ ApplyLobby
              \/ ServeMe \/ ApplyMe \/ GameHeals
              \/ Drop \/ Back \/ Resume \/ Sleep)
-        \/ Zombie \/ Beat
+        \/ Zombie \/ Beat \/ Lose \/ TokenBeat
 
 \* the host moves on; the phone's own steps and a socket coming up are fair;
 \* a resume, a leave and a failure are never promised; the beat is (FIX_BEAT)
@@ -277,7 +298,7 @@ Spec == Init /\ [][Next]_vars
         /\ WF_vars(M(Deliver)) /\ WF_vars(M(ServeTable)) /\ WF_vars(M(ApplyTable))
         /\ WF_vars(M(ServeLobby)) /\ WF_vars(M(ApplyLobby)) /\ WF_vars(M(Back))
         /\ WF_vars(M(ServeMe)) /\ WF_vars(M(ApplyMe)) /\ WF_vars(M(GameHeals))
-        /\ WF_vars(Beat)
+        /\ WF_vars(Beat) /\ WF_vars(TokenBeat)
 
 (* ---------------- rules ---------------- *)
 \* the screen never goes back to a table older than one it showed

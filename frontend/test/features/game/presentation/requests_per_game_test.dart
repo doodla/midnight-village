@@ -48,6 +48,28 @@ void main() {
     });
   }
 
+  test('every frame of the vote opening lost on a socket that stays alive: '
+      'the beat costs one read of /me/, nothing else changes', () async {
+    bool votesOpening(Map<String, dynamic> event) => switch (event['type']) {
+      'me' => (event['me'] as Map)['phase'] == 'voting',
+      'phase_change' => event['phase'] == 'voting',
+      'progress' => event['stage'] == 'vote' && event['done'] == 0,
+      _ => false,
+    };
+    final healthy = SeatReplay.of(stream, 'Ana');
+    await healthy.run();
+    final lost = SeatReplay.of(stream, 'Ana', lose: votesOpening);
+    await lost.run();
+    int reads(SeatReplay r) => [
+      for (final asked in r.asked.values)
+        for (final e in asked.entries)
+          if (e.key.startsWith('GET')) e.value,
+    ].fold(0, (a, b) => a + b);
+    expect(reads(healthy), 4, reason: 'a healthy game: its opening only');
+    expect(lost.asked['beat'], {'GET me': 1});
+    expect(reads(lost), reads(healthy) + 1);
+  });
+
   tearDownAll(() {
     if (measured.length != seats.length) return;
     final budget = budgetFile.existsSync()

@@ -377,15 +377,28 @@ phone applies it when its stage is later than the `/me/` it holds (section 4), a
 table's event asks nothing; a phone that holds no such view when the event comes (a server
 before 27 November 2026, a lost message) reads `/me/` as before. An older app drops the type.
 
-**`beat`: the heartbeat.** `{"type": "beat", "every": <seconds>}` (15), sent by every game
-and lobby socket to its own phone at each heartbeat (the first one a beat after it opens),
-not through a group: the same bytes for every socket, nothing about anyone
-(`test_contract_privacy.py`). A phone that has heard one counts a socket as up only while
-frames keep coming: silent for 2.5 beats it is closed and opened again (which reads what the
-screen depends on), and a socket a beat overdue when the app comes back is opened again at
-once. An older app drops the type; on an older server no beat comes and the phone believes
-its socket as before. The same heartbeat runs the game's lazy repair (section 4: practice
-moves, lost timers), from the game's oldest open socket, once per beat.
+**`beat`: the heartbeat.** Sent by every socket to its own phone as it opens and every
+`every` seconds (15), not through a group, with the table's token: what every seat already
+knows, the same bytes for every socket of one table, nothing about anyone
+(`test_contract_privacy.py` pins the keys):
+
+- game socket: `{"type": "beat", "every": 15.0, "phase", "window", "moved_on"}`: the game's
+  phase and night window (what `phase_change` and `night_window` tell the table), and whether
+  its table has moved past this finished game (play again, or a later deal);
+- lobby socket: `{"type": "beat", "every": 15.0, "rev"}`: the table's number (section 2).
+
+The frame goes on its own clock, whatever the database is doing; the token on it is the one
+the last beat's database work read, so it only ever trails the table's events. A phone that
+has heard a beat counts a socket as up only while frames keep coming: silent for 2.5 beats it
+is closed and opened again (which reads what the screen depends on); when the app comes back,
+one a beat overdue by the wall clock is reopened at once. It forgets the beat after two
+connections in a row that heard none (a rollback). A phone holding less than the token reads
+once: a game behind `phase`/`window` reads `/me/`; one at the results without them reads
+them; an end board whose table `moved_on` reads `/me/table/`; a lobby below `rev` reads the
+lobby. So a frame lost on a socket that stays alive costs one read, never a stuck screen. An
+older app drops the type; on an older server no beat comes and the phone believes its socket
+as before. The same heartbeat runs the game's lazy repair (section 4: practice moves, lost
+timers), from the game's oldest fresh socket, once per beat, until the results.
 `player_joined` and `player_left` carry only their type; the `lobby_update` sent with each
 carries the whole table, so the app reads nothing on them.
 

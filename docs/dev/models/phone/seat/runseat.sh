@@ -9,8 +9,9 @@ J=${TLA2TOOLS:?set TLA2TOOLS to the path of tla2tools.jar}
 cd "$(dirname "$0")" || exit 1
 out=$(mktemp -d)
 # zombie: a socket that dies open, with no beat, strands the seat (seat_beat: with it)
-BREAKS="late stale noup leave today seat_drop zombie"
-names=${*:-"seat seat_before seat_beat seat_drop zombie late stale noup leave today"}
+# lost: an event lost on a live socket strands it without the beat's token (seat_token: with it)
+BREAKS="late stale noup leave today seat_drop zombie lost"
+names=${*:-"seat seat_before seat_beat seat_token seat_drop zombie lost late stale noup leave today"}
 bad=0
 for n in $names; do
   s=$(date +%s)

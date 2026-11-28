@@ -44,11 +44,29 @@ mixin _LobbySeat on _$LobbyNotifier {
   /// which listens to the resume itself).
   void _readOnResume() => ref.listen(appResumesProvider, (_, next) {
     if (!next.hasValue) return;
-    // A socket that missed its beat while the phone was away is opened again.
+    // A socket that missed its beat while the phone was away is opened again
+    // at once, and its "connected" reads the lobby; else it is read now. One
+    // read either way.
     final ws = _webSocket;
-    if (ws is ReconnectingWebSocket) ws.verify();
+    if (ws is ReconnectingWebSocket && ws.verify()) return;
     unawaited(refreshLobby());
   });
+
+  /// The beat's token is the table's `rev` (the same for every seat): a
+  /// lobby this phone holds at a lower one missed a frame on a socket that
+  /// stayed alive (a deal, a change of the table), so it is read once per
+  /// `rev` told; that read moves the phone on if the table did
+  /// ([_askWhereIfMoved]). An older server's beat carries none.
+  int? _beatAskedRev;
+  void _onBeat(Map<String, dynamic> beat) {
+    final rev = beat['rev'];
+    final held = _current?.rev;
+    if (rev is! int || held == null || rev <= held || _beatAskedRev == rev) {
+      return;
+    }
+    _beatAskedRev = rev;
+    unawaited(refreshLobby());
+  }
 
   /// A start this phone's table already names (a second word of the same
   /// deal, a late `game_started` for a game it is in or past) changes

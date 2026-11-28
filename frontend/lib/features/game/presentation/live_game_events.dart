@@ -54,6 +54,40 @@ mixin _LiveGameEvents on _$LiveGameNotifier, _LiveGameTaps {
     }
   }
 
+  /// The beat's token says where the table is ([BeatEvent]). A frame lost on
+  /// a socket that stays alive leaves this phone behind with nothing to heal
+  /// it (no deadline at an untimed stage or at the end): the beat then reads
+  /// once what it misses. Behind its stage: `/me/` (once per stage told); at
+  /// the end without the results: the results; at the end of a table that
+  /// moved on (play again, a new deal): where it sits now. The token is only
+  /// ever behind the table's events, never ahead of them, so a phone that
+  /// heard them reads nothing.
+  int? _beatAskedAt;
+  bool _beatMovedAsked = false;
+
+  /// The app's resume reopened the socket ([ReconnectingWebSocket.verify]).
+  bool _reopenedOnResume = false;
+  void _beatSays(BeatEvent beat) {
+    final at = beat.place;
+    if (at == null || _loop != null) return; // an older server; a read is out
+    final current = state.requireValue;
+    final server = current.server;
+    if (at > server.place) {
+      if (_beatAskedAt == at) return;
+      _beatAskedAt = at;
+      unawaited(refresh());
+      return;
+    }
+    if (beat.phase != GamePhase.results || server.phase != GamePhase.results) {
+      return;
+    }
+    if (current.outcome == null) _loadOutcomeSoon();
+    if (beat.movedOn && !_playingAgain && !_beatMovedAsked) {
+      _beatMovedAsked = true;
+      _invalidateTable();
+    }
+  }
+
   /// The table heard the game end: its results with it (`game_results`
   /// carries them), else, at the results with none, they are read.
   void _results(GameOutcome? results) {
@@ -99,8 +133,8 @@ mixin _LiveGameEvents on _$LiveGameNotifier, _LiveGameTaps {
 
   /// The socket opening or coming back, and resume: anything may have
   /// happened.
-  void _healEverything() {
-    _invalidateTable();
+  void _healEverything({bool table = true}) {
+    if (table) _invalidateTable();
     unawaited(refresh());
     final lost = state.value?.outbox.current(OutboxLane.ack);
     if (lost?.leg == Leg.unsent) unawaited(retry(OutboxLane.ack));
@@ -117,8 +151,11 @@ mixin _LiveGameEvents on _$LiveGameNotifier, _LiveGameTaps {
       case WebSocketConnectionState.connected when _wasDisconnected:
         _wasDisconnected = false;
         // Up for the first time too: nothing said before it listened was
-        // heard. (After a seat from an event, this read confirms it.)
-        _healEverything();
+        // heard. (After a seat from an event, this read confirms it.) Back
+        // from a reopen the app's resume asked for: that resume reads the
+        // table itself, so only `/me/` is read here.
+        _healEverything(table: !_reopenedOnResume);
+        _reopenedOnResume = false;
       case WebSocketConnectionState.disconnected ||
           WebSocketConnectionState.reconnecting:
         _wasDisconnected = readOnDrop(connection!, _healEverything);
@@ -144,13 +181,16 @@ mixin _LiveGameEvents on _$LiveGameNotifier, _LiveGameTaps {
     // Play again says where this phone sits: back at the table, at once.
     if (event is TableMovedEvent && _seatBackAtTable()) return;
     if (state.value == null) {
-      // The first fetch is out (or failed): it may predate this.
-      if (event is! IgnoredEvent) unawaited(refresh());
+      // The first fetch is out (or failed): it may predate this. (A beat as
+      // the socket opens says nothing that read will not.)
+      if (event is! IgnoredEvent && event is! BeatEvent) unawaited(refresh());
       return;
     }
     switch (event) {
       case OwnViewEvent(:final me):
         _acceptView(me);
+      case BeatEvent():
+        _beatSays(event);
       case ProgressEvent(:final progress):
         final current = state.requireValue.server;
         if (_loop != null || current.progress?.stage != progress.stage) {

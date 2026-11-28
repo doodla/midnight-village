@@ -96,9 +96,24 @@ abstract final class GameEvents {
     {'me': me},
   );
 
-  /// The heartbeat's frame every socket sends its phone ([every] seconds).
-  static String beat({num every = 15.0}) =>
-      _event('ws/game/beat', {'every': every});
+  /// The heartbeat's frame a game socket sends its phone as it opens and
+  /// every [every] seconds, with the table's token: where the game is
+  /// ([phase], night [window]) and whether its table [movedOn].
+  static String beat({
+    num every = 15.0,
+    String phase = 'voting',
+    int window = 0,
+    bool movedOn = false,
+  }) => _event('ws/game/beat', {
+    'every': every,
+    'phase': phase,
+    'window': window,
+    'moved_on': movedOn,
+  });
+
+  /// The lobby socket's heartbeat frame: the table's [rev].
+  static String lobbyBeat({required int rev, num every = 15.0}) =>
+      _event('ws/lobby/beat', {'every': every, 'rev': rev});
 
   /// The host took the table back to the lobby for another game.
   static String playAgain({required String lobbyCode}) =>
