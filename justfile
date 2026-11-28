@@ -43,10 +43,11 @@ makemigrations *args:
 
 # --- Testing ---
 
-# Run backend tests, then the .claude/ guardrail tests
+# Run backend tests, then the .claude/ guardrail tests. With arguments only those backend
+# tests, without the coverage floor: `just test tests/onuw/test_x.py -v`
 test *args:
-    {{backend_just}} test {{args}}
-    just test-guardrails
+    {{backend_just}} test-backend {{args}}
+    @{{ if args == "" { "just test-guardrails" } else { "true" } }}
 
 # Run the .claude/ hook tests: guardrails (python3 >= 3.11), the workflows' recipes and the commit gate's routing.
 # Without Flutter and Dart on PATH, as in GitHub's "Backend Checks" job (which runs this): a test that
@@ -89,7 +90,7 @@ copy-page *args:
 prove-guards *args:
     @tool/heavy.py --name prove-guards -- tool/prove_guards.py {{args}}
 
-# The queue every heavy command goes through (tool/heavy.py): a few at once, the rest wait their
+# The queue every heavy command goes through. (tool/heavy.py: a few at once, the rest wait their
 # turn and say where they are. The recipes that are heavy (tests, builds, screens, phone-frames,
 # the harness) use it themselves. `just heavy --status`: who holds a slot, since when, who waits.
 # Usage: just heavy <command...>   |   just heavy --status
@@ -102,13 +103,13 @@ heavy *args:
 revert-release *args:
     @tool/revert_release.py {{args}}
 
-# While building: the fast checks and only the tests this change can reach
+# While building: the fast checks and only the tests this change can reach.
 # (tool/piece_check.py; `just piece-check --list` prints the plan). GitHub runs everything.
 # Its heavy steps wait their turn in `just heavy`'s queue.
 piece-check *args:
     @tool/piece_check.py {{args}}
 
-# LAST, before a piece is handed over, and the only way to hand one over: refuses work
+# LAST, and the only way to hand a piece over. It refuses work
 # that is not committed and pushed, runs the checks the change reaches, draws every
 # screen state it reaches beside main, and writes the hand-over file (tool/handover.py).
 # `just handover <file> --plan` says what it would run and what that costs. It also runs the
@@ -117,17 +118,16 @@ piece-check *args:
 handover *args:
     @tool/handover.py {{args}}
 
-# FIRST, before starting on a screen: its spec section and the owner's words about it
-# (word for word), its states, files, tests, and who else is in them (tool/brief.py).
+# FIRST: everything a piece needs, copied from the sources (tool/brief.py). On a screen:
+# its spec section and the owner's words about it (word for word), its states, files, tests, and who else is in them.
 # Work that is not a screen has an area brief (the lobby's queue, the outbox, the kit, the
 # words, the models, the server: tool/brief_areas.py). Alone, it lists every brief.
 # Usage: just brief 09   |   just brief end-board   |   just brief copy   |   just brief
 brief *args:
     @tool/brief.py {{args}}
 
-# The whole local suite, on demand (minutes): what the commit gate skips (it only runs
-# the fast checks) and GitHub runs on a pull request, except the browser, release-build
-# and end-to-end jobs. Optionally only some of: backend frontend guardrails
+# Every required GitHub check that can run here, on demand (minutes); it ends by naming
+# the ones only GitHub runs. Optionally only some of: backend frontend guardrails
 gate-full *blocks:
     .claude/hooks/gate-full.sh {{blocks}}
 
@@ -194,17 +194,21 @@ format-check:
 typecheck:
     {{backend_just}} typecheck
 
-# Run all backend quality checks, check the instruction files' paths and recipes,
+# Every fast check GitHub's Backend Checks runs first. The backend's quality checks, the instruction files' paths and recipes,
 # that no source file has grown past what can be read whole (tool/check_file_sizes.py),
-# and that no line of the notes is so long that two branches clash on it (tool/doc_lines.py)
+# that no line of the notes is so long that two branches clash on it (tool/doc_lines.py),
+# that what each agent must read stays within its limit (tool/context_budget.py),
+# and that the facts the notes state about the code are what the code says (tool/gen_docs.py)
 check:
-    {{backend_just}} check
+    {{backend_just}} check-backend
     {{backend_just}} lint-tools
     tool/copy_page.py --check-spec
     tool/check_instruction_links.sh
     tool/check_file_sizes.py
     tool/doc_lines.py
     tool/root_recipes.py
+    tool/context_budget.py
+    tool/gen_docs.py
 
 # Fix all auto-fixable issues
 fix:
@@ -243,7 +247,7 @@ flutter-watch:
 
 # Run Flutter tests
 flutter-test:
-    {{frontend_just}} test
+    {{frontend_just}} flutter-test
 
 # Analyze Flutter code
 flutter-analyze:
@@ -268,7 +272,7 @@ playtest-pack *args:
 # Run Flutter integration tests on Chrome
 # Uses flutter drive because flutter test does not support web devices
 flutter-test-integration:
-    {{frontend_just}} test-integration
+    {{frontend_just}} flutter-test-integration
 
 # Run Flutter integration tests in headless mode (CI)
 flutter-test-integration-ci:
@@ -471,3 +475,31 @@ server-timing *args:
 # (backend) Re-record tests/perf/tap_budget.json after a change that adds or removes a query
 tap-budget *args:
     {{backend_just}} tap-budget {{args}}
+
+# (frontend) Clean build artifacts
+flutter-clean *args:
+    {{frontend_just}} flutter-clean {{args}}
+
+# (frontend) Get dependencies
+flutter-deps *args:
+    {{frontend_just}} flutter-deps {{args}}
+
+# (frontend) Format code
+flutter-format *args:
+    {{frontend_just}} flutter-format {{args}}
+
+# (frontend) Check formatting (--output=none: report only, never rewrite files)
+flutter-format-check *args:
+    {{frontend_just}} flutter-format-check {{args}}
+
+# (frontend) Run tests with coverage (excludes the live-backend e2e harness)
+flutter-test-cov *args:
+    {{frontend_just}} flutter-test-cov {{args}}
+
+# (backend) The backend's own four checks (lint, format, types, migrations): the first step of `just check`.
+check-backend *args:
+    {{backend_just}} check-backend {{args}}
+
+# (backend) The backend's tests; with arguments only those, without the coverage floor.
+test-backend *args:
+    {{backend_just}} test-backend {{args}}

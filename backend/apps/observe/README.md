@@ -28,9 +28,9 @@ The phones' own speed, kept so the owner can read it without copying anything
   `counts.add(word)` is one statement (this hour's row made or raised; rows older than 30
   days of that word go with it). A game app calls it where something goes wrong that the
   owner should see but the runtime logs keep only an hour: `repair_failed` (a game's lazy
-  repair, `apps/onuw/repair.py`). No game, player or table.
+  repair, `backend/apps/onuw/repair.py`). No game, player or table.
 
-Samples: `contract_samples/http/observe/` (`tests/contract/observe_scenarios.py`), and the app's
+Samples: `contract_samples/http/observe/` (`backend/tests/contract/observe_scenarios.py`), and the app's
 own summary in `contract_samples/app/field_summary.json` (written by the app's test; the server's
-test keeps all of it). Tests: `tests/observe/`, and `tests/core/test_open_routes.py` for every
+test keeps all of it). Tests: `backend/tests/observe`, and `backend/tests/core/test_open_routes.py` for every
 route open without an account.

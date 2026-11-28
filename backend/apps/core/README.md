@@ -2,7 +2,7 @@
 
 Lobbies, sockets, presence, host handover, play again, tokens and durable timers: the parts
 any game uses. `apps.core` imports no game app (a test scans its source). The ONUW side is in
-`apps/onuw/README.md`; running on Vercel in `docs/dev/deploy-vercel.md`. Keep this file true
+`backend/apps/onuw/README.md`; running on Vercel in `docs/dev/deploy-vercel.md`. Keep this file true
 when you change the code it describes.
 
 ## Sign-in (`auth.py`, SimpleJWT)
@@ -15,11 +15,11 @@ work, or the phone loses its seat. The blacklist app stays installed for an expl
 `POST /api/auth/logout/`. One rule for an account that is gone (deleted, inactive): 401, on
 the refresh (`AccountTokenRefreshView`: "User not found", as a read says it, where SimpleJWT's own answered 500)
 as on any authenticated read; the app starts afresh on a 401 and asks again on anything else
-(`tests/core/test_auth.py`, `contract_samples/http/auth/token_refresh_user_gone.json`, `user_gone.json`, `user_gone_game_me.json`).
+(`backend/tests/core/test_auth.py`, `contract_samples/http/auth/token_refresh_user_gone.json`, `user_gone.json`, `user_gone_game_me.json`).
 
 ## How many server processes?
 
-Depends on `ONUW_TIMER_BACKEND`. With `"vercel_queue"` (Vercel; `config/settings/vercel.py`) there is NO per-process state:
+Depends on `ONUW_TIMER_BACKEND`. With `"vercel_queue"` (Vercel; `backend/config/settings/vercel.py`) there is NO per-process state:
 timers are rows fired by queue messages, presence is rows with heartbeats, nothing resets or re-arms at start-up, so any number of instances may start and stop
 at any time (`docs/dev/deploy-vercel.md`).
 With `"memory"` (default: dev, tests, harness, `just dev`) still run ONE process:
@@ -33,15 +33,15 @@ Recovery logs one INFO line about it at every start.
 ## Where things live (principle 6)
 
 `apps.core` is shared infrastructure and imports NO game app (a test scans its source):
-lobbies, `LobbySocket` rows and the lobby consumer, host handover (`core/host.py`), play again (`core/lobbies.py`), the after-commit helpers
-(`core/effects.py`; one `send_after_commit` call is one batch, which the live server's channel layer, `core/channel_layer.py`, sends in two Redis round trips whatever it holds, in order for every socket; `send_built_after_commit` adds messages built after the commit, first in the same batch: a game's own views; when that build or the send fails, the messages it was given go alone, tried once more),
-a JSON parser that answers a body nested too deep with a 400, not a 500 (`core/parsers.py`, every view's; `tests/core/test_open_routes.py` sends hostile bodies to every route),
+lobbies, `LobbySocket` rows and the lobby consumer, host handover (`backend/apps/core/host.py`), play again (`backend/apps/core/lobbies.py`), the after-commit helpers
+(`backend/apps/core/effects.py`; one `send_after_commit` call is one batch, which the live server's channel layer, `backend/apps/core/channel_layer.py`, sends in two Redis round trips whatever it holds, in order for every socket; `send_built_after_commit` adds messages built after the commit, first in the same batch: a game's own views; when that build or the send fails, the messages it was given go alone, tried once more),
+a JSON parser that answers a body nested too deep with a 400, not a 500 (`backend/apps/core/parsers.py`, every view's; `backend/tests/core/test_open_routes.py` sends hostile bodies to every route),
 the `Server-Timing` header every answer carries (CORS exposes it to the web app, whose field recorder splits a round trip with it)
-(`core/server_timing.py`: on the live server only how long the request took to get its database connection, when it made one, and the total rounded to 50 ms, because round-trip and message counts can depend on other players' hidden moves (`tests/perf/test_header_hides_play.py`); with `SERVER_TIMING_DETAIL`, on in development, the harness and the tests, also its database round trips, socket and timer messages and each part's time),
-durable timers (`core/timers.py`, `ScheduledTimer`, the queue subscriber `core/queue_worker.py`) and generic presence (`core/presence.py`).
-A game app plugs in through `apps/core/games.py`:
+(`backend/apps/core/server_timing.py`: on the live server only how long the request took to get its database connection, when it made one, and the total rounded to 50 ms, because round-trip and message counts can depend on other players' hidden moves (`backend/tests/perf/test_header_hides_play.py`); with `SERVER_TIMING_DETAIL`, on in development, the harness and the tests, also its database round trips, socket and timer messages and each part's time),
+durable timers (`backend/apps/core/timers.py`, `ScheduledTimer`, the queue subscriber `backend/apps/core/queue_worker.py`) and generic presence (`backend/apps/core/presence.py`).
+A game app plugs in through `backend/apps/core/games.py`:
 `GameHooks` registered per `Lobby.game_type` from `AppConfig.ready`
-(`apps/onuw/hooks.py`: settings validation, the newest game's socket group, who is connected to it, when its players were noticed gone, whether it is finished, which game a member plays in: `member_game`)
+(`backend/apps/onuw/hooks.py`: settings validation, the newest game's socket group, who is connected to it, when its players were noticed gone, whether it is finished, which game a member plays in: `member_game`)
 plus `timers.register_job_module` and `presence.register_scope`.
 ONUW keeps the game: `Game`, `PlayerRole`, `SocketPresence` (GAME sockets only), its services and its timer jobs.
 
@@ -72,14 +72,14 @@ under the memory backend it re-arms threads this process lacks.
 (setting `ONUW_CRON_SECRET`, env `CRON_SECRET`) matches (no secret configured = always 403).
 **Clocks:** `due_at`, `scheduled_at`, `published_at`, `last_seen` and every freshness / due comparison use the DATABASE clock (`Now()`), never an instance
 clock. Backends: `memory` = `threading.Timer(key, token)`;
-`vercel_queue` = delayed message `{key, token}` (`vercel.queue` imported lazily, optional extra `vercel`) handled by `apps/core/queue_worker.py`
+`vercel_queue` = delayed message `{key, token}` (`vercel.queue` imported lazily, optional extra `vercel`) handled by `backend/apps/core/queue_worker.py`
 (registered as `[[tool.vercel.subscribers]]`).
 The debug `fire-timer` claims the row with `fire(..., force=True)`;
 `current` ignores `:grace:` keys, and the `lobby:` / `presence:` keys never match a game's prefix.
 
 ## Play again
 
-(The generic part, `core/lobbies.py`: host check, reopen, events, asks the game hooks whether the newest game is finished.) `Game.lobby` is a ForeignKey
+(The generic part, `backend/apps/core/lobbies.py`: host check, reopen, events, asks the game hooks whether the newest game is finished.) `Game.lobby` is a ForeignKey
 (`related_name="games"`); a lobby's current game is its newest (`services.latest_game`).
 `POST /api/lobbies/<code>/play-again/` (also `/api/onuw/lobbies/<code>/play-again/`, same view, name `lobby-play-again`) is host-only (403), needs the newest
 game in `results` (409; a repeat while already `waiting` is a harmless 200), sets the lobby `waiting`, sets every member ready, keeps members and settings, and
@@ -135,8 +135,8 @@ a gone owner is replaced by host handover (below).
 The *effective host* is `acting_host` if set, else `host`;
 EVERY host-only check calls `Lobby.is_host(user_id)`
 (start, lobby settings PATCH, advance-wave, end-discussion, reveal-votes, play-again, `is_host` in `/me/`, the debug oracle).
-Logic lives in `apps/core/host.py`. Setting `host_handover_seconds`
-(default 60, 0 to 600, 0 = off, read from the lobby settings; the same limits are validated by `apps/onuw/engine/validation.py`).
+Logic lives in `backend/apps/core/host.py`. Setting `host_handover_seconds`
+(default 60, 0 to 600, 0 = off, read from the lobby settings; the same limits are validated by `backend/apps/onuw/engine/validation.py`).
 When the effective host has had no open socket (a fresh lobby socket row OR a fresh newest-game socket row; lobby presence is never broadcast) for that long,
 the first lobby member in join order who is connected becomes the acting host;
 if nobody is connected nothing happens until someone connects;
@@ -166,7 +166,7 @@ The owner leaving locks the Lobby row first, so a concurrent presence check wait
 ## Tokens, seats, deal snapshot
 
 Each `LobbyMember` has a `token`
-(`core/tokens.py`: ten ids, a permutation seeded by the lobby code, the first free one is taken at join / create by `lobbies.add_member` under the Lobby row lock, logged at INFO; capacity is checked there too, so the join is atomic: `max_players`, or less when the game says the table takes fewer now, `GameHooks.seat_limit`, ONUW's `settings.seats`; every join refusal has a `code`: `lobby_not_found` 404, `already_in_lobby`, `lobby_closed`, `lobby_full` 400; `max_players` is capped at create by the token count, `core.tokens.MAX_TABLE_SIZE` = 10, the one home of the limit; the game checks its own 3 to 10 when it deals).
+(`backend/apps/core/tokens.py`: ten ids, a permutation seeded by the lobby code, the first free one is taken at join / create by `lobbies.add_member` under the Lobby row lock, logged at INFO; capacity is checked there too, so the join is atomic: `max_players`, or less when the game says the table takes fewer now, `GameHooks.seat_limit`, ONUW's `settings.seats`; every join refusal has a `code`: `lobby_not_found` 404, `already_in_lobby`, `lobby_closed`, `lobby_full` 400; `max_players` is capped at create by the token count, `core.tokens.MAX_TABLE_SIZE` = 10, the one home of the limit; the game checks its own 3 to 10 when it deals).
 The token is freed when the member's row is deleted and stays across play again.
 `GameStartView._deal` validates everything first
 (a refusal returns inside `atomic()`, which would COMMIT earlier writes, so `post` also calls `transaction.set_rollback(True)` on one), then gives a blank token
@@ -190,9 +190,9 @@ The client routes: `game.phase != "results"` -> the game, `status == "waiting"` 
 ## Home extras and lobby settings
 
 `GET /api/stats/online/`
-(`OnlineStatsView`, no login, `authentication_classes = []`, its own throttle scope `online_stats` = 600/min so the home screen cannot eat guest sign-up's `sign_up` budget; `Cache-Control: public, max-age=15, s-maxage=15`, which PERMITS 15 s reuse by browsers and shared caches and guarantees nothing more: whether a CDN honours it is the platform's choice. **the two request limits (`core/throttles.py`) count per client address: the connection's, or on Vercel the header Vercel itself writes (`CLIENT_ADDRESS_HEADER`), never a header a caller can make up. They count in the default cache, a per-process LocMem cache, so on Vercel every instance has its own count: see `docs/dev/deploy-vercel.md`, "Request limits"**)
+(`OnlineStatsView`, no login, `authentication_classes = []`, its own throttle scope `online_stats` = 600/min so the home screen cannot eat guest sign-up's `sign_up` budget; `Cache-Control: public, max-age=15, s-maxage=15`, which PERMITS 15 s reuse by browsers and shared caches and guarantees nothing more: whether a CDN honours it is the platform's choice. **the two request limits (`backend/apps/core/throttles.py`) count per client address: the connection's, or on Vercel the header Vercel itself writes (`CLIENT_ADDRESS_HEADER`), never a header a caller can make up. They count in the default cache, a per-process LocMem cache, so on Vercel every instance has its own count: see `docs/dev/deploy-vercel.md`, "Request limits"**)
 answers `{"players", "tables"}`: distinct users and lobbies with a FRESH socket row on the database clock
-(`core/online.py`: core's `LobbySocket` rows plus the sources a game app registers with `online.register_online_source`; ONUW registers `presence.online_sockets` for `SocketPresence` in `AppConfig.ready`).
+(`backend/apps/core/online.py`: core's `LobbySocket` rows plus the sources a game app registers with `online.register_online_source`; ONUW registers `presence.online_sockets` for `SocketPresence` in `AppConfig.ready`).
 It counts sockets, so someone on the home screen is not counted:
 label it "players at tables". `GET /api/onuw/me/recent-games/?limit=` (default 5, 1..10) lists the CALLER's games in `results`, newest first:
 `{game_id, ended_at (Game.updated_at), player_count, winning_teams, you_won, token, seat}`;
@@ -201,7 +201,7 @@ no lobby code, nothing about others. `PATCH /api/lobbies/<code>/` MERGES the giv
 (a finished table may change the deck for the next game), 400 if `settings` is not an object, and the game's validator checks the MERGED result
 (nothing is stored if it refuses; the deck-against-player-count check runs only when `roles` is in the PATCH, via the hook's `changed` keys, so a pace-only PATCH is not refused because a player joined; the deal checks again);
 there is no way to delete a key, send its default.
-**A late tap (`asked`, `core/asked.py`, issue #16):** a PATCH may carry `"asked": <int>`
+**A late tap (`asked`, `backend/apps/core/asked.py`, issue #16):** a PATCH may carry `"asked": <int>`
 (the phone's tap time in ms, rising per phone; anything else that is not a plain non-negative integer is 400 `bad_request`).
 `Lobby.asked` keeps, per settings key, `[user_id, asked]` of the newest request that set it;
 under the Lobby lock a given key whose entry is this user's with a GREATER `asked` is dropped before the merge and the check
@@ -217,7 +217,7 @@ The ready toggle is refused while a game runs (409 `lobby_in_game`) and takes th
 
 A game opts a table in with `GameHooks.shows_table_extras(lobby)`
 (settings only, cheap; ONUW: every table; a game that opts nothing in is answered without them).
-For such a table `LobbySerializer` adds the game's keys (ONUW: `deck_preview`, `deal`, `apps/onuw/README.md`) and, per member, `connected`
+For such a table `LobbySerializer` adds the game's keys (ONUW: `deck_preview`, `deal`, `backend/apps/onuw/README.md`) and, per member, `connected`
 (`lobbies.connected_members`: a fresh lobby socket, a socket on the newest game, or a phone that went away less than `GameHooks.presence_grace_seconds` ago, ONUW's `disconnect_grace_seconds`; a member never seen with a socket is not connected).
 The table hears `lobby_update` (the whole body, `lobbies.announce_lobby`, after commit) when a member joins or leaves, when a phone comes back after being SHOWN
 as gone
@@ -251,8 +251,8 @@ re-read; every caller does). `announce_lobby`
 calls it and returns the body, so a request that answers and sends `lobby_update` (join,
 practice) bumps once and gives both one number; the settings PATCH and play again use
 `told_body` the same way. A change the table hears about without a body bumps alone:
-`host._announce` (`host_changed` carries the new `rev`), the deal (`apps/onuw/views.py`)
-and a game's end (`apps/onuw/voting.py`, in the UPDATE that sets `finished`). A request
+`host._announce` (`host_changed` carries the new `rev`), the deal (`backend/apps/onuw/views.py`)
+and a game's end (`backend/apps/onuw/voting.py`, in the UPDATE that sets `finished`). A request
 that is refused or tells nobody (a stale `asked`, a repeated play again) does not bump; a
 plain read (GET, the create answer) shows the `rev` of the row it loaded. A request that
 changes the host and the members tells twice and bumps twice (`host_changed`, then the
@@ -312,4 +312,4 @@ in as one and nothing a host sends can make a person one. That username is the o
 - `settings.practice` is the endpoint's alone: the settings PATCH and a new table's settings
   drop the key (`practice.strip_setting`), so they never set or clear it.
 - No migration: the mark is the username, the switch a settings key.
-- Who plays them is the game's business (ONUW: `apps/onuw/practice.py`).
+- Who plays them is the game's business (ONUW: `backend/apps/onuw/practice.py`).

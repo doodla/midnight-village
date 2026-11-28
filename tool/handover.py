@@ -143,7 +143,7 @@ def steps_for(changed: list[str], piece) -> list[tuple[str, str, list[str]]]:
     steps += tool("prove_guards").handover_steps(changed)  # breaks the change reaches
     # The nearest test files never reach a picture test or a scan of all of lib/, and
     # GitHub runs both: a change to the app's code or assets runs them here too.
-    all_tests = ("frontend", ["just", "test"])
+    all_tests = ("frontend", ["just", "flutter-test"])
     everything = any((folder, cmd) == all_tests for _, folder, cmd in steps)
     if any(name.startswith(APP_CODE) for name in changed) and not everything:
         steps.append(("the golden tests", "frontend", ["just", "flutter-test-golden"]))

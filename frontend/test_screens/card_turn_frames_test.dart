@@ -1,7 +1,7 @@
 // Your card turning over, in motion: a finger lands, the card turns to its
 // face after the hold, and turns back when let go; one PNG per 17 ms step
 // (a 60 Hz phone's frame) into a folder. Run it with `just card-frames` (see
-// frontend/test/README.md); it is not part of `just test`.
+// frontend/test/README.md); it is not part of `just flutter-test`.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;

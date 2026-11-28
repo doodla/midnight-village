@@ -11,6 +11,38 @@ set fallback := true
 default:
     @just --list
 
+# --- Renamed: one name means one thing everywhere ---
+# An old name fails here, never falls back to the root's recipe of that name (the root's
+# `just test` is the backend's). The group is the rename table: test_gate_full.py reads it.
+
+[private, no-exit-message, group('renamed')]
+test *args:
+    @echo "renamed: just flutter-test" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+test-cov *args:
+    @echo "renamed: just flutter-test-cov" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+test-integration *args:
+    @echo "renamed: just flutter-test-integration" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+format *args:
+    @echo "renamed: just flutter-format" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+format-check *args:
+    @echo "renamed: just flutter-format-check" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+clean *args:
+    @echo "renamed: just flutter-clean" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+deps *args:
+    @echo "renamed: just flutter-deps" >&2; exit 1
+
 # --- Development ---
 
 # Run app on Chrome
@@ -39,17 +71,17 @@ watch:
 # Run all tests (excludes the live-backend e2e harness — see test-harness)
 # A red run ends with what failed: each failed test's file, name and first error line
 # (tool/failed_tests.py reads the run's own report).
-test:
+flutter-test:
     ../tool/heavy.py -- flutter test --dart-define=ENV=dev --exclude-tags e2e --file-reporter json:build/test-report.jsonl || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
 
 # The widget tests without the golden ones (GitHub runs those as their own job,
-# `just flutter-test-golden`; on Linux `just test` runs both). `just test-widgets 2 3` is
+# `just flutter-test-golden`; on Linux `just flutter-test` runs both). `just test-widgets 2 3` is
 # the second of three parts: GitHub runs the three side by side.
 test-widgets part="" of="":
     ../tool/heavy.py -- flutter test --dart-define=ENV=dev --exclude-tags golden --file-reporter json:build/test-report.jsonl {{ if part == "" { "" } else { "--total-shards " + of + " --shard-index $((" + part + " - 1))" } }} || { ../tool/failed_tests.py flutter build/test-report.jsonl; exit 1; }
 
 # Run tests with coverage (excludes the live-backend e2e harness)
-test-cov:
+flutter-test-cov:
     ../tool/heavy.py -- flutter test --dart-define=ENV=dev --coverage --exclude-tags e2e
 
 # Run golden tests only (tagged 'golden'; Linux only, skipped on other OSes)
@@ -62,7 +94,7 @@ flutter-golden-update:
 
 # Run integration tests on Chrome (requires Chrome installed)
 # Uses flutter drive because flutter test does not support web devices
-test-integration:
+flutter-test-integration:
     ../tool/heavy.py -- flutter drive \
       --dart-define=ENV=dev \
       --driver=test_driver/integration_test.dart \
@@ -90,7 +122,7 @@ test-harness:
 # Renders the catalogue in test_screens/ at 390x844 (2x) to build/screens/,
 # each next to its mock in build/screens/compare/, and prints a summary of the
 # layout overflows, exceptions and (on player screens) reading-floor breaches
-# found. No backend; not part of `just test`.
+# found. No backend; not part of `just flutter-test`.
 # Usage: just screens [width] [report|strict]
 #   just screens             390 wide, findings reported
 #   just screens 360         360 wide, into build/screens/w360/
@@ -273,11 +305,11 @@ analyze:
     flutter analyze
 
 # Format code
-format:
+flutter-format:
     dart format lib test test_screens
 
 # Check formatting (--output=none: report only, never rewrite files)
-format-check:
+flutter-format-check:
     dart format --output=none --set-exit-if-changed lib test test_screens
 
 # --- Build ---
@@ -312,11 +344,11 @@ build-android:
 # --- Utilities ---
 
 # Get dependencies
-deps:
+flutter-deps:
     flutter pub get
 
 # Clean build artifacts
-clean:
+flutter-clean:
     flutter clean && dart run build_runner clean
 
 # The vote's locked row in pictures (each locked look, the lock in four frames,

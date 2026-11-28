@@ -1,4 +1,4 @@
-# Before the game: 01 Join, 02 Table, 03 Deck (`features/lobby`)
+# Before the game: 01 Join, 02 Table, 03 Deck (`frontend/lib/features/lobby`)
 
 The screens before the deal, rebuilt to `docs/specs/frontend/first-time-play.md` (sections 7
 and 8 win) from the primitives. Keep this file true when you change what it describes.
@@ -9,7 +9,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   game's screens in a game. So a player who comes back to a table they sit at is there with no
   tap. `/join/<code>` (a table's link and QR code) is 01 with the name and "Join", or the table
   itself for a player already at it; `/game/<id>` is the same gate. Back is the gate's one
-  policy (`BackPolicy`, `features/game/README.md`): 01 leaves the app (its code field open,
+  policy (`BackPolicy`, `frontend/lib/features/game/README.md`): 01 leaves the app (its code field open,
   Back closes it first), "You're at another table." goes there, 02 asks first with the
   host's "Stay" / "Leave" (a guest too; not while a deal or a leave is on its way; the
   question closes when the screen changes), 03 returns to 02, the opening waits leave the app
@@ -38,7 +38,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   quiet: it closes nothing, says nothing ("This table has closed." comes only from a game
   `/me/table/` names) and never asks for the table again (`LiveGameNotifier` acts only for a
   game `/me/table/` names). Seated with a working token: two requests, one round trip, then
-  the screen (`test/features/app_open_test.dart` pins it); a renewal first makes it three.
+  the screen (`frontend/test/features/app_open_test.dart` pins it); a renewal first makes it three.
 - **01** (`join_screen.dart`, its view `join_view.dart`, its two ways in and its foot
   `join_ways.dart`): dressed in paper (`JoinView.defaultDress`, the lantern mood: the lit door
   in the picture is its one light; `OpeningWait` is dressed the same, so the opening does not
@@ -57,23 +57,23 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   view above it. A game that closed (404) lands here with "This table has closed."
   (`JoinFlow.tableClosed`). **The scan action** (a glyph beside "Join a table" and the code
   field, `GlyphButton` with `ScanGlyph`; not on a table's link) opens **01b**, the scanner
-  (`presentation/scan/scan_view.dart`: a `Viewfinder` window, a Back glyph, the light where the camera has
+  (`frontend/lib/features/lobby/presentation/scan/scan_view.dart`: a `Viewfinder` window, a Back glyph, the light where the camera has
   one), as a place of 01 with Back for its rule (`BackHandler`: Back closes it to 01 as it
-  was). The camera is behind `CodeScanner` (`presentation/scan/code_scanner.dart`; `MobileCodeScanner` on
+  was). The camera is behind `CodeScanner` (`frontend/lib/features/lobby/presentation/scan/code_scanner.dart`; `MobileCodeScanner` on
   `mobile_scanner`: QR only, the back camera, stopped with the app in the background); it is
   made when the scanner opens and disposed when it goes, so the camera is never touched
   before the tap and stops the moment the screen leaves. What it reads goes through
-  `tableCodeFrom` (`domain/table_link.dart`: a link of any origin with `/join/<code>`, or a
+  `tableCodeFrom` (`frontend/lib/features/lobby/domain/table_link.dart`: a link of any origin with `/join/<code>`, or a
   bare code; anything else is ignored silently). A code read stops the camera, closes the
   corners in on the code and joins by `JoinFlow.join`, the same path as typing (with no name
   yet: back to 01 with the code in and the name asking). The scanner's place (open, and the
-  code once read) is `ScanSession` (`presentation/scan/scan_session.dart`), outside 01's widgets, because
+  code once read) is `ScanSession` (`frontend/lib/features/lobby/presentation/scan/scan_session.dart`), outside 01's widgets, because
   `HomeGate` swaps one 01 for another when a join starts; it closes when the join ends or is
   refused. The camera refused, none, or an insecure page: `ScanProblem`, a `ShutteredWindow`, one line and "Type
   the code". A scanner left open when 01 goes away ends (`ScanSession.left`), so only a tap starts the camera;
   a table's link shows none. A scanned code goes into 01's draft (`JoinDraft`) like a typed one, so 01, made again while the join runs or when it is refused,
   has the code in its field; the scanned join is `JoinFlow.join`, through `playerRequest`, with the same "Not sent." and "Try again".
-  In browsers with no built-in detector the scanner decodes with the app's own `web/zxing/` (`own_decoder_web.dart`).
+  In browsers with no built-in detector the scanner decodes with the app's own `frontend/web/zxing` (`own_decoder_web.dart`).
   The ways in are `JoinFlow`
   (`join_flow.dart`), outside any widget: the account (this device's when it has that name,
   else a new guest: the server has no rename), then `createTable` (always `defaults: "v2"`)
@@ -91,10 +91,10 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   `already_in_lobby` names no seat, so `/me/table/` is read then, as after any failure. The
   flow holds `/me/table/` until the frame that shows the table has taken it (let go sooner,
   it was disposed and read again). Counted in
-  `test/features/lobby/presentation/answers_used_test.dart`.
+  `frontend/test/features/lobby/presentation/answers_used_test.dart`.
   Refusals are the spec's banners; no answer is "Not sent." with "Try again".
   "Start a table" and "Join" each show busy on themselves in the frame of the tap (the other way in and the field are dead meanwhile), and 01 stays until
-  `/me/table/` names 02. Every request here goes through `playerRequest` (`core/requests`);
+  `/me/table/` names 02. Every request here goes through `playerRequest` (`frontend/lib/core/requests`);
   `JoinFlow` is the one place a busy is global state (the account it makes first swaps the screen), and its failure is cleared once the phone is at any screen
   but 01, so it can never show up later after a Leave.
   A
@@ -169,7 +169,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   names the game answers it), the socket coming back reads the lobby and
   `/me/table/` together, and the app coming back reads them too (`myTableProvider` and the
   lobby listen to `appResumesProvider`). Model: `docs/dev/models/phone/seat/`; tests:
-  `test/features/game/presentation/table_moves_on_test.dart`. A table that is gone says so
+  `frontend/test/features/game/presentation/table_moves_on_test.dart`. A table that is gone says so
   with "Go home".
 - **03 Tonight's game** (`deck_screen.dart`): the set-up page, the host's, editable before
   anyone comes and until the deal; every change is saved as it is made (shown at once, a
@@ -225,7 +225,7 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   `PracticeSeats`: `practiceOn`, `practiceCount`, `seatedCount` for the seats line,
   `practiceLimit`; and `DealState`, which keeps "Start the game", waiting, while any change is
   on its way), so nothing pairs a new value with an old one and nothing goes around one. A
-  change the server refuses (`serverAnswered`, `core/api/api_exception.dart`: the one
+  change the server refuses (`serverAnswered`, `frontend/lib/core/api/api_exception.dart`: the one
   classifier every host action uses) is dropped and the lobby read again, never "Not
   sent." nor sent again; a change that never got an answer says "Not sent." with "Try
   again", which sends each such change again with only the keys no newer change has asked
@@ -247,27 +247,27 @@ and 8 win) from the primitives. Keep this file true when you change what it desc
   them (never the deal: a held deal is the table's line and button). A host role that moved
   (a 403, or a lobby or `host_changed` naming another host) says nothing: the lane forgets
   what it would send, first, and keeps nothing until the role is this phone's again. A
-  failed lobby read is made again with `core/healing/`'s backoff until one lands. The
-  lane's rules are one pure value, `domain/settings_lane.dart` (`SettingsLane`: the queue,
+  failed lobby read is made again with `frontend/lib/core/healing`'s backoff until one lands. The
+  lane's rules are one pure value, `frontend/lib/features/lobby/domain/settings_lane.dart` (`SettingsLane`: the queue,
   the one change out, the lost changes, a refused value, the deal behind them, the newest
   `rev` shown; unit tested in
-  `test/features/lobby/domain/settings_lane_test.dart`, modelled in
+  `frontend/test/features/lobby/domain/settings_lane_test.dart`, modelled in
   `docs/dev/models/phone/lobby/`); `LobbyNotifier` is one class in two files:
   `lobby_notifier.dart` what comes in (reads, socket, host moving) and `lobby_taps.dart`
   what goes out (the taps, the requests one after another, "Try again", the deal, leaving). `TableSettings` reads the deck, the chip, the look and the number of players.
-- **Tests.** `test/features/lobby/` (`table_screens_test.dart` drives the screens through the
-  routes on recorded lobby bodies, `test/helpers/table_setup.dart`: each chip's cards, a deck
+- **Tests.** `frontend/test/features/lobby` (`table_screens_test.dart` drives the screens through the
+  routes on recorded lobby bodies, `frontend/test/helpers/table_setup.dart`: each chip's cards, a deck
   one card short, a player joining, a phone dropping and coming back, the 409; the deal's
   verdicts in `lobby_state_test.dart`; `setup_page_test.dart` drives 03 tap by tap for 3, 5,
   8 and 10 players with 1, 2 and 5 here against a stand-in server, and holds answers to check
   what shows while changes are on their way; `table_leave_test.dart` every way a leave ends); the gallery's 01 to 03b states are
-  `test_screens/table_fixtures.dart`; the whole way from 01 to 11 and back to 02 against a
-  real server is `test_e2e/ui_journey_test.dart`, and a table set for eight, filled one by
-  one, lowered to seven and dealt is `test_e2e/ui_setup_test.dart`. Practice players:
+  `frontend/test_screens/table_fixtures.dart`; the whole way from 01 to 11 and back to 02 against a
+  real server is `frontend/test_e2e/ui_journey_test.dart`, and a table set for eight, filled one by
+  one, lowered to seven and dealt is `frontend/test_e2e/ui_setup_test.dart`. Practice players:
   `practice_players_test.dart` (the hidden hold on the word only, the stepper to the most,
   off only at 0, the tags on the name's line, Deal waiting for a change on its way, + + −
   with every answer held, the three recorded refusals, "Not sent." and "Try again", a stale
   "Try again" never undoing a newer practice count or setting, a guest),
   `practice_seats_test.dart` (what the app reads, the fold); one person alone holding
   "Players", seating three and playing a whole game while the server plays them is
-  `test_e2e/ui_practice_test.dart` (run by `just test-harness`).
+  `frontend/test_e2e/ui_practice_test.dart` (run by `just test-harness`).

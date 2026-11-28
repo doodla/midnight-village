@@ -34,7 +34,7 @@ Check it with:
 keytool -list -v -keystore midnight-village-public.jks -storepass midnight-village-public | grep SHA256
 ```
 
-A test (`test/core/config/android_release_test.dart`) fails when `assetlinks.json` and this
+A test (`frontend/test/core/config/android_release_test.dart`) fails when `assetlinks.json` and this
 key disagree.
 
 ## What this does to people who already have the app

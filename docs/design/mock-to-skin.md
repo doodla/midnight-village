@@ -1,6 +1,6 @@
 # Mock to skin
 
-Every element of every mock (`mocks/S*.dc.html`; S11 from `mocks/11-results.png`, which has no
+Every element of every mock (`mocks/S*.dc.html`; S11 from `docs/design/mocks/11-results.png`, which has no
 markup), mapped to the primitive that draws it and the roles it reads, so a screen builder needs
 no literal size, colour, font or radius. Each mock is rebuilt this way in
 `frontend/test/helpers/component_sheet.dart` (pages `join` to `results`); `just screens` puts each
@@ -14,7 +14,7 @@ fit (rows 38 to 52, buttons 48). Where a row below still quotes a mock's size, t
 rules.
 
 **The first-time play spec (`docs/specs/frontend/first-time-play.md`) wins over the mocks.** Rows
-it changed say so: its copy (every word is in `lib/design_system/copy/copy.dart`), the amber rule
+it changed say so: its copy (every word is in `frontend/lib/design_system/copy/copy.dart`), the amber rule
 (one amber fill per screen, the primary button, ink-edged by day; a selection is lift plus an
 outline, never amber or a fill), the reading floor (14 px to act, 12 px labels, buttons 15, no uppercase
 tracked labels: the `label` and `micro` roles and `SectionLabel` are gone), plain progress pips,

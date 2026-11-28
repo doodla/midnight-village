@@ -11,20 +11,20 @@ chosen from the game's id like the card back, with a different salt; the lunge o
 The first Werewolf portrait was "dopey and not dangerous". Shown five redraws (A to E), the owner chose:
 "Lunging. I also like the cold stare/snarling. Randomize these as well for the game" ("as well" as the card
 backs). So C is `werewolf_lunge`, B is `werewolf_stare`, A is `werewolf_snarl`; D (the turning) and E (the
-moon silhouette) were not kept, and the old `werewolf.jpg` is gone.
+moon silhouette) were not kept, and the old werewolf.jpg is gone.
 
 ## Werewolf redraw: where the candidates came from
 
-Five candidates (A to E) to replace `docs/design/art/roles/werewolf.jpg`. Masters are 576 x 768 JPEG (3:4), the
+Five candidates (A to E) to replace the first Werewolf art (since replaced). Masters are 576 x 768 JPEG (3:4), the
 size of every role master and of the shipped `frontend/assets/skins/shadow_paper/roles/<name>.webp`
 (`frontend/tool/skin_art.py`, ROLE). There was no provenance file for the roles; this follows the card backs'
 (`docs/design/art/card-backs/PROVENANCE.md`).
 
 ### Generation
 
-OpenAI `gpt-image-2`, `images/edits`, 1200 x 1600, quality high, n 1, with two sibling portraits as style
+OpenAI `gpt-image-2`, images/edits, 1200 x 1600, quality high, n 1, with two sibling portraits as style
 references (`docs/design/art/roles/seer.jpg`, `minion.jpg`, sent as `image[]`). Text prompts only: art and style
-descriptions, no names, no project or game name. Script: `tools/gen.sh` (the key only from the environment, in
+descriptions, no names, no project or game name. Script: tools/gen.sh (the key only from the environment, in
 the request header). Raw results: `raw/<id>.png`.
 
 8 calls in all (budget 12):
@@ -40,7 +40,7 @@ the request header). Raw results: `raw/<id>.png`.
 | e1 | silhouette against the moon | no: the head sat below the moon, so dark on indigo |
 | e2 | same, the head inside the moon's disc | **E** |
 
-### Clean-up (`tools/finish.py`, deterministic)
+### Clean-up (tools/finish.py, deterministic)
 
 1. Resized 1200 x 1600 -> 576 x 768 (Lanczos).
 2. Graded toward the palette as the card backs were: blues (hue 190-265) hue +14 and saturation -18% toward
@@ -50,13 +50,13 @@ the request header). Raw results: `raw/<id>.png`.
 4. Shadow: the model's own cut-paper cast shadows kept; no frame, so no lip shadow added.
 5. Saved as JPEG quality 92. The kept three are `werewolf_lunge|stare|snarl.jpg` here; the script is `finish_werewolf.py`.
 
-`sheet.png`: row 1 the current portrait and A to E at 288 x 384; row 2 each at 56 px wide on the indigo ground
-beside the Seer and Minion (`tools/sheet.py`).
+sheet.png: row 1 the current portrait and A to E at 288 x 384; row 2 each at 56 px wide on the indigo ground
+beside the Seer and Minion (tools/sheet.py).
 
 ### Prompts
 
 Each prompt is the idea followed by the shared style paragraph (the last paragraph of every prompt file in
-`prompts/`). Full text below.
+prompts/). Full text below.
 
 #### prompts/a.txt (call a1)
 
@@ -130,7 +130,7 @@ Style: match the two reference images exactly in hand and finish: a character po
 The fix in every candidate: narrow slanted slit-pupil eyes with no white, a long wolf muzzle, curled lip or a
 shut hard jaw, head off the level (lowered, tilted or turned), asymmetry, no halo.
 
-### Candidates (`werewolf-a.jpg` ... `werewolf-e.jpg`)
+### Candidates (werewolf-a.jpg ... werewolf-e.jpg)
 
 - A: head hung low between dark hunched shoulders, bone-white face, V brow, snarl. Danger: the coiled spring.
 - B: still, straight-on, mouth shut, two lower fangs, torn ear, a red scar. Danger: restraint, it is watching you.

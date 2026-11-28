@@ -2,7 +2,7 @@
 ///
 /// The web build cannot read `contract_samples/` (no file system), so these
 /// are written out here; `test/helpers/contract/contract_guard_test.dart`
-/// checks them against the recorded samples on every `just test`.
+/// checks them against the recorded samples on every `just flutter-test`.
 abstract final class ServerBodies {
   /// `POST /auth/guest/` -> 201.
   static const guestCreated = {

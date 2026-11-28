@@ -17,13 +17,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git_guard.py; [ -f \"$f\" ] || exit 0; exec python3 \"$f\"",
+            "command": "f=\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git_guard.py; [ -f \"$f\" ] || { echo '{\"systemMessage\": \"WARNING: guard missing: .claude/hooks/git_guard.py is not in this checkout, so git commands are not guarded (the checkout is older than its settings).\"}'; exit 0; }; exec python3 \"$f\"",
             "timeout": 30,
             "onFailure": "block"
           },
           {
             "type": "command",
-            "command": "f=\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/poll_guard.py; [ -f \"$f\" ] || exit 0; exec python3 \"$f\"",
+            "command": "f=\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/poll_guard.py; [ -f \"$f\" ] || { echo '{\"systemMessage\": \"WARNING: guard missing: .claude/hooks/poll_guard.py is not in this checkout, so sleep loops are not refused (the checkout is older than its settings).\"}'; exit 0; }; exec python3 \"$f\"",
             "timeout": 10
           }
         ]
