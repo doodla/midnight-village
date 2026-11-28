@@ -17,6 +17,8 @@ table of "this test covers that file" to keep.
 - Frontend: analyze and format, then `flutter test` on the affected test files;
   the generated-code check when a file with generated parts changed.
 - Guardrails: when .claude/, tool/, a justfile or a workflow changed.
+- The tap/hold check on the real game (`just tap-hold`): when a hold primitive, a
+  part's file or the check changed (`tool/tap_hold/parts.py`, `reached_by`).
 - A frontend change this cannot map (pubspec, an asset, test settings) runs all
   the frontend tests, and says why.
 
@@ -42,6 +44,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import heavy  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "tap_hold"))
+import parts as tap_hold_parts  # noqa: E402
+
 DART_DIRECTIVE = re.compile(r"""^\s*(?:import|export|part)\s+['"]([^'"]+)['"]""", re.M)
 GENERATED_PART = re.compile(r"""^\s*part\s+['"][^'"]+\.(?:g|freezed)\.dart['"]""", re.M)
 # A change to one of these can alter any test of its side: run them all.
@@ -236,7 +242,11 @@ def plan(
         tests, why_all = frontend_tests(changed, everything)
         if why_all:
             steps.append(
-                (f"all frontend tests ({why_all})", "frontend", ["just", "flutter-test"])
+                (
+                    f"all frontend tests ({why_all})",
+                    "frontend",
+                    ["just", "flutter-test"],
+                )
             )
         elif tests:
             steps.append(
@@ -299,6 +309,8 @@ def plan(
     # once, and its own exact comparisons are not reached by any import.
     if samples or any(c.startswith(HARNESS_PATHS) for c in changed):
         steps.append(("the end-to-end harness", ".", ["just", "test-harness"]))
+    if tap_hold_parts.reached_by(changed):
+        steps.append(("the tap/hold check on the real game", ".", ["just", "tap-hold"]))
     return steps
 
 
@@ -308,6 +320,7 @@ def plan(
 # starts with or holds: a guess to plan by, said before anything runs.
 GUESSES = (
     ("the end-to-end harness", 200),
+    ("the tap/hold check", 650),
     ("checks", 25),
     ("all backend tests", 130),
     ("the migration tests", 40),
