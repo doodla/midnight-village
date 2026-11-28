@@ -136,6 +136,53 @@ class TheKey(unittest.TestCase):
         self.assertRegex(code, r"timeout-minutes:\s*\d+")
 
 
+class TheWatch(unittest.TestCase):
+    """Between merges the same live-game check runs on a clock, and moves nothing."""
+
+    def setUp(self):
+        self.code = code_of(WORKFLOWS / "live-watch.yml")
+
+    def test_it_runs_every_six_hours_and_by_hand_never_on_a_pull_request(self):
+        (cron,) = re.findall(r'cron:\s*"([^"]+)"', self.code)
+        minute, hour, *rest = cron.split()
+        self.assertEqual((hour, rest), ("*/6", ["*", "*", "*"]))
+        self.assertRegex(minute, r"^\d+$")
+        self.assertIn("workflow_dispatch:", self.code)
+        self.assertNotRegex(self.code, r"(?m)^  (push|pull_request(_target)?):")
+
+    def test_it_plays_the_live_game_with_the_deep_check_and_moves_nothing(self):
+        self.assertRegex(self.code, r"tool/deployed_check\.py[^\n]*\n?[^\n]*--deep")
+        self.assertIn("--sockets", self.code)
+        self.assertNotIn("promote_live", self.code)
+        self.assertNotIn(
+            "--commit", self.code
+        )  # it waits for no build: it checks what serves
+        self.assertNotRegex(self.code, r": write\b")
+        self.assertNotIn("secrets.", self.code)
+        self.assertIn("persist-credentials: false", self.code)
+
+    def test_it_checks_the_same_addresses_as_the_release_job(self):
+        release = code_of(WORKFLOWS / "deployed-check.yml")
+        for name in ("API_ORIGIN", "PUBLIC_ORIGIN"):
+            (line,) = re.findall(rf"(?m)^  {name}: \S+$", self.code)
+            self.assertIn(line, release)
+        self.assertIn("--deep", release)  # after each merge too
+
+    def test_it_is_not_a_required_check(self):
+        wall = json.loads((ROOT / "docs" / "dev" / "main-ruleset.json").read_text())
+        required = {
+            c["context"]
+            for r in wall["rules"]
+            if r["type"] == "required_status_checks"
+            for c in r["parameters"]["required_status_checks"]
+        }
+        for wf in ("live-watch.yml", "live-rehearsal.yml"):
+            for name in re.findall(
+                r"(?m)^    name:\s*(.+?)\s*$", code_of(WORKFLOWS / wf)
+            ):
+                self.assertNotIn(name, required)
+
+
 def pushed(code, err=""):
     return subprocess.CompletedProcess([], code, "", err)
 

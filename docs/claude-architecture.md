@@ -91,6 +91,9 @@ only run after the merge, so it is never a required check; it reads public addre
 nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
 Its socket step also reports how long each kind of request took on the live server
 (`tool/deployed_timing.py`, held by `guardrails/tests/test_deployed_timing.py`): a table in the run's summary and a kept file, never a failure.
+`live-watch.yml` ("Live Watch") runs the same check every 6 hours and by hand, with `--deep`
+(`/api/health/?deep=1`: the database and Redis, ok or failed), moving nothing
+(`TheWatch` in `guardrails/tests/test_release_workflows.py`).
 
 **What a change is compared with.** `tool/change_base.py`: the main the change was built
 on (on a pull request the merge's first parent, elsewhere where the branch left main),

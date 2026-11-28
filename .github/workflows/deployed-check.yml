@@ -82,7 +82,7 @@ jobs:
           python3 tool/deployed_check.py
           --api "$API_ORIGIN" --app "$PUBLIC_ORIGIN"
           --commit "${{ steps.live.outputs.server }}"
-          --app-commit "${{ steps.live.outputs.app }}" --wait 900 --sockets
+          --app-commit "${{ steps.live.outputs.app }}" --wait 900 --sockets --deep
           --timings deployed-timings.json
 
       # How long each kind of request took on the live server (also in the job's

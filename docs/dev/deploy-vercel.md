@@ -463,7 +463,7 @@ against the two live addresses, from outside, with no account and no secret:
 **What it leaves in the live database**: five guest accounts per run, named `Deploy check A`,
 `B` and `C` (no table, no game). The two listeners count in "N at tables" for the seconds
 their sockets are open. Nothing prunes the guests yet (to do with the server cleanups: guests
-with those names older than a day).
+with those names older than a day; why that can wait: "The watch between merges").
 
 **When it fails**: the run "Deployed Check" is red on `main` (the Actions tab; GitHub emails
 whoever's merge started the failed run). The log has one line per step, `ok` or `FAIL`
@@ -471,6 +471,31 @@ with what answered. A failure means players may be looking at a broken game: rea
 and roll back in Vercel (the owner's account) or revert the merge. A newer merge cancels an
 older run that is still waiting. By hand: "Run workflow" on `main`, or locally
 `python3 tool/deployed_check.py --api <server origin> --app <app origin>`.
+
+## The watch between merges
+
+Between merges nothing else would notice that the live game broke (Neon suspended at its
+monthly limit, Upstash over its commands, Vercel paused, an Instant Rollback). So
+`.github/workflows/live-watch.yml` ("Live Watch") runs the same check every 6 hours and by
+hand ("Run workflow"), moving nothing: `tool/deployed_check.py --deep --sockets` against what
+serves now. `--deep` asks `/api/health/?deep=1` (`backend/apps/core/health.py`): a fresh
+database connection runs `SELECT 1` and a fresh Redis client sends one `PING`, each with 5
+seconds, and the answer is only `ok` or `failed` per part plus the commit (503 when a part
+failed; plain `/api/health/` answers as before). The check after each merge passes `--deep` too.
+
+**Cost on the free plans** (four runs a day): each run keeps Neon awake about 7 minutes (the run, then
+5 idle minutes before it sleeps): about 0.1 CU-hours a day at the 0.25 CU minimum, some 4 a
+month of the 100; it sends a few hundred Redis commands (an estimate, not measured; of 500,000 a month) and about a hundred requests to Vercel. The check after each merge
+already runs the same thing on every merge, several dozen times a day, so the watch adds little.
+**What it leaves behind** is the same as that check's: five guest accounts per run (one user
+row and one refresh-token row each, about 1 KB), no table and no game (the last one out deletes
+the table). At four runs a day that is about 7 MB a year against Neon's 0.5 GB, and real
+players' guests are kept the same way, so no clean-up was added; pruning old guests is a server
+clean-up to do for all guests at once.
+
+**When it is red**: the failed step's line names the part (`database failed`: look at Neon;
+`redis failed`: Upstash; no answer: Vercel). It tells nobody but the Actions tab: the owner
+does not read GitHub (to do: a push to their phone).
 
 **What it proves that "Web page smoke" does not.** "Web page smoke" builds the page and opens
 it in Chrome against no server: it never makes a request through Vercel's own routing. On 22
