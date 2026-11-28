@@ -28,7 +28,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "phone_frames"))
 from moments import Run
 from page_probe import NODES, RECORDER, Page
 from parts import PARTS, hold_ms, lift_frames
-from phone_frames import DECK, UA, Bots
+from phone_frames import UA, Bots
+from script import DECK
 from playwright.async_api import async_playwright
 
 QUICK = (80, 150)
@@ -336,7 +337,7 @@ async def play(args):
             await route.continue_(post_data=json.dumps(body))
 
         await page.route("**/onuw/lobbies/*/start/", start_route)
-        await run.cold("01", args.app + "/", ["Start a table"])
+        await run.cold("01", "/", ["Start a table"])
         await run.type_name("Host")
         await run.tap("start", "^Start a table$", ["Scan to join"])
         code = seen["code"]
