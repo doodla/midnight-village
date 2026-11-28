@@ -59,9 +59,11 @@ async function run() {
           said.length = 0;
           await page.evaluate(() => { window.__ev.length = 0; window.__fr.length = 0; });
           const point = [{ x, y, radiusX: 6, radiusY: 6, force: 1 }];
-          await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point });
+          // not waiting for the landing to be handled: a finger lifts when it lifts
+          const landed = cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point });
           await new Promise((r) => setTimeout(r, ms));
           await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+          await landed;
           await until(() => said.includes('settled'));
           const verdict = said.filter((s) => s === 'tap' || s === 'hold').join('+') || 'nothing';
           const [ev, fr] = await page.evaluate(() => [window.__ev, window.__fr]);

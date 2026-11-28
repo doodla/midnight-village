@@ -7,7 +7,8 @@ import 'package:midnight_village/design_system/primitives/finger_hold.dart';
 class _Part {
   final taps = <String>[];
 
-  Widget build() => Directionality(
+  /// [drawing]: an animation runs beside it, so the page draws every frame.
+  Widget build({bool drawing = false}) => Directionality(
     textDirection: TextDirection.ltr,
     child: Center(
       child: RawGestureDetector(
@@ -24,13 +25,45 @@ class _Part {
                 (r) => r.onLongPress = () => taps.add('hold'),
               ),
         },
-        child: const SizedBox.square(dimension: 100),
+        child: SizedBox.square(
+          dimension: 100,
+          child: drawing ? const _Drawing() : null,
+        ),
       ),
     ),
   );
 }
 
+/// Something moving on the page, as a pressed card's lift is.
+class _Drawing extends StatefulWidget {
+  const _Drawing();
+  @override
+  State<_Drawing> createState() => _DrawingState();
+}
+
+class _DrawingState extends State<_Drawing>
+    with SingleTickerProviderStateMixin {
+  late final _turn = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _turn.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      RotationTransition(turns: _turn, child: const SizedBox.expand());
+}
+
 const _hold = Duration(milliseconds: 300);
+
+/// A frame of a phone that is not keeping up (Chrome slowed 8x draws a
+/// pressed card in 130 to 200 ms).
+const _longFrame = Duration(milliseconds: 150);
 
 /// A finger down at [downAt] and up at [upAt] by its own clock, handled by
 /// a phone too busy to run a timer in between: one late frame, and no time
@@ -113,6 +146,48 @@ void main() {
       await tester.pump();
 
       expect(part.taps, ['tap']);
+    });
+
+    testWidgets('on a page drawing long frames a lift kept back past the '
+        'timer and its frame still makes a quick touch a tap', (tester) async {
+      // Measured in Chrome slowed 8x: a lift is handed to the page up to
+      // three frames after the finger left, after the timer and the frame
+      // that would take the hold.
+      final part = _Part();
+      await tester.pumpWidget(part.build(drawing: true));
+      final finger = TestPointer(5);
+      final at = tester.getCenter(find.byType(RawGestureDetector));
+      await tester.sendEventToBinding(
+        finger.down(at, timeStamp: const Duration(seconds: 10)),
+      );
+      for (var i = 0; i < 2; i++) {
+        await tester.pump(_longFrame);
+      }
+      expect(part.taps, isEmpty, reason: 'the timer has run, its frame too');
+      await tester.sendEventToBinding(
+        finger.up(timeStamp: const Duration(seconds: 10, milliseconds: 150)),
+      );
+      await tester.pump(_longFrame);
+
+      expect(part.taps, ['tap']);
+    });
+
+    testWidgets('on a page drawing long frames a finger still down holds '
+        'one frame later, never more', (tester) async {
+      final part = _Part();
+      await tester.pumpWidget(part.build(drawing: true));
+      final finger = await tester.startGesture(
+        tester.getCenter(find.byType(RawGestureDetector)),
+      );
+      for (var i = 0; i < 2; i++) {
+        await tester.pump(_longFrame);
+      }
+      expect(part.taps, isEmpty);
+      await tester.pump(_longFrame);
+      expect(part.taps, ['hold']);
+      await finger.up();
+      await tester.pump();
+      expect(part.taps, ['hold'], reason: 'once');
     });
 
     testWidgets('a lift with no times after the timer has run stays a hold, '
