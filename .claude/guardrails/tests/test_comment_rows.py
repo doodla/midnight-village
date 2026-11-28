@@ -22,7 +22,7 @@ REPO = Path(__file__).resolve().parents[3]
 BASE = "def score(votes):\n    return len(votes)\n"
 HEAD = (
     "# Guard file: the score is the vote count\n"
-    "# ── Scoring ──\n"
+    "# ── Game ──\n"
     "def score(votes):\n"
     '    """Why: a tie counts every vote, the owner asked for it."""\n'
     "    # count the votes\n"
@@ -87,7 +87,7 @@ class Answers(unittest.TestCase):
     def every_comment(self):
         return [
             row(1, "# Guard file", "def score(votes):", "delete"),
-            row(2, "# ── Scoring ──", "def score(votes):", "delete"),
+            row(2, "# ── Game ──", "def score(votes):", "delete"),
             row(4, '"""Why: a tie', "return len(votes)", "keep"),
             row(5, "# count the votes", "return len(votes)", "delete"),
             row(6, "# noqa", "return len(votes)", "delete"),
@@ -110,7 +110,7 @@ class Answers(unittest.TestCase):
 
     def test_a_row_quoting_code_that_is_not_near_is_dropped(self):
         rows = self.every_comment()
-        rows[1] = row(2, "# ── Scoring ──", "return everything()", "delete")
+        rows[1] = row(2, "# ── Game ──", "return everything()", "delete")
         code, out = self.run_tool("--range", self.span, self.answer(rows))
         self.assertEqual(code, 1)
         self.assertIn("the code it quotes is not near the comment", out)
@@ -128,7 +128,7 @@ class Answers(unittest.TestCase):
             "--base", self.base, self.answer(rows + [found, docs])
         )
         self.assertEqual(code, 0, out)
-        self.assertIn("delete 3, keep 3, review 1", out)
+        self.assertIn("applied 2, proposed 1, keep 3, review 1", out)
 
     def test_a_comment_no_row_judged_is_missing(self):
         code, out = self.run_tool(
@@ -142,20 +142,35 @@ class Answers(unittest.TestCase):
             "--range", self.span, self.answer(self.every_comment())
         )
         self.assertEqual(code, 0, out)
-        self.assertIn("delete 2, keep 2, review 1 (rows 5)", out)
+        self.assertIn("applied 1, proposed 1, keep 2, review 1 (rows 5)", out)
         self.assertIn("game.py:1: delete -> keep: a Guard file marker", out)
         self.assertIn("game.py:6: delete -> review: a lint suppression", out)
 
-    def test_apply_deletes_only_whole_line_comments_in_the_working_tree(self):
+    def test_apply_deletes_only_what_code_proves_empty_the_rest_is_proposed(self):
         rows = self.every_comment()
         rows[2] = row(4, '"""Why: a tie', "return len(votes)", "delete")
         code, out = self.run_tool("--base", self.base, "--apply", self.answer(rows))
         self.assertEqual(code, 0, out)
-        self.assertIn("Deleted 2; delete by hand: ['game.py:4']", out)
+        self.assertIn("applied 1, proposed 2, keep 1, review 1", out)
+        self.assertIn("game.py:5  '# count the votes'", out.split("Proposed")[1])
+        self.assertIn("Deleted 1; delete by hand: []", out)
         self.assertEqual(
             (self.root / "game.py").read_text().splitlines(),
-            [HEAD.splitlines()[0], *HEAD.splitlines()[2:4], HEAD.splitlines()[5]],
+            [HEAD.splitlines()[0], *HEAD.splitlines()[2:]],
         )
+
+    def test_the_same_words_get_one_verdict_the_most_careful(self):
+        text = ["// a held card stays face down", "int a = 1;", ""] * 2
+        (self.root / "cards.dart").write_text("\n".join(text) + "\n")
+        same = {"file": "cards.dart", "comment": "// a held card", "code": "int a = 1;"}
+        one = dict(same, line=1, verdict="delete", why="narration")
+        two = dict(same, line=4, verdict="keep", why="why")
+        code, out = self.run_tool(
+            "--base", self.base, self.answer(self.every_comment() + [one, two])
+        )
+        self.assertEqual(code, 0, out)
+        self.assertIn("one verdict: cards.dart:1: delete -> keep", out)
+        self.assertIn("keep 4", out)
 
 
 if __name__ == "__main__":

@@ -12,13 +12,15 @@ Nobody reads twenty answers to trust them, so this does:
 - a deletion of a line that is always kept (a Guard file marker, a generated header,
   a link to the specs, the design or the owner's feedback, a licence) becomes a keep,
   and a deletion of a lint suppression becomes a review: removing one changes the code.
-Then it prints the counts, five deletions to check against the code, and the review list.
-It fails (exit 1) while anything is to be sorted again.
+- the same words in one change get one verdict, the most careful one given (keep, then
+  review, then delete);
+- a sorter's "delete" is only a proposal: it is applied only when code proves the comment
+  says nothing (tool/empty_comments.py); else it is listed as proposed, for the builder.
+Then it prints the counts, five applied deletions to check against the code, the proposed
+and the review lists. It fails (exit 1) while anything is to be sorted again.
 
 --files lists what to fan out: each changed file with the comments the change added,
-generated files left out. --apply deletes the rows marked delete that are whole lines of
-`#` or `//` comments (working tree only); docstrings and comments after code are left to
-the caller. The change is the working tree against the main it was built on
+generated files left out. --apply deletes the applied rows (working tree only). The change is the working tree against the main it was built on
 (tool/change_base.py), or --range A..B for commits.
 
 usage: tool/comment_rows.py --files [--range A..B | --base REF] [-- paths...]
@@ -34,9 +36,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from change_base import change_base
+from empty_comments import comment_text, normal, provably_empty
 
 ROOT = Path(__file__).resolve().parents[1]
 VERDICTS = ("delete", "keep", "review")
+CAREFUL = {"delete": 0, "review": 1, "keep": 2}
+SHOWN = ("applied", "proposed", "keep", "review")
 HASH = {".py", ".sh", ".toml", ".yml", ".yaml", ".cfg"}
 SLASH = {".dart", ".js", ".mjs", ".cjs", ".ts", ".kt", ".swift", ".java", ".tla"}
 GENERATED_NAME = re.compile(r"\.(g|freezed|mocks|gr)\.dart$|^contract_samples/")
@@ -192,6 +197,54 @@ def overrule(row: dict, change: Change) -> str | None:
     return None
 
 
+def span_text(row: dict, change: Change) -> str:
+    lines = change.lines(row["file"])[row["line"] - 1 : row.get("end") or row["line"]]
+    return normal(" ".join(comment_text(row["file"], line) for line in lines))
+
+
+def one_verdict(rows: list[dict], change: Change) -> list[str]:
+    """Rows with the same words get the most careful verdict any of them was given."""
+    groups: dict[str, list[dict]] = {}
+    for row in rows:
+        if text := span_text(row, change):
+            groups.setdefault(text, []).append(row)
+    notes = []
+    for same in groups.values():
+        verdict = max((r["verdict"] for r in same), key=CAREFUL.get)
+        for row in same:
+            if row["verdict"] != verdict:
+                notes.append(
+                    f"one verdict: {row['file']}:{row['line']}: {row['verdict']} -> {verdict}"
+                    " (the same words are judged elsewhere in the change)"
+                )
+                row["verdict"] = verdict
+    return notes
+
+
+def settle(rows: list[dict], change: Change) -> None:
+    """A delete becomes applied (code proves it empty) or proposed (the builder decides)."""
+    for path in {r["file"] for r in rows}:
+        lines, mine = change.lines(path), [r for r in rows if r["file"] == path]
+        going = {
+            n
+            for r in mine
+            if r["verdict"] == "delete"
+            for n in range(r["line"], (r.get("end") or r["line"]) + 1)
+        }
+        kept = {
+            normal(comment_text(path, line))
+            for n, line in enumerate(lines, 1)
+            if n not in going and is_comment(path, line)
+        }
+        for row in mine:
+            if row["verdict"] != "delete":
+                continue
+            end = row.get("end") or row["line"]
+            why = provably_empty(path, lines, row["line"], end, kept)
+            row["verdict"] = "applied" if why else "proposed"
+            row["proof"] = why or ""
+
+
 def apply(rows: list[dict], change: Change) -> list[str]:
     """Deletes whole-line `#`/`//` comment rows; returns the rows left to the caller."""
     left, gone = [], {}
@@ -245,19 +298,26 @@ def main(argv: list[str]) -> int:
             if not covered:
                 again.add(path)
                 notes.append(f"missing: {path}:{n}: no row judged this comment")
-    count = {v: [r for r in good if r["verdict"] == v] for v in VERDICTS}
-    print(", ".join(f"{v} {len(count[v])}" for v in VERDICTS) + f" (rows {len(rows)})")
+    notes += one_verdict(good, change)
+    settle(good, change)
+    count = {v: [r for r in good if r["verdict"] == v] for v in SHOWN}
+    print(", ".join(f"{v} {len(count[v])}" for v in SHOWN) + f" (rows {len(rows)})")
     for note in notes:
         print(note)
-    print("Check these deletions against the code:")
-    for r in random.Random(0).sample(count["delete"], min(5, len(count["delete"]))):
-        print(f"  {r['file']}:{r['line']}  {r['comment']!r}  code: {r['code']!r}")
+    print("Check these applied deletions against the code:")
+    for r in random.Random(0).sample(count["applied"], min(5, len(count["applied"]))):
+        print(f"  {r['file']}:{r['line']}  {r['comment']!r}  ({r['proof']})")
+    print(
+        "Proposed (the builder decides; a why goes only with a test or name that says it):"
+    )
+    for r in count["proposed"]:
+        print(f"  {r['file']}:{r['line']}  {r['comment']!r}  {r.get('why', '')}")
     print("Review (for the builder):")
     for r in count["review"]:
         print(f"  {r['file']}:{r['line']}  {r['comment']!r}  {r.get('why', '')}")
     if "--apply" in argv and not span and not again:
-        left = apply(count["delete"], change)
-        print(f"Deleted {len(count['delete']) - len(left)}; delete by hand: {left}")
+        left = apply(count["applied"], change)
+        print(f"Deleted {len(count['applied']) - len(left)}; delete by hand: {left}")
     if again:
         print(f"Sort again (one answer each): {', '.join(sorted(again))}")
         return 1

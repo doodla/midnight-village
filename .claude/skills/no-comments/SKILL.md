@@ -18,18 +18,16 @@ untrue. Never the rest of the repo; never generated files. Do not stop for appro
    only; do not restate them.
 3. **Check the answers.** Save each answer in your scratchpad, then run
    `python3 tool/comment_rows.py <answer files>` with the same range and paths. It drops a row
-   whose quoted comment or code is not at its line, lists comments no row judged, turns a
-   deletion of an always-kept line (a `Guard file` marker, a generated header, a spec link, a
-   licence) into a keep and of a lint suppression into a review, and prints the counts, five
-   deletions and the review list. A file under "Sort again": rerun its sorter once, saying what
+   whose quotes are not where it says, lists comments no row judged, never deletes an
+   always-kept line (a `Guard file` marker, a generated header, a spec link, a licence) or a
+   suppression, gives the same words one verdict, and prints the counts and the applied,
+   proposed and review lists. A file under "Sort again": rerun its sorter once, saying what
    was wrong; what still fails goes to review.
-4. **Check the five deletions yourself** against the code printed beside them. If one is not
-   narration, a banner, history, a "Part of" line, dead code or a wrong example, make it a keep
-   and sort that file again.
-5. **Apply only the safe deletions.** `--apply` deletes the whole-line `#` and `//` rows;
-   delete the docstrings and comments after code it lists by hand. A "why" about our code goes
-   only when the same change says it in a test, a type or a name. Run `just piece-check`, and
-   commit the deletions on their own.
-6. **Report in the hand-over**: deleted / kept / review counts, the review list, and each
+4. **Check five applied deletions** against the code. One that is wrong: tighten its class in
+   `tool/empty_comments.py`.
+5. **The sorters propose; code applies only the provably empty** (`--apply`). You decide
+   each proposed one, and delete a "why" only when a test or a name in this change says it.
+   Run `just piece-check`, and commit the deletions on their own.
+6. **Report in the hand-over**: applied / proposed / kept / review counts, the lists, and each
    "do not change this" comment kept. Such a comment becomes a check through the `correct`
    skill, or it stays.
