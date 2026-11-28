@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../feel/press.dart';
+import '../feel/press_paint.dart';
 import '../layout/space.dart';
 import '../skin/dress.dart';
 import '../skin/dress_style.dart';
@@ -218,7 +220,11 @@ class LabelledStepper extends StatelessWidget {
   }
 }
 
-class _Glyph extends StatefulWidget {
+/// A stepper's sign: pressed from the frame a finger lands ([Pressable], by
+/// paint alone), at the end of its range too (the value says why nothing
+/// changed): the outline fills with a hairline; dressed up, the disc sinks
+/// into its shadow.
+class _Glyph extends StatelessWidget {
   const _Glyph({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
@@ -226,17 +232,10 @@ class _Glyph extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<_Glyph> createState() => _GlyphState();
-}
-
-class _GlyphState extends State<_Glyph> {
-  var _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
     final skin = context.skin;
     final ground = context.ground;
-    final onTap = widget.onTap;
+    final onTap = this.onTap;
     final on = onTap != null;
     final ink = on ? ground.text : ground.faintText;
     // Dressed up: a bone paper disc with the sign on it (a [PaperPiece]),
@@ -245,16 +244,19 @@ class _GlyphState extends State<_Glyph> {
       return Semantics(
         button: true,
         enabled: on,
-        label: widget.label,
+        label: label,
         excludeSemantics: true,
         onTap: onTap,
         child: SizedBox.square(
           dimension: ValueStepper.glyph,
-          child: PaperPiece(
-            part: PaperPart.disc,
-            id: widget.label,
-            pressed: _pressed,
-            enabled: on,
+          child: Pressable(
+            builder: (context, press, child) => PaperPiece(
+              part: PaperPart.disc,
+              id: label,
+              press: press,
+              enabled: on,
+              child: child!,
+            ),
             child: Material(
               type: MaterialType.transparency,
               shape: const CircleBorder(),
@@ -265,9 +267,8 @@ class _GlyphState extends State<_Glyph> {
                 focusColor: Colors.transparent,
                 hoverColor: Colors.transparent,
                 splashColor: Colors.transparent,
-                onHighlightChanged: (v) => setState(() => _pressed = v),
                 child: Icon(
-                  widget.icon,
+                  icon,
                   color: PaperPiece.inkOf(
                     context,
                     PaperPart.disc,
@@ -281,34 +282,42 @@ class _GlyphState extends State<_Glyph> {
         ),
       );
     }
+    BoxDecoration ring(Color? fill) => BoxDecoration(
+      color: fill,
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: on ? ground.outline : ground.hairline,
+        width: skin.shape.stroke,
+      ),
+    );
     return Semantics(
       button: true,
       enabled: on,
-      label: widget.label,
+      label: label,
       excludeSemantics: true,
-      child: Material(
-        type: MaterialType.transparency,
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          highlightColor: Colors.transparent,
-          child: Container(
-            width: ValueStepper.glyph,
-            height: ValueStepper.glyph,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: on ? ground.outline : ground.hairline,
-                width: skin.shape.stroke,
+      child: Pressable(
+        builder: (context, press, child) => Material(
+          type: MaterialType.transparency,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            highlightColor: Colors.transparent,
+            child: SizedBox.square(
+              dimension: ValueStepper.glyph,
+              child: PressDecoration(
+                press: press,
+                rest: ring(null),
+                down: ring(ground.hairline),
+                child: child,
               ),
             ),
-            child: Icon(
-              widget.icon,
-              color: ink,
-              size: ValueStepper.glyph * Sizes.glyphInDisc,
-            ),
           ),
+        ),
+        child: Icon(
+          icon,
+          color: ink,
+          size: ValueStepper.glyph * Sizes.glyphInDisc,
         ),
       ),
     );

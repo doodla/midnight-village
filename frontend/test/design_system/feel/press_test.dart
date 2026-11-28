@@ -283,6 +283,71 @@ void main() {
     expect(probe.value, 0);
   });
 
+  testWidgets('a part inside a pressable part takes the press alone, as it '
+      'takes the tap; off, it leaves it to the part round it', (tester) async {
+    final outer = _Probe();
+    final inner = _Probe();
+    Widget nested({required bool innerOn}) => _part(
+      outer,
+      inner: ColoredBox(
+        color: const Color(0xFF808080),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 24,
+            child: Pressable(
+              enabled: innerOn,
+              builder: (context, press, child) {
+                inner.press = press;
+                return PressSink(press: press, by: _sink, child: child);
+              },
+              child: const ColoredBox(color: Color(0xFF202020)),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(nested(innerOn: true));
+    final middle = tester.getCenter(find.byType(Pressable).last);
+    var finger = await tester.startGesture(middle);
+    await tester.pump();
+    expect(inner.value, greaterThan(0));
+    expect(outer.value, 0, reason: 'the inner part is pressed, not both');
+    await finger.up();
+    await tester.pumpAndSettle();
+
+    // Beside the inner part the outer one presses.
+    finger = await tester.startGesture(
+      tester.getTopLeft(find.byType(Pressable).first) + const Offset(4, 4),
+    );
+    await tester.pump();
+    expect(outer.value, greaterThan(0));
+    await finger.up();
+    await tester.pumpAndSettle();
+
+    // A second finger on the inner part while it is down: it is still the
+    // inner part's, so the part round it stays up.
+    finger = await tester.startGesture(middle);
+    await tester.pump();
+    final second = await tester.startGesture(middle, pointer: 9);
+    await tester.pump();
+    expect(
+      outer.value,
+      0,
+      reason:
+          'a second finger on a pressed part does not press the one round it',
+    );
+    await second.up();
+    await finger.up();
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(nested(innerOn: false));
+    finger = await tester.startGesture(middle);
+    await tester.pump();
+    expect(outer.value, greaterThan(0), reason: 'an inner part turned off');
+    await finger.up();
+    await tester.pumpAndSettle();
+  });
+
   group('the tap inside fires exactly as it does without the press', () {
     // Returns, for a tap, whether onTap had fired the moment the lift was
     // dispatched (no frame after it), and for a long press, the frames of

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import '../layout/space.dart';
 import '../primitives/deckle.dart';
+import 'press.dart';
 
 /// A part's paper under a finger, drawn by paint alone: [rest] at rest,
 /// [down] all the way down, and in between the two blended by the press
@@ -229,4 +230,34 @@ class RenderPressDecoration extends RenderProxyBox {
     }
     super.paint(context, offset);
   }
+}
+
+/// A card's answer to a finger, for a card that draws its own paper (a deck
+/// pile, a role card): it settles toward the table, down by [PressSink.dip]
+/// and smaller by [shrink], by paint alone. With reduce motion nothing
+/// moves and its ink dims to [stillInk] instead (a [PressFade], which is no
+/// layer at all otherwise).
+class PressSettle extends StatelessWidget {
+  const PressSettle({super.key, required this.press, required this.child});
+
+  final Animation<double> press;
+  final Widget child;
+
+  /// How much smaller a card is drawn all the way down.
+  static const shrink = 0.02;
+
+  /// The ink a settled card keeps under a finger with reduce motion.
+  static const stillInk = 0.8;
+
+  @override
+  Widget build(BuildContext context) => PressFade(
+    press: press,
+    to: MediaQuery.disableAnimationsOf(context) ? stillInk : 1,
+    child: PressSink(
+      press: press,
+      by: PressSink.dip,
+      shrink: shrink,
+      child: child,
+    ),
+  );
 }

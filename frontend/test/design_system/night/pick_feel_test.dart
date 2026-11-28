@@ -2,6 +2,7 @@ import '../../helpers/finger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:midnight_village/design_system/feel/press.dart';
 import 'package:midnight_village/design_system/feel/press_paint.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
 import 'package:midnight_village/design_system/layout/space.dart';
@@ -16,24 +17,36 @@ import '../../helpers/sheet/sheet_data.dart';
 import 'board_harness.dart';
 
 // How picking a card feels (polish pass 2, docs/design/feel.md, "Night
-// action"): a finger dips the card the frame it lands; a pick lifts it with
+// action"): a finger dips the card the frame it lands, by paint alone
+// (`Pressable`, press piece 2: a moved picture, never a rebuild); a pick lifts it with
 // the selection's outline, a soft bone glow and a deeper hard shadow; letting
 // go of a pick returns it cleanly; the same for every card and every role;
-// nothing moves or sounds for anyone else; reduce motion cuts to the end
-// state; and the waiting button is a slot that the amber paper rises out of.
+// nothing moves or sounds for anyone else; reduce motion cuts a pick to its
+// end state and presses with no travel (the shadow tightens); and the waiting button is a slot that the amber paper rises out of.
 
 final _night = SkinId.fallback.skin.night;
 
-/// The card [label]'s own back (its decoration) and the AnimatedContainer
-/// that moves the whole card (its transform).
-AnimatedContainer _back(WidgetTester tester, String label) => tester
+/// The card [label]'s own back: its paper at rest and under a finger.
+Finder _paperOf(String label) =>
+    find.descendant(of: card(label), matching: find.byType(PressDecoration));
+
+PressDecoration _back(WidgetTester tester, String label) =>
+    tester.widget<PressDecoration>(_paperOf(label).first);
+
+/// Whether the back is drawn now blended toward its pressed paper.
+bool _paperPressed(WidgetTester tester, String label) => tester
+    .renderObject<RenderPressDecoration>(_paperOf(label).first)
+    .drawsPressed;
+
+/// The back's ring (the box round its paper).
+AnimatedContainer _ringBox(WidgetTester tester, String label) => tester
     .widgetList<AnimatedContainer>(
       find.descendant(
         of: card(label),
         matching: find.byType(AnimatedContainer),
       ),
     )
-    .firstWhere((c) => c.decoration is BoxDecoration);
+    .firstWhere((c) => c.foregroundDecoration is BoxDecoration);
 
 AnimatedContainer _mover(WidgetTester tester, String label) => tester
     .widgetList<AnimatedContainer>(
@@ -44,15 +57,33 @@ AnimatedContainer _mover(WidgetTester tester, String label) => tester
     )
     .firstWhere((c) => c.transform != null);
 
-/// How far down the card is drawn (negative: lifted).
+/// How far a finger's press draws the card down now (paint only).
+double _sunk(WidgetTester tester, String label) {
+  final sink = tester.renderObject<RenderPressSink>(
+    find.descendant(of: card(label), matching: find.byType(PressSink)).first,
+  );
+  final moved = Matrix4.identity();
+  sink.applyPaintTransform(sink.child!, moved);
+  return moved.getTranslation().y;
+}
+
+/// Where a pick sets the card (negative: lifted).
 double _dy(WidgetTester tester, String label) =>
     _mover(tester, label).transform!.getTranslation().y;
 
+/// How far down the card is drawn now: its lift and the finger's dip.
+double _drawn(WidgetTester tester, String label) =>
+    _dy(tester, label) + _sunk(tester, label);
+
 List<BoxShadow> _shadows(WidgetTester tester, String label) =>
-    (_back(tester, label).decoration! as BoxDecoration).boxShadow!;
+    (_back(tester, label).rest as BoxDecoration).boxShadow!;
+
+/// The shadows all the way down under a finger.
+List<BoxShadow> _pressedShadows(WidgetTester tester, String label) =>
+    (_back(tester, label).down as BoxDecoration).boxShadow!;
 
 BoxDecoration _ring(WidgetTester tester, String label) =>
-    _back(tester, label).foregroundDecoration! as BoxDecoration;
+    _ringBox(tester, label).foregroundDecoration! as BoxDecoration;
 
 double _ringWidth(WidgetTester tester, String label) =>
     ((_ring(tester, label).border!) as Border).top.width;
@@ -73,25 +104,26 @@ void main() {
       final board = _veteran(Viewer.seer);
       await board.pump(tester);
       final name = _seat(board);
-      expect(_dy(tester, name), 0);
+      expect(_drawn(tester, name), 0);
       final lying = _shadows(tester, name).last.offset.dy;
 
       final finger = await tester.startGesture(tester.getCenter(card(name)));
       await tester.pump();
-      // The first frame after the touch already has the card going down.
-      expect(_dy(tester, name), FaceDownCard.dip);
+      // The first frame after the touch already has the card going down,
+      // and its paper toward the shadow that stays.
+      expect(_drawn(tester, name), greaterThan(0));
+      expect(_paperPressed(tester, name), isTrue);
       expect(
-        _mover(tester, name).duration,
-        Motion.press,
-        reason: 'the dip is a press',
+        _pressedShadows(tester, name).last.offset.dy,
+        lying - FaceDownCard.dip,
       );
-      expect(_shadows(tester, name).last.offset.dy, lying - FaceDownCard.dip);
+      // All the way down over the press.
       await tester.pump(Motion.press);
+      expect(_drawn(tester, name), closeTo(FaceDownCard.dip, 0.001));
 
       await finger.up();
-      await tester.pump();
-      expect(_dy(tester, name), anyOf(0, -FaceDownCard.lift));
       await tester.pumpAndSettle();
+      expect(_drawn(tester, name), anyOf(0, -FaceDownCard.lift));
     });
 
     testWidgets('sliding off cancels: it comes back and nothing is picked', (
@@ -102,11 +134,12 @@ void main() {
       final name = _seat(board);
       final finger = await tester.startGesture(tester.getCenter(card(name)));
       await tester.pump(Motion.press);
-      expect(_dy(tester, name), FaceDownCard.dip);
+      await tester.pump(Motion.press);
+      expect(_drawn(tester, name), closeTo(FaceDownCard.dip, 0.001));
       await finger.moveBy(const Offset(0, -400));
       await finger.cancel();
       await tester.pumpAndSettle();
-      expect(_dy(tester, name), 0);
+      expect(_drawn(tester, name), 0);
       expect(lifted(tester), isEmpty);
     });
 
@@ -127,19 +160,19 @@ void main() {
             tester.getCenter(card(name)),
           );
           await tester.pump();
-          dips.add(
-            '$name ${_dy(tester, name)} ${_mover(tester, name).duration}',
-          );
+          final first = _drawn(tester, name).toStringAsFixed(3);
+          await tester.pump(Motion.press);
+          dips.add('$name $first ${_drawn(tester, name).toStringAsFixed(3)}');
           await finger.up();
           await tester.pumpAndSettle();
         }
       }
       // Four phones, three cards each: one answer per card, no phone's
       // different.
-      expect(
-        {for (final d in dips) d.replaceFirst(RegExp(r'^\S+ '), '')},
-        {'2.0 0:00:00.090000'},
-      );
+      expect({
+        for (final d in dips) d.replaceFirst(RegExp(r'^\S+ '), ''),
+      }, hasLength(1));
+      expect(dips.first, endsWith(' 2.000'));
     });
   });
 
@@ -224,7 +257,7 @@ void main() {
       expect(dimmed.opacity, closeTo(0.4, 0.001));
       final finger = await tester.startGesture(tester.getCenter(card(name)));
       await tester.pump();
-      expect(_dy(tester, name), FaceDownCard.dip);
+      expect(_sunk(tester, name), greaterThan(0));
       await finger.up();
       await tester.pumpAndSettle();
       expect(lifted(tester), [name], reason: 'the pick switched');
@@ -266,15 +299,18 @@ void main() {
       child: board,
     );
 
-    testWidgets('cuts every part of the feel to its end state: the dip, '
-        'the lift, the light, the dim', (tester) async {
+    testWidgets('a press shows with nothing travelling (the shadow '
+        'tightens); the lift, the light and the dim cut to their end state', (
+      tester,
+    ) async {
       final board = _veteran(Viewer.seer);
       await board.pump(tester, wrap: reduced);
       final name = _seat(board);
       final finger = await tester.startGesture(tester.getCenter(card(name)));
       await tester.pump();
-      expect(_dy(tester, name), FaceDownCard.dip);
-      expect(_mover(tester, name).duration, Duration.zero);
+      // feel.md: under reduce motion the press shows, nothing travels.
+      expect(_drawn(tester, name), 0);
+      expect(_paperPressed(tester, name), isTrue);
       // Letting go is the tap: the card is picked, lifted at once.
       await finger.up();
       await tester.pump();
