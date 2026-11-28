@@ -413,7 +413,9 @@ Friends get the app from one stable address; nobody builds or hands out a file b
   The web app's first screen (01) shows a quiet "Get the app" link that opens `/app`, only in an Android browser.
 * **First merge:** the link on 01 exists about ten minutes before the first file does (the build has to finish); until then it leads to a not-found page.
 * **Not a check:** it never runs on pull requests and is not in `docs/dev/main-ruleset.json`;
-  it has `contents: write` on its one job only.
+  it runs in two jobs: "Build Android APK" (Java, Flutter, Gradle: a read token, not kept on disk) hands the file to
+  "Publish Android APK", the one job with `contents: write` (a release asset is repository contents), which runs only `gh`.
+  Every action in a job with a write token is pinned by commit, its version beside it (`WriteTokens` in the test below).
   A failed build does not block anything; the previous file stays.
   `guardrails/tests/test_workflows.py` holds it to those rules.
 * **Untested until the first run on `main`:** the workflow itself (it cannot run off GitHub);

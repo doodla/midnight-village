@@ -65,8 +65,10 @@ merge for ever) or has a job with no name or time limit.
 One workflow is not part of the wall: `android-download.yml` ("Android App Download") builds the
 Android app on a push to main that touches `frontend/` (or by hand) and replaces the one asset of
 the rolling release `android-latest` (`docs/dev/deploy-vercel.md`, "Android app download"). It never
-runs on a pull request, is not in the ruleset, has a paths filter and `contents: write` on its one
-job. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
+runs on a pull request, is not in the ruleset, has a paths filter, builds with a read token and
+publishes from a second job, the only one with `contents: write`, that runs nothing but `gh`.
+`WriteTokens` (same file) holds every workflow to this: a job with a write token runs only actions
+pinned by commit (version in a comment), and its checkout keeps the token only if the job pushes. `guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
 (`WorkflowPublishing`); the wall's rules above apply to every other workflow.
 `guardrails/tests/test_release_assets.py` holds `frontend/tool/record_release_assets.py` to refusing to record over a removed asset that has no retired copy or
 dated reason. The `Web page smoke` job's `routes.test.cjs` judges `frontend/vercel.json` as Vercel compiles it, so `test_workflows.py` no longer reads its

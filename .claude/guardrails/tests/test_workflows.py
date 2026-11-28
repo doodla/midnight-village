@@ -274,20 +274,37 @@ class WorkflowPublishing(unittest.TestCase):
         for name in names:
             self.assertNotIn(name, required)
 
-    def test_writes_only_in_its_one_job(self):
+    def test_the_build_reads_and_only_the_publish_job_writes_with_no_code_of_others(
+        self,
+    ):
+        """What is not ours (Java, Flutter, Gradle, packages) runs with a read token; the
+        job that holds the write token runs only gh, on the file the build handed on."""
         top = self.code.split("\njobs:")[0]
         self.assertRegex(top, r"(?m)^permissions:\s*\n  contents: read\s*$")
         self.assertNotIn("write", top)
-        jobs = jobs_of(self.text)
-        self.assertEqual(len(jobs), 1)
-        (job,) = jobs.values()
-        self.assertRegex(job, r"(?m)^    permissions:\s*\n      contents: write\s*$")
-        self.assertRegex(job, r"(?m)^    name:\s*\S")
-        self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
+        jobs = jobs_of(self.code)
+        self.assertEqual(sorted(jobs), ["build", "publish"])
+        build, publish = jobs["build"], jobs["publish"]
+        self.assertRegex(build, r"(?m)^    permissions:\s*\n      contents: read\s*$")
+        self.assertNotIn("write", build)
+        self.assertIn("persist-credentials: false", build)
+        self.assertIn("tool/build_android.sh", build)
+        self.assertRegex(
+            publish, r"(?m)^    permissions:\s*\n      contents: write\s*$"
+        )
+        self.assertRegex(publish, r"(?m)^    needs: \[build\]")
+        used = re.findall(r"uses:\s*(\S+)@", publish)
+        self.assertEqual(used, ["actions/download-artifact"])
+        self.assertNotIn("flutter", publish)
+        for job in jobs.values():
+            self.assertRegex(job, r"(?m)^    name:\s*\S")
+            self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
 
     def test_the_job_publishes_only_from_main(self):
-        (job,) = jobs_of(self.text).values()
-        self.assertRegex(job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$")
+        for job in jobs_of(self.text).values():
+            self.assertRegex(
+                job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$"
+            )
 
     def test_builds_with_the_script_and_publishes_the_one_asset(self):
         self.assertIn("tool/build_android.sh", self.code)
@@ -421,6 +438,80 @@ class WorkflowAfterMerge(unittest.TestCase):
         build = (ROOT / "frontend" / "tool" / "vercel_build.sh").read_text()
         self.assertIn("build/web/commit.txt", build)
         self.assertIn("VERCEL_GIT_COMMIT_SHA", build)
+
+
+def write_token_problems(name, text):
+    """What is wrong with the jobs of one workflow that hold a write token: an action not
+    pinned by commit (a moved tag would run new code with that token), a pin without
+    its version beside it, a checkout that keeps the token on disk in a job that never
+    pushes with git."""
+    code = "\n".join(l.split("#", 1)[0] for l in text.splitlines())
+    everyone_writes = bool(re.search(r": write\b", code.split("\njobs:")[0]))
+    problems = []
+    raw_jobs = jobs_of(text)
+    for job, body in jobs_of(code).items():
+        if not (everyone_writes or re.search(r"(?m)^\s+[a-z-]+: write\b", body)):
+            continue
+        for ref in re.findall(r"uses:\s*(\S+)", body):
+            if not ref.startswith("./") and not re.search(r"@[0-9a-f]{40}$", ref):
+                problems.append(
+                    f"{name} job {job} holds a write token and runs `{ref}`: pin it by commit,"
+                    " `owner/action@<40-hex sha>  # vX.Y.Z` (the sha of the tag:"
+                    " `git ls-remote --tags https://github.com/owner/action`)."
+                )
+        for line in raw_jobs.get(job, "").splitlines():
+            if re.search(r"uses:\s*\S+@[0-9a-f]{40}", line) and not re.search(
+                r"#\s*v\d", line
+            ):
+                problems.append(
+                    f"{name} job {job}: say the version beside the pin: `{line.strip()}  # vX.Y.Z`."
+                )
+        pushes = re.search(r"\bgit push\b|tool/promote_live\.py", body)
+        if (
+            "actions/checkout@" in body
+            and not pushes
+            and "persist-credentials: false" not in body
+        ):
+            problems.append(
+                f"{name} job {job} holds a write token and its checkout keeps it on disk"
+                " for nothing: add `persist-credentials: false` under the checkout's `with:`."
+            )
+    return problems
+
+
+class WriteTokens(unittest.TestCase):
+    """A job that holds a write token runs only code that cannot move under it, and keeps
+    no token on disk that it does not use. Read from the files: no list of jobs here."""
+
+    def test_every_job_with_a_write_token_holds_to_it(self):
+        writers = 0
+        for wf in ALL_WORKFLOWS:
+            text = wf.read_text()
+            writers += len(re.findall(r"(?m)^\s+[a-z-]+: write\b", text))
+            with self.subTest(workflow=wf.name):
+                self.assertEqual(write_token_problems(wf.name, text), [])
+        self.assertGreaterEqual(writers, 3)
+
+    def test_a_deliberate_break_is_caught_and_says_the_fix(self):
+        broken = (
+            "permissions:\n  contents: read\n"
+            "jobs:\n"
+            "  publish:\n"
+            "    name: Publish\n"
+            "    permissions:\n      contents: write\n"
+            "    steps:\n"
+            "      - uses: actions/checkout@v4\n"
+            "      - uses: some/action@0123456789012345678901234567890123456789\n"
+            "  tests:\n"
+            "    name: Tests\n"
+            "    steps:\n"
+            "      - uses: actions/checkout@v4\n"
+        )
+        problems = write_token_problems("x.yml", broken)
+        self.assertEqual(len(problems), 3, problems)  # tests reads only: not judged
+        self.assertIn("pin it by commit", problems[0])
+        self.assertIn("say the version", problems[1])
+        self.assertIn("persist-credentials: false", problems[2])
 
 
 class WorkflowMainIsRed(unittest.TestCase):
