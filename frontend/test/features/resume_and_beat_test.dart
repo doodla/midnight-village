@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,8 @@ import 'package:midnight_village/features/lobby/data/lobby_service.dart';
 import 'package:midnight_village/features/lobby/presentation/lobby_notifier.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../helpers/contract/contract_samples.dart';
+import '../helpers/contract/contract_shape.dart';
 import '../helpers/contract/from_sample.dart';
 import '../helpers/contract/server_json.dart';
 import '../helpers/game_events.dart';
@@ -162,8 +165,67 @@ void main() {
       }
       verify(() => service.fetchLobby(code)).called(1);
     });
+
+    test('a beat two revs on, nothing heard: the lobby read once', () async {
+      await seated();
+      for (var i = 0; i < 3; i++) {
+        channels.single.addServerEvent(
+          GameEvents.lobbyBeat(rev: lobby.rev! + 2),
+        );
+        await _settle();
+      }
+      verify(() => service.fetchLobby(code)).called(1);
+    });
+
+    // Every lobby event that carries a `rev` (found in the samples, not
+    // listed here) moves the one number the beat is compared with: heard at
+    // rev+1, a beat at rev+1 reads nothing; a beat at rev+2 (a frame lost
+    // after it) reads once. A new event that forgets its rev fails here.
+    for (final info in ContractSamples.index.where(
+      (i) => i.kind == 'ws' && i.socket == 'lobby' && i.type != 'beat',
+    )) {
+      final sample = ContractSamples.map(info.name);
+      if (!_carriesRev(sample)) continue;
+      test('${info.name} heard at its rev: the next beat at that rev reads '
+          'nothing; one rev later reads once', () async {
+        await seated();
+        final rev = lobby.rev! + 1;
+        final event = _atRev(sample, rev, serverLobby(code: code));
+        checkSocketEvent(event);
+        channels.single.addServerEvent(jsonEncode(event));
+        await _settle();
+        channels.single.addServerEvent(GameEvents.lobbyBeat(rev: rev));
+        await _settle();
+        verifyNever(() => service.fetchLobby(code));
+        channels.single.addServerEvent(GameEvents.lobbyBeat(rev: rev + 1));
+        await _settle();
+        verify(() => service.fetchLobby(code)).called(1);
+      });
+    }
   });
 }
+
+/// Whether [event] carries a `rev`, at its top or in the lobby it carries.
+bool _carriesRev(Map<String, dynamic> event) =>
+    event.containsKey('rev') ||
+    (event['data'] is Map && (event['data'] as Map).containsKey('rev'));
+
+/// [event] at [rev]; a lobby it carries is [table]'s (its code and when it
+/// was opened), so it is the table this phone holds.
+Map<String, dynamic> _atRev(
+  Map<String, dynamic> event,
+  int rev,
+  Map<String, dynamic> table,
+) => {
+  ...event,
+  if (event.containsKey('rev')) 'rev': rev,
+  if (event['data'] case final Map<String, dynamic> data)
+    'data': withValues(data, {
+      'rev': rev,
+      'code': table['code'],
+      'created_at': table['created_at'],
+    }),
+};
 
 Future<void> _settle() async {
   for (var i = 0; i < 6; i++) {

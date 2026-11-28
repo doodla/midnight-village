@@ -9,6 +9,7 @@ mixin _LobbySeat on _$LobbyNotifier {
   LobbyState? get _current;
   Future<void> refreshLobby();
   WebSocketChannelInterface? get _webSocket;
+  SettingsLane get _lane;
 
   /// The table status `/me/table/` was last asked again for, from a lobby
   /// that said the table had moved on ([_askWhereIfMoved]): once per change.
@@ -56,11 +57,16 @@ mixin _LobbySeat on _$LobbyNotifier {
   /// lobby this phone holds at a lower one missed a frame on a socket that
   /// stayed alive (a deal, a change of the table), so it is read once per
   /// `rev` told; that read moves the phone on if the table did
-  /// ([_askWhereIfMoved]). An older server's beat carries none.
+  /// ([_askWhereIfMoved]). An older server's beat carries none. "Holds" is
+  /// the lane's one number ([SettingsLane.heldRev]): every lobby and event
+  /// with a `rev` moves it, so a phone that heard each frame never reads.
   int? _beatAskedRev;
   void _onBeat(Map<String, dynamic> beat) {
     final rev = beat['rev'];
-    final held = _current?.rev;
+    final current = _current;
+    final held = current == null
+        ? null
+        : _lane.heldRev(table: LobbyNotifier._tableOf(current));
     if (rev is! int || held == null || rev <= held || _beatAskedRev == rev) {
       return;
     }
