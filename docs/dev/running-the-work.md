@@ -136,22 +136,14 @@ Three builders made 300-600 calls each because one agent was resumed for every f
 - Small jobs (a lookup, running checks, a fact-check, bookkeeping, an exact edit) go to `worker`.
 - A brief points at files and stays short; it does not paste them.
 - This session still judges the screens by eye, as before and after pictures.
-- Log each finished piece in `docs/dev/agent-ledger.md` so these numbers keep being measured.
 
 ## The two critics
 
 Every piece a player can see, and every mock, goes to both critics as pictures (a contact sheet
 first) before it goes to the owner's board: `critic-editor` (what to cut or merge) and
 `critic-art-director` (type, hierarchy, density, consistency). Their top issues are fixed or
-answered in one line each. They do not replace the code reviewer.
-
-The blind test that chose them (23 Nov 2026): six personas critiqued the live game's screens
-and were scored against the owner's own 15 points. Scores were close: 0.61 to 0.44 weighted
-recall on 9 points, one grader, and the walk-through mixed several games. The editor was the
-only one to catch the merge of count and results; the art director read stills best.
-The next test must fix: one clean recorded game, the missing states rendered, three runs each,
-two graders, scored against the owner's next play-through. Method and brief:
-`docs/dev/critic-test/`.
+answered in one line each. They do not replace the code reviewer. (A blind test of six personas
+against the owner's own points chose them, 23 Nov 2026; its method is in git history.)
 
 ## Outside this repository
 

@@ -237,13 +237,13 @@ file again (delete the old ruleset first, or edit its checks in the settings).
 
 Every hook command starts from `$CLAUDE_PROJECT_DIR`, never a relative path:
 a session whose shell sits in `backend/` or `frontend/` must still find the script.
-The Bash guard does nothing when its script is missing (the git hooks are the gate).
+A Bash guard whose script is missing lets the command run and warns (the git hooks are the gate).
 
 | Event | Script | Does |
 |---|---|---|
 | PreToolUse Agent, Task, Workflow | `guardrails/runner.py` | Blocks a subagent not pinned to `opus`, `sonnet` or `haiku` (on trial) with an effort, and forks. |
 | PreToolUse Bash | `hooks/git_guard.py` | Stops the mistakes and shortcuts that would skip the commit gate. Its reading of shell text (here-documents, `$(...)`, line ends, the words of each simple command) is `hooks/shell_text.py`, which knows nothing of git. It is not a wall (the wall is GitHub): it reads one Bash command as text, so a script file, a `just` recipe or another program that calls git is not read. Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify` (and its shortened spellings), `commit -n`, hooksPath changes (by `git config` or `-c`), an alias or include set from the command, `git config --edit`, `git commit-tree`, `GIT_*=` variables that redirect git, HUSKY/SKIP/`GATE_*` switches on a git call, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those). It reads the command as the shell would: only a `git` in command position counts, so a message, a search pattern, a comment or a here-document that merely contains those words goes on (`SKIP=slow pytest` too); and it looks inside `bash -c`, `eval`, `trap`, `$(...)`, backticks, `$'...'`, a here-document fed to a shell, a function body, wrappers such as `env`, `xargs` and `find -exec`, and the clone's git aliases. A shell fed by a pipe in a command that names a committing git call is blocked, since it cannot be read. Tests: `guardrails/tests/test_git_guard.py` (almost 190 commands in both directions, every line of the recipes, workflows and hook scripts that names git, a fuzz for crashes, and counts of the work big input costs, with no clock). |
-| SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; starts Postgres when it is installed and down; silent, one line if it cannot set the gate, never fails the session. A fresh container's tools come from `tool/bootstrap_container.sh` (`docs/dev/environment.md`), not from this hook. |
+| SessionStart startup, resume, compact | `hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; starts Postgres when it is installed and down; warns when the checkout is behind the remote's main (every hook, guard and instruction comes from it) and when a hook script the settings run is missing; otherwise silent, one line if it cannot set the gate, never fails the session. A fresh container's tools come from `tool/bootstrap_container.sh` (`docs/dev/environment.md`), not from this hook. |
 | PreToolUse Bash | `hooks/poll_guard.py` | Refuses a command whose whole purpose is a sleep loop on another job: an `until`, `while` or `for` with a `sleep` in it that looks at a process (`pgrep`, `ps`, `kill -0`), a log or marker file (`tail`, `grep`, `cat`, `test -f`), the queue (`heavy`, `flock`) or GitHub (`gh`). The message says what to do: start the job once with `run_in_background`, end the turn, and you are woken when it exits. Left alone: a loop that waits for a service just started (`curl`, `wget`, `nc`), a loop without a sleep, a sleep alone, and words that only mention it (a commit message, a search, a here-document), read as the shell reads them (`shell_text.py`; `bash -c '...'` is read inside). It is a reminder, not a wall, and fails open. Tests, both ways: `guardrails/tests/test_poll_guard.py`. |
 | PostToolUse Edit, Write | `hooks/post-edit-format.sh` | Formats the edited `.py` (the ruff in `uv.lock`: `uv run --group lint`, never one from PATH) or `.dart` file. |
 | Stop | `hooks/verify-done.sh` | With uncommitted `.py`/`.dart` work, runs the fast checks it touches (as the commit gate does), unless they already passed on the same inputs. No test suite. |
@@ -272,7 +272,7 @@ Every agent lists its tools: one defined with all tools starts at about 78k toke
 (connector tool descriptions), one with a short list at 7-10k. A new agent lists its tools too.
 `just contact-sheet` (run in `frontend/`) makes one image of the `just screens` output
 (`frontend/tool/contact_sheet.py`). The rules for using them: `docs/dev/running-the-work.md`,
-"Lean helpers"; the numbers: `docs/dev/agent-ledger.md`.
+"Lean helpers".
 
 ## Skills (`.claude/skills/`)
 

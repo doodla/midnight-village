@@ -151,11 +151,7 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
   private browser windows. Proposed next: practice players (computer-filled seats).
 - Unclear, asked back: "Start making polish puzzles" (read as: start polish passes).
 
-## How they want the work run
-
-`docs/dev/running-the-work.md`.
-
-## In flight (as of 24 November 2026; what is next is `docs/dev/status.md`)
+## 22 November 2026, a card's details after Back, on 03 (live app; open)
 
 - The owner, live app: "After I back after viewing a card's details. Can't see another cards
   details till I remove/add a card from the deck." Then a recording (web, Chrome on Android,
@@ -172,48 +168,6 @@ Earlier the same day, on text sizes (OPEN, the type tokens):
     short presses, so a long hold that opens nothing after backing out of a card's details is
     NOT ruled out: not reproduced, not fixed. Open until a new recording or a hunt settles it.
   Both shown before and after in a real Chromium with touches, against a release build.
-
-- Speed, the last of the audit's three (back is #9, loading is #10, both merged): open as
-  [#11](https://github.com/doodla/midnight-village/issues/11). Keeping the server warm and moving
-  the database are proposals for the owner (they change the owner's accounts): on the owner's
-  board, not here.
-
-## Done
-
-- Back, loading and speed: the audit is done, `docs/dev/audits/back-loading-speed-audit.md` (worst ten,
-  the rules, the mechanisms, where the seconds go). Fixes start after the set-up page lands
-  (same files), as small pull requests: back, then loading, then speed. Back is merged (#49 and #52):
-  one policy for the phone's and the browser's Back. Keeping the server
-  warm and moving the database are proposals for the owner (they change the owner's accounts).
-
-- Loading, failing and busy states (issue 10), merged (#56): every
-  player request goes through one door and the tapped control shows busy until the next screen is up;
-  one waiting body (three paper lanterns, "Still on its way." after 5 s, "One moment" with
-  "Try again") in the frame of every screen that waits; a picture for every loading and error state
-  (`just screens`) and four looping clips (`just loading-clips`). Still open: 02's and 03's own waiting
-  and busy lines (held with the practice-players session), the first paint before Flutter (white page,
-  Android launch), the 10 s request timeout.
-
-- Practice players (issue 26): on the set-up page, press and hold the word "Players". A
-  "Practice" stepper then seats village things (Scarecrow, Teapot, ...) with their own tokens
-  and the word "Practice"; the server plays them. Set it to 0 and hold again to hide it. A
-  person has practice players at one table at a time; closing the table removes them.
-- Back (issue 9): one policy for the phone's Back and the browser's. 01 leaves the app; a
-  waiting table asks Stay / Leave; the set-up page returns to the table; in a game Back does
-  nothing, only Leave exits; whatever is open on top closes first, and any sheet closes when
-  the screen under it changes. Not tested on a real Android phone or a real phone browser.
-- A seated player is never stranded, and the app opens with fewer requests (audit items 4
-  and 6): the saved account is restored by itself until the server answers, no new account
-  is made over a saved one, a deleted account gets a clean fresh start, a lost renewal answer
-  no longer costs the seat (the old refresh token is no longer cancelled on renewal), and
-  opening in a game is 2 requests at once where it was 4 in a row.
-- Set-up page (issue 7): the host picks the number of players, every timer has its own
-  stepper (the Doppelganger's only while the card is in the deck), the deck is face up for
-  everyone, a "picked / needed" counter, "Scan to join" only on a QR code, and leaving no
-  longer says "Not sent." Practice-players proposal: `docs/specs/onuw/solo-play-proposal.md`.
-  Still weak: "Play with 3" shows as soon as three are here.
-- Android and web first impression (icon, name, launch screen): pull request 6, merged
-  (06d0468). The Android install file is now built by the "Android App Download" workflow on every merge.
 
 ## Relayed by the coordinating session, 22 November 2026 (not heard directly; confirm with the owner)
 

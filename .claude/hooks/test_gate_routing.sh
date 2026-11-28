@@ -237,6 +237,23 @@ rm -f "$R/.git/config.lock"
 [ "$(printf '%s\n' "$out" | wc -l)" = 1 ] && [ -n "$out" ] || fail "session-start: want one line when it fails, got '$out'"
 (cd "$R" && git config core.hooksPath .claude/hooks/git)
 
+# ---- session-start.sh says so when the checkout is behind main, or a guard is missing ----
+git init -q --bare -b main "$TMP/origin.git"
+(cd "$R" && git remote add origin "$TMP/origin.git" && git push -q origin HEAD:main 2>/dev/null && git fetch -q origin)
+git clone -q "$TMP/origin.git" "$TMP/ahead" 2>/dev/null
+(cd "$TMP/ahead" && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m "chore: newer" && git push -q origin HEAD:main 2>/dev/null)
+out=$("$HOOKS/session-start.sh" "$R" 2>&1); rc=$?
+[ "$rc" = 0 ] || fail "session-start failed the session when behind main"
+case "$out" in *"1 commits behind origin/main"*) ;; *) fail "session-start: want a warning when behind main, got '$out'" ;; esac
+(cd "$R" && git merge -q --ff-only origin/main)
+out=$("$HOOKS/session-start.sh" "$R" 2>&1)
+[ -z "$out" ] || fail "session-start: want silence once up to date with main, got '$out'"
+printf '{"hooks": {"x": "f=.claude/hooks/no_such_guard.py; exec python3 $f"}}\n' > "$R/.claude/settings.json"
+out=$("$HOOKS/session-start.sh" "$R" 2>&1)
+case "$out" in *"guard missing"*no_such_guard.py*) ;; *) fail "session-start: want a warning for a missing guard, got '$out'" ;; esac
+rm -f "$R/.claude/settings.json"
+(cd "$R" && git remote remove origin)
+
 # ---- the link check reads what is staged when asked (the pre-commit hook) ----
 cp "$REPO/tool/check_instruction_links.sh" "$R/tool/links_real.sh"
 printf 'see `docs/z.md`\n' > "$R/CLAUDE.md"; (cd "$R" && git add CLAUDE.md)
