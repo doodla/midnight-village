@@ -407,6 +407,25 @@ SERVER_AUDIT: tuple[Break, ...] = (
         ),
     ),
     Break(
+        name="B8c_vote_timer_floor_of_45_seconds",
+        promise="no-added-waits",
+        why="the vote's timer ends it at 45 seconds at the least, while its clock shows"
+        " the table's setting",
+        edits=(
+            Edit(
+                VOTING,
+                '            f"{game.id}:voting",\n            voting_seconds,\n',
+                '            f"{game.id}:voting",\n            max(voting_seconds, 45),\n',
+                within="transition_to_voting",
+            ),
+        ),
+        tests=(
+            "backend/tests/onuw/test_stage_clock_and_vote_targets.py::TestStageStartedAt"
+            "::test_every_timed_stage_lasts_what_the_table_set_the_same_on_every_seat",
+        ),
+        expect="the voting stage ends 45 s",
+    ),
+    Break(
         name="B9a_core_imports_the_game",
         promise="separate-game-apps",
         why="core imports the game's models",

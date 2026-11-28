@@ -113,6 +113,17 @@ def everyone(night: Night, name: str, body: dict[str, Any]) -> None:
         assert post(night, who, name, body).status_code == status.HTTP_200_OK
 
 
+def lasts(night: Night, timer: str, seconds: int) -> None:
+    """The stage's timer is scheduled to end it after exactly the table's setting."""
+    delays = night.timer_delays_for(timer)
+    assert delays, f"no {timer} timer was scheduled"
+    assert delays[-1] == seconds, (
+        f"the {timer} stage ends {delays[-1]} s after it opens; the table set"
+        f" {seconds} s. A stage ends when the table's setting says (no floor, cap or"
+        " assumed length)."
+    )
+
+
 def clock_of_every_seat(night: Night) -> tuple[str | None, str | None]:
     """``(stage_started_at, deadline)``, asserted the same on every seat."""
     seen = {(b["stage_started_at"], b["deadline"]) for b in map_me(night)}
@@ -158,6 +169,7 @@ class TestStageStartedAt:
             iso(T0),
             iso(T0 + timedelta(seconds=look)),
         )
+        lasts(night, "look", look)
 
         # The last look opens window 1 (the Doppelganger's), before the look's end.
         clock.advance(look / 4)
@@ -168,6 +180,7 @@ class TestStageStartedAt:
             iso(w1),
             iso(w1 + timedelta(seconds=window_1)),
         )
+        lasts(night, "wave:1", window_1)
 
         # Window 1 ends on its fixed timer; window 2 opens then.
         clock.advance(window_1)
@@ -178,6 +191,7 @@ class TestStageStartedAt:
             iso(w2),
             iso(w2 + timedelta(seconds=wave)),
         )
+        lasts(night, "wave:2", wave)
 
         # Every phone with a choice chooses before the window ends: the talk opens.
         clock.advance(wave / 4)
@@ -190,6 +204,7 @@ class TestStageStartedAt:
             iso(talk),
             iso(talk + timedelta(seconds=talk_for)),
         )
+        lasts(night, "discussion", talk_for)
 
         # Everyone is ready before the talk ends: the vote opens.
         clock.advance(talk_for / 4)
@@ -200,6 +215,7 @@ class TestStageStartedAt:
             iso(vote),
             iso(vote + timedelta(seconds=vote_for)),
         )
+        lasts(night, "voting", vote_for)
 
         # The results have no stage clock.
         clock.advance(vote_for / 4)
