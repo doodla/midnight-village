@@ -5,8 +5,8 @@ import '../../../helpers/live_game_setup.dart';
 
 // The seconds a countdown shows are the server's, whatever the phone's own
 // clock says (issue 15). The server stamps every `/me/` answer with its time
-// (the `Date` header); the phone counts from that stamp with a stopwatch and
-// never compares its own clock with the server's. So a phone whose clock is
+// (the `Date` header); the phone keeps it as an offset from its own clock
+// (`ServerClock`), never its own reading. So a phone whose clock is
 // minutes ahead, minutes behind or years off shows the same number as one
 // that is right. `Countdown` (every countdown on 05, 06, 08 and 09) shows
 // exactly `secondsFor(untilServer(deadline))`, which is what is read here.

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleListener;
+import 'package:flutter_riverpod/flutter_riverpod.dart' show Provider;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'healing.g.dart';
@@ -59,6 +60,13 @@ HealTiming healTiming(Ref ref) => const HealTiming();
 /// (its `Date` header) cannot be read. Tests set it.
 @Riverpod(keepAlive: true)
 DateTime Function() clock(Ref ref) => DateTime.now;
+
+/// The time since the app started, by a clock that only counts: it never
+/// steps when the phone's clock is set ([clockProvider] does). Tests set it.
+final phoneStopwatchProvider = Provider<Duration Function()>((ref) {
+  final watch = Stopwatch()..start();
+  return () => watch.elapsed;
+});
 
 /// Counts the app coming back to the foreground (each value a new resume).
 @riverpod

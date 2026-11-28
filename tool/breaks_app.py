@@ -2,11 +2,17 @@
 """The app's deliberate breaks (tool/prove_guards.py). They run where Flutter is: on GitHub in
 "Analyze and Format"; locally when `flutter` is on PATH."""
 
-from breaks_kit import Edit, Break
+from breaks_kit import Break, Edit
 
 NAME_TAG = "frontend/lib/design_system/primitives/name_tag.dart"
 NAME_LINE = "            Flexible(child: FitLine(name, style: style)),\n"
 SEND = "  Future<StageAnswer> _send(OutboxItem item) async {\n"
+SKIN_FIELD = "frontend/lib/design_system/primitives/skin_field.dart"
+# The sweep's judge of what moves that nobody touched, on 01 (frontend/test/screen_cases/).
+SETTLED_01_JOIN = (
+    "frontend/test/screen_cases/settled_test.dart::"
+    "01-join opens in place and a touch moves only its part"
+)
 
 APP: tuple[Break, ...] = (
     Break(
@@ -67,6 +73,79 @@ APP: tuple[Break, ...] = (
         why="a primitive that is no clock reads the seconds",
         edits=(Edit(NAME_TAG, None, "\ntypedef _Seconds = ClockTick;\n"),),
         tests=("frontend/test/design_system/primitives/clock_users_test.dart",),
+    ),
+    Break(
+        name="clock_takes_each_answer_as_now",
+        promise="server-authoritative",
+        why="each answer's Date resets the server's clock (the live host holds Date"
+        " for seconds: the talk's clock jumped back every few seconds, 28 Nov 2026)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/domain/server_clock.dart",
+                "    if (_offset == null || offset > _offset!) _offset = offset;\n",
+                "    _offset = offset;\n",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/presentation/stage_clock_steady_test.dart",
+        ),
+    ),
+    Break(
+        name="clock_ignores_phone_clock_steps",
+        promise="server-authoritative",
+        why="the phone's clock set forward mid-game leaves the server's clock that far"
+        " ahead for good (every later answer is a lower floor and is ignored)",
+        edits=(
+            Edit(
+                "frontend/lib/features/game/domain/server_clock.dart",
+                "        if (_offset case final offset?) _offset = offset - step;\n",
+                "",
+            ),
+        ),
+        tests=(
+            "frontend/test/features/game/domain/server_clock_test.dart",
+            "frontend/test/features/game/presentation/stage_clock_steady_test.dart",
+        ),
+    ),
+    Break(
+        name="a_field_lifts_with_its_focus",
+        promise="screens-still",
+        why="the name field's paper lifts while it has the focus, so a touch anywhere"
+        " else (which drops the focus on the web) drops it as that part sinks",
+        edits=(
+            Edit(
+                SKIN_FIELD,
+                "          ? ConstrainedBox(\n              constraints: constraints,\n",
+                "          ? Focus(canRequestFocus: false, skipTraversal: true,"
+                " child: Builder(builder: (context) => ConstrainedBox(\n"
+                "              constraints: constraints,\n",
+            ),
+            Edit(
+                SKIN_FIELD,
+                "                child: Align(alignment: Alignment.centerLeft, child: field),\n"
+                "              ),\n            )\n",
+                "                lifted: Focus.of(context).hasFocus,\n"
+                "                child: Align(alignment: Alignment.centerLeft, child: field),\n"
+                "              ),\n            )))\n",
+            ),
+        ),
+        tests=(SETTLED_01_JOIN,),
+        guards=("frontend/test/helpers/settled_parts.dart",),
+    ),
+    Break(
+        name="the_home_foot_waits_for_its_numbers",
+        promise="screens-still",
+        why='01\'s foot takes its room only when "{n} at tables" arrives, so the form'
+        " above jumps up after the first frame",
+        edits=(
+            Edit(
+                "frontend/lib/features/lobby/presentation/join_ways.dart",
+                "      maintainSize: true,\n",
+                "      maintainSize: false,\n",
+            ),
+        ),
+        tests=(SETTLED_01_JOIN,),
+        guards=("frontend/test/helpers/settled_parts.dart",),
     ),
     Break(
         name="deal_button_silently_disabled",
