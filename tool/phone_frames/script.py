@@ -57,12 +57,11 @@ async def join_leg(run, t):
     code = await t.new_table()
     await run.cold("first screen by a link (join)", f"/join/{code}", ["Join"])
     await run.rest("join screen")
-    await run.type_name("Zed")
-    # A guest's 02 says "Leave" (no longer "Ada deals"); its QR code is a picture.
-    await run.tap(
-        "Join (by link) -> 02", "^Join$", ["Leave", "Scan to join"], screen=True
-    )
-    await run.rest("02 table as a guest")
+    # No Join: the join screen's name field is focused as it opens, and on the headless
+    # phone no touch then lets a name in (its input holds the letters, the app shows
+    # none), so every Join here was a tap on a button that does nothing, timed as real
+    # (moments.type_name now says so). The host's name on 01 types; the guest's Join
+    # waits for that field to be checked on a real phone.
 
 
 async def host_leg(run, t, games):
@@ -78,7 +77,8 @@ async def host_leg(run, t, games):
     )
     await run.rest("02 table, alone")
     # Names are not in the semantics; the button says what the table needs.
-    joined = {"Bea": "~", "Cal": "!Need 3 players", "Dan": "Start the game"}
+    # Dan is the fourth: "Start the game" already shows from the third on.
+    joined = {"Bea": "~", "Cal": "!Need 3 players", "Dan": "~"}
     for n, button in joined.items():
         await run.event(f"02 {n} joins (socket)", lambda n=n: t.join(n), [button])
     await run.rest("02 table, four seated")
@@ -288,7 +288,6 @@ def listing(moments):
 # without the game ("g1 Drunk: ").
 PLAIN = {
     "first screen by a link (join)": "opening a table's link",
-    "Join (by link) -> 02": "Join",
     "first screen 01 (cold)": "opening the app",
     "Start a table -> 02": "Start a table",
     "02 Bea joins (socket)": "a friend joining",

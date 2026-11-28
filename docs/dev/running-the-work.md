@@ -80,6 +80,7 @@ It lets 3 jobs run at once; the rest wait in order and say where they stand at o
 - A command never holds a slot after it ends: the lock is not inherited by any child, it is released on any exit
   (`kill -9` too, which also kills the command), and what the command left running is stopped, and said.
 - `HEAVY_SLOTS=n` overrides the count; the state is in `/tmp/midnight-village-heavy`, shared by every checkout.
+- A speed measurement (`just speed-verdict`, `just phone-frames`) takes every slot (`--alone`): nothing heavy starts beside it.
 
 **Why 3** (measured 27 Nov 2026 on this machine: 15 GB, 4 cores; peak memory is the sum over every
 process of the job, shared pages counted once; Postgres is not in it, it is small):

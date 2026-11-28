@@ -162,7 +162,10 @@ class Run:
         answer = (self.expect.get(name) or {}).get("answer")
         if not answer:
             return None
-        shots = [s for s in self.P.shots if before is None or s[0] <= before]
+        shots = sorted(
+            (s for s in self.P.shots if before is None or s[0] <= before),
+            key=lambda s: s[0],
+        )
         return bool(shots) and checks.shows(answer, shots[-1][1])
 
     async def _arrives(self, name, since, most):
@@ -336,10 +339,29 @@ class Run:
         if not self.measuring:
             self.boxes["name field"] = await P.find("^Your name")
         box = self.boxes["name field"]
-        await P.touch(box["x"] + box["w"] / 2, box["y"] + box["h"] / 2)
-        await asyncio.sleep(0.5)
+        # Until the field has the keyboard (set-up, not timed: a touch again if not),
+        # and then the field must hold the name: the join screen's name (focused as it
+        # opens) was never typed on the headless phone, and its Join was timed as a tap
+        # on a button that does nothing.
+        touches = 0
+        for touches in range(1, 4):
+            await P.touch(box["x"] + box["w"] / 2, box["y"] + box["h"] / 2)
+            end = time.monotonic() + 3
+            while time.monotonic() < end and not await P.page.evaluate(_TYPING):
+                await asyncio.sleep(0.1)
+            if await P.page.evaluate(_TYPING):
+                break
         await P.page.keyboard.type(name, delay=60)
         await asyncio.sleep(0.3)
+        got = await P.page.evaluate(_TYPED)
+        if got != name:
+            why = (
+                f"the name field holds {got!r}, not {name!r}: the next tap would do"
+                f" nothing ({touches} touches; {await P.page.evaluate(_FIELDS)})"
+            )
+            if self.measuring:
+                raise Lost(f"typing {name}", why)
+            raise LookupError(why)
 
     async def cold(self, name, path, markers):
         P = self.P
@@ -434,6 +456,23 @@ def _tap(P, box, hold, down_s, near, anywhere):
         tap["before_server"] = first < answered - down_s
     return tap
 
+
+# Flutter's text field is a real <input> (with semantics off too): has it the keyboard,
+# and what does it hold?
+_FOCUSED = "let e = document.activeElement; while (e && e.shadowRoot && e.shadowRoot.activeElement) e = e.shadowRoot.activeElement;"
+_TYPING = (
+    "() => { "
+    + _FOCUSED
+    + " return !!e && (e.tagName == 'INPUT' || e.tagName == 'TEXTAREA'); }"
+)
+_TYPED = "() => { " + _FOCUSED + " return e && 'value' in e ? e.value : null; }"
+# What the page has instead: the focus chain and every text field, shadow roots too.
+_FIELDS = r"""() => { const chain = []; let e = document.activeElement;
+  while (e) { chain.push(e.tagName.toLowerCase()); e = e.shadowRoot && e.shadowRoot.activeElement; }
+  const all = []; const walk = r => { for (const x of r.querySelectorAll('*')) {
+    if (x.tagName == 'INPUT' || x.tagName == 'TEXTAREA') all.push(x.tagName.toLowerCase() + '=' + JSON.stringify(x.value));
+    if (x.shadowRoot) walk(x.shadowRoot); } };
+  walk(document); return 'focus ' + chain.join(' > ') + '; fields ' + (all.join(', ') || 'none'); }"""
 
 # The box of the first semantics node whose label holds `re` anywhere (page_probe.FIND
 # matches a control's whole label; an answer's words may be part of a longer one).

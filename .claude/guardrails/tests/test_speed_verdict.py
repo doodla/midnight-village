@@ -140,7 +140,7 @@ class TheScriptNamesItsMoments(unittest.TestCase):
     def test_the_list_comes_from_the_script_and_holds_every_timed_moment(self):
         names = [m["name"] for m in script.names(1) if m["kind"] in script.TIMED]
         self.assertIn(HOLD, names)
-        self.assertEqual(sum(1 for m in script.names(1) if m["kind"] == "tap"), 16)
+        self.assertEqual(sum(1 for m in script.names(1) if m["kind"] == "tap"), 15)
 
     def test_a_part_of_a_name_picks_its_moments_and_the_games_they_need(self):
         chosen, games = script.pick("hold the card", 1)
@@ -366,14 +366,13 @@ class TheCommand(unittest.TestCase):
                 ],
                 env=env,
             )
+            for _ in range(500):
+                if held.exists():
+                    break
+                time.sleep(0.02)
+            # A ref that does not exist: given every slot, it could only stop at once.
             verdict_run = subprocess.Popen(
-                [
-                    sys.executable,
-                    str(FRAMES / "speed_verdict.py"),
-                    "HEAD",
-                    "--runs",
-                    "2",
-                ],
+                [sys.executable, str(FRAMES / "speed_verdict.py"), "no-such-ref-for-a-test"],
                 env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,

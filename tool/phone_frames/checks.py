@@ -27,8 +27,12 @@ import re
 # finger (s); the measured pass, slowed, gets ACT_WAIT to send it.
 ACT_SOON = 1.0
 ACT_WAIT = 8.0
-# A share of the answer's box that may differ (a pixel differs by more than 24 of 255).
-ANSWER_DIFF = 0.2
+# A share of the answer's box that may differ (`differs`: blurred 2 px, best of 2 px
+# shifts). Measured on the map's crops and live frames: the same words at most 0.025
+# (a live JPEG frame, a crop 1 px off); other words 0.055 ("Ready ✓" | "Locked") to
+# 0.97 ("Look first" | "Ready", the card hold's own test); "Ready ✓" against the vote's
+# "Pick a name" 0.072.
+ANSWER_DIFF = 0.04
 # A hold shows something while held: this share of the screen changes.
 HOLD_SHOWS = 0.03
 HOLD_CHECKED = 0.3  # holds at least this long (s) are checked so
@@ -67,15 +71,28 @@ def missing(expected, sent):
     return [a for a in expected if a not in sent]
 
 
-def differs(a, b, threshold=24):
-    """The share of picture `a` that differs from `b` (PIL images, any mode)."""
-    from PIL import ImageChops  # here: the rest of the tool runs without Pillow
+def differs(a, b, threshold=24, blur=2, shift=2):
+    """The share of picture `a` that differs from `b` (PIL images, any mode), at the
+    best of the alignments within `shift` px, both blurred by `blur` px: an answer's
+    box has fractional edges and the paper is speckled, so a crop one pixel off or a
+    JPEG of it read 9% different without them (see ANSWER_DIFF)."""
+    from PIL import ImageChops, ImageFilter  # here: the rest runs without Pillow
 
     a, b = a.convert("L"), b.convert("L")
     if a.size != b.size:
         b = b.resize(a.size)
-    diff = ImageChops.difference(a, b).point(lambda v: 255 if v > threshold else 0)
-    return diff.histogram()[255] / max(1, a.size[0] * a.size[1])
+    if blur:
+        a, b = a.filter(ImageFilter.BoxBlur(blur)), b.filter(ImageFilter.BoxBlur(blur))
+    w, h = a.size
+    best = 1.0
+    for dx in range(-shift, shift + 1):
+        for dy in range(-shift, shift + 1):
+            here = (max(0, dx), max(0, dy), w + min(0, dx), h + min(0, dy))
+            there = (max(0, -dx), max(0, -dy), w + min(0, -dx), h + min(0, -dy))
+            diff = ImageChops.difference(a.crop(here), b.crop(there))
+            hist = diff.point(lambda v: 255 if v > threshold else 0).histogram()
+            best = min(best, hist[255] / max(1, (here[2] - here[0]) * (here[3] - here[1])))
+    return best
 
 
 def png(data):

@@ -183,8 +183,9 @@ class Page:
         one before it by `share` of the screen, or `timeout` seconds."""
         end = time.monotonic() + timeout
         while time.monotonic() < end:
-            before = [s for s in self.shots if s[0] <= since]
-            after = [s for s in self.shots if s[0] > since]
+            shots = sorted(self.shots, key=lambda s: s[0])
+            before = [s for s in shots if s[0] <= since]
+            after = [s for s in shots if s[0] > since]
             if before and after:
                 base, cur = _img(before[-1][1]), _img(after[-1][1])
                 if base.size == cur.size:
@@ -209,12 +210,12 @@ class Page:
         )
 
     async def base(self):
-        """A picture of the screen before the finger, when the screencast sent none: a
-        still screen sends no frame, and without one every change after the touch was
-        measured from the first change on (the second visible change was reported as
-        the first), and a wait for a new screen could never end. Returns which it is."""
-        if self.shots:
-            return "screencast"
+        """A fresh picture of the screen just before the finger, the base every change
+        after it is measured from. The screencast's own frames cannot be: a still
+        screen sends none (the first change was then the base, and the second change was
+        reported as the first answer), and the frame it sends on starting can be stale
+        (a card still face up from the hold before: its turning back read as an 8 ms
+        answer)."""
         t = time.time()
         shot = await self.page.screenshot(type="jpeg", quality=60, scale="css")
         self.shots.append((t, shot))
@@ -247,6 +248,7 @@ def changes(shots, since, box=None, scale=1.0, threshold=24):
     """The screencast frames after `since` (epoch s) that differ from the frame
     before it: [(seconds after, share of the box changed)]. A pixel counts when it
     moved by more than `threshold` of 255 (JPEG noise stays under it)."""
+    shots = sorted(shots, key=lambda s: s[0])
     before = [s for s in shots if s[0] <= since]
     after = [s for s in shots if s[0] > since]
     if not before and len(after) > 1:

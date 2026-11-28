@@ -165,7 +165,7 @@ class Queue(unittest.TestCase):
         until(alone_held.exists, "it runs")
         alone_go.write_text("x")
         _, said = alone.communicate(timeout=20)
-        self.assertIn("waiting for every slot (alone)", said)
+        self.assertIn("waiting for every slot (alone: it holds", said)
 
     def test_waiting_says_where_it_stands_at_once_and_does_not_poll(self):
         self.env["HEAVY_SLOTS"] = "1"

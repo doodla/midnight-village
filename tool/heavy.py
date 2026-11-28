@@ -434,7 +434,11 @@ def wait_for_slot(queue: Queue, info: dict) -> tuple[list[int], float]:
     mine_held: dict[int, int] = {}
     got = queue.try_take(place, info, mine_held)
     last_said = None
-    what = "every slot (alone)" if info.get("alone") else "a slot"
+    what = (
+        lambda: f"every slot (alone: it holds {len(mine_held)} of {queue.slots})"
+        if info.get("alone")
+        else "a slot"
+    )
     while not got:
         if last_said is None or time.monotonic() - last_said >= REPORT:
             last_said = time.monotonic()
@@ -445,7 +449,7 @@ def wait_for_slot(queue: Queue, info: dict) -> tuple[list[int], float]:
                 for _, i in others
             )
             say(
-                f"heavy: waiting for {what} ({len(held)} of {queue.slots} busy): number {mine}"
+                f"heavy: waiting for {what()} ({len(held)} of {queue.slots} busy): number {mine}"
                 f" in line, {span(time.monotonic() - queued)} so far."
                 f" Running: {running or 'nothing (your turn soon)'}."
                 "  `just heavy --status` shows it. Do not poll: start this command"

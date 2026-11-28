@@ -28,6 +28,7 @@ pictured, its report copied through its own buttons, and its numbers put beside 
 """
 
 import argparse
+import base64
 import asyncio
 import json
 import os
@@ -228,6 +229,18 @@ async def leg(run, ctx, play_it):
         more = False
     except Lost as e:
         lost, more = {"at": e.name, "why": e.why}, False
+        if run.args.out:
+            # What the screen showed instead: its last frame, and the step's answer.
+            stem = run.args.out.rsplit(".", 1)[0]
+            shot = run.P.shots[-1][1] if run.P.shots else await run.P.page.screenshot()
+            with open(stem + ".lost.jpg", "wb") as f:
+                f.write(shot)
+            lost["picture"] = stem + ".lost.jpg"
+            answer = (run.expect.get(e.name) or {}).get("answer")
+            if answer:
+                with open(stem + ".lost.answer.png", "wb") as f:
+                    f.write(base64.b64decode(answer["png"]))
+                lost["answer"] = {"word": answer["word"], "box": answer["box"]}
     await run.collect()
     await ctx.close()
     return more, lost

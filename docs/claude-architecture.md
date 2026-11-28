@@ -210,7 +210,8 @@ every 30 seconds. A slot is a file lock no child inherits, released on any exit;
 stopped with its heavy parent, and what it leaves running is stopped; each run's time and peak memory go to its history.
 The recipes that run tests, builds, screens, the harness, phone-frames and phone-timing call it themselves, and
 `just piece-check` and `just handover` queue their heavy steps (`heavy.wrap`); inside a heavy command it runs at once
-(`HEAVY_SLOT`), on GitHub (`CI`) it does nothing. `.claude/guardrails/tests/test_heavy.py` holds the queue (the count, the order, no
+(`HEAVY_SLOT`), on GitHub (`CI`) it does nothing; a speed measurement takes every slot (`--alone`).
+`.claude/guardrails/tests/test_heavy.py` holds the queue (the count, the order, no
 inherited slot, `kill -9`, nesting), that every heavy command in a justfile goes through it, and that every script that
 boots the backend stops its whole process group on any exit (`phone-timing` did not until now).
 
