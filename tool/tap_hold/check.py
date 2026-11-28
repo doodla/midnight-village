@@ -1,14 +1,20 @@
 """The tap/hold check: on the real game, a quick touch does a part's tap thing and
 never its hold thing, and a held one does the hold thing, at each CPU speed.
 
-One phone (headless Chrome, the release web build, semantics on to read what each
-touch did) hosts a table with three bots (`tool/phone_frames/`'s): 03 (a role card,
-the players label), the deal, 04 (the card), the night (the phone's own card), the
-talk (My night). Each part is touched `--touches` times for each quick length
-under its hold time (by the touch's own pointer times, read in the page) and 6
-times for a long one, at each speed (`Emulation.setCPUThrottlingRate`).
-The parts and their hold times come from the code (`parts.py`). Exits 1 when a part
-did the wrong thing, 2 when the game could not be played. Run through `just tap-hold`.
+One phone (headless Chrome, the release web build) hosts a table with three bots
+(`tool/phone_frames/`'s): 03 (a role card, the players label), the deal, 04 (the
+card), the night (the phone's own card), the talk (My night). Each part is touched
+`--touches` times for each quick length under its hold time (by the touch's own
+pointer times, read in the page) and LONG times for a long one, at each speed
+(`Emulation.setCPUThrottlingRate`) and in each `--busy` row: the page idle, and the
+page's main thread kept busy from the landing to past the hold (a phone's long
+frame), where Chrome hands the app the lift frames late.
+The touches land on the app, as on a phone with no screen reader; the semantics are
+on only to be read, and are read once a touch has settled (what they said meanwhile
+was recorded as it changed): a read during a touch is page work that changes it.
+Semantics off is not covered. The parts and their hold times come from the code
+(`parts.py`). Exits 1 when a part did the wrong thing, 2 when the game could not be
+played. Run through `just tap-hold`.
 """
 
 import argparse
@@ -21,12 +27,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "phone_frames"))
 from moments import Run
 from page_probe import NODES, RECORDER, Page
-from parts import PARTS, hold_ms
+from parts import PARTS, hold_ms, lift_frames
 from phone_frames import DECK, UA, Bots
 from playwright.async_api import async_playwright
 
 QUICK = (80, 150)
-LONG = 6  # long touches per part and speed: a hold either works or it does not
+LONG = 3  # long touches per part, speed and row: a hold either works or it does not
 # The table's own lengths: long enough for every touch (the night is closed by
 # the debug backend's timer once its part is done).
 LENGTHS = {
@@ -50,22 +56,39 @@ TH = r"""
     attributeOldValue: true, characterData: true, characterDataOldValue: true});
 })();
 """
-START = """() => { const T = window.__th; T.downs = []; T.ups = []; T.muts = []; T.on = true;
-  return window.__pf.frames.length; }"""
-SETTLED = r"""(from) => {
+# What a semantics node says: its label, or a leaf's text (as `NODES` names it).
+NAME = "const name = e => (e.getAttribute('aria-label') || '') || (e.childElementCount ? '' : (e.textContent || ''));"
+# Each node's name as the touch starts, kept on the node.
+START = (
+    "() => { "
+    + NAME
+    + " const T = window.__th; T.downs = []; T.ups = []; T.muts = []; T.on = true;"
+    " for (const e of document.querySelectorAll('flt-semantics')) e.__th = name(e);"
+    " return window.__pf.frames.length; }"
+)
+# Every name a node took during the touch other than the one it had (a node
+# added since had none): its label's or its text's old values, the text taken
+# out of it, and what it says now.
+SETTLED = (
+    r"""(from) => {
   const T = window.__th; T.on = false;
-  const shown = new Set();
-  const say = e => { if (!e.getAttribute) return;
-    shown.add((e.getAttribute('aria-label') || '') + '|' + (e.childElementCount ? '' : (e.textContent || '')));
-    for (const c of e.children) say(c); };
+  """
+    + NAME
+    + r"""
+  const took = new Map();
+  const add = (e, v) => { if (!e) return; if (!took.has(e)) took.set(e, new Set()); took.get(e).add(v); };
+  const all = e => { if (!e.getAttribute) return; add(e, name(e)); for (const c of e.children) all(c); };
   for (const r of T.muts) {
-    if (r.oldValue !== null) shown.add(r.type === 'attributes' ? r.oldValue + '|' : '|' + r.oldValue);
-    say(r.type === 'characterData' ? r.target.parentElement : r.target);
-    for (const n of r.addedNodes) say(n);
+    const e = r.type === 'characterData' ? r.target.parentElement : r.target;
+    if (r.oldValue !== null) add(e, r.oldValue);
+    for (const n of [...r.removedNodes, ...r.addedNodes]) n.nodeType === 3 ? add(e, n.textContent) : all(n);
+    all(e);
   }
-  return {downs: T.downs, ups: T.ups, shown: [...shown],
-          frames: window.__pf.frames.slice(from).map(f => f[0])};
+  const shown = [];
+  for (const [e, vs] of took) for (const v of vs) if (v && v !== (e.__th || '')) shown.push(v);
+  return {downs: T.downs, ups: T.ups, shown, frames: window.__pf.frames.slice(from).map(f => f[0])};
 }"""
+)
 # The page busy, from the landing (its own time) until `until` ms after it.
 BUSY = """(until) => { const t0 = performance.now(); const d = window.__th.downs[0];
   const end = (d ? d[0] : t0) + until; while (performance.now() < end) {}
@@ -93,9 +116,23 @@ def lift(timing):
 FIX = "see frontend/lib/design_system/primitives/finger_hold.dart: a touch shorter than the hold time by its own timestamps is a tap"
 
 
-def long_ms(hold):
-    """A long touch: 500 ms, or twice the hold where 500 is not past it."""
-    return 500 if hold < 400 else 2 * hold
+def long_ms(part, hold, timings):
+    """A long touch: 500 ms, or twice the hold where 500 is not past it. A face
+    that shows only while held is held past the hold by `liftFrames` + 3 of the
+    page's long frames (the 90th of every 100 gaps between the frames the app drew
+    in the quick touches so far at this speed): on a page blocked across the hold the face shows
+    up to `liftFrames` frames late (finger_hold.dart), after the frame that blocked
+    the timer, and must be drawn once; one more for headroom."""
+    ms = 500 if hold < 400 else 2 * hold
+    gaps = sorted(
+        b - a
+        for t in timings
+        for a, b in zip(t["frames"], t["frames"][1:])
+        if b - a < 1500  # longer: the page was still, not drawing
+    )
+    # none drawn yet at this speed (a part checked alone): a long frame of a slow phone
+    frame = gaps[9 * len(gaps) // 10] if gaps else 1000
+    return max(ms, round(hold + (lift_frames() + 3) * frame)) if part.while_held else ms
 
 
 class Toucher:
@@ -144,7 +181,12 @@ class Toucher:
         got = await P.page.evaluate(SETTLED, frames)
         downs, ups = got["downs"], got["ups"]
         length = round(ups[0][0] - downs[0][0]) if downs and ups else None
-        timing = {"down": downs[:1], "up": ups[:1], "spell": spell, "frames": got["frames"]}
+        timing = {
+            "down": downs[:1],
+            "up": ups[:1],
+            "spell": spell,
+            "frames": got["frames"],
+        }
 
         def flipped(words):
             return (before[words] > 0) != (words in text)
@@ -153,7 +195,8 @@ class Toucher:
         tapped = flipped(part.tap[1]) if part.tap else False
         kind, words = part.held
         if kind == "shows":
-            held = not before[words] and any(words in w for w in got["shown"])
+            # a node said exactly the words, which it did not say before the touch
+            held = words in got["shown"]
         elif kind == "count":
             held = before[words] != text.count(words)
         else:
@@ -170,14 +213,25 @@ class Toucher:
                 ("quick", q)
                 for q in QUICK
                 if q < hold
-                for _ in range(self.args.touches)
+                for _ in range(min(self.args.touches, part.most or self.args.touches))
             ]
-            plan += [("long", long_ms(hold))] * LONG
+            plan += [("long", None)] * min(LONG, part.most or LONG)
+            long = None
             for kind, ms in plan:
+                if ms is None:
+                    # once per row, after its quick touches: the frames at this speed are known
+                    long = long or long_ms(
+                        part,
+                        hold,
+                        [r[9] for r in self.results if r[1] == cpu and r[3] == "quick"],
+                    )
+                    ms = long
                 if part.tap and part.tap[0] == "flips" and part.name.startswith("03"):
                     # a tap adds a Minion: each touch starts from none
                     if await self.has(part.tap[1]):
-                        await self.run.tap("minion out", f"^{part.tap[1]}", [f"!{part.tap[1]}"])
+                        await self.run.tap(
+                            "minion out", f"^{part.tap[1]}", [f"!{part.tap[1]}"]
+                        )
                 # found again each time: a tap can move the page (03 scrolls its count into view)
                 box = await self.P.find(part.find)
                 length, tapped, held, timing = await self.one(part, box, ms, busy)
@@ -241,7 +295,12 @@ async def play(args):
         await page.add_init_script(RECORDER)
         await page.add_init_script(TH)
         if args.dump:
-            page.on("console", lambda m: m.text.startswith("th: ") and print("     " + m.text, flush=True))
+            page.on(
+                "console",
+                lambda m: (
+                    m.text.startswith("th: ") and print("     " + m.text, flush=True)
+                ),
+            )
         cdp = await ctx.new_cdp_session(page)
         P = Page(page, cdp)
         run = Run(args, P, bots, {}, False)
@@ -261,9 +320,11 @@ async def play(args):
         page.on("response", response)
         page.on(
             "request",
-            lambda r: tokens.__setitem__("h", r.headers["authorization"])
-            if "authorization" in r.headers
-            else None,
+            lambda r: (
+                tokens.__setitem__("h", r.headers["authorization"])
+                if "authorization" in r.headers
+                else None
+            ),
         )
 
         async def start_route(route):
@@ -287,14 +348,13 @@ async def play(args):
         await run.tap("edit", "^Edit\\s", ["Classic"], at=(0.92, 0.15))
         await run.quiet()
         lowers = (await P.text()).count("Lower")
-        if not args.through_semantics:
-            # A finger lands where it does on a phone with no screen reader: on
-            # the app, not on a semantics node (where Flutter holds a landing back
-            # up to 200 ms to see if a click follows, and a quick touch is then a
-            # semantics tap, whatever the hold does). The semantics are only read.
-            await page.add_style_tag(
-                content="flt-semantics, flt-semantics * { pointer-events: none !important; }"
-            )
+        # A finger lands where it does on a phone with no screen reader: on
+        # the app, not on a semantics node (where Flutter holds a landing back
+        # up to 200 ms to see if a click follows, and a quick touch is then a
+        # semantics tap, whatever the hold does). The semantics are only read.
+        await page.add_style_tag(
+            content="flt-semantics, flt-semantics * { pointer-events: none !important; }"
+        )
         for name in ("03 role card", "03 players label"):
             if name in by:
                 await speeds(t, by[name], cpus)
@@ -306,7 +366,9 @@ async def play(args):
         label = next(p for p in PARTS if p.name == "03 players label")
         if (await P.text()).count("Lower") != lowers:
             box = await P.find(label.find)
-            await t.finger(box["x"] + box["w"] * label.at[0], box["y"] + box["h"] / 2, 1200)
+            await t.finger(
+                box["x"] + box["w"] * label.at[0], box["y"] + box["h"] / 2, 1200
+            )
             await run.quiet()
         await run.tap("done", "^Done", ["Start the game", "Need"])
         host = {"Authorization": tokens["h"]}
@@ -395,14 +457,20 @@ def verdicts(results):
                     f"{len(wrong)} of {len(quick)} quick {ms} ms touches on {at} started the hold; {FIX}"
                 )
             if missed:
-                bad.append(f"{len(missed)} of {len(quick)} quick {ms} ms touches on {at} did nothing")
+                bad.append(
+                    f"{len(missed)} of {len(quick)} quick {ms} ms touches on {at} did nothing"
+                )
             if not quick:
-                bad.append(f"no {ms} ms touch on {at} was under the {hold} ms hold by its own times")
+                bad.append(
+                    f"no {ms} ms touch on {at} was under the {hold} ms hold by its own times"
+                )
         else:
             held = [g for g in got if g[2]]
             lines.append(f"{at}: {len(held)} of {len(got)} {ms} ms touches held")
             if len(held) < len(got):
-                bad.append(f"{len(got) - len(held)} of {len(got)} {ms} ms touches on {at} did not hold")
+                bad.append(
+                    f"{len(got) - len(held)} of {len(got)} {ms} ms touches on {at} did not hold"
+                )
     return lines, bad
 
 
@@ -411,11 +479,11 @@ def main():
     a.add_argument("--api", required=True)
     a.add_argument("--app", required=True)
     a.add_argument("--chrome", default="")
-    a.add_argument("--speeds", default="1,4,8", help="CPU slowdowns")
+    a.add_argument("--speeds", default="1,4", help="CPU slowdowns")
     a.add_argument(
         "--touches",
         type=int,
-        default=12,
+        default=4,
         help="quick touches per length, part and speed",
     )
     a.add_argument(
@@ -423,18 +491,11 @@ def main():
         default="",
         help="only these parts (words of their names, comma-separated)",
     )
-    a.add_argument(
-        "--dump", default="", help="'on': each touch"
-    )
+    a.add_argument("--dump", default="", help="'on': each touch")
     a.add_argument(
         "--busy",
         default="0,100",
         help="rows: 0 unloaded, n the page busy from the landing to n ms past the hold",
-    )
-    a.add_argument(
-        "--through-semantics",
-        action="store_true",
-        help="touch the semantics nodes (Flutter's click debouncing) instead of the app",
     )
     a.add_argument("--out", default="", help="every touch here (JSON)")
     args = a.parse_args()

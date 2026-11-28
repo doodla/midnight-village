@@ -18,7 +18,19 @@ USES = re.compile(
 
 
 class Part:
-    def __init__(self, name, file, use, hold, find, tap, held, at=(0.5, 0.5)):
+    def __init__(
+        self,
+        name,
+        file,
+        use,
+        hold,
+        find,
+        tap,
+        held,
+        at=(0.5, 0.5),
+        while_held=False,
+        most=0,
+    ):
         self.name = name  # as a failure names it
         self.file = file  # under frontend/lib: where the hold is used
         self.use = use  # the primitive or argument it uses there
@@ -27,9 +39,12 @@ class Part:
         self.tap = tap  # what a tap does: (kind, words); None: nothing
         self.held = held  # what a hold does: (kind, words)
         self.at = at  # where on the part's box the finger goes
+        self.while_held = while_held  # what the hold shows goes when the finger lifts
+        self.most = most  # touches of a kind per row at most (0: as asked)
 
 
-# kind "shows": the words show while or after the finger is down.
+# kind "shows": a semantics node says exactly the words while or after the finger
+# is down (a held face's label is its target's, without "hidden").
 # kind "flips": the words are there after the touch if they were not, and gone if they were.
 # kind "count": the words show more or fewer times after the touch (a stepper comes or goes).
 PARTS = [
@@ -59,7 +74,9 @@ PARTS = [
         ("design_system/primitives/hold_to_reveal.dart", "holdDelay"),
         "^Your card, hidden",
         None,
-        ("shows", "Your card|"),  # the face's label (hidden, the words are its text)
+        ("shows", "Your card"),
+        while_held=True,
+        most=2,  # every row within the look's 120 s, the most a table may set
     ),
     Part(
         "06 own night card",
@@ -67,8 +84,12 @@ PARTS = [
         "TeachingHold",
         ("design_system/primitives/hold_to_reveal.dart", "holdDelay"),
         "^You$",
-        ("flips", "Keep my card"),
-        ("shows", "Your card: "),
+        (
+            "flips",
+            "Choose for me",
+        ),  # the Drunk's (the check deals this phone the Drunk)
+        ("shows", "You"),
+        while_held=True,
     ),
     Part(
         "08 My night",
@@ -77,7 +98,8 @@ PARTS = [
         ("design_system/primitives/hold_to_reveal.dart", "holdDelay"),
         "My night",
         None,
-        ("shows", "You were the"),
+        ("shows", "My night"),
+        while_held=True,
     ),
 ]
 
@@ -104,6 +126,15 @@ def hold_ms(part):
     m = re.search(rf"\b{name}\s*=\s*Duration\(\s*milliseconds:\s*(\d+)\s*\)", text)
     if not m:
         raise LookupError(f"{path}: no `{name} = Duration(milliseconds: n)`")
+    return int(m.group(1))
+
+
+def lift_frames():
+    """The frames a hold waits for a lift on a blocked page, from the code."""
+    path = LIB / "design_system/primitives/finger_hold.dart"
+    m = re.search(r"static const liftFrames = (\d+);", path.read_text())
+    if not m:
+        raise LookupError(f"{path}: no `static const liftFrames = n;`")
     return int(m.group(1))
 
 
