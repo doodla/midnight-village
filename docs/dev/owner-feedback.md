@@ -4,6 +4,14 @@ The owner plays the live app (web and an Android install) and reports what they 
 words are the brief; do not soften them. Add to the top; move an item to "Done" with the
 commit when it has shipped. In-flight state is here too, so a new session can pick up.
 
+## 28 November 2026, the home page (01) on the live app, Chrome on an Android Pixel (412 wide) (verbatim)
+
+> On the home page, when I tap, the name field also drops.
+
+> And things jump when the page loads and settles. Looks noob
+
+OPEN (branch `home-settle`).
+
 ## 24 November 2026, playing the live app on an Android phone (412 points wide) and a friend's Pixel, in Chrome (verbatim)
 
 > The game was very choppy.
@@ -49,7 +57,7 @@ behind. `just phone-timing` measures tap to guest screen on a slowed phone again
 
 > Reload only when nobody waits
 
-HANDLED (branch `reload-when-quiet`): the app reloads to a new version only at the first screen (01), or when the app comes back after a while away (the tab visible again after more than 5 seconds hidden, the notion the resume already had; no new timer). Never at the table (02, 03), never during a game, never right after "play again" (reaching 02 had reloaded at once and stalled some restarts on a full reload while friends waited). Known and accepted cost: a phone left open at the table across several games keeps the old version until then. The rule: `mayReloadNow` (`frontend/lib/features/game/domain/reload_rule.dart`); it replaces the 23 November rule (at once at a table before the deal).
+HANDLED (branch `reload-when-quiet`): a new version loads only at 01, or when the tab comes back after more than 5 s hidden; never at the table, in a game or right after "play again". Accepted cost: a phone left at the table keeps the old version until then. The rule: `mayReloadNow` (`frontend/lib/features/game/domain/reload_rule.dart`).
 
 ## 24 November 2026, timers in the live game (verbatim)
 
