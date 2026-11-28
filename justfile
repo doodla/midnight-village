@@ -155,6 +155,10 @@ test-contract:
 phone-frames *args:
     tool/heavy.py -- tool/phone_frames/run.sh {{args}}
 
+# On the real game in Chrome at CPU 1x, 4x and 8x: quick touches tap and held ones hold, on every part with a hold (tool/tap_hold/parts.py); own backend. Usage: just tap-hold [part words,...] [--speeds 1,4,8] [--touches n]; TAP_HOLD_BREAK=1 builds the recorded break
+tap-hold *args:
+    tool/heavy.py -- tool/tap_hold/run.sh {{args}}
+
 # The live server's round trips and socket events, with three throwaway guests at one throwaway table (read-mostly, no load)
 phone-frames-live *args:
     python3 tool/phone_frames/live_rtt.py {{args}}
