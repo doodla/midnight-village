@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:midnight_village/design_system/copy/copy.dart';
+import 'package:midnight_village/design_system/feel/press_paint.dart';
 import 'package:midnight_village/design_system/primitives/deckle.dart';
 import 'package:midnight_village/design_system/teach/cue_wave.dart';
 
@@ -27,12 +28,15 @@ void main() {
     await paperScreens['night board, 10']!(tester);
 
     // Every box that paints torn paper (a piece, a card, a panel, a portrait):
-    // a decorated box whose shape is a deckled edge.
+    // a decorated box whose shape is a deckled edge, or the paper a finger
+    // presses (`PressDecoration`, its render object a decorated box too).
     List<RenderObject> paper() => [
       for (final e in tester.allElements)
-        if (e.widget case DecoratedBox(
-          decoration: ShapeDecoration(shape: DeckleBorder()),
-        ))
+        if (e.widget
+            case DecoratedBox(
+                  decoration: ShapeDecoration(shape: DeckleBorder()),
+                ) ||
+                PressDecoration(rest: ShapeDecoration(shape: DeckleBorder())))
           if (e.renderObject != null) e.renderObject!,
     ];
     final pieces = paper();

@@ -133,7 +133,12 @@ their scatter tilts).
 | `restLeast`, `restMost` | 8 s, 16 s | How long something that idles rests, still, between bursts: a length in this range taken from its own id, the same on every phone |
 
 Every tappable part is to press through `Pressable` (`feel/press.dart`: down on the pointer-down, `press` on `curve`; up over `quick` on `land`).
-The main and secondary buttons, the scraps, the icon and text actions and your card on 04 do (press piece 1); the rest move onto it in a later piece.
+The main and secondary buttons, the scraps, the icon and text actions and your card on 04 do (press piece 1).
+Since press piece 2 so do the rest: a vote's row and slip, the preset chips, the deck piles on 08, a stepper's signs, the table's panel, a role card and its
+minus, the scan glyph and the night board's cards.
+A finger on a tappable part inside another (a role card on the table's panel) presses the inner part alone, as the tap goes to it.
+Left out, on purpose: the owner's speed strip (a tool, not the game), the layer that puts a night result away (it takes the touch to close, nothing to press),
+the hidden hold on "Players" (a hidden switch shows nothing), and the hold on "My night" (its answer is the night shown on the board; the "You" card presses as the other cards do).
 Everything that loops goes through `Ambient` (`feel/ambient.dart`), and a screen at rest is idle most of the time:
 an effect is a small layer over a still picture, never a reason to draw the screen again.
 - **Burst and rest**: it plays one round (or a few), then truly rests at its still look (no frame at all) for `restLeast` to `restMost`, then plays again.
@@ -165,7 +170,7 @@ take 1.6 s. A tap finishes them.
 |---|---|---|---|
 | `Motion.land` (built, pass 4a: `Curves.easeOutBack`) | a curve with at most 10% overshoot | 4, 6 | The lock stamp; a joining player's row dropping in |
 | `Motion.ambient` (built with `Ambient`, its default period) | 4 s per loop | 7 | Join's lit window and drifting moon; stops once typing starts |
-| the reduce-motion helper, the rest | Today six places check it (shell, the card flip, count, results, ring, wave) and, since pass 2, the night cards (dip, lift, glow, dim) and the Choose button's rise; buttons' press, rows, chips and dims ignore it. `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
+| the reduce-motion helper, the rest | Today six places check it (shell, the card flip, count, results, ring, wave) and, since pass 2, the night cards (lift, glow, dim) and the Choose button's rise; every press goes through `Pressable`, which cuts it and moves nothing (press pieces 1 and 2). `Motion.within` exists (pass 1); passes 4 and 8 move the rest to it | 4, 8 | One check, so none is forgotten |
 
 ## 3. Vibration
 
@@ -275,7 +280,7 @@ motion: "cut" is the end state at once; "same" is unchanged.
 |---|---|---|---|---|
 | Board opens | The title in front of a quiet strip of the night village (under a half veil of the ground, the title above 7:1 on it), the candle and the seconds beside it, the cards using the height the phone gives them with no dead band (3 to 10 players, 320 wide and up), the Choose button waiting as a slot. Nothing moves; the same on every phone | none | Same | exists |
 | Board opens (first game only) | Each card lifts 8 px in one left-to-right wave; learned at the first taken Choose, never again | 120 ms each, 90 ms apart | No wave | exists |
-| Finger on a card | The frame the finger lands the card dips 2 px and its shadow stays where it was; every card, whatever the role, whether or not a pick could take it (a dimmed card, a sleeper's card too). No vibration | `press` | Cut (dip and return) | exists |
+| Finger on a card | The frame the finger lands the card dips 2 px and its shadow stays where it was (`Pressable`, by paint alone: nothing is rebuilt); every card, whatever the role, whether or not a pick could take it (a dimmed card, a sleeper's card too). No vibration | `press` down, `quick` on `land` back | The shadow tightens, nothing moves | exists (press piece 2) |
 | Tap picks a card | The card lifts 8 px with the selection outline (bone), a soft bone glow and the deeper hard shadow, tweened together; the cards that cannot join dim | `quick` | Cut to the end state: the lift, the outline and the glow still show | exists |
 | Tap a picked card; a third tap | The card settles back, the glow out, the shadow and ring as before; a third pick drops the oldest as the new one rises, in one frame | `quick` | Cut | exists |
 | Choose button waits | "Choose a card" and "Choose 1 more" sit as a slot on purpose: the spec's outline with no fill (copy rule 10), clearly drawn, a dark lip inside its top edge and its words in full ink, 56 tall; not a faded button | none | Same | exists |
@@ -330,7 +335,7 @@ nothing is held back.
 | Moment | The player sees and feels | Token / timing | Reduce motion | Status |
 |---|---|---|---|---|
 | Rows arrive (first game) | The rows nudge 6 px in one wave; learned at the first taken lock | 120 / 90 ms | No wave | exists |
-| Finger on a row | The row dips 2 px the frame it lands, the shadow staying where it was; it comes back on release or when the finger slides off (no pick) | `press` down, `quick` back | Tint only, no dip | exists (pass 4a) |
+| Finger on a row | The row sinks into its shadow the frame it lands: it dips 2 px and the shadow stays where it was (`Pressable`, by paint alone; dressed up the slip, a `PaperPiece`, sinks the same way); it comes back on release or when the finger slides past the tap's slop (no pick) | `press` down, `quick` on `land` back | The shadow tightens and the paper tints, nothing moves | exists (press piece 2) |
 | Tap picks a row | The row rises 6 px into the room kept above it, with the ink outline and the deeper hard shadow; a tap on another row moves the pick (one settles as the other rises). Before pass 4a the lift was cancelled by the row's own padding and only the outline and shadow changed | `quick` | Cut | exists |
 | A vote pick has a vibration | A tick each time the pick moves (day only; decided 22 Nov 2026) | `tick` | The vibration still fires | exists (pass 4a) |
 | First pick | "Pick a name" (outlined) becomes the one amber "Lock in {name}" | `press` | Cut | exists |
@@ -374,7 +379,7 @@ nothing is held back.
 | Press, amber button (the plaque) | The paper shadow collapses to 20% and the plaque sinks by its drop, the frame after the finger lands (`Pressable`, by paint: `PressSink`, `PressDecoration`); back on release with a small settle | `press` down, `quick` on `land` back | The shadow collapses, nothing moves | exists |
 | Press, outlined button | A hairline fill while down, from the frame after the finger lands (`Pressable`); an outlined main button also dips 2 px (`PressSink.dip`); dressed up, the scrap sinks into its shadow | `press` | Fill only | exists (press piece 1) |
 | Press, quiet word | Dims to 40% while down, from the frame after the finger lands (`TextAction`, a plain `PaperScrap`; a glyph, `IconAction`, to 60%) | `press` | Same | exists |
-| Press, any other tappable (chips, pace tiles, deck cards, panels) | Today nothing until the tap ends. Dip 2 px the frame it lands (`Pressable`; the scraps already do: press piece 1) | `press` | Colour only | pass 8 |
+| Press, any other tappable (chips, steppers, the panel, the scan glyph, deck piles, role cards) | The frame the finger lands (`Pressable`, by paint alone): a chip, a stepper's sign, the table's panel and the scan glyph fill with a hairline, and dressed up their paper sinks into its shadow; a deck pile and a role card settle toward the table, 2 px down and 2% smaller (`PressSettle`); the grid's minus dims to 60% | `press` down, `quick` on `land` back | The fill, the shadow, or a card's ink dimmed to 80%; nothing moves | exists (press piece 2) |
 | Tap target size | Chips and the quiet "Leave" word are 44 px; they become 48 px wherever the layout holds at 320 wide. One that cannot fit stays 44 and is named in the pass (decided 22 Nov 2026) | none | Same | pass 8 |
 | Release, or slide off | It comes back; sliding off cancels with no commit and no other sign; a scroll that starts on it cancels too | `press` | Same | exists |
 | A disabled tap ("Pick a name", "Need 3 players") | The button presses and returns as any does (a locked or waiting main or secondary button), no shake, no vibration; its words say what is missing | `press` | Colour only | exists (press piece 1) |
