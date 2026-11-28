@@ -129,7 +129,13 @@ class TestPickAndLock:
 
         locked = lock(night, "robber", "villager")
         assert locked.status_code == status.HTTP_200_OK
-        assert locked.data == {"status": "submitted"}
+        # The stored lock and the count the table was sent: no read after it.
+        assert locked.data == {
+            "status": "submitted",
+            "target_player_id": night.users["villager"].id,
+            "locked": True,
+            "progress": {"stage": "vote", "done": 1, "needed": 5},
+        }
         assert stored(night, "robber") == (night.users["villager"].id, True)
 
     def test_lock_is_final_repick_returns_409(self, vote_night) -> None:
@@ -152,7 +158,9 @@ class TestPickAndLock:
         assert response.data["code"] == "bad_request"
         assert stored(night, "robber") == (None, False)
         # A lock never announces WHO locked: only the count.
-        assert lock(night, "robber", "seer").data == {"status": "submitted"}
+        locked = lock(night, "robber", "seer").data
+        assert set(locked) == {"status", "target_player_id", "locked", "progress"}
+        assert set(locked["progress"]) == {"stage", "done", "needed"}
         assert night.broadcasts("vote.submitted") == []
         assert me(night, "robber")["my_vote"] == {
             "target_player_id": night.users["seer"].id,

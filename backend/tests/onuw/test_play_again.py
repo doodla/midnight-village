@@ -27,6 +27,7 @@ from apps.core.models import Lobby, LobbyMember
 from apps.onuw import services
 from apps.onuw.consumers import GameConsumer
 from apps.onuw.models import Game, Phase
+from tests.sockets import heard
 
 pytestmark = pytest.mark.integration
 
@@ -519,15 +520,15 @@ class TestClientsHearIt(TransactionTestCase):
         lobby_ws.scope["url_route"] = {"kwargs": {"code": lobby.code}}
         assert (await game_ws.connect())[0]
         assert (await lobby_ws.connect())[0]
-        await game_ws.receive_json_from(timeout=2)  # its own presence
+        await heard(game_ws)  # its own presence
 
         await sync_to_async(play_again)(lobby.code, host.id)
 
-        assert await game_ws.receive_json_from(timeout=2) == {
+        assert await heard(game_ws) == {
             "type": "play_again",
             "lobby_code": lobby.code,
         }
-        update = await asyncio.wait_for(lobby_ws.receive_json_from(), timeout=2)
+        update = await asyncio.wait_for(heard(lobby_ws), timeout=2)
         assert update["type"] == "lobby_update"
         assert update["data"]["status"] == "waiting"
         await game_ws.disconnect()

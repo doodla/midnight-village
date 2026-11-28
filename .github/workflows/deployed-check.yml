@@ -3,8 +3,12 @@
 #
 # 1. tool/promote_live.py moves `live-server` and `live-app` to the merged commit,
 #    each only when the files that side ships changed (tests, docs and tooling cost
-#    no deployment: Vercel allows 100 in 24 hours). This is the job's one write:
-#    a push to those two branches.
+#    no deployment: Vercel allows 100 in 24 hours), and only once every check main's
+#    ruleset requires has passed on that commit; the server first, the app once the
+#    server serves it; only forward; never below the rollback floor. A refusal is a
+#    red run with the reason. This is the job's one write: a push to those two branches.
+#    If the gate itself is broken: "Run workflow" on main with skip_waits ticked (the
+#    two waits are skipped, loudly; forward-only and the floor still hold).
 # 2. tool/deployed_check.py waits until each live address serves the commit its
 #    branch holds, then does a real Start and Join through the deployed routing.
 #    A red run here means players may be looking at a broken game: read the failed
@@ -12,8 +16,9 @@
 #
 # This is NOT a check of the merge wall: it can only run after the merge (the
 # deployment it tests does not exist before), so it never runs on a pull request
-# and is not in docs/dev/main-ruleset.json. It reads public addresses and holds no
-# secret. guardrails/tests/test_workflows.py holds it to that.
+# and is not in docs/dev/main-ruleset.json. It reads public addresses; its one secret
+# is the key it pushes the live branches with (in the environment `live`, which only
+# main may use). guardrails/tests/test_workflows.py holds it to that.
 
 name: Deployed Check
 
@@ -21,6 +26,11 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+    inputs:
+      skip_waits:
+        description: "Only when the gate itself is broken: do not wait for main's checks or the server"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -41,35 +51,45 @@ jobs:
   live-game:
     name: Live game works after the merge
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # main's checks (up to 45 minutes), the server's build (15), the app's (15), the game
+    timeout-minutes: 90
     # Only main is promoted.
     if: github.ref == 'refs/heads/main'
+    # The release job's key (LIVE_DEPLOY_KEY) lives in this environment, which only main
+    # may use: the one actor the live branches' rule lets through (docs/dev/rulesets/).
+    environment: live
     permissions:
       contents: write  # tool/promote_live.py pushes live-server and live-app, nothing else
+      checks: read  # ... once main's required checks have passed on the merged commit
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
-          fetch-depth: 0  # the comparison with what each live branch holds
+          fetch-depth: 0  # the comparison with what each live branch holds, and the floor
+          # pushes with the key once the owner has made it; until then with the job's token
+          ssh-key: ${{ secrets.LIVE_DEPLOY_KEY }}
 
-      - name: Move the live branches when what they serve changed
+      - name: Move the live branches when what they serve changed, once main is green
         id: live
-        run: python3 tool/promote_live.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIP_WAITS: ${{ inputs.skip_waits && '--skip-waits' || '' }}
+        run: python3 tool/promote_live.py --api "$API_ORIGIN" $SKIP_WAITS
 
       - name: Wait for each side's build, then Start, Join and a deal heard on the live game
         run: >
           python3 tool/deployed_check.py
           --api "$API_ORIGIN" --app "$PUBLIC_ORIGIN"
           --commit "${{ steps.live.outputs.server }}"
-          --app-commit "${{ steps.live.outputs.app }}" --wait 900 --sockets
+          --app-commit "${{ steps.live.outputs.app }}" --wait 900 --sockets --deep
           --timings deployed-timings.json
 
       # How long each kind of request took on the live server (also in the job's
       # summary): a report to compare two merges by, never a failure.
       - name: Keep the timings
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: deployed-timings
           path: deployed-timings.json

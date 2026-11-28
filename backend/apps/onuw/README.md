@@ -23,6 +23,8 @@ imports only the ones before it (`backend/tests/onuw/test_module_directions.py`)
 | `services.py` | the top: the timer jobs (registered from it by name), the game's presence check and the lobby's current game |
 | `night_results.py` | what a player is shown of the night afterwards |
 | `recovery.py` | rebuilding timers that were lost |
+| `repair.py`, `beat.py` | the lazy repair (a lost practice move, lost timers, the sweep), run by `GET /me/` and by the socket's heartbeat; the heartbeat's one statement (row, election, the table's token) |
+| `own_view.py`, `groups.py` | each player's own view as a stage opens; the socket group names (the table's, a player's own) |
 | `choose_night.py` | the night's requests: storing a choice, the prompt |
 | `views.py` | HTTP: dealing a game, a player's own page (`GET /me/`), the timer sweep |
 | `views_play.py` | HTTP: what a player sends during a game (night choice, vote, ready, ...) |
@@ -141,7 +143,16 @@ stored or sent. An applied request with `asked` stores its entry even when the v
 `choose`, the results ack and the stage-ending requests never read it.
 
 **Events:** a window opens with ONE group event `night.window {window, deadline}` (client `night_window`);
-there is NO per-player event in the night at all, and no event when a window closes (the next `night_window` or `phase_change` follows in the same commit).
+nothing per player is ever on the game's group, and no event says a window closed (the next `night_window` or `phase_change` follows in the same commit).
+**Each player's own view** (`own_view.py`): every stage opening after the deal (each window, the talk, the vote, the results) sends,
+first in the same batch as its group events (`basics._send_stage_after_commit`, which `apps.py` plugs `own_view` into), each person's own
+`GET /me/` body on their own group (`own.view`, client `me`; the group named by `groups.player_group`, the one the consumer joins), built after
+commit from the committed rows in one read-only snapshot and a fixed number of queries (`views_for`: the count and the engine state once for all).
+At the results the table's `game_results` carries `results.results_body` once (`data.results`); the views carry none. A view is addressed from
+its own `player_id` and the consumer forwards it only to that player's socket; `GET /me/` and the view are one builder (`own_view.me_body`).
+A view that cannot be built or packed never takes the table's events down: `effects.send_built_after_commit` then sends the group events alone
+(tried once more), and the phones read `/me/` on them. Views go out only as a stage opens, never within one
+(`test_own_view.py`, `test_a_view_goes_out_only_when_a_stage_opens`).
 The Doppelganger's look is not sent either:
 it is in her `/me/`.
 
@@ -194,7 +205,13 @@ the phase or window timer
 (a deadline that is overdue or less than `RECOVERY_RECONNECT_ALLOWANCE_SECONDS` = 15 s away is first moved to now + 15 s and persisted, so phones can reconnect before the vote is revealed or the night closes; the same happens in the lazy path only when the timer is genuinely missing; the extension depends only on the clock, so the fixed Doppelganger window's length still says nothing about her),
 the night's deferred "everyone acted, minimum length not passed" close (due at the minimum, not the deadline), and dropped players' grace timers.
 The Doppelganger window only ever gets its fixed deadline.
-`GameMeView` calls `ensure_timers` on every fetch, so a game also repairs lazily.
+The game also repairs lazily (`repair.lazy_repair`: a practice seat's lost move, `ensure_timers`, then `timers.sweep` of the game's keys): on every
+`GET /me/`, and on the socket's heartbeat (`repair.repair_on_beat`, every 15 s, run only by the game's oldest fresh socket, so once per game per beat,
+until the results; never raises), so an untimed stage whose timer was lost moves on with nobody reading. A repair that fails is counted for the owner's
+report (`repair_failed`, `backend/apps/observe/counts.py`, no ids) and logged at ERROR, the first time for a game and then at most every 10 minutes.
+A game socket's beat (`GameConsumer._beat_work`, `beat.py`) is one statement: its row refreshed, whether it is the oldest fresh socket, and the table's
+token for the next `beat` frame (`phase`, `window`, `moved_on`: contract, section 8); then the presence check's timer, then the repair (the presence
+first, so a failing repair never leaves a socket counted away). 2 queries a socket a beat, as before; the repairing socket about 6 more.
 Safe in several workers: every callback locks the Game row and checks the phase, and the night callbacks check the window number (`_auto_advance_wave`), so a
 stale window-1 timer cannot close window 2.
 A minimum-length (deferred) close re-checks readiness under the lock when it fires (a player treated as gone may have come back);
@@ -232,8 +249,9 @@ answers `{"night_results_seen": <stored>}`.
 `POST .../vote/` takes `{"target_player_id": <JSON integer>, "lock": <bool>, "stage": ...}`
 (`lock` is required; anything else is 400 `bad_request`: no coercion).
 A vote is *picked* (`PlayerRole.vote_target`, `has_acted` false, changeable, NO socket event at all) and then *locked*
-(`has_acted`, final; any pick or lock after it is 409 `vote_locked`, except the SAME lock again (a resend whose answer was lost): `{"status": "submitted"}`, nothing stored or sent).
-Answers: locked `{"status": "submitted"}`, picked `{"status": "picked", "target_player_id": N}` (the stored target).
+(`has_acted`, final; any pick or lock after it is 409 `vote_locked`, except the SAME lock again (a resend whose answer was lost): the same answer, nothing stored or sent).
+Answers: locked `{"status": "submitted", "target_player_id": N, "locked": true, "progress": {...}}` (the stored lock and the count the table was sent: `submit_vote(told=)`),
+picked `{"status": "picked", "target_player_id": N}` (the stored target).
 The body names the `stage` (see "Stages").
 Errors carry `code`
 (`wrong_stage`, `wrong_phase`, `invalid_target`, `bad_request`, `vote_locked`; `detail` is one string, the first message, as every refusal's is).
@@ -257,7 +275,7 @@ The debug oracle has `vote_locked` per player next to `votes`, and `ready` per p
 
 `POST .../ready/ {"ready": <bool>, "stage": ...}`
 (`ReadyView`, `voting.set_ready`; strict bool else 400 `bad_request`; 403 not a player; 409 `wrong_stage` outside the talk and the look stage, or for a stage that is over)
-toggles `PlayerRole.phase_ready` (reset by `transition_to_discussion`) and answers `{"status": "ok", "ready": <stored>}`.
+toggles `PlayerRole.phase_ready` (reset by `transition_to_discussion`) and answers `{"status": "ok", "ready": <stored>, "progress": {...}}` (the count the table was sent: `set_ready(told=)`).
 One transaction (Game lock, PlayerRole lock, phase re-checked):
 every tap recounts `needed` (players not gone past grace) and sends `progress {stage: "talk", done, needed}`;
 when `done == needed >= 1` it calls `end_discussion`, the host button's own function, so a tap racing the host or the talk's deadline ends the talk once
@@ -383,7 +401,7 @@ the step and the seat (`practice_rng`) and logged at INFO.
 
 ## Night timeline (results)
 
-`GET .../results/` (results phase only, members only, as before) has `night_timeline`:
+`GET .../results/` (results phase only, members only, as before; its body is `results.results_body`, which the table's `game_results` also carries once, as `data.results`) has `night_timeline`:
 `{seats, cards, dealt, steps, final, center_moved}` built by the PURE `backend/apps/onuw/engine/timeline.py` (`build_night_timeline`) FORWARDS from the dealt cards
 (`PlayerRole.original_role` by seat, `Game.dealt_center_cards`) and `Game.night_actions_log` (`ActionLogEntry.to_dict` is the one log format).
 Cards have stable ids (`k0..k<n-1>` by seat, then the three centre cards) and a server-set `werewolf` flag

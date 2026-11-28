@@ -116,6 +116,22 @@ class MyTable {
     gamePhase: gameId == null ? null : GamePhase.results,
   );
 
+  /// This seat with its game at [phase], as `/me/` says it is now (a stage
+  /// changed): the table is in that game, finished once it is at the results
+  /// (the server ends the game and the table together). What `/me/table/`
+  /// names then, so it is not asked for (`SeatSeed`).
+  MyTable inGameAt(GamePhase phase) => MyTable._(
+    lobbyCode: lobbyCode,
+    gameType: gameType,
+    status: phase == GamePhase.results
+        ? TableStatus.finished
+        : TableStatus.inGame,
+    isHost: isHost,
+    token: token,
+    gameId: gameId,
+    gamePhase: phase,
+  );
+
   final String lobbyCode;
   final String gameType;
   final TableStatus status;

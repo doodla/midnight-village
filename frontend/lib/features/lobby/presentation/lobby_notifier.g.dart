@@ -146,7 +146,7 @@ final class LobbyWebSocketFactoryProvider
 }
 
 String _$lobbyWebSocketFactoryHash() =>
-    r'f1af3ee144b21f66c266c979c159d664df5adbbe';
+    r'1af97508192e52c5cca2fe943c2ee6ddfb0aa320';
 
 /// Manages lobby state for a given lobby code.
 ///
@@ -250,7 +250,7 @@ final class LobbyNotifierProvider
   }
 }
 
-String _$lobbyNotifierHash() => r'c18fd1acc7c802ddd1821d8adbe92e7d512bcc21';
+String _$lobbyNotifierHash() => r'9f3b462843b19511e94d6d8c7e7c8df95eaaba7a';
 
 /// Manages lobby state for a given lobby code.
 ///

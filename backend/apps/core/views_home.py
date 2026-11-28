@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .health import deep_health
 from .lobbies import (
     current_table,
 )
@@ -40,11 +41,22 @@ def health_check(request: Request) -> Response:
         (the repository is) and lets the check after each merge wait for the new build
         (``tool/deployed_check.py``). The server is built from the ``live-server``
         branch, which moves only when what the server ships changed.
+
+        With ``?deep=1`` it also says whether this build reaches its database and its
+        Redis (``apps/core/health.py``): ``"ok"`` or ``"failed"`` per part, 503 when one
+        failed. Without it the answer is as it always was (old callers read only these).
     """
-    return Response(
-        {"status": "ok", "commit": os.environ.get("VERCEL_GIT_COMMIT_SHA", "")},
-        status=status.HTTP_200_OK,
+    commit = os.environ.get("VERCEL_GIT_COMMIT_SHA", "")
+    if not request.query_params.get("deep"):
+        return Response({"status": "ok", "commit": commit}, status=status.HTTP_200_OK)
+    parts = deep_health()
+    healthy = all(v in ("ok", "not used") for v in parts.values())
+    response = Response(
+        {"status": "ok" if healthy else "failed", "commit": commit, **parts},
+        status=status.HTTP_200_OK if healthy else status.HTTP_503_SERVICE_UNAVAILABLE,
     )
+    patch_cache_control(response, no_store=True)
+    return response
 
 
 class GuestCreateView(APIView):

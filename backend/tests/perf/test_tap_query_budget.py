@@ -37,7 +37,10 @@ BUDGET_FILE = Path(__file__).with_name("tap_budget.json")
 # a full table (the costliest today, a game socket opening and the night's close,
 # are in the high thirties). Raising it is a decision, not a re-record.
 CEILING = 40
-MEASURES = ("queries", "lock_span", "sends", "redis_trips", "publishes")
+MEASURES = ("queries", "lock_span", "sends", "redis_trips", "publishes", "own_views")
+# One per person by design (each player's own view as a stage opens): held by its
+# own rule below, not by "nothing grows with the table".
+PER_PERSON = ("own_views",)
 RERECORD = "Re-record with `just tap-budget` and review the diff of tap_budget.json."
 
 
@@ -59,6 +62,8 @@ def test_no_request_costs_more_at_ten_seats_than_at_three(
         seen = {n: by_size[n][label] for n in SIZES if label in by_size[n]}
         assert len(seen) == len(SIZES), f"{label} is not made at every table size"
         for name in MEASURES:
+            if name in PER_PERSON:
+                continue
             values = {n: getattr(cost, name) for n, cost in seen.items()}
             if len(set(values.values())) > 1:
                 grows.append(f"{label}: {name} by seats {values}")
@@ -66,6 +71,15 @@ def test_no_request_costs_more_at_ten_seats_than_at_three(
         "A request costs more round trips at a bigger table (a query per player?):\n"
         + "\n".join(grows)
     )
+    # Own views: exactly one per person when a stage opens, none otherwise (they
+    # ride in the stage's one batch, so they add no Redis round trip).
+    wrong = [
+        f"{label} at {n}: {cost.own_views} own views"
+        for n in SIZES
+        for label, cost in by_size[n].items()
+        if cost.own_views not in (0, n)
+    ]
+    assert not wrong, "A stage opening must tell each person once:\n" + "\n".join(wrong)
 
 
 def test_every_request_costs_what_its_budget_says(

@@ -17,8 +17,8 @@ pull request, never a required check, `contents: write` on its one job only, a p
 
 AFTER_MERGE (deployed-check.yml) is not part of the wall either: it tests the deployment a
 merge makes, so it can only run after it. Its rules (WorkflowAfterMerge): every push to main
-with no paths filter, never on a pull request, never a required check, no write permission,
-no secret, and it runs tool/deployed_check.py against the same two addresses the Android
+with no paths filter, never on a pull request, never a required check, no write but the push
+of the live branches, no secret but the key it pushes them with, and it runs tool/deployed_check.py against the same two addresses the Android
 build uses.
 
 No YAML library: the workflows are plain enough to read by indentation.
@@ -39,8 +39,12 @@ ALL_WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 AFTER_MERGE = ["deployed-check.yml"]
 # Watches main's own runs and keeps the one "main is red" issue: not a check on anything.
 WATCHING = ["main-red.yml"]
+# The release's own: the rule's rehearsal and the watch on live (test_release_workflows.py).
+RELEASE = ["live-rehearsal.yml", "live-watch.yml"]
 WORKFLOWS = [
-    w for w in ALL_WORKFLOWS if w.name not in PUBLISHING + AFTER_MERGE + WATCHING
+    w
+    for w in ALL_WORKFLOWS
+    if w.name not in PUBLISHING + AFTER_MERGE + WATCHING + RELEASE
 ]
 JUSTFILES = ["justfile", "backend/justfile", "frontend/justfile"]
 
@@ -162,13 +166,17 @@ class Gates(unittest.TestCase):
         found = list(self.gates())
         self.assertTrue(found)
         for name, part, gate, jobs in found:
-            self.assertIn(part, jobs, f"{name}: {gate} needs {part}, which is not a job")
+            self.assertIn(
+                part, jobs, f"{name}: {gate} needs {part}, which is not a job"
+            )
 
     def test_a_gate_always_runs_and_passes_only_on_success_of_every_part(self):
         for name, part, gate, jobs in self.gates():
             body = "\n".join(l.split("#", 1)[0] for l in jobs[gate].splitlines())
             self.assertRegex(
-                body, r"(?m)^    if:\s*\$\{\{\s*always\(\)\s*\}\}\s*$", f"{name}: {gate}"
+                body,
+                r"(?m)^    if:\s*\$\{\{\s*always\(\)\s*\}\}\s*$",
+                f"{name}: {gate}",
             )
             # the parts' combined result is read, and only "success" passes:
             # "failure", "cancelled" and "skipped" (a part that did not run) do not
@@ -183,8 +191,12 @@ class Gates(unittest.TestCase):
 
     def test_the_widget_tests_parts_cover_the_whole_suite(self):
         text = (ROOT / ".github" / "workflows" / "flutter-tests.yml").read_text()
-        (total,) = set(re.findall(r"just test-widgets \$\{\{ matrix\.part \}\} (\d+)", text))
-        (listed,) = re.findall(r"part: \[([\d, ]+)\]", jobs_of(text)["widget-tests-part"])
+        (total,) = set(
+            re.findall(r"just test-widgets \$\{\{ matrix\.part \}\} (\d+)", text)
+        )
+        (listed,) = re.findall(
+            r"part: \[([\d, ]+)\]", jobs_of(text)["widget-tests-part"]
+        )
         self.assertEqual(
             [int(n) for n in listed.split(",")], list(range(1, int(total) + 1))
         )
@@ -266,22 +278,37 @@ class WorkflowPublishing(unittest.TestCase):
         for name in names:
             self.assertNotIn(name, required)
 
-    def test_writes_only_in_its_one_job(self):
+    def test_the_build_reads_and_only_the_publish_job_writes_with_no_code_of_others(
+        self,
+    ):
+        """What is not ours (Java, Flutter, Gradle, packages) runs with a read token; the
+        job that holds the write token runs only gh, on the file the build handed on."""
         top = self.code.split("\njobs:")[0]
         self.assertRegex(top, r"(?m)^permissions:\s*\n  contents: read\s*$")
         self.assertNotIn("write", top)
-        jobs = jobs_of(self.text)
-        self.assertEqual(len(jobs), 1)
-        (job,) = jobs.values()
-        self.assertRegex(job, r"(?m)^    permissions:\s*\n      contents: write\s*$")
-        self.assertRegex(job, r"(?m)^    name:\s*\S")
-        self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
+        jobs = jobs_of(self.code)
+        self.assertEqual(sorted(jobs), ["build", "publish"])
+        build, publish = jobs["build"], jobs["publish"]
+        self.assertRegex(build, r"(?m)^    permissions:\s*\n      contents: read\s*$")
+        self.assertNotIn("write", build)
+        self.assertIn("persist-credentials: false", build)
+        self.assertIn("tool/build_android.sh", build)
+        self.assertRegex(
+            publish, r"(?m)^    permissions:\s*\n      contents: write\s*$"
+        )
+        self.assertRegex(publish, r"(?m)^    needs: \[build\]")
+        used = re.findall(r"uses:\s*(\S+)@", publish)
+        self.assertEqual(used, ["actions/download-artifact"])
+        self.assertNotIn("flutter", publish)
+        for job in jobs.values():
+            self.assertRegex(job, r"(?m)^    name:\s*\S")
+            self.assertRegex(job, r"(?m)^    timeout-minutes:\s*\d+")
 
     def test_the_job_publishes_only_from_main(self):
-        (job,) = jobs_of(self.text).values()
-        self.assertRegex(
-            job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$"
-        )
+        for job in jobs_of(self.text).values():
+            self.assertRegex(
+                job, r"(?m)^    if:\s*github\.ref == 'refs/heads/main'\s*$"
+            )
 
     def test_builds_with_the_script_and_publishes_the_one_asset(self):
         self.assertIn("tool/build_android.sh", self.code)
@@ -352,7 +379,9 @@ class WorkflowAfterMerge(unittest.TestCase):
         self.assertRegex(self.code, r"(?m)^permissions:\s*\n  contents: read\s*$")
         # the job may push (the two live branches); nothing else is granted
         self.assertEqual(re.findall(r"(?m)^\s+(\S+): write\b", self.code), ["contents"])
-        self.assertNotIn("secrets.", self.code)
+        # its one secret: the key the live branches' rule lets through (docs/dev/rulesets/)
+        self.assertEqual(re.findall(r"secrets\.(\w+)", self.code), ["LIVE_DEPLOY_KEY"])
+        self.assertRegex(self.code, r"(?m)^    environment: live\s*$")
         self.assertNotRegex(self.code, r"\bgit push\b")  # only the script pushes
         script = (ROOT / "tool" / "promote_live.py").read_text()
         pushes = re.findall(r'"push",\s*"origin",\s*f?"([^"]+)"', script)
@@ -395,10 +424,101 @@ class WorkflowAfterMerge(unittest.TestCase):
             (line,) = re.findall(rf"(?m)^  {name}: \S+$", self.code)
             self.assertIn(line, android)
 
+    def test_the_promotion_can_see_mains_checks_the_server_and_the_floor(self):
+        """tool/promote_live.py waits for main's checks (it needs `checks: read` and the
+        token), for the server (it needs its address), and proves the floor (it needs the
+        whole history); skipping the waits is a person's choice on a manual run only."""
+        (job,) = jobs_of(self.text).values()
+        self.assertRegex(job, r"(?m)^      checks: read\b")
+        self.assertRegex(job, r"(?m)^          fetch-depth: 0\b")
+        step = self.code[self.code.index("id: live") :].split("\n      - name:")[0]
+        self.assertIn("GH_TOKEN: ${{ github.token }}", step)
+        self.assertIn('tool/promote_live.py --api "$API_ORIGIN"', step)
+        self.assertIn("inputs.skip_waits", step)
+        self.assertRegex(
+            self.code,
+            r"(?m)^      skip_waits:\s*\n(?:        .*\n)*?        default: false",
+        )
+
     def test_the_web_build_says_which_commit_it_is(self):
         build = (ROOT / "frontend" / "tool" / "vercel_build.sh").read_text()
         self.assertIn("build/web/commit.txt", build)
         self.assertIn("VERCEL_GIT_COMMIT_SHA", build)
+
+
+def write_token_problems(name, text):
+    """What is wrong with the jobs of one workflow that hold a write token: an action not
+    pinned by commit (a moved tag would run new code with that token), a pin without
+    its version beside it, a checkout that keeps the token on disk in a job that never
+    pushes with git."""
+    code = "\n".join(l.split("#", 1)[0] for l in text.splitlines())
+    everyone_writes = bool(re.search(r": write\b", code.split("\njobs:")[0]))
+    problems = []
+    raw_jobs = jobs_of(text)
+    for job, body in jobs_of(code).items():
+        if not (everyone_writes or re.search(r"(?m)^\s+[a-z-]+: write\b", body)):
+            continue
+        for ref in re.findall(r"uses:\s*(\S+)", body):
+            if not ref.startswith("./") and not re.search(r"@[0-9a-f]{40}$", ref):
+                problems.append(
+                    f"{name} job {job} holds a write token and runs `{ref}`: pin it by commit,"
+                    " `owner/action@<40-hex sha>  # vX.Y.Z` (the sha of the tag:"
+                    " `git ls-remote --tags https://github.com/owner/action`)."
+                )
+        for line in raw_jobs.get(job, "").splitlines():
+            if re.search(r"uses:\s*\S+@[0-9a-f]{40}", line) and not re.search(
+                r"#\s*v\d", line
+            ):
+                problems.append(
+                    f"{name} job {job}: say the version beside the pin: `{line.strip()}  # vX.Y.Z`."
+                )
+        # a job that pushes keeps what it pushes with: the token, or a key given to the checkout
+        pushes = re.search(r"\bgit push\b|tool/promote_live\.py|ssh-key:", body)
+        if (
+            "actions/checkout@" in body
+            and not pushes
+            and "persist-credentials: false" not in body
+        ):
+            problems.append(
+                f"{name} job {job} holds a write token and its checkout keeps it on disk"
+                " for nothing: add `persist-credentials: false` under the checkout's `with:`."
+            )
+    return problems
+
+
+class WriteTokens(unittest.TestCase):
+    """A job that holds a write token runs only code that cannot move under it, and keeps
+    no token on disk that it does not use. Read from the files: no list of jobs here."""
+
+    def test_every_job_with_a_write_token_holds_to_it(self):
+        writers = 0
+        for wf in ALL_WORKFLOWS:
+            text = wf.read_text()
+            writers += len(re.findall(r"(?m)^\s+[a-z-]+: write\b", text))
+            with self.subTest(workflow=wf.name):
+                self.assertEqual(write_token_problems(wf.name, text), [])
+        self.assertGreaterEqual(writers, 3)
+
+    def test_a_deliberate_break_is_caught_and_says_the_fix(self):
+        broken = (
+            "permissions:\n  contents: read\n"
+            "jobs:\n"
+            "  publish:\n"
+            "    name: Publish\n"
+            "    permissions:\n      contents: write\n"
+            "    steps:\n"
+            "      - uses: actions/checkout@v4\n"
+            "      - uses: some/action@0123456789012345678901234567890123456789\n"
+            "  tests:\n"
+            "    name: Tests\n"
+            "    steps:\n"
+            "      - uses: actions/checkout@v4\n"
+        )
+        problems = write_token_problems("x.yml", broken)
+        self.assertEqual(len(problems), 3, problems)  # tests reads only: not judged
+        self.assertIn("pin it by commit", problems[0])
+        self.assertIn("say the version", problems[1])
+        self.assertIn("persist-credentials: false", problems[2])
 
 
 class WorkflowMainIsRed(unittest.TestCase):

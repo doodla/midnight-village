@@ -172,7 +172,9 @@ class TestTheStage:
         for name in ("wolf", "seer", "hunter", "robber"):
             response = look(night, name)
             assert response.status_code == status.HTTP_200_OK
-            assert response.data == {"status": "ok", "ready": True}
+            assert response.data["status"] == "ok"
+            assert response.data["ready"] is True
+            assert response.data["progress"]["stage"] == "look"
             assert night.refresh().current_wave == 0
         assert [(e["done"], e["needed"]) for e in night.broadcasts("progress")] == [
             (0, 5),

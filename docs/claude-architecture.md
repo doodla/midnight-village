@@ -68,15 +68,28 @@ merge for ever) or has a job with no name or time limit.
 One workflow is not part of the wall: `android-download.yml` ("Android App Download") builds the
 Android app on a push to main that touches `frontend/` (or by hand) and replaces the one asset of
 the rolling release `android-latest` (`docs/dev/deploy-vercel.md`, "Android app download"). It never
-runs on a pull request, is not in the ruleset, has a paths filter and `contents: write` on its one
-job. `.claude/guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
+runs on a pull request, is not in the ruleset, has a paths filter, builds with a read token and
+publishes from a second job, the only one with `contents: write`, that runs nothing but `gh`.
+`WriteTokens` (same file) holds every workflow to this: a job with a write token runs only actions
+pinned by commit (version in a comment), and its checkout keeps the token only if the job pushes. `.claude/guardrails/tests/test_workflows.py` sets it apart (`PUBLISHING`) and holds it to those rules
 (`WorkflowPublishing`); the wall's rules above apply to every other workflow.
 `.claude/guardrails/tests/test_release_assets.py` holds `frontend/tool/record_release_assets.py` to refusing to record over a removed asset that has no retired copy or
 dated reason. The `Web page smoke` job's `routes.test.cjs` judges `frontend/vercel.json` as Vercel compiles it, so `test_workflows.py` no longer reads its
 rewrite as a pattern.
 
 The branches Vercel deploys from (`live-server`, `live-app`) are moved by `tool/promote_live.py`
-only when what a side ships changed (`.claude/guardrails/tests/test_promote_live.py`).
+only when what a side ships changed, only once main's required checks passed on the merged
+commit, the server before the app, only forward, and never below the rollback floor `FLOOR`
+(`.claude/guardrails/tests/test_promote_live.py`: a deliberate break per promise, with no network).
+GitHub holds the same on its side: rulesets in `docs/dev/rulesets/` (no deleting or rewinding;
+only the release job's deploy key, kept in the environment `live` that only main may use, moves a
+live branch), rehearsed first on `live-rehearsal` by `.github/workflows/live-rehearsal.yml` and
+`tool/rehearse_live_rule.py`. `.claude/guardrails/tests/test_release_workflows.py` holds the files to each
+other (the rehearsal is the real rule on a scratch branch; only those two workflows read the key).
+The way back is `just revert-release <PR or commit>` (`tool/revert_release.py`): a branch from
+main that undoes one merge, keeping the migrations the live database ran, refusing a change at
+or below the floor, pushing only with `--push` (`.claude/guardrails/tests/test_revert_release.py`
+rehearses it on a throwaway repository).
 
 A second workflow is not part of the wall: `deployed-check.yml` ("Deployed Check") runs after
 every merge to main and proves the live server and app work together
@@ -85,6 +98,9 @@ only run after the merge, so it is never a required check; it reads public addre
 nothing and holds no secret (`WorkflowAfterMerge` in the same test file).
 Its socket step also reports how long each kind of request took on the live server
 (`tool/deployed_timing.py`, held by `.claude/guardrails/tests/test_deployed_timing.py`): a table in the run's summary and a kept file, never a failure.
+`.github/workflows/live-watch.yml` ("Live Watch") runs the same check every 6 hours and by hand, with `--deep`
+(`/api/health/?deep=1`: the database and Redis, ok or failed), moving nothing
+(`TheWatch` in `.claude/guardrails/tests/test_release_workflows.py`).
 
 **What a change is compared with.** `tool/change_base.py`: the main the change was built
 on (on a pull request the merge's first parent, elsewhere where the branch left main),
@@ -270,7 +286,7 @@ A Bash guard whose script is missing lets the command run and warns (the git hoo
 | Event | Script | Does |
 |---|---|---|
 | PreToolUse Agent, Task, Workflow | `.claude/guardrails/runner.py` | Blocks a subagent not pinned to `opus`, `sonnet` or `haiku` (on trial) with an effort, and forks. |
-| PreToolUse Bash | `.claude/hooks/git_guard.py` | Stops the mistakes and shortcuts that would skip the commit gate. Its reading of shell text (here-documents, `$(...)`, line ends, the words of each simple command) is `.claude/hooks/shell_text.py`, which knows nothing of git. It is not a wall (the wall is GitHub): it reads one Bash command as text, so a script file, a `just` recipe or another program that calls git is not read. Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify` (and its shortened spellings), `commit -n`, hooksPath changes (by `git config` or `-c`), an alias or include set from the command, `git config --edit`, `git commit-tree`, `GIT_*=` variables that redirect git, HUSKY/SKIP/`GATE_*` switches on a git call, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those). It reads the command as the shell would: only a `git` in command position counts, so a message, a search pattern, a comment or a here-document that merely contains those words goes on (`SKIP=slow pytest` too); and it looks inside `bash -c`, `eval`, `trap`, `$(...)`, backticks, `$'...'`, a here-document fed to a shell, a function body, wrappers such as `env`, `xargs` and `find -exec`, and the clone's git aliases. A shell fed by a pipe in a command that names a committing git call is blocked, since it cannot be read. Tests: `.claude/guardrails/tests/test_git_guard.py` (almost 190 commands in both directions, every line of the recipes, workflows and hook scripts that names git, a fuzz for crashes, and counts of the work big input costs, with no clock). |
+| PreToolUse Bash | `.claude/hooks/git_guard.py` | Stops the mistakes and shortcuts that would skip the commit gate. Its reading of shell text (here-documents, `$(...)`, line ends, the words of each simple command) is `.claude/hooks/shell_text.py`, which knows nothing of git. It is not a wall (the wall is GitHub): it reads one Bash command as text, so a script file, a `just` recipe or another program that calls git is not read. Blocks a commit unless `core.hooksPath` is the git hooks; blocks `--no-verify` (and its shortened spellings), `commit -n`, hooksPath changes (by `git config` or `-c`), an alias or include set from the command, `git config --edit`, `git commit-tree`, `GIT_*=` variables that redirect git, HUSKY/SKIP/`GATE_*` switches on a git call, cherry-pick/revert without `--no-commit`, rebase and am (git runs no commit hooks for those). Blocks any push that writes `live-server` or `live-app` (a refspec's destination, `:branch` and `--delete`, a bare branch name, the current branch and its `@{push}` when no refspec or `HEAD` is given, a matching pattern, `:`, `--all`, `--branches`, `--mirror`; `.claude/hooks/push_rules.py`): only the release job moves them. It reads the command as the shell would: only a `git` in command position counts, so a message, a search pattern, a comment or a here-document that merely contains those words goes on (`SKIP=slow pytest` too); and it looks inside `bash -c`, `eval`, `trap`, `$(...)`, backticks, `$'...'`, a here-document fed to a shell, a function body, wrappers such as `env`, `xargs` and `find -exec`, and the clone's git aliases. A shell fed by a pipe in a command that names a committing git call is blocked, since it cannot be read. Tests: `.claude/guardrails/tests/test_git_guard.py` (about 230 commands in both directions, a clone on a live branch and one whose upstream is one, every line of the recipes, workflows and hook scripts that names git, a fuzz for crashes, and counts of the work big input costs, with no clock). |
 | SessionStart startup, resume, compact | `.claude/hooks/session-start.sh` | Sets `core.hooksPath` to the git hooks if it is anything else and makes the hooks executable; starts Postgres when it is installed and down; warns when the checkout is behind the remote's main (every hook, guard and instruction comes from it) and when a hook script the settings run is missing; otherwise silent, one line if it cannot set the gate, never fails the session. A fresh container's tools come from `tool/bootstrap_container.sh` (`docs/dev/environment.md`), not from this hook. |
 | PreToolUse Bash | `.claude/hooks/poll_guard.py` | Refuses a command whose whole purpose is a sleep loop on another job: an `until`, `while` or `for` with a `sleep` in it that looks at a process (`pgrep`, `ps`, `kill -0`), a log or marker file (`tail`, `grep`, `cat`, `test -f`), the queue (`heavy`, `flock`) or GitHub (`gh`). The message says what to do: start the job once with `run_in_background`, end the turn, and you are woken when it exits. Left alone: a loop that waits for a service just started (`curl`, `wget`, `nc`), a loop without a sleep, a sleep alone, and words that only mention it (a commit message, a search, a here-document), read as the shell reads them (`shell_text.py`; `bash -c '...'` is read inside). It is a reminder, not a wall, and fails open. Tests, both ways: `.claude/guardrails/tests/test_poll_guard.py`. |
 | PostToolUse Edit, Write | `.claude/hooks/post-edit-format.sh` | Formats the edited `.py` (the ruff in `uv.lock`: `uv run --group lint`, never one from PATH) or `.dart` file. |
