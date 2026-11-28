@@ -22,29 +22,42 @@ Duration fingerTime(Duration down, Duration now) =>
 /// taken at the start of the next frame, not in the timer itself: a browser
 /// busy drawing hands the app a lift it kept back after the timer, so the
 /// lift is let in before the hold is decided, and by its own time it is a
-/// tap. The hold draws in that frame, as it would have: nothing waits longer.
-/// On a page drawing long frames (a slow phone) Chrome hands a lift over up
-/// to three frames after the finger left, after that frame too: there the
-/// hold is decided one frame later, once, so a real hold shows at most one
-/// frame later and only on a phone that is not keeping up ([_Frames]).
+/// tap. The hold draws in that frame, as it would have.
+/// A page that was blocked across the deadline (its timer ran more than a
+/// display frame late: a long frame, a socket event rebuilding) gets the
+/// lift from Chrome only at the start of a later frame, measured up to the
+/// third after the block (`just tap-hold`, the busy rows): there the hold
+/// waits [liftFrames] frames more for it, and a move or lift stamped past
+/// the hold ends the wait at once. A page that keeps up never waits.
 class FingerTimedLongPress extends LongPressGestureRecognizer {
   FingerTimedLongPress({required super.duration, super.debugOwner});
+
+  /// The frames a hold waits for a lift on a page blocked across the
+  /// deadline: Chrome handed it over at the latest at the start of the
+  /// fourth frame after the block, seen by the fourth frame's callback;
+  /// one more for headroom. So a real hold there shows four frames later.
+  static const liftFrames = 4;
 
   Duration? _landed;
   var _accepted = false;
 
-  /// [_Frames.count] when the finger landed.
-  var _framesAtLanding = 0;
+  /// Since the landing was handled, on the gestures' clock (the test's in a
+  /// test): when the timer runs, how late it ran.
+  Stopwatch? _sinceLanding;
 
   /// The frame callback that takes a hold whose timer has run.
   int? _nextFrame;
+
+  /// The frames still to wait for a lift the browser kept back.
+  var _framesLeft = 0;
 
   @override
   void addAllowedPointer(PointerDownEvent event) {
     if (state == GestureRecognizerState.ready) {
       _landed = event.timeStamp;
       _accepted = false;
-      _framesAtLanding = _Frames.watch();
+      _sinceLanding = GestureBinding.instance.samplingClock.stopwatch()
+        ..start();
     }
     super.addAllowedPointer(event);
   }
@@ -52,16 +65,21 @@ class FingerTimedLongPress extends LongPressGestureRecognizer {
   @override
   void didExceedDeadline() {
     if (_accepted || _nextFrame != null) return;
-    _decideAtNextFrame(mayWait: true);
+    if (_inTheTimer) return _hold();
+    final ran = _sinceLanding?.elapsed;
+    final blocked = ran != null && ran - deadline! > _displayFrame();
+    _framesLeft = blocked ? liftFrames : 0;
+    _decideAtNextFrame();
   }
 
-  void _decideAtNextFrame({required bool mayWait}) {
+  void _decideAtNextFrame() {
     _nextFrame = SchedulerBinding.instance.scheduleFrameCallback((_) {
       _nextFrame = null;
       // A lift handled since then made it a tap and stopped the tracking.
       if (state != GestureRecognizerState.possible) return;
-      if (mayWait && _waitOnSlowPage && _Frames.slow(since: _framesAtLanding)) {
-        _decideAtNextFrame(mayWait: false);
+      if (_framesLeft > 0) {
+        _framesLeft--;
+        _decideAtNextFrame();
       } else {
         _hold();
       }
@@ -103,6 +121,7 @@ class FingerTimedLongPress extends LongPressGestureRecognizer {
   void didStopTrackingLastPointer(int pointer) {
     _cancelFrame();
     _landed = null;
+    _sinceLanding = null;
     _accepted = false;
     super.didStopTrackingLastPointer(pointer);
   }
@@ -114,45 +133,18 @@ class FingerTimedLongPress extends LongPressGestureRecognizer {
   }
 }
 
-/// Off only in the browser check's recorded break (`tool/tap_hold/`): a
-/// build with `--dart-define=tap_hold_break=true` takes a hold at the first
-/// frame after its timer, slow page or not.
-const _waitOnSlowPage = !bool.fromEnvironment('tap_hold_break');
+/// On only in the browser check's recorded break (`tool/tap_hold/`): a build
+/// with `--dart-define=tap_hold_break=true` takes a hold in its timer itself,
+/// as the stock recognizer does, so a lift Chrome kept back starts the hold.
+const _inTheTimer = bool.fromEnvironment('tap_hold_break');
 
-/// The frames the page draws, to tell a phone that is keeping up from one
-/// that is not: a frame that began more than two of the display's frames
-/// after the one before it, which already wanted it (an animation running).
-/// A page that went still in between was waiting, not slow.
-abstract final class _Frames {
-  static SchedulerBinding? _watched;
-  static Duration? _last;
-  static var _lastWantedNext = false;
-  static var _count = 0;
-
-  /// Starts watching (once), and says how many frames have been drawn.
-  static int watch() {
-    final binding = SchedulerBinding.instance;
-    if (!identical(_watched, binding)) {
-      _watched = binding;
-      binding.addPersistentFrameCallback((_) {
-        _last = binding.currentSystemFrameTimeStamp;
-        _lastWantedNext = binding.hasScheduledFrame;
-        _count++;
-      });
-    }
-    return _count;
-  }
-
-  /// Whether the frame being drawn began long after the one before it, that
-  /// one drawn since the count was [since] and asking for this one.
-  static bool slow({required int since}) {
-    final binding = SchedulerBinding.instance;
-    final last = _last;
-    if (_count <= since || last == null || !_lastWantedNext) return false;
-    final hz = binding.platformDispatcher.displays.firstOrNull?.refreshRate;
-    final frame = Duration(
-      microseconds: 1000000 ~/ (hz != null && hz > 0 ? hz : 60),
-    );
-    return binding.currentSystemFrameTimeStamp - last > frame * 2;
-  }
+/// One frame of the display the app is drawn on (60 Hz when it cannot say).
+Duration _displayFrame() {
+  final hz = SchedulerBinding
+      .instance
+      .platformDispatcher
+      .displays
+      .firstOrNull
+      ?.refreshRate;
+  return Duration(microseconds: 1000000 ~/ (hz != null && hz > 0 ? hz : 60));
 }
