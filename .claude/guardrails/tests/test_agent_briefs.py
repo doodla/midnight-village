@@ -4,17 +4,66 @@ A builder starts from `just brief` and ends with `just handover`; a reviewer sta
 from the hand-over file and the brief, and a must-fix carries rerunnable evidence.
 No definition types a number the code holds (a width, a phone count) or tells its
 reader to open every picture: those went stale or cost the most context before.
+A skill a definition names (`` `no-comments` skill``) is one of ours that its agent can
+load: the agent lists `Skill` in its tools, and the skill is not hidden from the model.
 The agents are read from .claude/agents/ (no list here): a new one joins by its
 description ("Implements" or "review").
 
 Run with: python3 -m unittest discover -s .claude/guardrails/tests
 """
 
+import importlib.util
 import re
 import unittest
 from pathlib import Path
 
 AGENTS = Path(__file__).resolve().parents[2] / "agents"
+SKILLS = AGENTS.parent / "skills"
+NAMED_SKILL = re.compile(r"`([\w-]+)` skill")
+
+
+def load_skills():
+    spec = importlib.util.spec_from_file_location(
+        "skills", AGENTS.parents[1] / "tool" / "skills.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def skill_problems(definitions: dict[str, str], skills_dir: Path) -> list[str]:
+    """Why a definition cannot load a skill it names: file:line, what, the fix."""
+    rules = load_skills()
+    problems = []
+    for name, text in definitions.items():
+        tools = re.search(r"^tools: (.*)$", text, re.M)
+        listed = [t.strip() for t in tools[1].split(",")] if tools else []
+        for n, line in enumerate(text.splitlines(), 1):
+            for skill in NAMED_SKILL.findall(line):
+                where = f".claude/agents/{name}:{n}: the `{skill}` skill"
+                path = skills_dir / skill / "SKILL.md"
+                if not path.is_file():
+                    problems.append(
+                        f"{where} is not there. Fix: name a skill in .claude/skills/"
+                    )
+                    continue
+                body = path.read_text()
+                if "Skill" not in listed:
+                    problems.append(
+                        f"{where} cannot be loaded. Fix: add Skill to its tools"
+                    )
+                if rules.third_party(body):
+                    problems.append(
+                        f"{where} is third-party. Fix: name one of our own skills"
+                    )
+                if not rules.invocable(body):
+                    problems.append(
+                        f"{where} is hidden from the model. Fix: drop"
+                        " disable-model-invocation from its front matter"
+                    )
+    return problems
+
+
 STALE = [
     (
         re.compile(r"\b\d{3}( wide|x\d{3}|, \d{3})"),
@@ -75,6 +124,49 @@ class TheOneEntry(unittest.TestCase):
                 self.assertIsNone(
                     found, f".claude/agents/{name}: '{found and found[0]}': {why}"
                 )
+
+
+class SkillsTheyName(unittest.TestCase):
+    def test_every_skill_a_definition_names_is_ours_and_it_can_load_it(self):
+        definitions = {n: t for n, (_, t) in agents().items()}
+        self.assertTrue(
+            any(NAMED_SKILL.search(t) for t in definitions.values()),
+            "no definition names a skill",
+        )
+        self.assertEqual(skill_problems(definitions, SKILLS), [])
+
+    def test_a_definition_that_cannot_load_what_it_names_fails_with_the_fix(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            skills = Path(tmp)
+            for skill, front in (
+                ("ours", ""),
+                ("hidden", "disable-model-invocation: true\n"),
+                ("vendor", "metadata:\n  model: m\n"),
+            ):
+                (skills / skill).mkdir()
+                (skills / skill / "SKILL.md").write_text(
+                    f"---\nname: {skill}\n{front}---\n"
+                )
+            body = "Use the `ours` skill, the `hidden` skill, the `vendor` skill, the `gone` skill.\n"
+            problems = skill_problems(
+                {
+                    "no-tool.md": f"---\ntools: Read\n---\nUse the `ours` skill.\n",
+                    "loads.md": f"---\ntools: Read, Skill\n---\n{body}",
+                },
+                skills,
+            )
+        self.assertEqual(
+            problems,
+            [
+                ".claude/agents/no-tool.md:4: the `ours` skill cannot be loaded. Fix: add Skill to its tools",
+                ".claude/agents/loads.md:4: the `hidden` skill is hidden from the model. Fix: drop"
+                " disable-model-invocation from its front matter",
+                ".claude/agents/loads.md:4: the `vendor` skill is third-party. Fix: name one of our own skills",
+                ".claude/agents/loads.md:4: the `gone` skill is not there. Fix: name a skill in .claude/skills/",
+            ],
+        )
 
 
 if __name__ == "__main__":
