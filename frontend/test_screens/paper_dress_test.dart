@@ -1,7 +1,7 @@
 // The dressed-up pass in pictures, for a look: every paper part in both
 // dresses side by side (the parts page), and the table, your card and the night
 // board in paper dress. Run it with `just paper-dress`; it is not part of
-// `just test`. `just contact-sheet <folder>` makes one sheet.
+// `just flutter-test`. `just contact-sheet <folder>` makes one sheet.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;

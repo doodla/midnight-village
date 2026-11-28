@@ -11,6 +11,38 @@ set fallback := true
 default:
     @just --list
 
+# --- Renamed: one name means one thing everywhere ---
+# An old name fails here, never falls back to the root's recipe of that name (the root's
+# `just test` is the backend's). The group is the rename table: test_gate_full.py reads it.
+
+[private, no-exit-message, group('renamed')]
+test *args:
+    @echo "renamed: just flutter-test" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+test-cov *args:
+    @echo "renamed: just flutter-test-cov" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+test-integration *args:
+    @echo "renamed: just flutter-test-integration" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+format *args:
+    @echo "renamed: just flutter-format" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+format-check *args:
+    @echo "renamed: just flutter-format-check" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+clean *args:
+    @echo "renamed: just flutter-clean" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+deps *args:
+    @echo "renamed: just flutter-deps" >&2; exit 1
+
 # --- Development ---
 
 # Run app on Chrome

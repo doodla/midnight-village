@@ -71,7 +71,7 @@ READ = re.compile(r"\b(read|start (?:at|from)|before you start|judge against)\b"
 BACKTICKED = re.compile(r"`([^`\s]+)`")
 # In a brief: "Read: doc.md:12  ## Heading" and "... Read it whole."
 BRIEF_SECTION = re.compile(r"^Read: (\S+\.md):(\d+)\s")
-BRIEF_WHOLE = re.compile(r"(\S+\.md) \(\d+ lines\)\. Read it whole")
+BRIEF_WHOLE = re.compile(r"(\S+\.\w+) \(\d+ lines\)\. Read it whole")
 
 
 def load(name: str):
@@ -83,9 +83,14 @@ def load(name: str):
     return module
 
 
-def surface() -> list[str]:
-    """Every instruction file: tracked Markdown, the skills left out (third-party)."""
-    return [p for p in DOCS.glob("*.md") if not p.startswith(".claude/skills/")]
+def surface(problems: list[str] | None = None) -> list[str]:
+    """Every instruction file: tracked Markdown, the skills left out (third-party).
+    (A role path adds any other text file it is told to read: `measure`.) Every
+    read sentence in them is checked for a file the budget cannot count."""
+    docs = [p for p in DOCS.glob("*.md") if not p.startswith(".claude/skills/")]
+    for path in docs:
+        named_reads(path, DOCS.text(path), problems)
+    return docs
 
 
 def sentences(text: str) -> list[str]:
@@ -102,10 +107,13 @@ def sentences(text: str) -> list[str]:
     return out
 
 
-def named_reads(path: str, text: str) -> list[str]:
-    """The documents `text` (the file `path`) tells its reader to read: a backticked
-    Markdown file, or a folder (its Markdown), on a line that says read."""
+def named_reads(path: str, text: str, problems: list[str] | None = None) -> list[str]:
+    """The files `text` (the file `path`) tells its reader to read: any backticked
+    tracked text file, or a folder (its Markdown), on a line that says read. A named
+    file that is ignored by git or is not text is one of `problems`: it cannot be
+    measured, so it may not be required reading."""
     here = path.rsplit("/", 1)[0] if "/" in path else ""
+    listed = set(DOCS.files())
     found = []
     for line in sentences(text):
         if not READ.search(line):
@@ -114,8 +122,18 @@ def named_reads(path: str, text: str) -> list[str]:
             token = token.rstrip(".,:;")
             for base in ("", here):
                 candidate = os.path.normpath(f"{base}/{token}" if base else token)
-                if candidate.endswith(".md") and DOCS.read(candidate) is not None:
-                    found.append(candidate)
+                on_disk = DOCS.ref is None and (DOCS.root / candidate).is_file()
+                if candidate in listed or on_disk:
+                    if candidate in listed and DOCS.is_text(candidate):
+                        found.append(candidate)
+                    elif problems is not None:
+                        why = (
+                            "not text" if candidate in listed else "not tracked by git"
+                        )
+                        problems.append(
+                            f"{path} tells its reader to read `{candidate}`, which is {why}:"
+                            " the reading budget cannot count it. Name a tracked text file."
+                        )
                     break
                 if token.endswith("/") or "." not in token.rsplit("/", 1)[-1]:
                     under = [p for p in DOCS.glob(f"{candidate}/*.md")]
@@ -174,12 +192,12 @@ class Briefs:
         return out
 
 
-def measure() -> dict[str, tuple[int, int, str]]:
-    """{what: (tokens, its limit, how it adds up)} on the documents DOCS reads now."""
-    found: dict[str, tuple[int, int, str]] = {}
-    files = surface()
-    total = sum(tokens(DOCS.text(p)) for p in files)
-    found["the instruction surface"] = (total, SURFACE_LIMIT, f"{len(files)} files")
+def measure(problems: list[str] | None = None) -> dict[str, tuple[int, int, str]]:
+    """{what: (tokens, its limit, how it adds up)} on the documents DOCS reads now;
+    a required read it cannot count goes into `problems`."""
+    found: dict[str, tuple[int, int, str]] = {"the instruction surface": (0, 0, "")}
+    files = surface(problems)
+    read_on_a_path: set[str] = set()
     for path in ALWAYS:
         if DOCS.read(path) is not None:
             found[path] = (
@@ -212,6 +230,10 @@ def measure() -> dict[str, tuple[int, int, str]]:
                 f"{p} {tokens(reads[p])}" for p in biggest
             )
             found[f"{role}, brief {name}"] = (path_tokens, ROLE_LIMIT, how)
+            read_on_a_path |= {p for p in reads if ":" not in p}
+    files += sorted(read_on_a_path - set(files))
+    total = sum(tokens(DOCS.text(p)) for p in files)
+    found["the instruction surface"] = (total, SURFACE_LIMIT, f"{len(files)} files")
     return found
 
 
@@ -240,7 +262,8 @@ def base_ref() -> str | None:
 
 
 def main(argv: list[str]) -> int:
-    now = measure()
+    unreadable: list[str] = []
+    now = measure(unreadable)
     base = base_ref()
     before: dict[str, tuple[int, int, str]] = {}
     if base:
@@ -258,7 +281,7 @@ def main(argv: list[str]) -> int:
             print(
                 f"{what:<{width}}  {count:7d}  {limit:7d}  {was if was is not None else '-':>7}{mark}  ({how})"
             )
-    problems = judge(now, before)
+    problems = sorted(set(unreadable)) + judge(now, before)
     for problem in problems[:SHOWN]:
         print(problem, file=sys.stderr)
     if len(problems) > SHOWN:

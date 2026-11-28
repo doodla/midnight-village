@@ -41,6 +41,9 @@ GitHub runs (`GATE_FULL_SKIPS` in `.claude/hooks/lib/gate.sh`). A pass is record
 `.claude/guardrails/tests/test_gate_full.py` holds its steps and that list to the workflows, and that a
 recipe of `backend/` or `frontend/` found at the root means the same there (`check-backend`,
 `test-backend`, `flutter-test`, `flutter-format-check` carry the folder's own meaning).
+An old name stays in its folder as a stub in the `renamed` group (`cd frontend && just test` fails
+with `renamed: just flutter-test`), never falling back to the root's recipe of that name: the test
+reads the group as the rename table, and fails a name a folder had on main that it no longer has.
 `.claude/hooks/test_gate_routing.sh` checks routing and that a commit runs no suite.
 
 ## GitHub: the wall (`.github/workflows/`)
@@ -174,18 +177,21 @@ without its root line, and `--fix` writes the lines
 
 **What an agent must read.** `tool/context_budget.py` (in `just check` and the commit gate)
 measures, in tokens, each CLAUDE.md, each brief, each role's read-first path (the CLAUDE.md
-files it works under, its agent definition, every document those or its brief say to read, and
-the brief) and the whole instruction surface, and holds each to a limit as the file sizes are
+files it works under, its agent definition, every tracked text file those or its brief say to
+read, of any kind, and the brief) and the whole instruction surface (the Markdown, and what a
+role path reads besides); a read file that is binary or ignored by git fails. It holds each to a limit as the file sizes are
 held: under it on main, it may not pass it; over it on main, it may not grow. The limits are
 constants at the top of the tool; `--report` prints every measure beside main's. A brief is
 measured from its documents alone, its code lists counted at their caps (`CODE_CAPS`), so no
-Flutter is needed (`.claude/guardrails/tests/test_context_budget.py`).
+Flutter is needed (`.claude/guardrails/tests/test_context_budget.py`). The screen and
+design-system briefs quote every rule of `frontend/docs/app-rules.md` (each is in bold there).
 
 **Instruction links.** `tool/check_instruction_links.py` (in `just check`, and on the staged
 text in the commit gate) reads every tracked Markdown file but the skills: a path with a folder
 in it is read from the repo root (`./` and `../`, and Markdown links, from the document), a bare
 name is in the document's folder or names one file, a quoted section after a path is one of its
-headings, a `just` recipe exists. `--fix` rewrites a path that has one reading from elsewhere
+headings, a `just` recipe exists; a word in prose that starts with a top folder and a slash is a
+path too. `--fix` rewrites a path that has one reading from elsewhere
 (`.claude/guardrails/tests/test_instruction_links.py`).
 
 **Facts about the code, from the code.** `tool/gen_docs.py` (in `just check`; `--fix` writes)

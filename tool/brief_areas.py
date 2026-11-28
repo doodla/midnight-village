@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from brief_docs import DOCS, capped
+from brief_docs import DOCS, app_rules, capped
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 600
@@ -111,6 +111,7 @@ AREAS: dict[str, dict] = {
             (APP_RULES, "section", "The dress"),
             (KIT, "see", "The skin: one look, values from the skin"),
         ],
+        "app_rules": True,
     },
     "copy": {
         "what": "Every word a player reads: the copy library, its types "
@@ -126,6 +127,7 @@ AREAS: dict[str, dict] = {
             (APP_RULES, "bullet", "Words"),
             ("docs/specs/frontend/first-time-play.md", "see", "1."),
         ],
+        "app_rules": True,
     },
     "models": {
         "what": "The model-checked slices of ordering and concurrency logic "
@@ -329,6 +331,8 @@ def doc_part(name: str) -> list[str]:
             out.append(f"Read: {document}:{line}  {text}\n")
         else:
             out.append(f"({document}:{line})\n\n{text}\n")
+    if area.get("app_rules"):  # the ones the bullets above do not already quote
+        out += app_rules("\n".join(out))
     return out
 
 
@@ -357,7 +361,9 @@ def code_part(name: str, others_in) -> list[str]:
         out += capped([f"  {p}" for p in slices], CODE_CAPS["model"]) + [""]
     if area.get("endpoints"):
         out.append("## Where each endpoint is built (from the URL files)\n")
-        out += capped(endpoints(), CODE_CAPS["endpoints"], "read backend/apps/*/urls.py") + [""]
+        out += capped(
+            endpoints(), CODE_CAPS["endpoints"], "read backend/apps/*/urls.py"
+        ) + [""]
     tests = files_of(area["tests"])
     out.append(f"## Tests ({len(tests)})\n")
     listing = listed(tests, lambda p: p) or "  (none of its own)"
@@ -374,13 +380,20 @@ def endpoints() -> list[str]:
     mounts = dict(
         (app, prefix)
         for prefix, app in re.findall(
-            r'path\("([^"]*)", include\("apps\.(\w+)\.urls"\)', (ROOT / "backend/config/urls.py").read_text()
+            r'path\("([^"]*)", include\("apps\.(\w+)\.urls"\)',
+            (ROOT / "backend/config/urls.py").read_text(),
         )
     )
     out = []
     for app, prefix in mounts.items():
         text = (ROOT / f"backend/apps/{app}/urls.py").read_text()
-        for route, module, view in re.findall(r'path\(\s*"([^"]*)",\s*(\w+)\.(\w+)\.as_view\(', text):
-            where = f"backend/apps/{app}/{module}.py" if module != "LobbyPlayAgainView" else ""
+        for route, module, view in re.findall(
+            r'path\(\s*"([^"]*)",\s*(\w+)\.(\w+)\.as_view\(', text
+        ):
+            where = (
+                f"backend/apps/{app}/{module}.py"
+                if module != "LobbyPlayAgainView"
+                else ""
+            )
             out.append(f"  /{prefix}{route}  {module}.{view}  {where}")
     return out

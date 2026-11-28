@@ -63,6 +63,22 @@ class WhereTheDocumentSays(unittest.TestCase):
         self.assertEqual(len(bad), 1, bad)
         self.assertIn('no section "Rules that never were"', bad[0])
 
+    def test_a_bare_path_in_prose_is_checked_when_it_starts_at_a_top_folder(self):
+        line = (
+            "See docs/dev/gone-a.md, and docs/dev/status.md; origin/main, a/b, "
+            "frontend/lib/.../debug/ and `docs/dev/gone-b.md` [x](docs/dev/gone-c.md) are not bare."
+        )
+        self.assertEqual(
+            self.tool.bare_paths(line, self.tree),
+            ["docs/dev/gone-a.md", "docs/dev/status.md"],
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            doc = Path(tmp) / "x.md"
+            doc.write_text("See docs/dev/gone-a.md for it, and docs/dev/status.md.\n")
+            bad = self.tool.check([str(doc)], self.tree, set(), fix=False)
+        self.assertEqual(len(bad), 1, bad)
+        self.assertIn("path `docs/dev/gone-a.md` does not exist", bad[0])
+
     def test_every_instruction_file_is_read_and_the_skills_are_not(self):
         files = self.tool.instruction_files(self.tree)
         for must in (

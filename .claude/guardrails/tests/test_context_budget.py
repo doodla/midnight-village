@@ -5,6 +5,8 @@ Run with: python3 -m unittest discover -s .claude/guardrails/tests
 """
 
 import importlib.util
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -59,7 +61,9 @@ class WhatCountsAsToRead(unittest.TestCase):
         self.assertIn("CLAUDE.md", found)
         self.assertIn("docs/README.md", found)
         self.assertNotIn("docs/specs/index.md", found)  # a pointer, not "read"
-        self.assertNotIn("tool/brief.py", found)  # code is not counted as reading
+        self.assertIn(
+            "tool/brief.py", found
+        )  # any tracked text file it says to read counts
 
     def test_a_list_item_ends_a_sentence(self):
         found = self.tool.sentences("- read this\n- `docs/README.md` here\n")
@@ -68,6 +72,43 @@ class WhatCountsAsToRead(unittest.TestCase):
     def test_a_section_runs_to_the_next_heading_of_its_rank(self):
         text = "# A\n## B\nb\n### C\nc\n## D\nd\n"
         self.assertEqual(self.tool.section_at(text, 2), "## B\nb\n### C\nc")
+
+    def in_a_repo(self, files: dict[str, bytes], ignored: str = ""):
+        """A throwaway git repository holding `files` (staged), read through DOCS."""
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        root = Path(scratch.name)
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        (root / ".gitignore").write_text(ignored)
+        for name, data in files.items():
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
+            (root / name).write_bytes(data)
+        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+        docs = self.tool.DOCS
+        was = (docs.root, docs.ref, docs._listing)
+        docs.root, docs.ref, docs._listing = root, None, None
+        self.addCleanup(lambda: setattr(docs, "root", was[0]) or docs.use(was[1]))
+
+    def test_a_text_file_told_to_be_read_whole_counts_like_markdown(self):
+        rules = ("Never do the wrong thing. " * 1800).encode()  # about 11.5k tokens
+        self.in_a_repo({"backend/RULES.txt": rules, "backend/RULES.md": rules})
+        for name in ("backend/RULES.txt", "backend/RULES.md"):
+            text = f"- Fix the cause; read `{name}` whole.\n"
+            problems: list[str] = []
+            self.assertEqual(self.tool.named_reads("CLAUDE.md", text, problems), [name])
+            self.assertEqual(problems, [])
+            self.assertGreater(self.tool.tokens(self.tool.DOCS.text(name)), 11_000)
+
+    def test_a_named_read_that_is_not_text_or_not_tracked_fails(self):
+        self.in_a_repo(
+            {"art.png": b"\x89PNG\0\0binary", "build/out.md": b"x"}, ignored="build/\n"
+        )
+        problems: list[str] = []
+        text = "Read `art.png` and `build/out.md` first.\n"
+        self.assertEqual(self.tool.named_reads("CLAUDE.md", text, problems), [])
+        self.assertEqual(len(problems), 2)
+        self.assertIn("`art.png`, which is not text", problems[0] + problems[1])
+        self.assertIn("`build/out.md`, which is not tracked", problems[0] + problems[1])
 
     def test_the_real_tree_is_measured_for_every_role(self):
         found = self.tool.measure()

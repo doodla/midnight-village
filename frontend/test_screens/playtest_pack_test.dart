@@ -11,7 +11,7 @@
 // are the ones the server recorded, and what it has learned carries from
 // screen to screen. Hand a folder to someone who has never played and ask,
 // screen by screen, what they would do next. Run it with
-// `just playtest-pack`; it is not part of `just test`.
+// `just playtest-pack`; it is not part of `just flutter-test`.
 import '../test/helpers/finger.dart';
 import 'dart:io';
 

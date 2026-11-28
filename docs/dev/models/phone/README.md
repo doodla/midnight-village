@@ -8,7 +8,7 @@
 Two models of ONE phone against an abstract server that keeps the rules of
 `docs/specs/onuw/api-contract-v2.md` ("9. Sending a request twice"), written from the app code at
 `a1eb6dd` (the data layer of `526909f`). Every finding is replayed against the real notifier
-in frontend/test/features/game/presentation/protocol_two_findings_test.dart and fixed in
+in a findings test added with the fix in
 `303f1df` (`fix(frontend): protocol 2 phones heal every fetch and trust the server's turn`).
 
 ## Files

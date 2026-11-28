@@ -197,7 +197,7 @@ Two deliverables share one core:
 
 ## 3. Scenario matrix (v1)
 
-From docs/specs/frontend/validation/scenarios.md. **In scope:** scenarios
+From the former validation scenarios (deleted in #2; git keeps them). **In scope:** scenarios
 **1, 2, 3, 4, 5, 6, 8, 10**, plus **Scenario 7 Sub-Case A only** (Doppelganger-as-
 Minion team assignment + each seer's recorded peek result; NOT narrator-cue timing,
 NOT Sub-Case B). Nine total.

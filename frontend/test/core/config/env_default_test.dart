@@ -17,10 +17,13 @@ void main() {
     );
   });
 
-  test('the suite runs as dev on purpose (just test passes ENV=dev)', () {
-    expect(Env.isDev, isTrue);
-    expect(Env.isProd, isFalse);
-  });
+  test(
+    'the suite runs as dev on purpose (just flutter-test passes ENV=dev)',
+    () {
+      expect(Env.isDev, isTrue);
+      expect(Env.isProd, isFalse);
+    },
+  );
 
   test('the toolbar still carries the marker the release check looks for', () {
     final source = File(

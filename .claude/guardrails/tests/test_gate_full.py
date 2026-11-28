@@ -6,6 +6,8 @@
   say which checks gate-full leaves out, the gate prints it.
 - A recipe of backend/ or frontend/ that also exists at the root is only the root's
   way to run it: `just check` or `just test` never means something else in a folder.
+- A name a folder had on main never falls back to the root's recipe of that name: it stays
+  as a stub in the folder's `renamed` group (the rename table), which fails saying the new name.
 - A part of the backend suite runs without the coverage floor it can never reach.
 
 Run with: python3 -m unittest discover -s .claude/guardrails/tests
@@ -82,12 +84,117 @@ class GateFullIsWhatItSays(unittest.TestCase):
             )
 
 
+def renamed(recipe: dict) -> bool:
+    return {"group": "renamed"} in recipe.get("attributes", [])
+
+
+def fallback_justfiles() -> list[str]:
+    """Every tracked folder justfile that falls back to the root's for a name it lacks."""
+    listed = subprocess.run(
+        ["git", "-C", str(REPO), "ls-files", "*justfile"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    found = []
+    for path in listed:
+        if path == "justfile":
+            continue
+        dump = subprocess.run(
+            ["just", "--justfile", str(REPO / path), "--dump", "--dump-format", "json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        if json.loads(dump)["settings"]["fallback"]:
+            found.append(path)
+    return found
+
+
+def recipes_at_base(path: str) -> set[str] | None:
+    """The recipe names `path` had on the main this change was built on (None: no base)."""
+    spec = importlib.util.spec_from_file_location(
+        "root_recipes", REPO / "tool/root_recipes.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    base = module.change_base(REPO)
+    if base is None:
+        return None
+    return module.recipes_at(base, path)
+
+
 class OneNameOneMeaning(unittest.TestCase):
+    def test_a_renamed_name_fails_in_its_old_folder_and_names_the_new_one(self):
+        # The rename table is the folder's `renamed` group: no list here beside it.
+        seen = 0
+        for path in fallback_justfiles():
+            folder = str(Path(path).parent)
+            mine = recipes(path)
+            for old, recipe in mine.items():
+                if not renamed(recipe):
+                    continue
+                seen += 1
+                new = re.search(r"renamed: just ([\w-]+)", json.dumps(recipe["body"]))
+                self.assertIsNotNone(
+                    new, f"{path}: renamed `{old}` does not say its new name"
+                )
+                self.assertIn(
+                    new[1],
+                    mine,
+                    f"{path}: `{old}` is renamed to `{new[1]}`, which is no recipe there",
+                )
+                self.assertFalse(
+                    renamed(mine[new[1]]),
+                    f"{path}: `{old}` is renamed to another old name",
+                )
+                run = subprocess.run(
+                    [
+                        "just",
+                        "--justfile",
+                        str(REPO / path),
+                        "--working-directory",
+                        str(REPO / folder),
+                        old,
+                        "x",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(
+                    run.returncode, 0, f"`cd {folder} && just {old}` passes"
+                )
+                self.assertEqual(
+                    (run.stdout + run.stderr).strip(),
+                    f"renamed: just {new[1]}",
+                    f"`cd {folder} && just {old}` must say only where it went",
+                )
+        self.assertGreater(seen, 0, "no folder justfile has a `renamed` group")
+
+    def test_no_name_a_folder_had_falls_back_to_the_roots_recipe(self):
+        for path in fallback_justfiles():
+            before = recipes_at_base(path)
+            if before is None:
+                self.skipTest("no main to compare with")
+            gone = sorted(before - set(recipes(path)))
+            self.assertEqual(
+                gone,
+                [],
+                f"{path} had {gone} on main and no longer has them: with fallback on, the old"
+                " name now runs the root's recipe of that name. Keep each as a stub in the"
+                " folder's `renamed` group (`renamed: just <new name>`, exit 1).",
+            )
+
     def test_a_folders_recipe_at_the_root_only_runs_that_recipe(self):
         top = recipes("justfile")
         for folder in ("backend", "frontend"):
-            for name in recipes(f"{folder}/justfile"):
-                if name.startswith("_") or name == "default" or name not in top:
+            for name, recipe in recipes(f"{folder}/justfile").items():
+                if (
+                    name.startswith("_")
+                    or name == "default"
+                    or name not in top
+                    or renamed(recipe)
+                ):
                     continue
                 body = json.dumps(top[name]["body"])
                 self.assertRegex(

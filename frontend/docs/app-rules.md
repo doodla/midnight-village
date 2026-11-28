@@ -3,6 +3,8 @@
 The long form of the rules that `frontend/CLAUDE.md` states in a line each, one sentence per
 line so two branches that add to different rules do not collide. `CLAUDE.md` is what every
 session reads; this page is for when you are about to touch the thing a rule is about.
+Each rule is in bold, whole: `just brief` quotes every bold phrase here to the screen and
+design-system builders, so a rule that is not bold is not quoted.
 
 ## Requests: every tap's request goes through `playerRequest`
 
@@ -52,12 +54,13 @@ session reads; this page is for when you are about to touch the thing a rule is 
 
 ## The dress: one look, two dresses
 
-- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks `ScreenFrame(dress: Dress.paper)`;
-  shared parts read `context.dress`/`context.skin` and draw the paper, torn edges, pins, banners, the amber piece and mood only there;
-  a paper component takes its look from the one table `frontend/lib/design_system/skin/dress_style.dart` (`PaperPiece`), draws NO stroke, outline or border
-  (paper_components_test.dart fails one), and is listed in the inventory with both dresses (`frontend/lib/design_system/skin/dress_inventory.dart`);
-  a screen never builds a raw Material button, chip, divider or border;
-  sizes, angles and colours are the skin's (`skin.parts`, `skin.mood`), never a number in a screen (`frontend/lib/design_system/README.md`, "The dress").
+- **One look, two dresses: a screen is plain unless it asks `ScreenFrame(dress: Dress.paper)`; sizes, angles and colours are the skin's, never a number in a screen.**
+  Plain is today's look, exactly; shared parts read `context.dress`/`context.skin` and draw the paper, torn edges, pins, banners, the amber piece and mood only there;
+  a paper component takes its look from the one table `frontend/lib/design_system/skin/dress_style.dart` (`PaperPiece`),
+  **a paper component draws no stroke, outline or border** (paper_components_test.dart fails one),
+  and is listed in the inventory with both dresses (`frontend/lib/design_system/skin/dress_inventory.dart`);
+  **a screen never builds a raw Material button, chip, divider or border**;
+  the skin's values are `skin.parts` and `skin.mood` (`frontend/lib/design_system/README.md`, "The dress").
 
 ## An app left open
 
@@ -72,7 +75,7 @@ session reads; this page is for when you are about to touch the thing a rule is 
   installed app) never looks. A new place that shows a screen or starts a request must not break
   the rule: a screen is an `AppScreen` or one of `HomeGate`'s names, a write goes through
   `playerRequest`.
-- **A file removed or renamed in `frontend/assets`** fails `asset_release_test.dart` (compared with the
+- **A file removed or renamed in `frontend/assets` needs a retired copy or a dated reason**: it fails `asset_release_test.dart` (compared with the
   bundle at the main branch (origin/main), else `frontend/tool/release_assets.json`) until it is an `ArtSet.retired` copy or
   a dated `removedOnPurpose` line in `frontend/tool/release_assets.json`; `just record-assets` refuses
   while one is uncovered, so regenerating cannot hide a removal.
@@ -90,25 +93,22 @@ The rules `frontend/CLAUDE.md` gives in one line, whole.
   through the one `Outbox`; a choose is never sent twice for a turn; a taken choose's answer
   carries the results (the board opens one by itself, once), and `/me/` is re-read only when a turn follows. A phone with nothing to
   choose sends no choose at all; its board has no button.
-- **Words**: every player-facing string is in `frontend/lib/design_system/copy` (the library `copy.dart`, one part file per screen's words: `vote_copy.dart`, `table_copy.dart`, ...; read them
-  all on one page with `just copy-page` at the repo root; a spec names a copy class or key in
-  backticks, never the words, and `just check` fails a name that does not exist), held to the
-  spec's copy rules by `copy_budget_test.dart`; a change that adds words says why in its pull
-  request (`tool/words_added.py`: no screen has a pinned number of words); none in widgets.
-- **Reading floor** (the owner's type choice, 23 November 2026, `docs/design/type-audit.md`): body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink
-  for anything that says something true; no uppercase micro-labels;
-  one amber fill per screen (08's "Ready to vote" is its one, the owner's choice of 23 November 2026);
-  a selection is lift plus outline, never amber.
-- **One look, two dresses**: a screen is plain (today's look, exactly) unless it asks
-  `ScreenFrame(dress: Dress.paper)`; sizes, angles and colours are the skin's, never a number
-  in a screen. Detail: `frontend/docs/app-rules.md`, "The dress", and `frontend/lib/design_system/README.md`.
-- **Values from the skin**: build screens from `frontend/lib/design_system/primitives`, read
-  `context.skin`, `context.ground`, `Space`, `Motion`; no literals (a text size, weight or face is a
-  type role, never a number in a widget: `type_guard_test.dart` fails it), no `SkinId` checks in
-  layout code. One look, Shadow paper; a new look is a whole design, not a recolour.
-- **Secrets are held, not tapped**: `HoldToReveal` and `HeldFace`; art for secrets is
-  precached at start so a reveal fetches nothing. "My night" on 08 is held too, and shows on the
-  board, from its top, only while held. Nothing vibrates on a card (owner, 23 November 2026).
+- **Words: every player-facing string is in `frontend/lib/design_system/copy`, none in widgets; a spec names a copy class or key, never the words.**
+  The library is `copy.dart`, one part file per screen's words (`vote_copy.dart`, `table_copy.dart`, ...);
+  read them all on one page with `just copy-page` at the repo root; `just check` fails a key name that does not exist;
+  `copy_budget_test.dart` holds them to the spec's copy rules.
+  **A change that adds words says why in its pull request** (`tool/words_added.py`: no screen has a pinned number of words).
+- **Reading floor: body and names 14 px, small labels 12 px, 7:1 contrast on player screens, full ink for anything that says something true.**
+  **No uppercase micro-labels.**
+  **One amber fill per screen; a selection is lift plus outline, never amber.**
+  The owner's type choice, 23 November 2026 (`docs/design/type-audit.md`); 08's "Ready to vote" is its one amber fill, the owner's choice of the same day.
+- One look, two dresses, in full: "The dress" above, and `frontend/lib/design_system/README.md`.
+- **Values from the skin: build screens from `frontend/lib/design_system/primitives`, read `context.skin`, `context.ground`, `Space`, `Motion`; no literals.**
+  **A text size, weight or face is a type role, never a number in a widget** (`type_guard_test.dart` fails it);
+  **no `SkinId` checks in layout code**. One look, Shadow paper; a new look is a whole design, not a recolour.
+- **Secrets are held, not tapped (`HoldToReveal`, `HeldFace`); nothing vibrates on a card** (owner, 23 November 2026).
+  Art for secrets is precached at start so a reveal fetches nothing.
+  "My night" on 08 is held too, and shows on the board, from its top, only while held.
 - **Information a player asks for opens as a sheet from the bottom edge** (`showSkinSheet`),
   the same place whatever was tapped, closed by its button, the scrim or Back; never a popover
   at the touch point, and opened from a context under the screen's `ScreenFrame` (asserted), so it is dressed and lit as its screen is

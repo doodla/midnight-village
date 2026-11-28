@@ -1,7 +1,7 @@
 // The night board's small moments in motion: picking a card, and the candle
 // across a window, one PNG per 17 ms step (real speed for a 60 Hz phone) into
 // a folder, for a recording. Run it with `just night-frames` (see
-// frontend/test/README.md); it is not part of `just test`.
+// frontend/test/README.md); it is not part of `just flutter-test`.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;

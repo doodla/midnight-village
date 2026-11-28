@@ -29,7 +29,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from brief_docs import DOCS, capped
+from brief_docs import DOCS, app_rules, capped
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = "docs/specs/frontend/first-time-play.md"
@@ -390,7 +390,7 @@ def doc_part(asked: str, numbers: list[str], sections) -> list[str]:
         or "Nothing names it by number."
     )
     out.append("")
-    return out
+    return out + app_rules()
 
 
 def tail_part() -> list[str]:
@@ -548,9 +548,14 @@ def main(argv: list[str]) -> int:
         return 0
     sections = spec_sections(DOCS.text(SPEC))
 
-    def every(known: list[str]) -> str:
+    def every() -> str:
+        # the spec's screens and the catalogue's state numbers, read as text (no widget trees)
+        catalogue = (ROOT / "frontend/test_screens/catalogue").glob("*.dart")
+        ids = {
+            n for f in catalogue for n in re.findall(r"'(\d\d[a-z]?)-", f.read_text())
+        }
         return (
-            f"Screens (just brief 09):\n  {' '.join(known)}\n"
+            f"Screens (just brief 09):\n  {' '.join(sorted(ids | set(sections)))}\n"
             "  or a word from a state's id (`just screens` lists them), e.g. end-board\n\n"
             f"Areas that are not a screen (just brief copy):\n{areas.listing()}"
         )
@@ -558,7 +563,7 @@ def main(argv: list[str]) -> int:
     if len(argv) != 1:
         # no argument is a question, not a mistake: what briefs are there? (at once:
         # the screens the spec names, without reading every state's widgets)
-        print("usage: just brief <screen or area>\n\n" + every(sorted(sections)))
+        print("usage: just brief <screen or area>\n\n" + every())
         return 0 if not argv else 2
     widgets = tool("piece_screens").state_widgets()
     states = sorted(widgets)
@@ -567,12 +572,7 @@ def main(argv: list[str]) -> int:
         argv[0], widgets, tool("piece_screens").owners(), screen_of
     )
     if not numbers:
-        known = sorted(
-            {screen_of(s) for s in states if re.match(r"\d\d", s)} | set(sections)
-        )
-        print(
-            f"brief: no screen or area '{argv[0]}'.\n\n{every(known)}", file=sys.stderr
-        )
+        print(f"brief: no screen or area '{argv[0]}'.\n\n{every()}", file=sys.stderr)
         return 1
     print(screen_brief(argv[0], numbers, widgets))
     return 0

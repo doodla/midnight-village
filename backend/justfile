@@ -14,6 +14,18 @@ set dotenv-load
 # Default recipe: run all quality checks
 default: check-backend
 
+# --- Renamed: one name means one thing everywhere ---
+# An old name fails here, never falls back to the root's recipe of that name.
+# The group is the rename table: test_gate_full.py reads it.
+
+[private, no-exit-message, group('renamed')]
+check *args:
+    @echo "renamed: just check-backend" >&2; exit 1
+
+[private, no-exit-message, group('renamed')]
+test *args:
+    @echo "renamed: just test-backend" >&2; exit 1
+
 # --- Setup ---
 
 # Install all dependencies (including dev and lint groups)

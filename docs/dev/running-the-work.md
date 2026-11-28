@@ -87,7 +87,7 @@ process of the job, shared pages counted once; Postgres is not in it, it is smal
 | Job | Time alone | Peak memory |
 |---|---|---|
 | backend `just test` (all cores) | 4 min 48 s | 0.8 GB |
-| frontend `just test` (the whole suite) | 8 min 27 s | 2.1 GB |
+| frontend `just flutter-test` (the whole suite) | 8 min 27 s | 2.1 GB |
 | `flutter build web --release` | 49 s | 2.5 GB |
 | `just screens 390 strict` | 1 min 30 s | 3.2 GB |
 | `just phone-frames` (build, backend, Chrome, 3 bots) | 11 min 48 s | 2.6 GB |

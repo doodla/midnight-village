@@ -4,6 +4,7 @@ Run with: python3 -m unittest discover -s .claude/guardrails/tests
 """
 
 import importlib.util
+import re
 import unittest
 from pathlib import Path
 
@@ -286,6 +287,38 @@ class Areas(unittest.TestCase):
     def test_a_long_list_is_a_line_a_folder(self):
         paths = [f"a/b/f{i}.py" for i in range(60)]
         self.assertEqual(self.areas.listed(paths, lambda p: p), "   60 files  a/b/")
+
+
+class TheAppsRules(unittest.TestCase):
+    """A screen or design-system builder is given every rule of the app's rules page
+    (each is in bold there), not only a pointer to a page it may not open."""
+
+    def setUp(self):
+        self.tool = load()
+        self.areas = self.tool.tool("brief_areas")
+        self.rules = re.findall(
+            r"\*\*(.+?)\*\*", (REPO / "frontend/docs/app-rules.md").read_text()
+        )
+
+    def carries_every_rule(self, text: str, who: str):
+        for rule in self.rules:
+            self.assertIn(
+                rule[1:], text, f"{who} does not quote the app's rule '{rule}'"
+            )
+
+    def test_a_screens_brief_quotes_every_rule(self):
+        tool = self.tool
+        sections = tool.spec_sections(tool.DOCS.text(tool.SPEC))
+        text = tool.screen_brief("09", tool.which_screens("09", [], sections), None)
+        self.carries_every_rule(text, "brief 09")
+        self.assertIn("No uppercase micro-labels", text)
+        self.assertIn("never amber", text)
+
+    def test_the_design_system_and_copy_briefs_quote_every_rule_once(self):
+        for name in ("design-system", "copy"):
+            text = self.areas.brief(name, None, code=False)
+            self.carries_every_rule(text, f"brief {name}")
+        self.assertEqual(text.count("A change that adds words says why"), 1)
 
 
 if __name__ == "__main__":

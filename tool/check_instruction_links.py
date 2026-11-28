@@ -4,7 +4,9 @@
 Every tracked Markdown file is an instruction to someone (the skills under
 .claude/skills/ are third-party and left out), and so is frontend/dart_test.yaml.
 In each, a path is backticked text with a "/" or a file extension (also the first
-word of a line in a code block); text starting with "/" is an API path.
+word of a line in a code block); text starting with "/" is an API path. In prose, a
+word without backticks that starts with one of the repo's top folders and a slash
+(`docs/dev/x.md`) is a path too; `a/.../b` stands for any and is not checked.
 
 - A path is read where the document says: from the repo root, or from the
   document's own folder (`./x`, `../x` and Markdown links too). Not from any other
@@ -65,6 +67,7 @@ class Tree:
         )
         self.files = {p for p in git(*listing).split("\n") if p}
         self.dirs = {str(parent) for p in self.files for parent in Path(p).parents}
+        self.tops = {p.split("/", 1)[0] for p in self.files if "/" in p}
         self.by_name: dict[str, list[str]] = {}
         self.ignored: dict[str, bool] = {}
         for p in self.files:
@@ -115,6 +118,18 @@ def looks_like_path(token: str) -> bool:
     if "/" not in t and last[:1].isupper() and not last.split(".")[0].isupper():
         return False  # Space.md: a Dart member, not README.md
     return "/" in t or bool(EXT.search(t))
+
+
+def bare_paths(line: str, tree: Tree) -> list[str]:
+    """Paths written in prose without backticks: a word that starts with one of the
+    repo's top folders and a slash (`docs/dev/x.md`, not `origin/main`)."""
+    prose = re.sub(r"`[^`]*`|\]\([^)]*\)|\S+://\S+", " ", line)
+    tops = tree.tops
+    return [
+        m.rstrip(".,:;)")
+        for m in re.findall(r"(?<![\w./`-])([\w.-]+/[\w./-]+)", prose)
+        if m.split("/", 1)[0] in tops and "/..." not in m  # `a/.../b` stands for any
+    ]
 
 
 def resolve(token: str, here: str, tree: Tree) -> bool:
@@ -204,7 +219,8 @@ def check(files: list[str], tree: Tree, recipes: set[str], fix: bool) -> list[st
                     if "://" not in m
                 ]  # a Markdown link is relative
             )
-            for token in tokens:
+            bare = [] if fenced else bare_paths(line, tree)
+            for token in tokens + bare:
                 if (
                     token.split()[0] == "just"
                     or SKIP.search(token)
@@ -215,7 +231,10 @@ def check(files: list[str], tree: Tree, recipes: set[str], fix: bool) -> list[st
                     continue
                 better = suggestion(token, here, tree)
                 if fix and better:
-                    lines[n - 1] = line = line.replace(f"`{token}`", f"`{better}`")
+                    was = f"`{token}`" if token not in bare else token
+                    lines[n - 1] = line = line.replace(
+                        was, f"`{better}`" if token not in bare else better
+                    )
                     changed = True
                     continue
                 hint = (

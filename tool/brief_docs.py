@@ -8,6 +8,7 @@ budget counts the code lists by their caps (`capped`), not by their content.
 """
 
 import fnmatch
+import re
 import subprocess
 from pathlib import Path
 
@@ -27,16 +28,32 @@ class Docs:
         self.root, self.ref = root, ref
         self._listing: list[str] | None = None
 
-    def read(self, path: str) -> str | None:
-        """The text of `path` (repo-relative), or None when it is not there."""
+    def raw(self, path: str) -> bytes | None:
+        """The bytes of `path` (repo-relative), or None when it is not there."""
         if self.ref is None:
             file = self.root / path
-            return file.read_text(errors="replace") if file.is_file() else None
+            return file.read_bytes() if file.is_file() else None
         done = subprocess.run(
             ["git", "-C", str(self.root), "show", f"{self.ref}:{path}"],
             capture_output=True,
         )
-        return done.stdout.decode(errors="replace") if done.returncode == 0 else None
+        return done.stdout if done.returncode == 0 else None
+
+    def read(self, path: str) -> str | None:
+        """The text of `path` (repo-relative), or None when it is not there."""
+        data = self.raw(path)
+        return None if data is None else data.decode(errors="replace")
+
+    def is_text(self, path: str) -> bool:
+        """Whether `path` is there and is text a reader can take in (UTF-8, no NUL)."""
+        data = self.raw(path)
+        if data is None or b"\0" in data:
+            return False
+        try:
+            data.decode()
+        except UnicodeDecodeError:
+            return False
+        return True
 
     def use(self, ref: str | None) -> None:
         """Read from `ref` from now on (None: the working tree). In place, so every
@@ -68,6 +85,26 @@ class Docs:
 
 
 DOCS = Docs()
+
+
+APP_RULES = "frontend/docs/app-rules.md"
+
+
+def app_rules(already: str = "") -> list[str]:
+    """The app's rules to quote in a brief: every bold phrase of APP_RULES (each rule
+    is in bold there, whole), once each, leaving out those `already` quotes."""
+    rules: list[str] = []
+    for phrase in re.findall(r"\*\*(.+?)\*\*", DOCS.text(APP_RULES)):
+        if f"**{phrase}**" in already:
+            continue
+        if "." not in phrase.split()[0]:  # a file name keeps its case
+            phrase = phrase[:1].upper() + phrase[1:]
+        if f"- {phrase}" not in rules:
+            rules.append(f"- {phrase}")
+    if not rules:
+        return []
+    head = f"## The app's rules ({APP_RULES}, where each has its section: read it before you touch what a rule is about)\n"
+    return [head, *rules, ""]
 
 
 def capped(

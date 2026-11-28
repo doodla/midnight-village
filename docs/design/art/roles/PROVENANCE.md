@@ -15,7 +15,7 @@ moon silhouette) were not kept, and the old werewolf.jpg is gone.
 
 ## Werewolf redraw: where the candidates came from
 
-Five candidates (A to E) to replace docs/design/art/roles/werewolf.jpg. Masters are 576 x 768 JPEG (3:4), the
+Five candidates (A to E) to replace the first Werewolf art (since replaced). Masters are 576 x 768 JPEG (3:4), the
 size of every role master and of the shipped `frontend/assets/skins/shadow_paper/roles/<name>.webp`
 (`frontend/tool/skin_art.py`, ROLE). There was no provenance file for the roles; this follows the card backs'
 (`docs/design/art/card-backs/PROVENANCE.md`).

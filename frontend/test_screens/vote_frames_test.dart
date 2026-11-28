@@ -1,7 +1,7 @@
 // The vote's choosing and locking in motion: a finger on a row, the pick, the
 // lock tap and the stamp landing, one PNG per 17 ms step (real speed for a
 // 60 Hz phone) into a folder, for a recording. Run it with `just vote-frames`
-// (see frontend/test/README.md); it is not part of `just test`.
+// (see frontend/test/README.md); it is not part of `just flutter-test`.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
